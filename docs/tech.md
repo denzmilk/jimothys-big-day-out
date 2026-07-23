@@ -32,16 +32,19 @@ Deliberately minimal. Audio is raw Web Audio API (no library). UI is HTML/CSS ov
 
 ## Project layout
 
-To be filled in at scaffold. Expected shape (per the threejs-game skill's event-driven modular architecture):
+Per the threejs-game skill's event-driven modular architecture (scaffolded 2026-07-23; `systems/`, `gameplay/`, `level/`, `ui/` are added as milestones need them):
 
 ```
 src/
-  main.js          # bootstrap
-  core/            # engine glue: loop, EventBus, GameState, Constants
-  systems/         # player controller, heat/AI, scoring, camera, audio
-  entities/        # Jimothy, trash cans, paparazzi, animal control
-public/assets/models/  # Meshy GLB exports
-tests/             # Playwright
+  main.js          # entry — creates Game, exposes test hooks
+  core/            # Game.js orchestrator, EventBus, GameState, Constants
+  systems/         # InputSystem, PhysicsSystem (cannon-es, ADR-0002), audio…
+  gameplay/        # Jimothy, trash cans, paparazzi, animal control, tanks
+  level/           # LevelBuilder (the block), AssetLoader
+  ui/              # HUD, popups, game-over overlay
+public/assets/models/    # jimothy.glb (Meshy 5 export) + CC0 GLBs
+public/assets/textures/  # CC0 photo PBR textures (note sources in README)
+tests/             # boot-smoke.mjs (npm run test:smoke) + future Playwright
 docs/              # this folder
 ```
 

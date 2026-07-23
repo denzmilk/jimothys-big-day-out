@@ -12,7 +12,7 @@ development (scaffold complete)
 
 ## Current milestone
 
-None written yet — the proposed milestone ladder is awaiting Chris's confirmation (see Next step). Milestone 01 is expected to be the core waddle loop: input + kinematic controller + follow cam + physics can-tipping + snacks/score.
+Milestone 01 — Core waddle loop (`docs/milestones/01-core-waddle-loop.md`), confirmed by Chris 2026-07-23. Ladder: 01 core loop → 02 heat & pursuers → 03 trees & the army; assets/audio/deploy tracked in `docs/backlog.md`.
 
 ## Last action
 
@@ -20,12 +20,12 @@ Scaffold phase completed and pushed to https://github.com/denzmilk/jimothys-big-
 
 ## Next step
 
-Chris confirms the milestone ladder → write `docs/milestones/01-*.md` and start milestone 01 (first AC: keyboard input moves Jimothy on the block, verified via `render_game_to_text`).
+Start milestone 01: write the failing `tests/gameplay.spec.js` specs first (red), then the first AC — keyboard input moves Jimothy on the block, verified via `render_game_to_text()`.
 
 ## Blockers
 
-- Milestone plan needs Chris's confirmation before milestone docs are written.
-- Jimothy GLB: Chris generates in the Meshy web app (Meshy 5) and exports to `public/assets/models/jimothy.glb` — needed by the asset milestone, not by milestone 01 (placeholder spheres are fine until then).
+- None for milestone 01.
+- Jimothy GLB: Chris generates in the Meshy web app (Meshy 5) and exports to `public/assets/models/jimothy.glb` — needed by the asset milestone (backlog), not by milestone 01 (placeholder spheres are fine until then).
 
 ## Notes for next session
 

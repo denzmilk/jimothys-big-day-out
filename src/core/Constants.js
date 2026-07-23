@@ -29,6 +29,7 @@ export const KEYBINDS = {
   SCURRY: ['ShiftLeft', 'ShiftRight'],
   POINTER_LOCK: ['KeyL'],
   DEVTOOLS: ['Backquote'],
+  RESTART: ['KeyR'],
 };
 
 export const TRASH_CAN = {
@@ -61,14 +62,45 @@ export const SNACKS = {
   ],
 };
 
+// Chaos raises heat; eating does NOT (fat is score, chaos is heat —
+// gameplan 2026-07-23). Sources are wired event→constant in HeatSystem so
+// future chaos (scared locals, powerup mischief) is one map entry.
 export const HEAT = {
   MAX_TIER: 5,
-  // Tier thresholds in heat points; tuned during development.
-  TIER_THRESHOLDS: [0, 10, 25, 50, 90, 140],
+  // Tier thresholds in heat points; tiers 4-5 stay unreachable until
+  // milestone 03 adds more chaos sources.
+  TIER_THRESHOLDS: [0, 10, 20, 35, 60, 100],
   DECAY_PER_SECOND_HIDDEN: 2,
-  PER_CAN_TIPPED: 4,
-  PER_SNACK: 1,
+  PER_CAN_TIPPED: 5,
   PER_TREE_LOOT: 3,
+};
+
+export const PAPARAZZI = {
+  SPEED: 3.5,
+  COUNT_TIER1: 2,
+  COUNT_TIER2: 4,
+  // They stop at photo range and loiter; tier 2+ they flash.
+  FLASH_RANGE: 5,
+  FLASH_COOLDOWN: 3,
+  MIN_TIER_FLASH: 2,
+  STUN_SECONDS: 0.8,
+};
+
+export const ANIMAL_CONTROL = {
+  SPEED: 5,
+  NET_RANGE: 1.1,
+  MIN_TIER: 3,
+};
+
+// Shared by all pursuer types, round-robin — deterministic for tests.
+export const PURSUER_SPAWN_POINTS = [
+  [-25, -25], [25, -25], [25, 25], [-25, 25],
+  [0, -25], [25, 0], [0, 25], [-25, 0],
+];
+
+export const HIDE_SPOTS = {
+  RADIUS: 2,
+  POSITIONS: [[-20, -20], [18, 8], [-6, 18], [22, -18]],
 };
 
 export const SCORE = {
@@ -107,6 +139,10 @@ export const COLORS = {
   GROUND: 0x5d8a4a,
   WALL: 0x8d8578,
   SNACK: 0xff6f4f,
+  BUSH: 0x2e5d34,
+  PAPARAZZO: 0xd8d3c8,
+  ANIMAL_CONTROL: 0x8a6d3b,
+  NET: 0x555555,
   PLACEHOLDER_JIMOTHY: 0x6f6a72,
   PLACEHOLDER_TRASH_CAN: 0x3f6f5f,
 };

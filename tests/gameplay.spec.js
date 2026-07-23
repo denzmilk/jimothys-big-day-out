@@ -1,72 +1,8 @@
-// Milestone 01 acceptance specs. All assertions go through the harness hooks
-// (render_game_to_text / advanceTime) — the first advanceTime call freezes
-// wall-clock updates so simulated time is fully test-controlled.
+// Milestone 01 acceptance specs. See tests/helpers.mjs for the harness
+// helpers (state/adv/boot/seek and the camera-frame steering math).
 import { test, expect } from '@playwright/test';
 import { SCORE, CAMERA, SNACKS } from '../src/core/Constants.js';
-
-const state = (page) => page.evaluate(() => JSON.parse(window.render_game_to_text()));
-const adv = (page, s) => page.evaluate((secs) => window.advanceTime(secs), s);
-
-async function boot(page) {
-  await page.goto('/');
-  await page.waitForFunction(() => typeof window.render_game_to_text === 'function');
-  await adv(page, 0.1); // switch the sim to deterministic manual time
-}
-
-function nearestUntippedCan(s) {
-  let best = null;
-  let bd = Infinity;
-  for (const c of s.cans) {
-    if (c.tipped) continue;
-    const d = Math.hypot(c.x - s.jimothy.x, c.z - s.jimothy.z);
-    if (d < bd) { bd = d; best = c; }
-  }
-  return best;
-}
-
-function nearestSnack(s) {
-  let best = null;
-  let bd = Infinity;
-  for (const sn of s.snacks) {
-    const d = Math.hypot(sn.x - s.jimothy.x, sn.z - s.jimothy.z);
-    if (d < bd) { bd = d; best = sn; }
-  }
-  return best;
-}
-
-// Controls are camera-relative, so steering toward a world target means
-// decomposing the world delta into the camera frame: screen-forward is the
-// camera→Jimothy bearing ψ, screen-right is ψ rotated -90°.
-function keysToward(s, target) {
-  const dx = target.x - s.jimothy.x;
-  const dz = target.z - s.jimothy.z;
-  const psi = Math.atan2(s.jimothy.x - s.camera.x, s.jimothy.z - s.camera.z);
-  const fwd = dx * Math.sin(psi) + dz * Math.cos(psi);
-  const right = -dx * Math.cos(psi) + dz * Math.sin(psi);
-  const keys = [];
-  if (fwd > 0.15) keys.push('w'); else if (fwd < -0.15) keys.push('s');
-  if (right > 0.15) keys.push('d'); else if (right < -0.15) keys.push('a');
-  return keys;
-}
-
-// Crude greedy seek: hold keys toward the target, step sim, re-read. pick(s)
-// returns the current target, or null once the goal condition is met.
-async function seek(page, pick, { maxIters = 80 } = {}) {
-  for (let i = 0; i < maxIters; i++) {
-    const s = await state(page);
-    const target = pick(s);
-    if (!target) return s;
-    const keys = keysToward(s, target);
-    if (!keys.length) return s;
-    for (const k of keys) await page.keyboard.down(k);
-    await adv(page, 0.25);
-    for (const k of keys) await page.keyboard.up(k);
-  }
-  return state(page);
-}
-
-const tipNearestCan = (page) =>
-  seek(page, (s) => (s.cans.some((c) => c.tipped) ? null : nearestUntippedCan(s)));
+import { state, adv, boot, nearestSnack, seek, tipNearestCan } from './helpers.mjs';
 
 test('keyboard moves jimothy', async ({ page }) => {
   await boot(page);

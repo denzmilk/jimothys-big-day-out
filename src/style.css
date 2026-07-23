@@ -65,6 +65,73 @@ body {
   100% { opacity: 0; transform: translateY(-40px) scale(1) rotate(var(--tilt, 0deg)); }
 }
 
+/* --- Camera flash + capture screen --- */
+
+#flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+#flash.flashing {
+  animation: camera-flash 0.45s ease-out;
+}
+
+@keyframes camera-flash {
+  0% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
+#game-over {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(20, 8, 8, 0.72);
+  color: #fff;
+  font-family: 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
+  text-align: center;
+  z-index: 60;
+  padding-top: var(--ogp-safe-top-inset, 0px);
+  padding-bottom: var(--ogp-safe-bottom-inset, 0px);
+}
+
+#game-over.hidden {
+  display: none;
+}
+
+#game-over h1 {
+  font-size: 44px;
+  text-shadow: 3px 3px 0 #000;
+  transform: rotate(-2deg);
+}
+
+#game-over p {
+  font-size: 22px;
+  text-shadow: 2px 2px 0 #000;
+}
+
+#restart-btn {
+  font: inherit;
+  font-size: 20px;
+  padding: 10px 22px;
+  border: 3px solid #000;
+  border-radius: 10px;
+  background: #ffd23f;
+  cursor: pointer;
+  transform: rotate(1.5deg);
+}
+
+#restart-btn:hover {
+  transform: rotate(1.5deg) scale(1.06);
+}
+
 /* --- Input diagnostics (dev build) --- */
 
 #diag {

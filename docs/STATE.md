@@ -12,15 +12,15 @@ development (scaffold complete)
 
 ## Current milestone
 
-Milestones 01 (core waddle loop) and 04 (dev tools + input saga) are DONE — playtest-approved and pushed (`38d7215`). Next up: milestone 02 (heat & pursuers). Ladder after that: fatness system (new, core-fantasy) → 03 trees & the army → slop-rig/splitter (05, blocked on Chris's jimothy.glb) → civilians → powerups. Backlog holds the detail.
+Milestone 02 (heat & pursuers) — implementation complete, 29/29 specs green, staged, awaiting Chris's chase-pacing playtest + commit approval. Ladder after: fatness system (core-fantasy) → 03 trees & the army → slop-rig/splitter (blocked on Chris's jimothy.glb) → civilians → powerups. Backlog holds the detail.
 
 ## Last action
 
-Milestone 04 (dev tools) implemented red-then-green on top of milestone 01, prompted by Chris reporting W/Space not registering: InputSystem hardened to physical `e.code` with a rebindable `KEYBINDS` map; DevTools panel (Backquote or ⚙) with Tune tab (live sliders for player/camera/can/score/world constants, localStorage persistence, reset), Keys tab (live input debug: pressed codes, move vector, gamepad axes, lock state + click-chip-press-key rebinding), Level tab (spawn can ahead, remove nearest, reset layout, export `POSITIONS` JSON, bounds slider rebuilding walls); KeyL pointer lock toggling a mouse-orbit camera mode (CameraSystem now dual-mode). 13/13 Playwright specs + smoke green, build passes. The W/Space bug did NOT reproduce on the harness (live RAF path verified) — machine-specific; Keys debug tab is the diagnostic. Staged, not committed.
+Milestone 02 implemented red-then-green (7 new specs in `tests/heat.spec.js`, helpers extracted to `tests/helpers.mjs` with `seedTuning`): HeatSystem (event→constant SOURCES map, tier thresholds, hidden decay), Pursuers (physics-free steering — paparazzi loiter at photo range and flash-stun at tier 2+, animal controller with torus net at tier 3+, round-robin spawns, all freeze while Jimothy hides), hide-spot bushes (Jimothy fades to 50% opacity), stun (input suppression + comedy wobble + screen-flash overlay), full run lifecycle (netted → capture screen "FINAL FATNESS" → R/button restart, orchestrator-ordered reset, best score in localStorage). HUD heat stars live. 29/29 specs + smoke green, build passes, visuals verified (`output/iterate/m02-chase.png`, `m02-gameover.png`). Staged, not committed.
 
 ## Next step
 
-Start milestone 02 (heat & pursuers): failing `tests/heat.spec.js` specs first, then heat points/tiers (data-driven sources — see the affected-by note in the milestone doc), paparazzi, flash-stun, animal-control net, hide spots, run lifecycle. Design evolution (2026-07-23, gameplan updated): fat IS the score ("get big and fat without getting captured"), chaos drives heat — fatness milestone follows 02.
+Chris playtests the chase on the preview build: tip ~2 cans → paparazzi, ~4 → flashes, ~7 → animal control; check tier-3 pacing (tense but escapable via Shift-scurry and bushes) → tune PAPARAZZI/ANIMAL_CONTROL/HEAT sliders in the dev panel if needed → commit on approval → next milestone: fatness system (body scale from snacksEaten + trade-offs).
 
 ## Blockers
 

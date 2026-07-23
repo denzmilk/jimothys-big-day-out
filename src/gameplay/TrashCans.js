@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { TRASH_CAN as TC, SNACKS, PLAYER_CONFIG, COLORS } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
+import { gameState } from '../core/GameState.js';
 import { DevOverrides } from '../core/DevOverrides.js';
 
 // Cans are dynamic boxes (visual stays a cylinder): boxes tumble comically and
@@ -37,7 +38,7 @@ export class TrashCans {
       this._emitLayout();
     });
     eventBus.on(Events.DEV_RESET_CANS, () => {
-      this.resetCans();
+      this.resetCans(TC.POSITIONS); // dev reset = back to shipped defaults
       this._emitLayout(null);
     });
     eventBus.on(Events.DEV_TUNING_CHANGED, ({ group, key }) => {
@@ -85,9 +86,21 @@ export class TrashCans {
     if (best) this.removeCan(best);
   }
 
-  resetCans() {
+  // Default layout honours a dev-tools layout override; the dev "reset"
+  // button passes TC.POSITIONS explicitly to get back to shipped defaults.
+  resetCans(layout = DevOverrides.getCanLayout() ?? TC.POSITIONS) {
     while (this.cans.length) this.removeCan(this.cans[0]);
-    for (const [x, z] of TC.POSITIONS) this.addCan(x, z);
+    for (const [x, z] of layout) this.addCan(x, z);
+  }
+
+  clearSnacks() {
+    for (const s of this.snacks) this.scene.remove(s.mesh);
+    this.snacks = [];
+  }
+
+  reset() {
+    this.resetCans();
+    this.clearSnacks();
   }
 
   layout() {
@@ -102,6 +115,7 @@ export class TrashCans {
   }
 
   update(delta) {
+    if (!gameState.game.isPlaying) return;
     this.elapsed += delta;
     const jp = this.jimothy.body.position;
     const jspeed = this.jimothy.speed;

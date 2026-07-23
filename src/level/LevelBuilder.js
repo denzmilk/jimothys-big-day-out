@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { WORLD, COLORS } from '../core/Constants.js';
+import { WORLD, COLORS, HIDE_SPOTS } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
 // Static block dressing: ground + perimeter curbs matching the physics walls
-// in PhysicsSystem. Houses, trees, and hide spots arrive in later milestones.
+// in PhysicsSystem, plus hide-spot bushes. Houses and trees arrive in later
+// milestones.
 export class LevelBuilder {
   constructor(scene) {
     this.scene = scene;
@@ -13,6 +14,20 @@ export class LevelBuilder {
     );
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
+
+    // Bushes mark the hide spots; translucent so Jimothy reads through them.
+    const bushGeo = new THREE.SphereGeometry(HIDE_SPOTS.RADIUS, 12, 8);
+    const bushMat = new THREE.MeshStandardMaterial({
+      color: COLORS.BUSH,
+      transparent: true,
+      opacity: 0.75,
+    });
+    for (const [x, z] of HIDE_SPOTS.POSITIONS) {
+      const bush = new THREE.Mesh(bushGeo, bushMat);
+      bush.scale.y = 0.7;
+      bush.position.set(x, HIDE_SPOTS.RADIUS * 0.45, z);
+      scene.add(bush);
+    }
 
     this.wallMat = new THREE.MeshStandardMaterial({ color: COLORS.WALL });
     this.walls = [];

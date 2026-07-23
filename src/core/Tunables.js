@@ -1,9 +1,15 @@
-import { PLAYER_CONFIG, CAMERA, TRASH_CAN, SCORE, WORLD } from './Constants.js';
+import {
+  PLAYER_CONFIG, CAMERA, TRASH_CAN, SCORE, WORLD,
+  HEAT, PAPARAZZI, ANIMAL_CONTROL,
+} from './Constants.js';
 
 // Registry of what the DevTools Tune tab exposes: group → {field: [min, max]}.
 // Groups reference the live Constants objects, so slider changes mutate the
 // same objects gameplay reads every frame.
-export const GROUPS = { PLAYER_CONFIG, CAMERA, TRASH_CAN, SCORE, WORLD };
+export const GROUPS = {
+  PLAYER_CONFIG, CAMERA, TRASH_CAN, SCORE, WORLD,
+  HEAT, PAPARAZZI, ANIMAL_CONTROL,
+};
 
 export const TUNABLES = [
   {
@@ -42,5 +48,23 @@ export const TUNABLES = [
     group: 'WORLD',
     label: 'World',
     fields: { BOUNDS: [10, 38], GRAVITY: [2, 30] },
+  },
+  {
+    group: 'HEAT',
+    label: 'Heat',
+    fields: { PER_CAN_TIPPED: [1, 60], DECAY_PER_SECOND_HIDDEN: [0.5, 30] },
+  },
+  {
+    group: 'PAPARAZZI',
+    label: 'Paparazzi',
+    fields: {
+      SPEED: [0.5, 8], FLASH_RANGE: [2, 12], FLASH_COOLDOWN: [0.5, 10],
+      STUN_SECONDS: [0.1, 3],
+    },
+  },
+  {
+    group: 'ANIMAL_CONTROL',
+    label: 'Animal control',
+    fields: { SPEED: [0.5, 10], NET_RANGE: [0.5, 3] },
   },
 ];

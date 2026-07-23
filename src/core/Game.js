@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS } from './Constants.js';
+import { CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS } from './Constants.js';
 import { gameState } from './GameState.js';
 import { eventBus, Events } from './EventBus.js';
 import { DevOverrides } from './DevOverrides.js';
@@ -7,10 +7,13 @@ import { InputSystem } from '../systems/InputSystem.js';
 import { PhysicsSystem } from '../systems/PhysicsSystem.js';
 import { CameraSystem } from '../systems/CameraSystem.js';
 import { ScoreSystem } from '../systems/ScoreSystem.js';
+import { HeatSystem } from '../systems/HeatSystem.js';
 import { JimothyController } from '../gameplay/JimothyController.js';
 import { TrashCans } from '../gameplay/TrashCans.js';
+import { Pursuers } from '../gameplay/Pursuers.js';
 import { LevelBuilder } from '../level/LevelBuilder.js';
 import { HUD } from '../ui/HUD.js';
+import { GameOverScreen } from '../ui/GameOverScreen.js';
 import { DevTools } from '../ui/DevTools.js';
 
 class Game {
@@ -40,9 +43,12 @@ class Game {
     this.level = new LevelBuilder(this.scene);
     this.jimothy = new JimothyController(this.scene, this.physics, this.input);
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy);
+    this.pursuers = new Pursuers(this.scene, this.jimothy);
     this.score = new ScoreSystem();
+    this.heat = new HeatSystem();
     this.cameraSystem = new CameraSystem(this.camera, this.jimothy, this.input);
     this.hud = new HUD();
+    this.gameOverScreen = new GameOverScreen();
     this.devTools = new DevTools(this.input);
 
     eventBus.on(Events.DEV_TUNING_CHANGED, ({ group, key }) => {
@@ -50,6 +56,29 @@ class Game {
         this.camera.fov = CAMERA.FOV;
         this.camera.updateProjectionMatrix();
       }
+    });
+
+    eventBus.on(Events.PLAYER_NETTED, () => {
+      if (!gameState.game.isPlaying) return;
+      gameState.game.netted = true;
+      gameState.game.isPlaying = false;
+      gameState.saveBestScore();
+      eventBus.emit(Events.GAME_OVER, {
+        score: gameState.player.score,
+        best: gameState.bestScore,
+      });
+    });
+
+    // GameOverScreen emits GAME_RESTART; the orchestrator performs the reset
+    // FIRST (listeners registered before other systems see the event would
+    // race), so restart order lives here, not in subscribers.
+    eventBus.on(Events.GAME_RESTART, () => {
+      gameState.reset();
+      this.jimothy.reset();
+      this.trashCans.reset();
+      this.pursuers.reset();
+      gameState.game.started = true;
+      gameState.game.isPlaying = true;
     });
 
     gameState.game.started = true;
@@ -106,7 +135,9 @@ class Game {
     this.physics.update(delta);
     this.jimothy.postUpdate(delta);
     this.trashCans.update(delta);
+    this.pursuers.update(delta);
     this.score.update(delta);
+    this.heat.update(delta);
     this.cameraSystem.update(delta);
     this.devTools.update(delta);
   }
@@ -157,8 +188,16 @@ class Game {
       score: gameState.player.score,
       combo: gameState.player.combo,
       snacksEaten: gameState.player.snacksEaten,
-      heat: gameState.heat,
+      bestScore: gameState.bestScore,
+      hidden: gameState.player.hidden,
+      stunned: gameState.player.stunned,
+      heat: {
+        points: +gameState.heat.points.toFixed(1),
+        tier: gameState.heat.tier,
+      },
       game: gameState.game,
+      pursuers: this.pursuers.snapshot(),
+      hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
       jimothy: {
         x: +jp.x.toFixed(2),
         y: +jp.y.toFixed(2),

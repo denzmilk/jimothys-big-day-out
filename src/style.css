@@ -1,0 +1,34 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+#game-container {
+  position: fixed;
+  inset: 0;
+}
+
+#game-container canvas {
+  display: block;
+}
+
+#hud {
+  position: fixed;
+  top: max(12px, var(--ogp-safe-top-inset, 0px));
+  left: 12px;
+  color: #fff;
+  font-family: 'Comic Sans MS', 'Chalkboard SE', cursive, sans-serif;
+  font-size: 22px;
+  text-shadow: 2px 2px 0 #000;
+  user-select: none;
+  pointer-events: none;
+}

@@ -25,7 +25,7 @@ Deliberately minimal. Audio is raw Web Audio API (no library). UI is HTML/CSS ov
 
 ## Asset pipeline
 
-- **Jimothy (the only generated model):** made manually in the Meshy web app with the Meshy 5 model (no API — free tier can't use it), auto-rigged/animated there if possible, exported as GLB and dropped into `public/assets/models/jimothy.glb`. Minimum viable: a static GLB (procedural bob/waddle in code); ideal: rigged with waddle/scurry/stagger/caught clips.
+- **Jimothy (the only generated model) — one full static GLB, split at runtime:** Chris generates ONE complete Jimothy in the Meshy web app (Meshy 5; free tier — no API, and no prompt control for per-piece generation) and drops it in as `public/assets/models/jimothy.glb`. In-engine, a runtime splitter cuts it into head / body / snub-tail along two DevTools-adjustable cut planes (triangle-centroid classification — jagged edges hide inside piece overlap), and each piece parents into the group slots the placeholder spheres occupy today. Legs are procedural stretchy tubes with a spring-step gait (see backlog). No rigging, no animation export, no external mesh editing — Blender is the manual fallback only if the splitter fights us. Seams are fine: the demi-real slop aesthetic treats "action figure" joins as a feature.
 - **Everything else (non-unique):** open-source/CC0 model libraries via the game-3d-assets skill — houses, trash cans, trees, paparazzi, animal control, police, tanks, props. No generation spend.
 - **Textures:** photographic PBR textures from CC0 sources (e.g. Poly Haven and similar) — the photo-texture-on-simple-geometry look is the intended demi-real jank.
 - **Audio:** procedural Web Audio via the game-audio skill — no audio files.
@@ -37,14 +37,16 @@ Per the threejs-game skill's event-driven modular architecture (scaffolded 2026-
 ```
 src/
   main.js          # entry — creates Game, exposes test hooks
-  core/            # Game.js orchestrator, EventBus, GameState, Constants
-  systems/         # InputSystem, PhysicsSystem (cannon-es, ADR-0002), audio…
-  gameplay/        # Jimothy, trash cans, paparazzi, animal control, tanks
+  core/            # Game.js orchestrator, EventBus, GameState, Constants,
+                   # Tunables (DevTools registry), DevOverrides (localStorage)
+  systems/         # InputSystem (e.code + rebindable KEYBINDS), PhysicsSystem
+                   # (cannon-es, ADR-0002), CameraSystem (follow/orbit), Score
+  gameplay/        # JimothyController, TrashCans; later paparazzi, tanks
   level/           # LevelBuilder (the block), AssetLoader
-  ui/              # HUD, popups, game-over overlay
+  ui/              # HUD + stingers, DevTools panel (tuning/keybinds/level)
 public/assets/models/    # jimothy.glb (Meshy 5 export) + CC0 GLBs
 public/assets/textures/  # CC0 photo PBR textures (note sources in README)
-tests/             # boot-smoke.mjs (npm run test:smoke) + future Playwright
+tests/             # boot-smoke.mjs (npm run test:smoke) + *.spec.js (Playwright)
 docs/              # this folder
 ```
 

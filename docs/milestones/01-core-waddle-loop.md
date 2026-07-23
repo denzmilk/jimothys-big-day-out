@@ -2,7 +2,7 @@
 
 ## Status
 
-planned
+in-progress — implementation complete and green, awaiting Chris's playtest sign-off
 
 ## Objective
 
@@ -32,14 +32,14 @@ Make the moment-to-moment loop playable and fun with placeholder shapes: waddle 
 
 ## Acceptance criteria
 
-- [ ] WASD moves Jimothy on the block; position changes are visible in `render_game_to_text()` — test: `tests/gameplay.spec.js::keyboard moves jimothy`
-- [ ] Gamepad left stick moves Jimothy (Gamepad API mockable in test) — test: `tests/gameplay.spec.js::gamepad moves jimothy`
-- [ ] Follow camera tracks Jimothy within configured distance/height bounds — test: `tests/gameplay.spec.js::camera follows`
-- [ ] Running into a trash can tips it (can body leaves upright orientation) and spawns snack pickups — test: `tests/gameplay.spec.js::can tips and spills`
-- [ ] Collecting a snack increments score by `SCORE.SNACK × combo`; combo resets after `COMBO_WINDOW_SECONDS` without a pickup (verified via `advanceTime`) — test: `tests/gameplay.spec.js::score and combo`
-- [ ] HUD shows live score and combo — test: `tests/gameplay.spec.js::hud updates`
+- [x] WASD moves Jimothy on the block; position changes are visible in `render_game_to_text()` — test: `tests/gameplay.spec.js::keyboard moves jimothy`
+- [x] Gamepad left stick moves Jimothy (Gamepad API mockable in test) — test: `tests/gameplay.spec.js::gamepad moves jimothy`
+- [x] Follow camera tracks Jimothy within configured distance/height bounds — test: `tests/gameplay.spec.js::camera follows jimothy`
+- [x] Running into a trash can tips it (can body leaves upright orientation) and spawns snack pickups — test: `tests/gameplay.spec.js::can tips and spills snacks`
+- [x] Collecting a snack increments score by `SCORE.SNACK × combo`; combo resets after `COMBO_WINDOW_SECONDS` without a pickup (verified via `advanceTime`) — test: `tests/gameplay.spec.js::score and combo`
+- [x] HUD shows live score and combo — test: `tests/gameplay.spec.js::hud shows live score and combo`
 - [ ] Movement feel: floaty-arcade waddle with momentum, hop feels punchy — verified by user playtest
-- [ ] All tuned values live in `Constants.js`; boot smoke test stays green (`npm run test:smoke`)
+- [x] All tuned values live in `Constants.js`; boot smoke test stays green (`npm run test:smoke`)
 
 ## Exit condition
 
@@ -53,3 +53,10 @@ Write `tests/gameplay.spec.js` (Playwright, per qa-game) first, asserting the AC
 
 - Governed by ADR-0002: Jimothy kinematic under control; cans dynamic. The kinematic→dynamic launch handoff is milestone 03's problem — don't build it early.
 - Popup stingers can be plain DOM elements; no UI framework (tech.md out-of-scope deps).
+- Implementation notes (2026-07-23):
+  - Red-then-green honored: all 6 specs written and failing before implementation.
+  - Cans are physics **boxes** with cylinder visuals — boxes tumble stabler/cheaper in cannon-es than convex cylinders.
+  - Snacks are non-physics pickups in a deterministic ring (tests can target positions); shared geometry/material, so removal doesn't dispose.
+  - First `advanceTime()` call freezes wall-clock updates (`Game.manualTime`) so sim time is fully test-controlled — combo-window tests would be flaky otherwise.
+  - One spec assumption fixed during green run: Jimothy can eat spilled snacks during the approach, so the spill assertion counts `remaining + snacksEaten` (new lifetime counter on GameState, also useful for M02 heat-per-snack).
+  - Bonk impulse has a per-can cooldown (`BONK_COOLDOWN_SECONDS`) so overlapping frames don't rocket cans.

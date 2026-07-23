@@ -1,20 +1,65 @@
 import * as THREE from 'three';
-import { CAMERA, COLORS, PLAYER_CONFIG, WORLD } from './Constants.js';
+import { CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS } from './Constants.js';
 import { gameState } from './GameState.js';
+import { eventBus, Events } from './EventBus.js';
+import { DevOverrides } from './DevOverrides.js';
+import { InputSystem } from '../systems/InputSystem.js';
+import { PhysicsSystem } from '../systems/PhysicsSystem.js';
+import { CameraSystem } from '../systems/CameraSystem.js';
+import { ScoreSystem } from '../systems/ScoreSystem.js';
+import { JimothyController } from '../gameplay/JimothyController.js';
+import { TrashCans } from '../gameplay/TrashCans.js';
+import { LevelBuilder } from '../level/LevelBuilder.js';
+import { HUD } from '../ui/HUD.js';
+import { DevTools } from '../ui/DevTools.js';
 
 class Game {
   constructor() {
-    this.timer = new THREE.Timer();
-    this.elapsed = 0;
+    // Plain performance.now() delta — a Timer abstraction returning 0 in one
+    // browser is exactly the class of bug the diag strip exists to catch.
+    this._lastTime = performance.now();
+    this.lastDelta = 0;
+    // Once a test calls advanceTime, wall-clock updates stop and simulated
+    // time advances ONLY through advanceTime — otherwise real frames tick
+    // combo timers etc. between test assertions and the specs go flaky.
+    this.manualTime = false;
     this.init();
   }
 
   init() {
+    // Overrides mutate the Constants objects, so they must land before any
+    // system bakes a value at construction.
+    DevOverrides.apply();
+
     this.setupRenderer();
     this.setupScene();
     this.setupCamera();
-    this.setupPlaceholders();
-    this.setupEventListeners();
+
+    this.input = new InputSystem(this.renderer.domElement);
+    this.physics = new PhysicsSystem();
+    this.level = new LevelBuilder(this.scene);
+    this.jimothy = new JimothyController(this.scene, this.physics, this.input);
+    this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy);
+    this.score = new ScoreSystem();
+    this.cameraSystem = new CameraSystem(this.camera, this.jimothy, this.input);
+    this.hud = new HUD();
+    this.devTools = new DevTools(this.input);
+
+    eventBus.on(Events.DEV_TUNING_CHANGED, ({ group, key }) => {
+      if (group === 'CAMERA' && key === 'FOV') {
+        this.camera.fov = CAMERA.FOV;
+        this.camera.updateProjectionMatrix();
+      }
+    });
+
+    gameState.game.started = true;
+    gameState.game.isPlaying = true;
+
+    this.frames = 0;
+    this.diagEl = document.getElementById('diag');
+    this.hintEl = document.getElementById('input-hint');
+    this.diagTimer = 0;
+
     this.renderer.setAnimationLoop(() => this.animate());
   }
 
@@ -47,47 +92,6 @@ class Game {
       CAMERA.NEAR,
       CAMERA.FAR,
     );
-    this.camera.position.set(0, CAMERA.FOLLOW_HEIGHT, CAMERA.FOLLOW_DISTANCE);
-  }
-
-  // Placeholder smoke-test scene: ground, a stand-in Jimothy, one trash can.
-  // Replaced during development milestones by LevelBuilder + real entities.
-  setupPlaceholders() {
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(WORLD.BLOCK_SIZE, WORLD.BLOCK_SIZE),
-      new THREE.MeshStandardMaterial({ color: COLORS.GROUND }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    this.scene.add(ground);
-
-    // Short-spine placeholder: a squashed sphere is already 80% of the meme.
-    const body = new THREE.Mesh(
-      new THREE.SphereGeometry(0.6, 24, 18),
-      new THREE.MeshStandardMaterial({ color: COLORS.PLACEHOLDER_JIMOTHY }),
-    );
-    body.scale.set(1.0, 0.8, 0.9);
-    body.position.y = 0.5;
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.28, 18, 14),
-      new THREE.MeshStandardMaterial({ color: COLORS.PLACEHOLDER_JIMOTHY }),
-    );
-    head.position.set(0, 0.35, 0.45);
-    this.jimothy = new THREE.Group();
-    this.jimothy.add(body, head);
-    this.scene.add(this.jimothy);
-
-    const can = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.4, 0.35, 1.0, 12),
-      new THREE.MeshStandardMaterial({ color: COLORS.PLACEHOLDER_TRASH_CAN }),
-    );
-    can.position.set(2.5, 0.5, -1);
-    this.scene.add(can);
-
-    this.camera.lookAt(this.jimothy.position);
-  }
-
-  setupEventListeners() {
-    // Systems subscribe via EventBus in development milestones.
   }
 
   onWindowResize() {
@@ -97,40 +101,88 @@ class Game {
   }
 
   update(delta) {
-    this.elapsed += delta;
-    // Idle waddle-bob so the smoke test proves the loop is alive.
-    this.jimothy.position.y =
-      Math.abs(Math.sin(this.elapsed * PLAYER_CONFIG.WADDLE_BOB_HZ)) *
-      PLAYER_CONFIG.WADDLE_BOB_AMPLITUDE;
-    this.jimothy.rotation.z =
-      Math.sin(this.elapsed * PLAYER_CONFIG.WADDLE_BOB_HZ) * 0.06;
+    this.input.update();
+    this.jimothy.update(delta, this.cameraSystem.yaw);
+    this.physics.update(delta);
+    this.jimothy.postUpdate(delta);
+    this.trashCans.update(delta);
+    this.score.update(delta);
+    this.cameraSystem.update(delta);
+    this.devTools.update(delta);
   }
 
   animate() {
-    this.timer.update();
-    const delta = Math.min(this.timer.getDelta(), 0.1);
-    this.update(delta);
+    const now = performance.now();
+    const delta = Math.min((now - this._lastTime) / 1000, 0.1);
+    this._lastTime = now;
+    this.lastDelta = delta;
+    if (!this.manualTime) this.update(delta);
+    this.frames += 1;
+    this.updateDiag(delta);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // Always-visible readout of every input layer (frames → keys → move vector
+  // → velocity → position) so a dead layer on any machine is one glance away.
+  // Runs from animate, not update, so it reflects RAF liveness even when the
+  // test harness has frozen sim time.
+  updateDiag(delta) {
+    this.diagTimer -= delta;
+    if (this.diagTimer > 0) return;
+    this.diagTimer = 0.15;
+    const jp = this.jimothy.group.position;
+    const gp = this.input.gamepadInfo;
+    this.diagEl.textContent =
+      `f:${this.frames} dt:${(this.lastDelta * 1000).toFixed(1)} ` +
+      `in:${[...this.input.codes].join(',') || '—'} ` +
+      `mv:${this.input.moveX.toFixed(1)},${this.input.moveZ.toFixed(1)} ` +
+      `fw:${KEYBINDS.FORWARD.join('/')} ` +
+      `spd:${PLAYER_CONFIG.SPEED} vel:${this.jimothy.speed.toFixed(1)} ` +
+      `pos:${jp.x.toFixed(1)},${jp.z.toFixed(1)} ` +
+      `cam:${this.cameraSystem.mode}${gp ? ' 🎮drift:' + gp.axes.slice(0, 2).join(',') : ''}`;
+    // Pointer events arriving without a single key event ever = the host is
+    // eating the keyboard. Tell the player instead of feeling broken.
+    this.hintEl.classList.toggle(
+      'hidden',
+      this.input.everKeydown || !this.input.everPointer,
+    );
   }
 
   // --- Test hooks (Playwright live-iterate loop) ---
 
   renderToText() {
+    const jp = this.jimothy.group.position;
+    const cp = this.camera.position;
     return JSON.stringify({
       score: gameState.player.score,
       combo: gameState.player.combo,
+      snacksEaten: gameState.player.snacksEaten,
       heat: gameState.heat,
       game: gameState.game,
       jimothy: {
-        x: +this.jimothy.position.x.toFixed(2),
-        y: +this.jimothy.position.y.toFixed(2),
-        z: +this.jimothy.position.z.toFixed(2),
+        x: +jp.x.toFixed(2),
+        y: +jp.y.toFixed(2),
+        z: +jp.z.toFixed(2),
+        yaw: +this.jimothy.yaw.toFixed(2),
+        grounded: this.jimothy.grounded,
+        speed: +this.jimothy.speed.toFixed(2),
       },
+      camera: { x: +cp.x.toFixed(2), y: +cp.y.toFixed(2), z: +cp.z.toFixed(2) },
+      cameraMode: this.cameraSystem.mode,
+      cans: this.trashCans.cans.map((c) => ({
+        x: +c.body.position.x.toFixed(1),
+        z: +c.body.position.z.toFixed(1),
+        tipped: c.tipped,
+      })),
+      snacks: this.trashCans.snacks.map((s) => ({
+        x: +s.mesh.position.x.toFixed(1),
+        z: +s.mesh.position.z.toFixed(1),
+      })),
     });
   }
 
   advanceTime(seconds) {
-    // Deterministic fixed steps so tests don't depend on wall-clock time.
+    this.manualTime = true;
     const step = 1 / 60;
     for (let t = 0; t < seconds; t += step) this.update(step);
     this.renderer.render(this.scene, this.camera);

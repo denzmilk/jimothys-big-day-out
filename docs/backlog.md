@@ -16,6 +16,13 @@
 - [ ] Tree score-banking / heat interaction — climbing the big tree banks the combo or has some mechanical payoff beyond loot
   - Source: 2026-07-23 idea-phase open question
   - Rough size: M · Rough value: M
+- [x] Camera-relative movement + mouse orbit — v1 movement is world-aligned WASD with a facing-trailing camera; revisit if playtest says steering feels off, and mouse-orbit was in the original input scoping → milestone 04-dev-tools.md (promoted after Chris's playtest confirmed steering felt off)
+  - Source: 2026-07-23 milestone 01 implementation
+  - Rough size: M · Rough value: M
+- [ ] Jimothy modular slop-rig + runtime model splitter — ONE full-Jimothy static GLB from Meshy free (piece-by-piece generation isn't possible there: no prompt control), split in-engine at load time into head / body / snub-tail: classify triangles by centroid against two cut planes (neck + tail base) whose positions are DevTools sliders, build three BufferGeometries reusing the GLB's material, and parent them into the existing group slots. Jagged cut edges hide inside slight piece overlap (slop-approved). Then procedural animation per piece: head bob/look, speed-scaled tail wiggle, body waddle-roll, plus stretchy-tube legs (Adventure-Time style, spring/step gait: hip anchors, foot targets that step past a drift threshold, tube stretch between). DevTools "Rig" tab: cut-plane sliders + per-piece offset/scale/rotation, persisted like all overrides, exportable as rig JSON.
+  - Source: 2026-07-23 Chris mid-session ("build our own rigging and animation tool… slop one together in-engine"; "stitch them together in game"; "I might need a way to edit the model — it's not liking generating just a body in Meshy free")
+  - Rough size: L · Rough value: L
+  - Notes: needs no Blender, no rigging, no piece exports, no extra Meshy generations — one `jimothy.glb` is the entire external dependency. Runtime split also means re-cutting is a slider drag, not a re-export. Blender chop remains the manual fallback if the splitter fights us. Should become milestone 05; blocked only on `public/assets/models/jimothy.glb`.
 
 ## Polish & juice
 
@@ -35,7 +42,7 @@
 
 ## Tooling & QA
 
-- [ ] Full Playwright suite config — `playwright.config.js` with webServer auto-start so `npx playwright test` doesn't need a manually running dev server
+- [x] Full Playwright suite config — `playwright.config.js` with webServer auto-start so `npx playwright test` doesn't need a manually running dev server → milestone 01-core-waddle-loop.md (trivially adjacent; needed to write the specs)
   - Source: 2026-07-23 scaffold session
   - Rough size: S · Rough value: M
 

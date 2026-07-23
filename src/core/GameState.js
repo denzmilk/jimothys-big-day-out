@@ -8,6 +8,7 @@ class GameState {
     this.player = {
       score: 0,
       combo: 1,
+      snacksEaten: 0,
       stunned: false,
       inTree: false,
       hidden: false,

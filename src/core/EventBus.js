@@ -46,6 +46,8 @@ export const Events = {
   PLAYER_STUNNED: 'player:stunned',
   PLAYER_LAUNCHED: 'player:launched',
   PLAYER_NETTED: 'player:netted',
+  // can:*
+  CAN_TIPPED: 'can:tipped',
   // heat:*
   HEAT_CHANGED: 'heat:changed',
   // score:*
@@ -55,4 +57,10 @@ export const Events = {
   GAME_START: 'game:start',
   GAME_OVER: 'game:over',
   GAME_RESTART: 'game:restart',
+  // dev:* — DevTools panel; gameplay modules subscribe, panel never imports them
+  DEV_TUNING_CHANGED: 'dev:tuning-changed',
+  DEV_SPAWN_CAN: 'dev:spawn-can',
+  DEV_REMOVE_CAN: 'dev:remove-can',
+  DEV_RESET_CANS: 'dev:reset-cans',
+  DEV_CANS_CHANGED: 'dev:cans-changed',
 };

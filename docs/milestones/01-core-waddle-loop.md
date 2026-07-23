@@ -38,7 +38,7 @@ Make the moment-to-moment loop playable and fun with placeholder shapes: waddle 
 - [x] Running into a trash can tips it (can body leaves upright orientation) and spawns snack pickups — test: `tests/gameplay.spec.js::can tips and spills snacks`
 - [x] Collecting a snack increments score by `SCORE.SNACK × combo`; combo resets after `COMBO_WINDOW_SECONDS` without a pickup (verified via `advanceTime`) — test: `tests/gameplay.spec.js::score and combo`
 - [x] HUD shows live score and combo — test: `tests/gameplay.spec.js::hud shows live score and combo`
-- [ ] Movement feel: floaty-arcade waddle with momentum, hop feels punchy — verified by user playtest
+- [x] Movement feel: floaty-arcade waddle with momentum, hop feels punchy — verified by user playtest *(2026-07-23: Chris — "movement is all okay for now"; full feel verdict deferred until the slop-rig walk animation exists, revisit at that milestone)*
 - [x] All tuned values live in `Constants.js`; boot smoke test stays green (`npm run test:smoke`)
 
 ## Exit condition

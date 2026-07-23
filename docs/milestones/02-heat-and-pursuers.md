@@ -1,5 +1,7 @@
 # Milestone 02: Heat & pursuers
 
+> ℹ️ Affected by the 2026-07-23 design evolution (gameplan updated): heat is explicitly CHAOS-driven, and future sources include scaring wandering locals (backlog: civilians) — build the heat system so sources are data-driven/extensible, but this milestone's scope stays cans + pursuers. Score/fatness stays chaos-independent.
+
 ## Status
 
 planned

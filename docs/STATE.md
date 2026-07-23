@@ -12,7 +12,7 @@ development (scaffold complete)
 
 ## Current milestone
 
-Milestone 01 (core waddle loop) implemented, awaiting playtest. Milestone 04 (dev tools — spawned mid-session from Chris's request) implemented, awaiting playtest. Ladder: 01 → 02 heat & pursuers → 03 trees & the army; 04 was tooling. Assets/audio/deploy tracked in `docs/backlog.md`.
+Milestones 01 (core waddle loop) and 04 (dev tools + input saga) are DONE — playtest-approved and pushed (`38d7215`). Next up: milestone 02 (heat & pursuers). Ladder after that: fatness system (new, core-fantasy) → 03 trees & the army → slop-rig/splitter (05, blocked on Chris's jimothy.glb) → civilians → powerups. Backlog holds the detail.
 
 ## Last action
 
@@ -20,7 +20,7 @@ Milestone 04 (dev tools) implemented red-then-green on top of milestone 01, prom
 
 ## Next step
 
-Chris opens http://localhost:3000 in a normal browser tab (not an embedded preview), checks the Keys tab while pressing W/Space to see what the game receives, tunes feel via sliders, tries L-orbit camera → reports back → commit on approval → milestone 02 (heat & pursuers).
+Start milestone 02 (heat & pursuers): failing `tests/heat.spec.js` specs first, then heat points/tiers (data-driven sources — see the affected-by note in the milestone doc), paparazzi, flash-stun, animal-control net, hide spots, run lifecycle. Design evolution (2026-07-23, gameplan updated): fat IS the score ("get big and fat without getting captured"), chaos drives heat — fatness milestone follows 02.
 
 ## Blockers
 

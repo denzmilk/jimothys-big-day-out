@@ -2,17 +2,18 @@
 
 ## Pitch
 
-Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D rampage across one Ballard block. Tip trash cans, devour garbage, and loot weird things out of trees while the response escalates from paparazzi all the way to the army rolling in tanks. Shells send you flying, but nothing ends the day until the net catches you.
+Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D rampage across one Ballard block. Every snack you eat makes you visibly fatter, and fat is score; every bit of chaos — tipped cans, scared locals, general mess — makes you more wanted, until the response escalates from paparazzi all the way to the army rolling in tanks. It's a game about getting big and fat without getting captured: shells send you flying, but nothing ends the day until the net catches you.
 
 ## Core gameplay loop
 
-1. **Waddle** around the block (third-person follow cam, arcade-floaty momentum).
+1. **Waddle** around the block (third-person follow cam, camera-relative controls, arcade-floaty momentum).
 2. **Bonk** trash cans to tip them, then **raid** the spilled garbage for snacks.
-3. **Climb** trees to loot weird finds (bird nests, eggs, pants) and catch a breather — ground pursuers can't climb.
-4. **Score** points per snack/find; chaining pickups quickly builds a combo multiplier.
-5. Chaos raises **HEAT**. Paparazzi → animal control → police cordon → the ARMY, with tanks that blast Jimothy across the map.
-6. **Scurry and hide** (bushes, under porches) to slowly drain heat — or keep rampaging and ride the multiplier.
-7. Get **netted** → day over → final score vs. personal best. Immediately restart.
+3. **Eat to get FAT** — every snack visibly grows Jimothy. Fat is the score; chaining pickups quickly builds a combo multiplier.
+4. **Climb** trees to loot weird finds (bird nests, eggs, pants) and catch a breather — ground pursuers can't climb.
+5. Chaos raises **HEAT** — tipping cans, making a mess, scaring (slapstick-hurting) locals. Paparazzi → animal control → police cordon → the ARMY, with tanks that blast Jimothy across the map.
+6. **Grab silly powerups** (bubble blower, dance ray, food magnet…) to cause chaos and escape trouble.
+7. **Scurry and hide** (bushes, under porches) to slowly drain heat — or keep rampaging and ride the multiplier.
+8. Get **netted** → day over → final fatness vs. personal best. Immediately restart.
 
 ## Game rules
 
@@ -24,14 +25,17 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
   - **3** — animal-control chaser with the net spawns. The net is lethal to the run; nothing else is.
   - **4** — police cordon: more/faster pursuers, roadblocks.
   - **5** — **the ARMY.** Tanks roll in and fire shells at Jimothy. Shells ragdoll-launch him (dropping the combo, comedic knockback — possibly across the map) but never end the run. Shells can blast him out of trees.
-- Heat rises with each can tipped, snack eaten, and tree looted; drains slowly while hidden and out of sight.
+- **Fatness:** every snack makes Jimothy visibly fatter — body scale grows with snacks eaten. Score IS getting fat (points per snack × combo). Fatness trade-offs are an open question (slower? bigger target? harder to hide?) — the tension should be "one more snack" greed vs. escape-ability.
+- **Chaos raises heat** (not eating itself): tipping cans, wrecking/making a mess, scaring locals, blasting powerups at people. Heat drains slowly while hidden and out of sight.
+- **Locals** (civilians) wander the block; scaring or slapstick-bonking them is chaos. Tone is strictly cartoon slapstick — startled leaps, dropped groceries, comedic fleeing. No gore, ever.
+- **Powerups** (post-slice content, see backlog): bubble blower (trap people in bubbles), poop-yourself gun, dance ray, sick ray (vomit), kamehameha, extra-long legs, super jump, food magnet. Chaos tools raise heat; movement tools aid escape.
 - **Trees:** Jimothy can climb; paparazzi and animal control cannot. Trees hold weird loot (bird nests, eggs, pants, other finds — "JIMOTHY ACQUIRES PANTS"). Pursuers wait below, so heat does not drain in a tree — and at tier 5, tank shells can dislodge him.
 - Combo multiplier resets if no pickup for a few seconds (or when a shell sends him flying).
 - Best score persists in localStorage.
 
 ## Win / lose conditions
 
-No win state — score-attack. Lose = the net. The "win" is beating your personal best after surviving a tank barrage, and clipping the chaos.
+No win state — score-attack. Lose = the net. The "win" is ending the day fatter than your personal best after surviving a tank barrage, and clipping the chaos.
 
 ## Art style
 
@@ -45,8 +49,8 @@ Procedural Web Audio, zero dependencies. Full meme slop: honks/squeaks for Jimot
 
 ## Player goals
 
-- **Short term (per run):** biggest chaos score before the net; keep the combo alive at high heat; survive tier 5 as long as possible.
-- **Long term:** beat personal best (localStorage); share screenshots/clips of peak Jimothy chaos (raccoon in pants vs. tank is the marketing).
+- **Short term (per run):** get as fat as possible before the net; keep the combo alive at high heat; survive tier 5 as long as possible.
+- **Long term:** beat personal-best fatness (localStorage); share screenshots/clips of peak Jimothy chaos (an enormously fat raccoon in pants vs. a tank is the marketing).
 
 ## Anti-goals
 
@@ -68,5 +72,8 @@ Procedural Web Audio, zero dependencies. Full meme slop: honks/squeaks for Jimot
 
 ## Open questions
 
-- Physics approach for can-tipping/shell knockback: physics library (cannon-es/rapier) vs. hand-rolled arcade impulses — decide at scaffold in ADR-0002. (Tank-shell ragdolling makes a real physics lib more likely.)
+- ~~Physics approach for can-tipping/shell knockback~~ — resolved: cannon-es (ADR-0002).
 - Exact tree loot table and whether pants are cosmetic (Jimothy wears them) or score-only. Defer to the tree milestone.
+- Fatness trade-offs: does fat slow him, enlarge his hitbox/catch radius, block hide spots, all of the above? Decide at the fatness milestone — greed-vs-escape tension is the design goal.
+- Is the score literally displayed as weight ("14.2 kg")? Cute, on-theme; decide at the fatness milestone.
+- Powerup delivery: found on the block? dropped from tipped cans? tree loot? Decide at the powerups milestone.

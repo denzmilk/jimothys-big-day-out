@@ -6,6 +6,19 @@
 
 ## Gameplay & features
 
+- [ ] Fatness growth system — every snack visibly fattens Jimothy (body scale from the existing `snacksEaten` counter); fat IS the score. Trade-offs open: slower / bigger catch-target / can't fit in hide spots. Possibly display score as weight ("14.2 kg").
+  - Source: 2026-07-23 Chris ("the more food you eat, the fatter jimothy gets… a game about getting big and fat without getting captured")
+  - Rough size: M · Rough value: L
+  - Notes: core-fantasy feature, cheap first pass (scale the body group; slop-rig pieces scale naturally later). Slot right after milestone 02 — the trade-offs need pursuers to matter.
+- [ ] Locals (civilians) + chaos-heat expansion — wandering neighbours who react to Jimothy: startled leaps, dropped groceries, comedic fleeing. Scaring/slapstick-bonking them raises heat; strictly cartoon, no gore. Mess objects (flower pots, bins, fences?) as additional chaos sources.
+  - Source: 2026-07-23 Chris ("the more chaos you bring, the more the stars go up — scaring people, hurting people, knocking over bins, making a mess")
+  - Rough size: L · Rough value: L
+  - Notes: heat plumbing lands in milestone 02; civilians extend its sources afterward. Also the natural targets for the powerup arsenal.
+- [ ] Silly powerup arsenal — pickups that weaponize chaos or aid escape: bubble blower (traps people in floating bubbles), poop-yourself gun, dance ray, sick ray (vomit), kamehameha, extra-long legs (stretchy-tube synergy!), super jump, food magnet. Chaos tools spike heat; movement tools dodge pursuers.
+  - Source: 2026-07-23 Chris (full list verbatim from session)
+  - Rough size: L · Rough value: L
+  - Notes: post-slice content, gated on civilians existing (most powerups need targets). Extra-long legs should reuse the procedural leg rig. Delivery method open (gameplan open questions).
+
 - [ ] Pants as wearable cosmetic — Jimothy visibly wears looted pants for the rest of the run (vs score-only pickup)
   - Source: 2026-07-23 scoping session ("maybe there's pants in trees")
   - Rough size: M · Rough value: L

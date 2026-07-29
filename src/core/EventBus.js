@@ -43,6 +43,7 @@ export const eventBus = new EventBus();
 export const Events = {
   // player:*
   PLAYER_PICKUP: 'player:pickup',
+  PLAYER_EATING: 'player:eating',
   PLAYER_STUNNED: 'player:stunned',
   PLAYER_LAUNCHED: 'player:launched',
   PLAYER_NETTED: 'player:netted',
@@ -53,6 +54,8 @@ export const Events = {
   // score:*
   SCORE_CHANGED: 'score:changed',
   COMBO_CHANGED: 'combo:changed',
+  // rig:*
+  RIG_LOADED: 'rig:loaded',
   // game:*
   GAME_START: 'game:start',
   GAME_OVER: 'game:over',

@@ -1,7 +1,7 @@
 // Milestone 01 acceptance specs. See tests/helpers.mjs for the harness
 // helpers (state/adv/boot/seek and the camera-frame steering math).
 import { test, expect } from '@playwright/test';
-import { SCORE, CAMERA, SNACKS } from '../src/core/Constants.js';
+import { FOODS, CAMERA, SNACKS, SCORE } from '../src/core/Constants.js';
 import { state, adv, boot, nearestSnack, seek, tipNearestCan } from './helpers.mjs';
 
 test('keyboard moves jimothy', async ({ page }) => {
@@ -90,7 +90,7 @@ test('can tips and spills snacks', async ({ page }) => {
   expect(final.cans.filter((c) => c.tipped).length).toBeGreaterThan(0);
   // Jimothy may waddle through the spill ring and eat some on the same pass,
   // so count remaining + eaten rather than expecting the full ring intact.
-  expect(final.snacks.length + final.snacksEaten).toBeGreaterThanOrEqual(SNACKS.PER_CAN);
+  expect(final.snacks.length + final.snacksEaten).toBeGreaterThanOrEqual(SNACKS.SCRAPS_PER_CAN);
   expect(final.snacks.length).toBeGreaterThan(0);
 });
 
@@ -99,10 +99,10 @@ test('score and combo', async ({ page }) => {
   await tipNearestCan(page);
   let s = await seek(page, (st) => (st.score > 0 ? null : nearestSnack(st)));
   const scoreAfterFirst = s.score;
-  expect(scoreAfterFirst).toBeGreaterThanOrEqual(SCORE.SNACK);
+  expect(scoreAfterFirst).toBeGreaterThanOrEqual(FOODS.SCRAP.POINTS);
   s = await seek(page, (st) => (st.score > scoreAfterFirst ? null : nearestSnack(st)));
   expect(s.combo).toBeGreaterThanOrEqual(2);
-  expect(s.score).toBeGreaterThanOrEqual(scoreAfterFirst + SCORE.SNACK * 2);
+  expect(s.score).toBeGreaterThanOrEqual(scoreAfterFirst + FOODS.SCRAP.POINTS * 2);
   await adv(page, SCORE.COMBO_WINDOW_SECONDS + 0.5);
   s = await state(page);
   expect(s.combo).toBe(1);

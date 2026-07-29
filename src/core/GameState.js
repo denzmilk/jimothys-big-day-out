@@ -9,6 +9,7 @@ class GameState {
       score: 0,
       combo: 1,
       snacksEaten: 0,
+      fatness: 0,
       stunned: false,
       inTree: false,
       hidden: false,

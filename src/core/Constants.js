@@ -49,14 +49,55 @@ export const TRASH_CAN = {
   ],
 };
 
+// Two-tier food economy (gameplan): scraps scoop instantly on the move,
+// feasts are fat paydays you must stand still to chomp through — a deliberate
+// risk commitment at high heat.
+export const FOODS = {
+  SCRAP: { FAT: 1, POINTS: 10, RADIUS: 0.16 },
+  FEAST: {
+    FAT: 5,
+    POINTS: 50,
+    RADIUS: 0.32,
+    CHANNEL_SECONDS: 1.2,
+    // Faster than this and you're not eating, you're passing through.
+    EAT_MAX_SPEED: 0.5,
+    REACH: 1.1,
+    NAMES: [
+      'WHOLE PIZZA', 'TURKEY LEG', 'ENTIRE LASAGNA', 'BIRTHDAY CAKE',
+      'FAMILY ROAST', 'ABANDONED MEATLOAF',
+    ],
+  },
+};
+
+export const FATNESS = {
+  // Fat units at which visual bulk reaches half its maximum (asymptotic).
+  SOFTCAP: 25,
+  MAX_WIDTH_GAIN: 0.9,
+  MAX_HEIGHT_GAIN: 0.25,
+  JIGGLE_HZ: 9,
+  JIGGLE_DAMPING: 4,
+  KICK_SCRAP: 0.06,
+  KICK_FEAST: 0.2,
+  // Continuous jelly wobble while waddling, scaled by fatness.
+  JELLY: 0.05,
+  // Trade-offs (Chris, 2026-07-23): fat = slower + too conspicuous to hide.
+  // Fraction of waddle speed lost at the fat asymptote…
+  SPEED_PENALTY_MAX: 0.45,
+  // …and how fast bushes stop fitting: effective hide radius shrinks by this
+  // per unit of body-width gain, until the blob simply doesn't fit.
+  HIDE_SQUEEZE: 2.5,
+};
+
 export const SNACKS = {
-  PER_CAN: 4,
+  SCRAPS_PER_CAN: 4,
+  FEASTS_PER_CAN: 1,
   // Deterministic ring scatter (not random) so tests can target snack positions.
   SCATTER_RADIUS: 1.3,
-  RADIUS: 0.16,
+  // Feast lands close to the can — the payday sits in the mess.
+  FEAST_OFFSET: [0.6, 0.6],
   BOB_HZ: 2.4,
   NAMES: [
-    'PIZZA', 'OLD BANANA', 'COLD FRIES', 'MYSTERY MEAT', 'CHICKEN BONE',
+    'PIZZA SLICE', 'OLD BANANA', 'COLD FRIES', 'MYSTERY MEAT', 'CHICKEN BONE',
     'SUSPICIOUS BURRITO', 'WET BREAD', 'HALF A HOT DOG', 'EXPIRED YOGURT',
     'FANCY GARBAGE',
   ],
@@ -104,7 +145,7 @@ export const HIDE_SPOTS = {
 };
 
 export const SCORE = {
-  SNACK: 10,
+  // Per-food points live on FOODS; combo behavior lives here.
   TREE_LOOT: 50,
   COMBO_WINDOW_SECONDS: 4,
   COMBO_MAX_MULTIPLIER: 10,
@@ -139,6 +180,7 @@ export const COLORS = {
   GROUND: 0x5d8a4a,
   WALL: 0x8d8578,
   SNACK: 0xff6f4f,
+  FEAST: 0xffc24f,
   BUSH: 0x2e5d34,
   PAPARAZZO: 0xd8d3c8,
   ANIMAL_CONTROL: 0x8a6d3b,
@@ -149,4 +191,31 @@ export const COLORS = {
 
 export const ASSET_PATHS = {
   JIMOTHY_MODEL: '/assets/models/jimothy.glb',
+};
+
+// Runtime model splitter (milestone 06): one full Meshy GLB cut into
+// head/body/tail at load time — no Blender, no rigging.
+export const RIG = {
+  // Overall nose-to-tail length in world units after normalization.
+  TARGET_LENGTH: 1.7,
+  // Cut positions as fractions of body length from the nose / from the rear.
+  NECK_FRAC: 0.3,
+  TAIL_FRAC: 0.12,
+  // Flip if the export faces -z instead of +z.
+  NOSE_POSITIVE_Z: 1,
+};
+
+export const LEGS = {
+  TUBE_RADIUS: 0.09,
+  FOOT_RADIUS: 0.11,
+  // Hip anchor offsets in bodySlot space [x, y, z] — mirrored for left/right.
+  HIP_X: 0.32,
+  HIP_Y: 0.35,
+  HIP_Z: 0.38,
+  // Step when the planted foot drifts this far from its home under the hip.
+  STEP_THRESHOLD: 0.45,
+  STEP_SECONDS: 0.13,
+  STEP_LIFT: 0.22,
+  // Feet lead the body by velocity × this, so the trot reads as walking.
+  STRIDE_LEAD: 0.12,
 };

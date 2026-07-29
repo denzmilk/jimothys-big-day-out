@@ -25,7 +25,10 @@ class Game {
     // Once a test calls advanceTime, wall-clock updates stop and simulated
     // time advances ONLY through advanceTime — otherwise real frames tick
     // combo timers etc. between test assertions and the specs go flaky.
-    this.manualTime = false;
+    // Tests set __MANUAL_TIME__ pre-load so not even the boot window runs in
+    // real time — variable-length live physics before the first advanceTime
+    // made can-settling (and thus bonk chains) diverge under CI load.
+    this.manualTime = !!window.__MANUAL_TIME__;
     this.init();
   }
 
@@ -188,6 +191,7 @@ class Game {
       score: gameState.player.score,
       combo: gameState.player.combo,
       snacksEaten: gameState.player.snacksEaten,
+      fatness: gameState.player.fatness,
       bestScore: gameState.bestScore,
       hidden: gameState.player.hidden,
       stunned: gameState.player.stunned,
@@ -198,6 +202,12 @@ class Game {
       game: gameState.game,
       pursuers: this.pursuers.snapshot(),
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
+      rig: {
+        loaded: this.jimothy.rig.loaded,
+        pieces: this.jimothy.rig.pieces.length,
+        placeholderHidden: this.jimothy.placeholderHidden,
+      },
+      feet: this.jimothy.legs.snapshot(),
       jimothy: {
         x: +jp.x.toFixed(2),
         y: +jp.y.toFixed(2),
@@ -205,6 +215,7 @@ class Game {
         yaw: +this.jimothy.yaw.toFixed(2),
         grounded: this.jimothy.grounded,
         speed: +this.jimothy.speed.toFixed(2),
+        widthScale: +(this.jimothy.widthScale || 1).toFixed(3),
       },
       camera: { x: +cp.x.toFixed(2), y: +cp.y.toFixed(2), z: +cp.z.toFixed(2) },
       cameraMode: this.cameraSystem.mode,
@@ -216,6 +227,7 @@ class Game {
       snacks: this.trashCans.snacks.map((s) => ({
         x: +s.mesh.position.x.toFixed(1),
         z: +s.mesh.position.z.toFixed(1),
+        type: s.type,
       })),
     });
   }

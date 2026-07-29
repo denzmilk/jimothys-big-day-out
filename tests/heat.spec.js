@@ -29,10 +29,13 @@ test('heat rises with chaos but not with eating', async ({ page }) => {
   await boot(page);
   const s1 = await tipNearestCan(page);
   expect(s1.heat.points).toBeGreaterThanOrEqual(HEAT.PER_CAN_TIPPED);
-  // Eating is fat, not chaos — points must not move while snacking.
+  // Eating is fat, not chaos — heat may only move by cans incidentally
+  // bonked while waddling to the snack, never by the snack itself.
   const pointsBefore = s1.heat.points;
+  const tippedBefore = s1.cans.filter((c) => c.tipped).length;
   const s2 = await seek(page, (st) => (st.score > 0 ? null : nearestSnack(st)));
-  expect(s2.heat.points).toBe(pointsBefore);
+  const tippedAfter = s2.cans.filter((c) => c.tipped).length;
+  expect(s2.heat.points).toBe(pointsBefore + (tippedAfter - tippedBefore) * HEAT.PER_CAN_TIPPED);
   // A second can crosses the tier-1 threshold and lights a HUD star.
   const s3 = await seek(page, (st) =>
     st.cans.filter((c) => c.tipped).length >= 2 ? null : nearestUntipped(st),

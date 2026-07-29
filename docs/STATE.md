@@ -12,15 +12,15 @@ development (scaffold complete)
 
 ## Current milestone
 
-Milestone 02 (heat & pursuers) — implementation complete, 29/29 specs green, staged, awaiting Chris's chase-pacing playtest + commit approval. Ladder after: fatness system (core-fantasy) → 03 trees & the army → slop-rig/splitter (blocked on Chris's jimothy.glb) → civilians → powerups. Backlog holds the detail.
+Milestone 06 (slop-rig) — implemented and green (39/39): Chris's Meshy GLB (40 MB, 800k tris) loads, runtime-splits into head/body/tail (RIG panel sliders re-cut live), placeholder hides, stretchy tube legs trot in diagonal pairs, all fatness/jiggle animation flows through the slots. Milestones 05 + trade-offs also staged and green. All awaiting Chris's movement playtest + commit. Ladder after: 03 trees & the army → civilians → powerups. Backlog: GLB size optimization.
 
 ## Last action
 
-Milestone 02 implemented red-then-green (7 new specs in `tests/heat.spec.js`, helpers extracted to `tests/helpers.mjs` with `seedTuning`): HeatSystem (event→constant SOURCES map, tier thresholds, hidden decay), Pursuers (physics-free steering — paparazzi loiter at photo range and flash-stun at tier 2+, animal controller with torus net at tier 3+, round-robin spawns, all freeze while Jimothy hides), hide-spot bushes (Jimothy fades to 50% opacity), stun (input suppression + comedy wobble + screen-flash overlay), full run lifecycle (netted → capture screen "FINAL FATNESS" → R/button restart, orchestrator-ordered reset, best score in localStorage). HUD heat stars live. 29/29 specs + smoke green, build passes, visuals verified (`output/iterate/m02-chase.png`, `m02-gameover.png`). Staged, not committed.
+Milestone 05 implemented red-then-green (6 specs in `tests/fatness.spec.js`): two-tier FOODS (scraps scoop on the move; feasts channel 1.2s standing still, reset on interrupt, "NOM NOM NOM…" stinger, spinning pizza puck), fatness stat fed by food fat values (combo multiplies points, never fat), asymptotic wide-load body distortion + bite-kicked jiggle spring + speed-scaled jelly wobble (applied as scale on the body slot so the slop-rig inherits it), HUD FAT readout, FATNESS dev-panel group. Test infra hardened: manual time from frame zero (`__MANUAL_TIME__`), bonk-tolerant assertions, 120s timeout / 4 workers — remaining flakes were pure wall-clock timeouts, sim is deterministic; clean idle-machine run 35/35 in 2.1m. Visual verified (`output/iterate/m05-fat-jimothy.png` — widthScale 1.42 at fatness 22). Staged, not committed.
 
 ## Next step
 
-Chris playtests the chase on the preview build: tip ~2 cans → paparazzi, ~4 → flashes, ~7 → animal control; check tier-3 pacing (tense but escapable via Shift-scurry and bushes) → tune PAPARAZZI/ANIMAL_CONTROL/HEAT sliders in the dev panel if needed → commit on approval → next milestone: fatness system (body scale from snacksEaten + trade-offs).
+Chris playtests THE REAL JIMOTHY on the preview build: waddle/scurry gait feel (LEGS sliders), hop leg-stretch, cut-plane placement (RIG sliders), model facing direction (flip NOSE_POSITIVE_Z to 0 if he walks backwards), fatness jiggle on the real model, plus the M05 food pacing + trade-offs → commit on approval → milestone 03.
 
 ## Blockers
 

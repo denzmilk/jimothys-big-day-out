@@ -25,7 +25,8 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
   - **3** — animal-control chaser with the net spawns. The net is lethal to the run; nothing else is.
   - **4** — police cordon: more/faster pursuers, roadblocks.
   - **5** — **the ARMY.** Tanks roll in and fire shells at Jimothy. Shells ragdoll-launch him (dropping the combo, comedic knockback — possibly across the map) but never end the run. Shells can blast him out of trees.
-- **Fatness:** every snack makes Jimothy visibly fatter — body scale grows with snacks eaten. Score IS getting fat (points per snack × combo). Fatness trade-offs are an open question (slower? bigger target? harder to hide?) — the tension should be "one more snack" greed vs. escape-ability.
+- **Fatness:** every snack makes Jimothy visibly fatter and jigglier — body distortion grows (wide-load blob, tiny head) with a springy wobble kicked by every bite. Score = points × combo; fatness = raw fat eaten (the body, and the capture screen's headline number). Fatness trade-offs (decided 2026-07-23): the fatter he is, the SLOWER he waddles and the harder he is to hide — bushes stop fitting entirely past a width threshold. Getting fat is winning and losing at the same time.
+- **Food comes in two tiers** (2026-07-23 playtest feedback): **scraps** scoop instantly at full waddle (fat 1, 10 pts); **feasts** (WHOLE PIZZA, TURKEY LEG…) demand standing still to chomp through a channel (fat 5, 50 pts) — a deliberate risk commitment at high heat. Interrupting the chomp loses the progress.
 - **Chaos raises heat** (not eating itself): tipping cans, wrecking/making a mess, scaring locals, blasting powerups at people. Heat drains slowly while hidden and out of sight.
 - **Locals** (civilians) wander the block; scaring or slapstick-bonking them is chaos. Tone is strictly cartoon slapstick — startled leaps, dropped groceries, comedic fleeing. No gore, ever.
 - **Powerups** (post-slice content, see backlog): bubble blower (trap people in bubbles), poop-yourself gun, dance ray, sick ray (vomit), kamehameha, extra-long legs, super jump, food magnet. Chaos tools raise heat; movement tools aid escape.
@@ -74,6 +75,5 @@ Procedural Web Audio, zero dependencies. Full meme slop: honks/squeaks for Jimot
 
 - ~~Physics approach for can-tipping/shell knockback~~ — resolved: cannon-es (ADR-0002).
 - Exact tree loot table and whether pants are cosmetic (Jimothy wears them) or score-only. Defer to the tree milestone.
-- Fatness trade-offs: does fat slow him, enlarge his hitbox/catch radius, block hide spots, all of the above? Decide at the fatness milestone — greed-vs-escape tension is the design goal.
 - Is the score literally displayed as weight ("14.2 kg")? Cute, on-theme; decide at the fatness milestone.
 - Powerup delivery: found on the block? dropped from tipped cans? tree loot? Decide at the powerups milestone.

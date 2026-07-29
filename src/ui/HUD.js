@@ -4,6 +4,7 @@ import { gameState } from '../core/GameState.js';
 export class HUD {
   constructor() {
     this.scoreEl = document.getElementById('score');
+    this.fatEl = document.getElementById('fat');
     this.heatEl = document.getElementById('heat');
     this.comboEl = document.getElementById('combo');
     this.popupsEl = document.getElementById('popups');
@@ -14,11 +15,13 @@ export class HUD {
     eventBus.on(Events.HEAT_CHANGED, () => this.render());
     eventBus.on(Events.GAME_RESTART, () => this.render());
     eventBus.on(Events.PLAYER_PICKUP, ({ name }) => this.stinger(`JIMOTHY ACQUIRES ${name}`));
+    eventBus.on(Events.PLAYER_EATING, () => this.stinger('NOM NOM NOM…'));
     eventBus.on(Events.PLAYER_STUNNED, () => this.cameraFlash());
   }
 
   render() {
     this.scoreEl.textContent = `SCORE ${gameState.player.score}`;
+    this.fatEl.textContent = `FAT ${gameState.player.fatness}`;
     const tier = gameState.heat.tier;
     this.heatEl.textContent = `HEAT ${'★'.repeat(tier)}${'☆'.repeat(5 - tier)}`;
     const c = gameState.player.combo;

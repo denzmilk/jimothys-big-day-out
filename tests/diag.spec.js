@@ -2,13 +2,7 @@
 // every input layer — RAF frames, received key codes, move vector, velocity,
 // position — so a dead layer on any machine is visible at a glance.
 import { test, expect } from '@playwright/test';
-
-const adv = (page, s) => page.evaluate((secs) => window.advanceTime(secs), s);
-
-async function boot(page) {
-  await page.goto('/');
-  await page.waitForFunction(() => typeof window.render_game_to_text === 'function');
-}
+import { adv, boot } from './helpers.mjs';
 
 test('diag strip shows frames ticking', async ({ page }) => {
   await boot(page);

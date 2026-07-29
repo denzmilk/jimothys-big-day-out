@@ -1,6 +1,6 @@
 import {
   PLAYER_CONFIG, CAMERA, TRASH_CAN, SCORE, WORLD,
-  HEAT, PAPARAZZI, ANIMAL_CONTROL,
+  HEAT, PAPARAZZI, ANIMAL_CONTROL, FATNESS, RIG, LEGS,
 } from './Constants.js';
 
 // Registry of what the DevTools Tune tab exposes: group → {field: [min, max]}.
@@ -8,7 +8,7 @@ import {
 // same objects gameplay reads every frame.
 export const GROUPS = {
   PLAYER_CONFIG, CAMERA, TRASH_CAN, SCORE, WORLD,
-  HEAT, PAPARAZZI, ANIMAL_CONTROL,
+  HEAT, PAPARAZZI, ANIMAL_CONTROL, FATNESS, RIG, LEGS,
 };
 
 export const TUNABLES = [
@@ -41,7 +41,16 @@ export const TUNABLES = [
     group: 'SCORE',
     label: 'Scoring',
     fields: {
-      SNACK: [1, 100], COMBO_WINDOW_SECONDS: [1, 10], COMBO_MAX_MULTIPLIER: [2, 25],
+      COMBO_WINDOW_SECONDS: [1, 10], COMBO_MAX_MULTIPLIER: [2, 25],
+    },
+  },
+  {
+    group: 'FATNESS',
+    label: 'Fatness',
+    fields: {
+      SOFTCAP: [5, 100], MAX_WIDTH_GAIN: [0.2, 2], MAX_HEIGHT_GAIN: [0, 1],
+      JIGGLE_HZ: [2, 20], JIGGLE_DAMPING: [1, 12], KICK_FEAST: [0.05, 0.6],
+      JELLY: [0, 0.2], SPEED_PENALTY_MAX: [0, 0.8], HIDE_SQUEEZE: [0, 8],
     },
   },
   {
@@ -66,5 +75,21 @@ export const TUNABLES = [
     group: 'ANIMAL_CONTROL',
     label: 'Animal control',
     fields: { SPEED: [0.5, 10], NET_RANGE: [0.5, 3] },
+  },
+  {
+    group: 'RIG',
+    label: 'Jimothy rig',
+    fields: {
+      TARGET_LENGTH: [1, 3], NECK_FRAC: [0.1, 0.5], TAIL_FRAC: [0.03, 0.4],
+    },
+  },
+  {
+    group: 'LEGS',
+    label: 'Legs',
+    fields: {
+      TUBE_RADIUS: [0.03, 0.25], HIP_X: [0.1, 0.6], HIP_Z: [0.1, 0.7],
+      STEP_THRESHOLD: [0.15, 1.2], STEP_SECONDS: [0.05, 0.4],
+      STEP_LIFT: [0, 0.6], STRIDE_LEAD: [0, 0.4],
+    },
   },
 ];

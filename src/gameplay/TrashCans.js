@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { TRASH_CAN as TC, SNACKS, PLAYER_CONFIG, COLORS } from '../core/Constants.js';
+import { TRASH_CAN as TC, SNACKS, FOODS, PLAYER_CONFIG, COLORS } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import { DevOverrides } from '../core/DevOverrides.js';
@@ -17,8 +17,11 @@ export class TrashCans {
     this.elapsed = 0;
     this._up = new CANNON.Vec3();
 
-    this.snackGeo = new THREE.SphereGeometry(SNACKS.RADIUS, 10, 8);
+    this.snackGeo = new THREE.SphereGeometry(FOODS.SCRAP.RADIUS, 10, 8);
     this.snackMat = new THREE.MeshStandardMaterial({ color: COLORS.SNACK });
+    // Feast = golden puck (a whole pizza in spirit).
+    this.feastGeo = new THREE.CylinderGeometry(FOODS.FEAST.RADIUS, FOODS.FEAST.RADIUS, 0.12, 12);
+    this.feastMat = new THREE.MeshStandardMaterial({ color: COLORS.FEAST });
     this.canGeo = new THREE.CylinderGeometry(TC.RADIUS + 0.02, TC.RADIUS - 0.03, TC.HEIGHT, 12);
     this.canMat = new THREE.MeshStandardMaterial({ color: COLORS.PLACEHOLDER_TRASH_CAN });
 
@@ -152,20 +155,45 @@ export class TrashCans {
       const s = this.snacks[i];
       s.mesh.position.y = 0.18 + Math.sin(this.elapsed * SNACKS.BOB_HZ + s.phase) * 0.05;
       const d = Math.hypot(s.mesh.position.x - jp.x, s.mesh.position.z - jp.z);
-      if (d < PLAYER_CONFIG.PICKUP_RADIUS) {
+      if (s.type === 'feast') {
+        // Feasts are a commitment: stand within reach, nearly still, and chomp
+        // through the channel. Wander off (or get stunned into a stagger) and
+        // the progress is gone.
+        const eating =
+          d < FOODS.FEAST.REACH &&
+          this.jimothy.speed < FOODS.FEAST.EAT_MAX_SPEED &&
+          !gameState.player.stunned;
+        if (eating) {
+          if (s.progress === 0) eventBus.emit(Events.PLAYER_EATING, {});
+          s.progress += delta;
+          s.mesh.rotation.y += delta * 6; // spinning pizza = being devoured
+          if (s.progress >= FOODS.FEAST.CHANNEL_SECONDS) {
+            this.scene.remove(s.mesh);
+            this.snacks.splice(i, 1);
+            const name = FOODS.FEAST.NAMES[Math.floor(Math.random() * FOODS.FEAST.NAMES.length)];
+            eventBus.emit(Events.PLAYER_PICKUP, {
+              name, points: FOODS.FEAST.POINTS, fat: FOODS.FEAST.FAT,
+            });
+          }
+        } else if (s.progress > 0) {
+          s.progress = 0;
+        }
+      } else if (d < PLAYER_CONFIG.PICKUP_RADIUS) {
         // Geometry/material are shared across all snacks — remove, don't dispose.
         this.scene.remove(s.mesh);
         this.snacks.splice(i, 1);
         const name = SNACKS.NAMES[Math.floor(Math.random() * SNACKS.NAMES.length)];
-        eventBus.emit(Events.PLAYER_PICKUP, { name });
+        eventBus.emit(Events.PLAYER_PICKUP, {
+          name, points: FOODS.SCRAP.POINTS, fat: FOODS.SCRAP.FAT,
+        });
       }
     }
   }
 
   spillFrom(can) {
     const cp = can.body.position;
-    for (let k = 0; k < SNACKS.PER_CAN; k++) {
-      const a = (k / SNACKS.PER_CAN) * Math.PI * 2;
+    for (let k = 0; k < SNACKS.SCRAPS_PER_CAN; k++) {
+      const a = (k / SNACKS.SCRAPS_PER_CAN) * Math.PI * 2;
       const mesh = new THREE.Mesh(this.snackGeo, this.snackMat);
       mesh.position.set(
         cp.x + Math.cos(a) * SNACKS.SCATTER_RADIUS,
@@ -173,7 +201,17 @@ export class TrashCans {
         cp.z + Math.sin(a) * SNACKS.SCATTER_RADIUS,
       );
       this.scene.add(mesh);
-      this.snacks.push({ mesh, phase: k });
+      this.snacks.push({ mesh, phase: k, type: 'scrap' });
+    }
+    for (let k = 0; k < SNACKS.FEASTS_PER_CAN; k++) {
+      const mesh = new THREE.Mesh(this.feastGeo, this.feastMat);
+      mesh.position.set(
+        cp.x + SNACKS.FEAST_OFFSET[0] * (k + 1),
+        0.18,
+        cp.z + SNACKS.FEAST_OFFSET[1] * (k + 1),
+      );
+      this.scene.add(mesh);
+      this.snacks.push({ mesh, phase: k, type: 'feast', progress: 0 });
     }
   }
 }

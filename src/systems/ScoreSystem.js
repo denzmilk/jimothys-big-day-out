@@ -6,13 +6,15 @@ export class ScoreSystem {
   constructor() {
     this.comboTimer = 0;
     eventBus.on(Events.GAME_RESTART, () => { this.comboTimer = 0; });
-    eventBus.on(Events.PLAYER_PICKUP, () => {
+    eventBus.on(Events.PLAYER_PICKUP, ({ points, fat }) => {
       if (!gameState.game.isPlaying) return;
       const p = gameState.player;
       // Combo only chains while the window is live; a cold pickup starts at x1.
       p.combo = this.comboTimer > 0 ? Math.min(p.combo + 1, SCORE.COMBO_MAX_MULTIPLIER) : 1;
       this.comboTimer = SCORE.COMBO_WINDOW_SECONDS;
-      p.score += SCORE.SNACK * p.combo;
+      // Combo multiplies points, never fat — the body only counts what he ate.
+      p.score += points * p.combo;
+      p.fatness += fat;
       p.snacksEaten += 1;
       eventBus.emit(Events.SCORE_CHANGED, { score: p.score });
       eventBus.emit(Events.COMBO_CHANGED, { combo: p.combo });

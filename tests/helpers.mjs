@@ -5,10 +5,17 @@
 export const state = (page) => page.evaluate(() => JSON.parse(window.render_game_to_text()));
 export const adv = (page, s) => page.evaluate((secs) => window.advanceTime(secs), s);
 
-export async function boot(page) {
+export async function boot(page, { withRig = false } = {}) {
+  // Manual time from frame zero: no real-time sim ever runs under test, so
+  // physics settling is identical regardless of machine load. The heavy
+  // Meshy rig loads only where a spec asks for it.
+  await page.addInitScript((rig) => {
+    window.__MANUAL_TIME__ = true;
+    if (!rig) window.__SKIP_RIG__ = true;
+  }, withRig);
   await page.goto('/');
   await page.waitForFunction(() => typeof window.render_game_to_text === 'function');
-  await adv(page, 0.1); // switch the sim to deterministic manual time
+  await adv(page, 0.1);
 }
 
 export function nearestUntippedCan(s) {
@@ -22,10 +29,13 @@ export function nearestUntippedCan(s) {
   return best;
 }
 
+// Nearest instantly-collectable snack — feasts need a stand-still channel, so
+// generic "go eat something" seeks target scraps only.
 export function nearestSnack(s) {
   let best = null;
   let bd = Infinity;
   for (const sn of s.snacks) {
+    if (sn.type === 'feast') continue;
     const d = Math.hypot(sn.x - s.jimothy.x, sn.z - s.jimothy.z);
     if (d < bd) { bd = d; best = sn; }
   }

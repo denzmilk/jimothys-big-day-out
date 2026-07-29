@@ -1,15 +1,7 @@
 // Milestone 04 acceptance specs. Pointer lock is stubbed (headless Chromium
 // can't truly capture the mouse); everything else drives the real UI.
 import { test, expect } from '@playwright/test';
-
-const state = (page) => page.evaluate(() => JSON.parse(window.render_game_to_text()));
-const adv = (page, s) => page.evaluate((secs) => window.advanceTime(secs), s);
-
-async function boot(page) {
-  await page.goto('/');
-  await page.waitForFunction(() => typeof window.render_game_to_text === 'function');
-  await adv(page, 0.1);
-}
+import { state, adv, boot } from './helpers.mjs';
 
 async function openPanel(page) {
   await page.keyboard.press('`');

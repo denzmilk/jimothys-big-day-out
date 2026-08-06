@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LEGS, PLAYER_CONFIG } from '../core/Constants.js';
+import { LEGS, MOVES, PLAYER_CONFIG } from '../core/Constants.js';
 
 // Jimothy's legs. Two modes:
 //
@@ -56,17 +56,30 @@ export class JimothyLegs {
   }
 
   /** Hips ride outward as he fattens so the legs stay on the body's edge
-   *  instead of being swallowed by the belly. */
-  applyFatness(widthScale, heightScale) {
+   *  instead of being swallowed by the belly. `bodyBase` is the pivot the
+   *  belly itself scales about — scaling the hips about anything else (the
+   *  group origin, i.e. his feet) walks them off the body as he grows. Same
+   *  root cause as the head/tail drift; see JimothyController.postUpdate. */
+  applyFatness(widthScale, heightScale, bodyBase) {
     if (this.mode !== 'real' || !this.realLegs) return;
     for (const leg of this.realLegs) {
       if (!leg.home) continue;
       leg.pivot.position.set(
-        leg.home.x * widthScale,
-        leg.home.y * heightScale,
-        leg.home.z * widthScale,
+        bodyBase.x + (leg.home.x - bodyBase.x) * widthScale,
+        bodyBase.y + (leg.home.y - bodyBase.y) * heightScale,
+        bodyBase.z + (leg.home.z - bodyBase.z) * widthScale,
       );
     }
+  }
+
+  /** World positions of the four hip anchors, for the attachment check in
+   *  render_game_to_text — "do the legs still meet the belly?" is otherwise
+   *  only answerable by eye (milestone 08). */
+  hipAnchors(out = new THREE.Vector3()) {
+    const source = this.mode === 'real' && this.realLegs
+      ? this.realLegs.map((l) => l.pivot)
+      : this.legs.map((l) => l.hip);
+    return source.map((o) => o.getWorldPosition(out.clone()));
   }
 
   reset() {
@@ -82,6 +95,12 @@ export class JimothyLegs {
     else this._updateTubes(delta);
   }
 
+  /** 0 = normal gait, 1 = fully tucked under him for the roll. Blended rather
+   *  than switched so the legs gather up and sprawl back out. */
+  setTuck(t) {
+    this.tuck = t;
+  }
+
   // Diagonal-pair trot: FL+RR swing together, opposed to FR+RL. Stride
   // amplitude and cadence both scale with speed, so a standing Jimothy's legs
   // settle and a scurrying one flails.
@@ -89,11 +108,16 @@ export class JimothyLegs {
     const speedNorm = Math.min(1, this.controller.speed / PLAYER_CONFIG.SPEED);
     this.phase += delta * LEGS.SWING_HZ * (0.4 + speedNorm * 1.6) * Math.PI * 2;
     const amp = LEGS.SWING_MIN + speedNorm * LEGS.SWING_AMPLITUDE;
+    const tuck = this.tuck || 0;
     this.realLegs.forEach((leg, i) => {
       const diagonal = (i === 0 || i === 3) ? 1 : -1;
-      leg.pivot.rotation.x = Math.sin(this.phase) * amp * diagonal;
+      const swing = Math.sin(this.phase) * amp * diagonal;
+      // Front and rear legs fold toward each other, which is what makes the
+      // silhouette read as a ball rather than a spinning table.
+      const front = i < 2 ? 1 : -1;
+      leg.pivot.rotation.x = swing * (1 - tuck) + MOVES.ROLL.TUCK_LEG * front * tuck;
       // A touch of splay so he waddles rather than marching.
-      leg.pivot.rotation.z = Math.cos(this.phase) * amp * 0.25 * diagonal;
+      leg.pivot.rotation.z = Math.cos(this.phase) * amp * 0.25 * diagonal * (1 - tuck);
     });
   }
 

@@ -82,8 +82,38 @@
 - [ ] Material toughness — glass shatters, clapboard splinters, brick resists, concrete needs a fat Jimothy. Makes fatness-as-power legible.
   - Source: 2026-07-23 roadmap planning
   - Rough size: M · Rough value: M · Roadmap: Phase 1
+- [ ] Water physics — ponds, fountains and puddles Jimothy can splash into, wade through and swim in. Buoyancy on debris and containers; a fountain that keeps refilling after you smash its basin. Raccoons famously douse food in water, so there's an identity beat here too (`docs/lore.md`).
+  - Source: 2026-08-06 Chris ("water physics for ponds/fountains etc.")
+  - Rough size: L · Rough value: M · Roadmap: Phase 1 (new)
+  - Notes: interacts hard with destructible voxels — if you can blast a pond's basin, the water has to go somewhere. Cheapest credible version is a water LEVEL per body (a plane + a volume test) with drain-on-breach, not per-voxel fluid sim. Decide the model in an ADR before coding; a cellular-automata fluid across a streamed world is a milestone on its own.
+- [ ] Finer voxels for better breakaway — shrink `VOXEL.SIZE` (currently 0.55) so destruction crumbles instead of popping out in slabs.
+  - Source: 2026-08-06 Chris ("finer voxels for better breakaway")
+  - Rough size: S to change, L to afford · Rough value: M · Roadmap: Phase 1, AFTER streaming
+  - Notes: ⚠️ HARD DEPENDENCY on streaming ground. Voxel count scales with the cube of 1/SIZE — halving SIZE is 8× the voxels and ~4× the chunk mesh faces. The current eager allocation already measures 19 s boot / 3.5 GB heap at 5×-per-side; halving voxel size on top of that is not survivable. Deliberately reverses the 2026-07-23 "voxel parts are very small" playtest call, so re-check the read-from-across-the-street legibility after changing it.
+- [ ] Underground areas — sewers, basements, dug-out tunnels and hidden dens beneath the city. "More depth" both literally and as content: places to hide from heat, stashes of food, a second traversal layer.
+  - Source: 2026-08-06 Chris ("more 'depth' with some hidden underground areas")
+  - Rough size: L · Rough value: L · Roadmap: Phase 1/4
+  - Notes: needs `VOXEL.GROUND_LAYERS` (currently 2 over bedrock) to grow a lot, which is another multiplier on the allocation problem — so it also wants streaming first. Interacts with hide spots (a sewer is the ultimate bush) and with `groundHeightAt`, which currently assumes one surface per column and would snap Jimothy to the roof of a tunnel.
+- [ ] Aimable headbutt — let the player pitch the headbutt up/down (and hold to charge?) so it can be aimed at a wall's base, a first-floor window, or deliberately at the ground. Currently it always fires flat at chest height.
+  - Source: 2026-08-06 Chris ("aimable headbutt")
+  - Rough size: M · Rough value: M
+  - Notes: the "stop it breaking ground by default" half is a separate, much smaller fix — see the bug list. Aiming needs an input decision (mouse pitch vs. modifier keys vs. auto-target the nearest surface) plus a reticle or the player can't tell where it will land.
+
+- [ ] World variety — the city currently reads as a commune: identical craftsman houses in regular rows. Wants a real Seattle reference (Google Maps / Street View of an actual neighbourhood) to replicate, a proper road hierarchy rather than a uniform grid, several distinct building types with varied footprints/heights/materials/setbacks, and randomised furnishings inside the houses.
+  - Source: 2026-08-06 Chris ("world variety, we need to get a google map or reference version of seattle to replicate, it looks like a commune atm with the same houses in rows - need roads, building types, basic randomised furnishings inside the houses")
+  - Rough size: L · Rough value: L · Roadmap: Phase 1/4
+  - Notes: splits into at least three jobs that ship independently — (a) reference-driven layout: pull a real Ballard/Fremont block pattern (arterials, side streets, alleys, lot subdivision, corner shops) and drive `buildDistrict` from it instead of the uniform `CITY.BLOCK` grid; (b) building-type library: parameterise `buildCraftsman`/`buildTower` into a family with per-lot variation, and vary materials/roof pitch/porches; (c) interior furnishings, which is the same work as the "enterable houses" item and should be decided with it (hollow the voxel buildings vs. portal to an interior scene). ⚠️ Same legal guardrail as the landmarks item: replicate the *character* of a neighbourhood, not identifiable private homes; and see `docs/lore.md`. Interiors multiply voxel count, so (c) is downstream of streaming.
+
+## Known bugs
+
+> **Bugs live in [`docs/issues.md`](issues.md)**, not here. This file is for ideas we chose not to do yet; that one is for things that are wrong, with evidence and code locations. The five defects Chris reported on 2026-08-06 are `JIM-10`, `JIM-11`, `JIM-12`, and the fixed `JIM-14`–`JIM-17`.
 
 ## Polish & juice
+
+- [ ] Trump sun / Trump moon — the sun is a Donald Trump face with the makeup on (orange, bright, beaming); the moon is the same face with it off (pale, grey, unlit). The joke lands entirely on the day/night transition, so build it with that item, not before.
+  - Source: 2026-08-06 Chris ("make the sun donald trump with his makeup on and the moon donald trump with his makeup off")
+  - Rough size: S · Rough value: M · Roadmap: Phase 3, rides on the day/night cycle
+  - Notes: political caricature of a public figure is squarely satire, and the project already parodies real institutions — but it is a real living person, so keep it a stylised caricature rather than a photo/likeness-scan, and expect it to be the single most likely thing to draw a takedown or storefront-policy complaint. Worth a toggle or a swap-in alternative face if the game is ever submitted somewhere with a "no real people" content rule. Pairs naturally with the heat-tier lighting: makeup-on sun = exposed daytime, makeup-off moon = raccoon advantage.
 
 - [ ] Asset milestone — Jimothy Meshy 5 GLB (waddle/scurry/stagger/caught clips), CC0 GLBs for houses/cans/trees/pursuers/tanks, CC0 photo PBR textures for the demi-real look
   - Source: 2026-07-23 scoping session

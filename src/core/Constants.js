@@ -12,6 +12,10 @@ export const PLAYER_CONFIG = {
   // How high a ledge he can auto-climb: crater walls, rubble, kerbs. Must
   // exceed the deepest crater or his own destruction traps him.
   CLIMB_HEIGHT: 2.6,
+  // How far above a surface still counts as standing on it. Big enough to
+  // absorb the jitter of stepped voxel geometry (roof steps, crater lips) —
+  // at 0.05 he oscillated between grounded and falling forever on a rooftop.
+  GROUND_STICK: 0.25,
   RADIUS: 0.55,
   PICKUP_RADIUS: 1.0,
   BONK_MIN_SPEED: 2,
@@ -46,6 +50,12 @@ export const KEYBINDS = {
 // (playtest 2026-07-23). Both scale with fatness: a chunky Jimothy is a
 // wrecking ball.
 export const MOVES = {
+  // The split (2026-08-06): headbutt is the DEMOLITION tool. The roll is the
+  // COMEDY tool — a wonky forward flop, not a dash (Chris's playtest: "it
+  // should be a wonky slow roll forward, almost like a flop"). Before this
+  // they were both wrecking balls travelling faster than a sprint, so there
+  // was no reason to pick one and a fat Jimothy ploughed the city flat by
+  // accident.
   HEADBUTT: {
     REACH: 1.6,        // how far ahead the impact lands
     WINDUP: 0.12,      // rear back…
@@ -54,14 +64,51 @@ export const MOVES = {
     LUNGE_SPEED: 7,    // he shoves himself into the hit
     COOLDOWN: 0.45,
     RADIUS_SCALE: 1.0,
+    // Full fatness payoff: this is the move eating is meant to buy.
+    FAT_BLAST_SHARE: 1.0,
+    // Terrain is not a target. A flat headbutt cratering the road turned every
+    // swing into a hole he then had to climb out of; digging becomes something
+    // you deliberately AIM at once the aimable headbutt lands (backlog).
+    DIGS_TERRAIN: false,
+    // Anticipation is sold by PITCH, barely by sliding the head. The model's
+    // pieces have open seams (JIM-10), so a big head translation drags the
+    // neck hole into view — which is exactly what a headbutt was doing
+    // (playtest 2026-08-06: "the headbutt also separates the body mesh").
+    // Keep THRUST small and let PITCH carry the performance.
+    THRUST_BACK: -0.07,
+    THRUST_FWD: 0.12,
+    PITCH_BACK: -0.26,
+    PITCH_FWD: 0.34,
+    // How much harder the head pitches than the body it sits on.
+    HEAD_PITCH_GAIN: 1.6,
   },
   ROLL: {
-    DURATION: 0.75,
-    SPEED: 13,
-    SPINS: 2.5,        // full rotations during the roll
+    // Slower than a WALK (6) on purpose. At 13 it outran the scurry and read
+    // as a dodge; the joke is a heavy raccoon heaving himself over.
+    DURATION: 0.9,
+    SPEED: 5,
+    SPINS: 1,          // one deliberate flop, not a gymnastics routine
     COOLDOWN: 0.9,
-    // A roll carves a wider, shallower path than a headbutt.
-    RADIUS_SCALE: 0.8,
+    // Eased rather than linear: he commits slowly, tips past the balance
+    // point, whips over and lands. A constant-rate spin looks mechanical.
+    WOBBLE: 0.14,      // lateral wonk (radians) so the flop isn't clean
+    WOBBLE_HZ: 1.5,
+    // The tuck. A rigid model rotating on the spot reads as a prop being
+    // spun, not an animal throwing itself over — he has to gather up first.
+    // Ramps in over the windup fraction and back out at the end.
+    TUCK_IN: 0.18,     // fraction of the roll spent gathering up…
+    TUCK_OUT: 0.25,    // …and sprawling back out at the end
+    TUCK_LEG: 1.15,    // legs fold under him (radians)
+    TUCK_HEAD: 0.75,   // chin to chest
+    TUCK_TAIL: 0.5,    // tail curls in
+    TUCK_SQUASH: 0.12, // body balls up: wider and shorter
+    // A roll scrapes what it passes; it does not bore a tunnel. Five ticks of
+    // a fat blast radius trenched whole streets (playtest 2026-08-06).
+    RADIUS_SCALE: 0.55,
+    // …and it only inherits a slice of the fatness bonus, so getting fat makes
+    // you a better demolisher without making the flop a bulldozer.
+    FAT_BLAST_SHARE: 0.3,
+    DIGS_TERRAIN: false,
     // Destruction ticks along the roll rather than one big sphere.
     TICKS: 5,
   },

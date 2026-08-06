@@ -89,14 +89,19 @@ export class VoxelWorld {
   }
 
   /** Clear voxels in a sphere. Returns the world-space centers removed so the
-   *  caller can spawn debris where the wall actually was. */
-  damageSphere(cx, cy, cz, radius) {
+   *  caller can spawn debris where the wall actually was.
+   *
+   *  `minVoxelY` is the floor the blast will not reach below. Terrain occupies
+   *  y < 0 (buildGround writes its strata at -1 and below) and structures
+   *  start at 0, so passing 0 cleanly means "smash the house, spare the road"
+   *  — which is how the moves distinguish demolition from digging. */
+  damageSphere(cx, cy, cz, radius, minVoxelY = -Infinity) {
     const s = VOXEL.SIZE;
     const r = Math.ceil(radius / s);
     const [bx, by, bz] = this.worldToVoxel(cx, cy, cz);
     const removed = [];
     for (let x = bx - r; x <= bx + r; x++) {
-      for (let y = by - r; y <= by + r; y++) {
+      for (let y = Math.max(by - r, minVoxelY); y <= by + r; y++) {
         for (let z = bz - r; z <= bz + r; z++) {
           const mat0 = this.get(x, y, z);
           if (mat0 === 0 || mat0 === VOXEL.BEDROCK) continue;

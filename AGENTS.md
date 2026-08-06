@@ -35,6 +35,7 @@ These docs are the agreed state of the project. Read them at session start; do *
 - `docs/milestones/` — feature work breakdown with acceptance criteria.
 - `docs/architectural-decisions/` — locked decisions (0001 engine/stack, 0002 physics).
 - `docs/backlog.md` — every deferred idea. Nothing the user mentions gets silently dropped.
+- `docs/issues.md` — the tracked defect register (`JIM-NN` IDs, status, evidence, code locations). **Bugs go here, not only in the backlog:** the backlog is for ideas we chose not to do yet, this is for things that are wrong. Log a bug the session it's reported, even if it isn't being fixed.
 
 ## House rules (Chris's cross-repo conventions — non-negotiable)
 

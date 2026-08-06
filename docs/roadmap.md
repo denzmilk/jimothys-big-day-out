@@ -12,17 +12,22 @@
 
 ## ⚠️ Open issues carried forward
 
-| # | Issue | Impact | Where |
+> **The register moved to [`docs/issues.md`](issues.md)** (2026-08-06) — it carries evidence, code locations and status per issue, which this table had no room for. IDs match. **Log new issues there, not here.**
+
+| ID | Issue | Impact | Where |
 |---|---|---|---|
-| 1 | **Map size is capped by eager ground allocation.** 5× per side measured at 19 s boot / 1007 draw calls / 3.5 GB heap. Currently at 5× area instead. | Blocks a genuinely city-scale map | Phase 1 |
-| 2 | **No structural integrity.** Blast a wall's base and the roof floats. This is the gap between "voxels" and "Teardown". | Destruction reads as fake | Phase 1 |
-| 3 | **3 feast specs failing** (`interrupted feast`, `waddles slower`, `cannot fit in bushes`) — harness plumbing after the city grew, not confirmed as a gameplay break. | Feast eating unverified | Phase 0 |
-| 4 | **Den is an empty shell.** Lore props researched (`docs/lore.md`) but not placed. | Missed identity beat | Phase 3 |
-| 5 | **Tiers 4–5 unreachable** — police and the ARMY/tanks exist only in the gameplan. | The escalation payoff is missing | Phase 2 |
-| 6 | **No audio at all.** `moss-sfx` MCP is connected and unused. | Game is silent | Phase 3 |
-| 7 | **Buildings are hollow shells with no interiors**, and windows/doors are decorative. | Blocks "enter houses" | Phase 4 |
-| 8 | Pedestrians are capsules that slide; no ragdoll, no injury states. | Blocks goat-sim comedy | Phase 2 |
-| 9 | No deploy pipeline yet (GitHub Pages workflow unwritten). | Can't share it | Phase 6 |
+| JIM-01 | **Map size is capped by eager ground allocation.** 5× per side measured at 19 s boot / 1007 draw calls / 3.5 GB heap. Currently at 5× area instead. | Blocks a genuinely city-scale map | Phase 1 |
+| JIM-02 | **No structural integrity.** Blast a wall's base and the roof floats. This is the gap between "voxels" and "Teardown". | Destruction reads as fake | Phase 1 |
+| JIM-03 | **4 specs failing** (`score and combo`, `heat rises with chaos`, `tier-2 camera flash`, `interrupted feast`) — list corrected 2026-08-06 and confirmed pre-existing. | Feast eating unverified | Phase 0 |
+| JIM-04 | **Den is an empty shell.** Lore props researched (`docs/lore.md`) but not placed. | Missed identity beat | Phase 3 |
+| JIM-05 | **Tiers 4–5 unreachable** — police and the ARMY/tanks exist only in the gameplan. | The escalation payoff is missing | Phase 2 |
+| JIM-06 | **No audio at all.** `moss-sfx` MCP is connected and unused. | Game is silent | Phase 3 |
+| JIM-07 | **Buildings are hollow shells with no interiors**, and windows/doors are decorative. | Blocks "enter houses" | Phase 4 |
+| JIM-08 | Pedestrians are capsules that slide; no ragdoll, no injury states. | Blocks goat-sim comedy | Phase 2 |
+| JIM-09 | No deploy pipeline yet (GitHub Pages workflow unwritten). | Can't share it | Phase 6 |
+| JIM-10 | **Jimothy's mesh is not watertight** — 27,964 open boundary edges on the body alone, and `DoubleSide` shows his dark interior through every one. | The character reads as broken, and he's on screen always | Phase 0 |
+| JIM-11 | Legs read as detached at the socket — separate from the fatness drift already fixed. | Same | Phase 0 |
+| JIM-13 | **City reads as a commune** — identical houses in rows, uniform grid, no interiors. | The world has no variety | Phase 1/4 |
 
 ---
 

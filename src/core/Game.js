@@ -58,11 +58,16 @@ class Game {
     // The offset is the blast radius itself plus the move's own reach, so a
     // wrecking-ball Jimothy carves the wall in front rather than the floor
     // beneath (playtest 2026-07-23: "he gets stuck in a hole").
-    this.jimothy.onImpact = (x, y, z, dirX, dirZ, scale, reach) => {
-      const r = this.blastRadius() * scale;
+    // The move hands over its own config, so its demolition policy travels
+    // with it instead of being re-derived here from positional arguments.
+    this.jimothy.onImpact = (x, y, z, dirX, dirZ, cfg, reach) => {
+      const opts = { fatShare: cfg.FAT_BLAST_SHARE, digsTerrain: cfg.DIGS_TERRAIN };
+      const r = this.blastRadius(opts.fatShare) * cfg.RADIUS_SCALE;
       const dist = r * 0.95 + reach;
       // Aimed at chest height so ground craters stay shallow and walkable.
-      this.blastAt({ x: x + dirX * dist, y: y + 0.35, z: z + dirZ * dist }, scale);
+      this.blastAt(
+        { x: x + dirX * dist, y: y + 0.35, z: z + dirZ * dist }, cfg.RADIUS_SCALE, opts,
+      );
     };
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy);
     this.pursuers = new Pursuers(this.scene, this.jimothy);
@@ -213,9 +218,10 @@ class Game {
   /** Damage the world at an exact world position. Callers aim it themselves —
    *  this used to add its own vertical offset, which stacked with the move's
    *  aim and lifted the sphere clear of the ground it was meant to hit. */
-  blastAt(pos, radiusScale = 1) {
+  blastAt(pos, radiusScale = 1, { fatShare = 1, digsTerrain = true } = {}) {
     const removed = this.voxels.damageSphere(
-      pos.x, pos.y, pos.z, this.blastRadius() * radiusScale,
+      pos.x, pos.y, pos.z, this.blastRadius(fatShare) * radiusScale,
+      digsTerrain ? -Infinity : 0,
     );
     if (!removed.length) return 0;
     this.voxels.remeshDirty();
@@ -225,10 +231,13 @@ class Game {
   }
 
   // Fat Jimothy hits harder — same asymptotic curve as his body and speed
-  // penalty, so what you see is what you wreck.
-  blastRadius() {
+  // penalty, so what you see is what you wreck. `fatShare` is how much of that
+  // bonus a given move inherits: the headbutt takes all of it, the roll only a
+  // slice, which is what makes them different tools rather than two buttons
+  // for the same wrecking ball (MOVES).
+  blastRadius(fatShare = 1) {
     const f = gameState.player.fatness / (gameState.player.fatness + FATNESS.SOFTCAP);
-    return VOXEL.BLAST_RADIUS + f * FATNESS.BLAST_PER_FAT;
+    return VOXEL.BLAST_RADIUS + f * FATNESS.BLAST_PER_FAT * fatShare;
   }
 
   teleportJimothy(x, z) {
@@ -237,6 +246,7 @@ class Game {
     this.jimothy.vel.set(0, 0, 0);
     this.jimothy._prevX = undefined;
     this.jimothy._prevZ = undefined;
+    this.jimothy._prevFeetY = undefined; // sweep origin from the old location
     this.jimothy.postUpdate(0); // settle onto the ground at the new spot
     // Snap the camera too. Controls are camera-relative, so leaving it to
     // lerp from across the city means the input frame is garbage until it
@@ -250,6 +260,30 @@ class Game {
   }
 
   // --- Test hooks (Playwright live-iterate loop) ---
+
+  /** A standoff position facing a real wall, found by search rather than
+   *  hardcoded: the city is procedural, so any fixed coordinate rots the first
+   *  time the layout changes. Probes above grade so it can only ever find
+   *  structure, never terrain. */
+  findWallTarget(probeY = 1.0, standoff = 2.6) {
+    const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (let r = 4; r < WORLD.BOUNDS; r += 2) {
+      for (let a = 0; a < 32; a++) {
+        const th = (a / 32) * Math.PI * 2;
+        const wx = Math.cos(th) * r;
+        const wz = Math.sin(th) * r;
+        if (!this.voxels.solidAtWorld(wx, probeY, wz)) continue;
+        for (const [dx, dz] of DIRS) {
+          const sx = wx - dx * standoff;
+          const sz = wz - dz * standoff;
+          if (this.voxels.solidAtWorld(sx, probeY, sz)) continue;
+          // Forward is (sin yaw, cos yaw), so this yaw points at the wall.
+          return { x: sx, z: sz, yaw: Math.atan2(dx, dz) };
+        }
+      }
+    }
+    return null;
+  }
 
   renderToText() {
     const jp = this.jimothy.group.position;
@@ -278,6 +312,14 @@ class Game {
         loaded: this.jimothy.rig.loaded,
         pieces: this.jimothy.rig.pieces.length,
         placeholderHidden: this.jimothy.placeholderHidden,
+        // Read off the meshes themselves, not off any list the controller
+        // keeps — "is he see-through?" has to be answered by what actually
+        // renders (milestone 08).
+        materials: [...new Set(this.jimothy.rig.pieces.map((p) => p.material))].map((m) => ({
+          transparent: m.transparent,
+          depthWrite: m.depthWrite,
+          opacity: +m.opacity.toFixed(2),
+        })),
       },
       feet: this.jimothy.legs.snapshot(),
       jimothy: {
@@ -290,6 +332,20 @@ class Game {
         widthScale: +(this.jimothy.widthScale || 1).toFixed(3),
         move: this.jimothy.move?.kind ?? null,
         moveCooldown: +this.jimothy.moveCooldown.toFixed(2),
+        tuck: +(this.jimothy.rollTuck || 0).toFixed(3),
+        ...(() => {
+          const { up, parts, bodyY, bodyBottom } = this.jimothy.inspect();
+          return {
+            bodyY: +bodyY.toFixed(3),
+            bodyBottom: +bodyBottom.toFixed(3),
+            up: { x: +up.x.toFixed(3), y: +up.y.toFixed(3), z: +up.z.toFixed(3) },
+            parts: {
+              head: +parts.head.toFixed(3),
+              tail: +parts.tail.toFixed(3),
+              hips: parts.hips.map((q) => +q.toFixed(3)),
+            },
+          };
+        })(),
       },
       camera: { x: +cp.x.toFixed(2), y: +cp.y.toFixed(2), z: +cp.z.toFixed(2) },
       cameraMode: this.cameraSystem.mode,

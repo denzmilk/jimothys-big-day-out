@@ -15,6 +15,7 @@ export class JimothyRig {
     this.loaded = false;
     this.pieces = [];
     this.legs = {};     // name -> { mesh, hipOffset, length }
+    this.bodyPiece = null; // the mesh the belly-attachment check measures against
 
     new GLTFLoader().loadAsync(ASSET_PATHS.JIMOTHY_MODEL).then((gltf) => {
       this._mount(gltf);
@@ -63,6 +64,7 @@ export class JimothyRig {
         slot.userData.base.copy(home);
         slot.position.copy(home);
         slot.add(mesh);
+        if (slot === this.slots.body) this.bodyPiece = mesh;
       }
       this.pieces.push(mesh);
     }

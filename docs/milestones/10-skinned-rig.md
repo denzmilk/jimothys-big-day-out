@@ -55,7 +55,11 @@ The `parts` metric in `render_game_to_text` keeps working, since it measures anc
 
 The pipeline and the load path are done and verified. **What remains is porting the animation from slots to bones**, which is one focused job:
 
-1. **Bone axes are the real unknown.** A bone's local axes come from its direction and roll in Blender, then get converted Z-up → Y-up on export, so "rotate the head down" is not necessarily `rotation.x`. Do not guess: rotate each bone by a known angle one axis at a time, capture, and write the mapping down in a comment. Everything else here is mechanical.
+1. **Bone axes — and a trap that will bite you first.** Measured 2026-08-07:
+
+   **Bones carry their bind orientation in `bone.quaternion`. Never zero it.** The old slot code wrote `slot.rotation.x = …` directly; doing the same to a bone destroys its rest pose. Proof — `head` rests pointing `[0, 0.165, -0.833]` and `tail` rests pointing `[0, 0.339, 0.779]` (opposite ends of the animal), but after `rotation.set(0,0,0)` plus `rotation.x = 0.6` **both** read `[0, 0.48, -0.701]`. Identical, because the rest pose was gone. A naive port collapses the skeleton into a T-pose and it will look like the export is broken when it is not.
+
+   So: capture each bone's rest quaternion at load, and compose deltas against it — `bone.quaternion.copy(rest).multiply(delta)` for a rotation in the bone's own frame, or `delta.clone().multiply(rest)` for one in its parent's frame. Then re-measure which local axis is pitch/yaw/roll *with the rest pose intact*, and write the mapping into a comment. The probe used for this reads a bone's local +Y column out of `matrixWorld` (`elements[4..6]`), which is the bone's own length axis and the clearest thing to watch.
 2. **Retire the fallback tube legs on the skinned path.** `JimothyLegs.useRealLegs()` bails when `rig.legs` is empty — which it is, since the skinned model has leg *bones*, not leg *objects* — so the tubes stay visible. That is the four dark cylinders in `output/iterate/skin-load.png`, and it is the same "eight legs" bug from the 2026-07-23 playtest. `useRealLegs` should take bones on this path.
 3. **Delete the fatness anchoring, do not port it.** The `anchor()` helper and `applyFatness(…, bodyBase)` exist only to keep detached pieces on a surface they were not attached to. Scaling the `body` bone deforms the belly and carries everything with it, because the mesh is continuous.
 4. **Flip `RIG.SKINNED` to `true`** once the above is done, and delete the `__FORCE_SKINNED__` opt-in.

@@ -72,7 +72,9 @@ Then **milestone 11 — scamper gait** (`docs/milestones/11-scamper-gait.md`, JI
 
 **Do not rewrite the gait from scratch.** `JimothyLegs._updateTubes` already implements planted feet, drift threshold, step timing and foot lift — it was orphaned when the real model arrived and `_updateReal` (a crude swing) took over. Reconnect that logic to bones.
 
-Then **streaming ground (JIM-01)**, which Chris picked on 2026-08-07. **Open ordering question for Chris:** he picked streaming before asking for the scamper gait, so confirm which he wants first.
+**Order CONFIRMED by Chris 2026-08-07:** finish milestone 10's animation port → **streaming ground (JIM-01)** → milestone 11 scamper gait.
+
+**Trap already found and documented, do not rediscover it:** glTF bones carry their bind orientation in `bone.quaternion`. Writing `bone.rotation.x = …` the way the old code wrote `slot.rotation.x = …` destroys the rest pose and collapses the skeleton — measured: `head` and `tail` rest pointing in opposite directions, but after zeroing both read identically. Compose deltas against a captured rest quaternion instead. Full detail in milestone 10 step 1.
 
 **On Blender:** Chris offered to learn rigging. Told him not to — the remaining unknown is bone-axis mapping (a 20-minute empirical test, not a rigging skill), and procedural generation is genuinely better here because it re-derives from the model's proportions and stays diffable. The one place his Blender time WOULD pay off is weight painting, since distance falloff is anatomically naive near the tail/rump. Revisit only if it reads badly.
 

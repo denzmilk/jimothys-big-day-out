@@ -39,7 +39,7 @@ These docs are the agreed state of the project. Read them at session start; do *
 
 ## House rules (Chris's cross-repo conventions — non-negotiable)
 
-1. **Commit/push only on explicit user confirmation.** Never `git commit` or `git push` on your own initiative, even when work looks done. Stage and ask.
+1. **Commit and push at the end of each issue.** Chris, 2026-08-07: *"Commit/merge at the end of each issue so git is up to date."* This is standing authorization — do not stage and ask each time. An "issue" means a `JIM-NN` from `docs/issues.md`, or a milestone's worth of work: when it's coherent, tested and documented, commit it and push to `origin/main`. Do **not** batch several issues into one commit, and do not leave a session's work unpushed. (This supersedes the earlier "never push on your own initiative" rule, which let 36 files pile up across three sessions.) Still ask before anything genuinely destructive — force-push, history rewrite, deleting branches.
 2. **Comments explain WHY, not what.** The constraint, trade-off, or bug avoided — link the ADR/milestone it came from. Never narrate what a line does.
 3. **Never commit secrets.** API keys and tokens live in env/CI secrets, never in the repo. Scan the diff before every commit.
 4. **Chris playtests before anything is "done."** Anything he can see or feel — movement, physics, camera, juice, UI — needs his hands-on sign-off. Automated tests and screenshots are necessary but never sufficient. Report status honestly: "implemented, awaiting playtest" is the ceiling until he's played it.

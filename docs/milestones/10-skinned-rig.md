@@ -67,7 +67,17 @@ The pipeline and the load path are done and verified. **What remains is porting 
 
 Only after that is it worth reconsidering JIM-18's thrust cap and JIM-11.
 
-## Open: fatness now scales the whole animal
+## Resolved: fatness grows the belly only, and the hitbox with it
+
+Chris, 2026-08-07: *"We leave the leg size and the head size and tail size as default, the fatness just grows, with the growth so does the hitbox."*
+
+Implemented as a uniform scale on `body` plus the inverse on each direct child (`neck`, `tail`, the four `leg_*`). Uniform is deliberate — a non-uniform parent scale through a rotated child bone shears the geometry, and every extremity is rotated relative to the spine. `head` and the `shin_*` bones inherit the correction through their parents, so they must NOT be corrected again.
+
+Each child's own vertices return to 1× while its **position** still rides outward on the growing belly. That is precisely what the split path's `anchor()` helper did by hand (JIM-15) — now free, because the mesh is continuous.
+
+The collision radius follows fatness too (`JimothyController.radius`), which makes a fat Jimothy a bigger target — the third fat trade-off alongside speed and hiding, and the thing that will make the lasso (JIM-23) get easier the greedier you have been. Note `cannon-es` keeps shapes in `body.shapes[]`; there is no `body.shape`.
+
+### Superseded discussion
 
 Verified in-browser (`output/iterate/skin-fat.png`): scaling the `body` bone carries head, tail and legs with it seamlessly — which is the milestone working. But the split path deliberately scaled the belly ONLY, on the grounds recorded in the code that "tiny head on an enormous body IS the meme". Skinning blends head vertices onto the body bone, so that intent is lost.
 

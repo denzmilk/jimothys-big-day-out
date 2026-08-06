@@ -120,6 +120,30 @@ Listed among the open issues only because it is the same underlying exposure as 
 
 ---
 
+### JIM-23 — Animal control needs a real mechanic: the lasso
+
+**Status:** open · **Severity:** high (it is the only run-ender, and right now it isn't a mechanic) · **Reported:** 2026-08-07 (Chris)
+
+> "For the animal control/enemies, they need to have a better function instead of 'walk into jimothy and you lose' — so add an issue to give them like a lassoo which is a physics enabled rope they need to get around jimothy's head. As jimothy grows it gets easier as he gets slower."
+
+Today capture is a proximity check: an officer reaches you, the run ends. There is no counterplay beyond "don't be near him", nothing to watch, and no moment of tension — which is a lot of weight for **the only run-ender in the game** to carry.
+
+Replace it with a **thrown lasso**: a physics rope the officer must land over Jimothy's head. That gives the chase a readable telegraph (wind-up → throw → rope in flight), a dodge window, and a failure state for the *officer* rather than only for the player.
+
+**Why the difficulty curve falls out for free:** fatness already costs speed (`FATNESS.SPEED_PENALTY_MAX`, 45% at the asymptote) and now grows the hitbox too. A fat Jimothy is both slower to dodge and a bigger target, so the lasso gets easier the greedier you've been — with no separate difficulty tuning. That is the fat-is-the-score fantasy paying off as *risk*, which the game currently only expresses as a speed penalty.
+
+Design questions to settle before building:
+
+- Rope simulation: a cannon-es chain of small bodies with distance constraints is the honest version and gives real slapstick, but a chain per officer at tier 4–5 needs a budget. A cheaper fake (animated curve + a single "did it land" test) may read just as well.
+- Does a landed lasso end the run instantly, or start a tug-of-war Jimothy can struggle out of? A struggle is far better comedy and makes the net feel earned rather than arbitrary.
+- Can a lasso miss and *tangle a pedestrian or a bin*? Very much this game's register.
+- Does it interact with the hide bushes and heat tiers, or is it purely spatial?
+
+**Depends on:** nothing hard, though ragdoll (JIM-08, Phase 2) would make a tangled officer much funnier.
+**Where:** `src/gameplay/Pursuers.js`, `src/systems/PhysicsSystem.js`, `docs/gameplan.md` (the net is described there as the only run-ender — update it when this lands)
+
+---
+
 ### JIM-22 — Legs should scamper: sprawled, low, with physics-aware footing
 
 **Status:** open · **Severity:** medium (it's the character's whole read) · **Reported:** 2026-08-07 (Chris)

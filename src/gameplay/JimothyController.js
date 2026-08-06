@@ -149,6 +149,15 @@ export class JimothyController {
     return Math.hypot(this.vel.x, this.vel.z);
   }
 
+  /** Collision radius, which GROWS with fatness (Chris 2026-08-07: "with the
+   *  growth so does the hitbox"). This is the third fat trade-off alongside
+   *  speed and hiding: a bigger Jimothy is a bigger target to catch, which is
+   *  what makes the lasso (JIM-23) get easier the greedier you've been. */
+  get radius() {
+    const f = gameState.player.fatness / (gameState.player.fatness + FATNESS.SOFTCAP);
+    return P.RADIUS * (1 + f * FATNESS.MAX_WIDTH_GAIN);
+  }
+
   /** Introspection for the specs (milestone 08). Two defects that were
    *  previously only visible by eye become numbers here:
    *
@@ -185,7 +194,8 @@ export class JimothyController {
   // instead of sticking, and only at body height so he steps over kerbs.
   _resolveVoxels(p) {
     if (!this.voxels) return;
-    const r = P.RADIUS * 0.8;
+    const rad = this.radius;
+    const r = rad * 0.8;
     const probeY = p.y;
     for (const [axis, prev] of [['x', this._prevX], ['z', this._prevZ]]) {
       const off = (s) => ({
@@ -334,6 +344,16 @@ export class JimothyController {
 
   postUpdate(delta) {
     const p = this.body.position;
+    // Live radius: he is wider when fat, so ground clearance and collision
+    // must follow, or a fat Jimothy sinks into the road.
+    const rad = this.radius;
+    // cannon-es keeps shapes in an array; there is no `body.shape`.
+    const sphere = this.body.shapes[0];
+    if (Math.abs(sphere.radius - rad) > 1e-3) {
+      sphere.radius = rad;
+      sphere.updateBoundingSphereRadius();
+      this.body.updateBoundingRadius();
+    }
     p.x = THREE.MathUtils.clamp(p.x, -WORLD.BOUNDS, WORLD.BOUNDS);
     p.z = THREE.MathUtils.clamp(p.z, -WORLD.BOUNDS, WORLD.BOUNDS);
     this._resolveVoxels(p);
@@ -346,10 +366,10 @@ export class JimothyController {
     // Scanning only from the current position means one long frame — the
     // update loop allows up to 0.1 s — can step straight past thin geometry
     // and drop him out of the world.
-    const feetY = p.y - P.RADIUS;
+    const feetY = p.y - rad;
     const scanFrom = Math.max(feetY, this._prevFeetY ?? feetY);
     const floorY = this.voxels ? this.voxels.groundHeightAt(p.x, p.z, scanFrom) : 0;
-    const standY = floorY + P.RADIUS;
+    const standY = floorY + rad;
     // Only land when descending — rising through a lip shouldn't snap him to it.
     if (p.y <= standY && this.vy <= 0) {
       p.y = standY;
@@ -374,7 +394,7 @@ export class JimothyController {
       p.y = standY;
       if (this.vy < 0) this.vy = 0;
     }
-    this._prevFeetY = p.y - P.RADIUS;
+    this._prevFeetY = p.y - rad;
     // group.position is set once at the END of this method, after the tumble
     // pivot is known — setting it here too would just be overwritten.
 
@@ -389,7 +409,7 @@ export class JimothyController {
     // crater and slid in, or terrain changed around him), lift him to the
     // nearest free surface rather than trapping him in the geometry.
     if (this.voxels && this.voxels.solidAtWorld(p.x, p.y, p.z)) {
-      p.y = this.voxels.groundHeightAt(p.x, p.z, p.y + 6) + P.RADIUS;
+      p.y = this.voxels.groundHeightAt(p.x, p.z, p.y + 6) + rad;
       this.vy = Math.max(0, this.vy);
     }
 
@@ -549,13 +569,25 @@ export class JimothyController {
         + tuck * MOVES.ROLL.TUCK_HEAD + bob, 0, 0);
       this.rig.pose('tail', tuck * MOVES.ROLL.TUCK_TAIL, 0,
         Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck));
-      // Fatness scales the body bone's CROSS-SECTION. Its own +Y runs along
-      // the spine, so scaling y would stretch him nose-to-tail rather than
-      // fatten him. Because the mesh is continuous, this carries the head,
-      // tail and legs with it — which is why the split path's anchoring code
-      // has no equivalent here (JIM-15 cannot recur).
+      // Fatness grows the BELLY ONLY. Head, tail and legs keep their own size
+      // (Chris 2026-08-07) — tiny head on an enormous body is the meme, and
+      // skinning would otherwise inflate the whole animal, since head vertices
+      // blend onto the body bone.
+      //
+      // Uniform scale, then the inverse on each direct child. Uniform is
+      // deliberate: a non-uniform parent scale through a rotated child bone
+      // shears the geometry, and the extremities are all rotated relative to
+      // the spine. Each child's own vertices come back to 1× while its
+      // POSITION still rides outward on the growing belly — which is exactly
+      // what the split path's anchoring code did by hand (JIM-15), now free.
       const belly = width * (1 + wobble) * (1 + squash);
-      this.rig.scaleBone('body', belly, 1, belly);
+      this.rig.scaleBone('body', belly, belly, belly);
+      const inv = 1 / belly;
+      // `head` and the shins are grandchildren — they inherit the correction
+      // through `neck` and `leg_*`, so scaling them again would shrink them.
+      for (const n of ['neck', 'tail', 'leg_FL', 'leg_FR', 'leg_RL', 'leg_RR']) {
+        this.rig.scaleBone(n, inv, inv, inv);
+      }
     }
 
     // Tumble about his MIDDLE, not his toes. The group's origin sits at ground
@@ -571,7 +603,7 @@ export class JimothyController {
     this._pivotRotated.copy(this._pivot).applyEuler(this.group.rotation);
     this.group.position.set(
       p.x - this._pivotRotated.x,
-      (p.y - P.RADIUS) + this._pivot.y - this._pivotRotated.y,
+      (p.y - rad) + this._pivot.y - this._pivotRotated.y,
       p.z - this._pivotRotated.z,
     );
 

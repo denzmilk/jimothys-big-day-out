@@ -4,7 +4,7 @@
 
 ## Last updated
 
-2026-08-06 by Claude — milestone 08 fix pass (Jimothy's body and his two moves).
+2026-08-07 by Claude — milestone 09 (mesh repair). Milestone 08 committed.
 
 ## Current phase
 
@@ -12,7 +12,27 @@ development
 
 ## Current milestone
 
-**Milestone 08 — Jimothy fix pass** (`docs/milestones/08-jimothy-fix-pass.md`). All seven automated AC pass; awaiting Chris's playtest. `docs/roadmap.md` is still the delivery plan after this.
+**Milestone 09 — mesh repair** (`docs/milestones/09-mesh-repair.md`). JIM-10 fixed; all measurable AC pass, awaiting Chris's playtest. Milestone 08 is committed (`0427bf9`) and its own playtest sign-off is still open too.
+
+**Committed this session (local only, NOT pushed):**
+- `48311ac` — voxel city, pedestrians, slop-rig pipeline (the previous session's staged work)
+- `0427bf9` — milestone 08 fix pass
+
+## Milestone 09 summary
+
+**JIM-10 was mis-diagnosed and the correction is the whole story.** It was logged as a bad source asset. Measuring the source first showed `jimothy.glb` is essentially watertight — 597 boundary edges out of 1,198,253 (0.0%). **Our own `prep_jimothy.py` was shredding it.**
+
+Stage-by-stage instrumentation found the culprit:
+
+| stage | verts | faces | boundary | non-manifold |
+|---|---|---|---|---|
+| imported | 623,874 | 798,967 | 386,765 | **0** |
+| **decimated** | 127,090 | 40,000 | 55,690 | **48,237** |
+| split | — | 41,219 | 56,414 | 0 |
+
+glTF stores a vertex per face-corner at every UV/normal seam, so Blender received 623,874 vertices for a surface with 398,267 and treated the duplicates as disconnected. Decimate then collapsed a mesh it thought was in thousands of pieces. The split stage was innocent (0 faces skipped).
+
+**Fix:** weld (`remove_doubles`, 1e-5) *before* decimating, cap each piece's cut with `holes_fill`, recalc normals. **56,414 → 940 boundary edges (98.3%)**; body 63.9% → 1.1% open. Size 4.66 → 4.71 MB. Confirmed visually from four angles.
 
 ## Last action
 
@@ -46,13 +66,16 @@ Chris playtests milestone 08's exit condition, then **Phase 1.1 (streaming/virtu
 
 ## Blockers
 
-- **⚠️ The see-through body is a MESH problem, now logged as JIM-10.** Chris's screenshot located it at the joins, not the belly. The model is not watertight — 27,964 open boundary edges on the body alone (measured by welding vertices by position and counting single-use edges), and the material is `DoubleSide`, so every hole shows his dark interior. **Do not "fix" it with `FrontSide`** — culling makes the holes show the background instead, which is worse. Candidate fixes and the ruled-out causes are in `docs/issues.md`.
-- **⚠️ Everything is still uncommitted** — now ~36 files across two sessions. Chris has not approved a commit (house rule 1). Ask.
+- **⚠️ Two commits are LOCAL ONLY — not pushed.** Chris approved committing, not pushing. Ask before touching `origin`.
+- **⚠️ JIM-11 (legs read as detached) needs re-judging, not more code.** The leg sockets are now capped, so the join no longer shows a hole. Whatever gap remains is a different cause — most likely the hip pivot sitting at the top of the leg's bounding box, which swings the leg top out of the socket. Get Chris's eyes on it before changing anything.
+- **⚠️ Milestone 08 AND 09 both await playtest sign-off.** Everything either one claims is "implemented, tests pass" — that is the ceiling until Chris plays it (house rule 4).
 - **⚠️ 4 specs failing, confirmed PRE-EXISTING** (JIM-03) — `score and combo`, `heat rises with chaos`, `tier-2 camera flash`, `interrupted feast`. Not caused by milestone 08: verified by running them against the pre-session staged state in a throwaway worktree. The old "3 failing" list in the roadmap was wrong and has been corrected. Feast eating is still unverified end-to-end. Final suite: **50 passed / 5 failed of 55**, where the 5th (`animal control nets jimothy`) is a **parallel-worker flake** — it passed twice at `--workers=1`. Re-run any heat/fatness failure serially before blaming a code change; the four genuine ones reproduce serially.
 - Map size is still capped by eager ground allocation (JIM-01).
 
 ## Notes for next session
 
+- **Measure the SOURCE before blaming an asset.** JIM-10 cost an extra session because it was recorded as "the Meshy model is rough" without ever checking the Meshy model. It was fine. Use `node tools/mesh_report.mjs <file.glb>` — and note it welds vertices by position first, because glTF splits them per face-corner at UV/normal seams and raw indices make a perfect mesh look like loose triangles.
+- **A probe aimed at the middle of a thing cannot find a defect at its edges.** Two pixel probes sampled Jimothy's belly centre, correctly reported "solid", and missed a model that was 64% open at the seams. Chris's screenshot found it. Sample where the geometry is interesting.
 - **Never edit source while a Playwright run is in flight.** Vite HMR injects the change into the running suite and the results become meaningless — this bit us this session and cost a full re-run.
 - **To prove a failure is pre-existing rather than yours, without touching the working tree:** `TREE=$(git write-tree)`, `COMMIT=$(git commit-tree $TREE -p HEAD -m baseline)`, `git worktree add --detach <path> $COMMIT`, symlink `node_modules` in, kill the dev server on 3000 so the worktree starts its own, run the specs there, then `git worktree remove --force`. Mutates nothing, and with 36 files uncommitted across two sessions that matters. This is how JIM-03 was cleared.
 - Terrain is voxel **y < 0** (`buildGround` writes strata at -1/-2, buildings start at 0). That single fact is what lets a blast be told to spare the road, and it's the cheapest lever for anything similar.

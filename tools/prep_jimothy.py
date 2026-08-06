@@ -13,6 +13,10 @@ PREVIEW = argv[2] if len(argv) > 2 else None
 
 TARGET_TRIS = 40_000
 TEXTURE_SIZE = 1024
+# Merge radius for the pre-decimate weld (JIM-10). The model is ~1 unit long,
+# so this only ever fuses vertices that glTF duplicated at a UV/normal seam,
+# never two genuinely distinct features.
+WELD_DISTANCE = 1e-5
 # Cut planes as fractions of the model's own bounding box.
 NECK_FRAC = 0.26   # from the nose end
 TAIL_FRAC = 0.16   # from the tail end
@@ -22,6 +26,29 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=SRC)
 obj = next(o for o in bpy.data.objects if o.type == 'MESH')
 bpy.context.view_layer.objects.active = obj
+
+# --- weld BEFORE decimating (JIM-10) ---
+# glTF stores a vertex per face-corner wherever UVs or normals split, so the
+# importer hands us 623k vertices for a surface that only has ~400k. Blender
+# treats those duplicates as genuinely disconnected, and Decimate then
+# collapses a mesh it believes is in pieces: the 2026-08-06 measurement went
+# from 0 non-manifold edges to 48,237, and the shipped model ended up ~64%
+# boundary edges — holes everywhere, which DoubleSide rendered as Jimothy's
+# own dark interior showing through.
+#
+# Merging by distance first restores the real topology so Decimate collapses
+# across the whole surface. It also merges the duplicate UV corners at seams,
+# which can smear the texture very slightly there — a far better trade than a
+# raccoon full of holes.
+bm = bmesh.new()
+bm.from_mesh(obj.data)
+before_verts = len(bm.verts)
+bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=WELD_DISTANCE)
+bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+bm.to_mesh(obj.data)
+bm.free()
+obj.data.update()
+print(f'PREPWELD verts {before_verts} -> {len(obj.data.vertices)}')
 
 # --- decimate: 800k tris is desktop-GPU-fine but a 40 MB download ---
 obj.data.calc_loop_triangles()
@@ -98,6 +125,14 @@ for name, faces in buckets.items():
         if nuv:
             for loop, src_loop in zip(nf.loops, f.loops):
                 loop[nuv].uv = src_loop[uv_layer].uv
+    # Cap the cut (JIM-10). Slicing the model into parts necessarily opens a
+    # hole in each piece where its neighbour used to be — the neck socket, the
+    # leg sockets, the stump of the tail. DoubleSide renders straight through
+    # those into the interior, and any animation that moves a piece drags the
+    # hole into view (the headbutt did exactly that). Filling the boundary
+    # loops makes each piece a closed solid, so pieces can move freely.
+    bmesh.ops.holes_fill(nbm, edges=[e for e in nbm.edges if e.is_boundary])
+    bmesh.ops.recalc_face_normals(nbm, faces=nbm.faces)
     nbm.normal_update()
     nme = bpy.data.meshes.new(name)
     nbm.to_mesh(nme)

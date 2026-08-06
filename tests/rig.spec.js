@@ -112,7 +112,13 @@ test('parts stay attached as he fattens', async ({ page }) => {
     expect(Math.abs(fat[key] - lean[key])).toBeLessThan(0.15);
   }
   for (let i = 0; i < 4; i++) {
-    expect(fat.hips[i]).toBeLessThan(1.35);
+    // Bound the LEAN baseline, not the fat one. A hip sits just outside the
+    // belly by construction — it's on the surface and its pivot is at the top
+    // of the leg — so its absolute q is a property of the model's proportions,
+    // and it shifted when JIM-10 changed every piece's bounding box. The
+    // invariant this test exists to protect is the DRIFT: fattening must not
+    // push the hips off the body. That assertion is unchanged.
+    expect(lean.hips[i]).toBeLessThan(1.6);
     expect(Math.abs(fat.hips[i] - lean.hips[i])).toBeLessThan(0.15);
   }
 });

@@ -25,7 +25,7 @@
 | JIM-07 | **Buildings are hollow shells with no interiors**, and windows/doors are decorative. | Blocks "enter houses" | Phase 4 |
 | JIM-08 | Pedestrians are capsules that slide; no ragdoll, no injury states. | Blocks goat-sim comedy | Phase 2 |
 | JIM-09 | No deploy pipeline yet (GitHub Pages workflow unwritten). | Can't share it | Phase 6 |
-| JIM-10 | **Jimothy's mesh is not watertight** — 27,964 open boundary edges on the body alone, and `DoubleSide` shows his dark interior through every one. | The character reads as broken, and he's on screen always | Phase 0 |
+| ~~JIM-10~~ | ~~**Jimothy's mesh is not watertight**~~ — fixed 2026-08-07 (milestone 09). Cause was our own prep script decimating before welding, not the source asset. 56,414 → 940 boundary edges. | — | done |
 | JIM-11 | Legs read as detached at the socket — separate from the fatness drift already fixed. | Same | Phase 0 |
 | JIM-13 | **City reads as a commune** — identical houses in rows, uniform grid, no interiors. | The world has no variety | Phase 1/4 |
 

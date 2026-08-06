@@ -12,7 +12,11 @@ development
 
 ## Current milestone
 
-**Milestone 09 — mesh repair** (`docs/milestones/09-mesh-repair.md`). JIM-10 fixed; all measurable AC pass, awaiting Chris's playtest. Milestone 08 is committed (`0427bf9`) and its own playtest sign-off is still open too.
+**Milestone 10 — skinned rig** (`docs/milestones/10-skinned-rig.md`, ADR-0004). Blender pipeline + load path DONE and verified; **the animation port from slots to bones is what's left** — that milestone's "Where this stopped" section lists the five remaining steps in order. `RIG.SKINNED` is opt-in (`window.__FORCE_SKINNED__`) so the working split model still ships.
+
+**Chris chose streaming ground (JIM-01, roadmap Phase 1.1) as the next milestone after this one** — rationale: it gates finer voxels, underground areas and house interiors, and doing city content first means authoring it twice.
+
+Previous: **Milestone 09 — mesh repair** (`docs/milestones/09-mesh-repair.md`). JIM-10 fixed; all measurable AC pass, awaiting Chris's playtest. Milestone 08 is committed (`0427bf9`) and its own playtest sign-off is still open too.
 
 **Committed this session (local only, NOT pushed):**
 - `48311ac` — voxel city, pedestrians, slop-rig pipeline (the previous session's staged work)

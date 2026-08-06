@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ASSET_PATHS, RIG } from '../core/Constants.js';
+
 import { eventBus, Events } from '../core/EventBus.js';
 
 // Loads the Blender-prepped Jimothy: one GLB whose objects are already split
@@ -17,11 +18,49 @@ export class JimothyRig {
     this.legs = {};     // name -> { mesh, hipOffset, length }
     this.bodyPiece = null; // the mesh the belly-attachment check measures against
 
-    new GLTFLoader().loadAsync(ASSET_PATHS.JIMOTHY_MODEL).then((gltf) => {
-      this._mount(gltf);
+    this.bones = {};      // name -> Bone, when skinned
+    this.skinned = null;  // the SkinnedMesh, when skinned
+
+    const path = RIG.SKINNED ? ASSET_PATHS.JIMOTHY_SKINNED : ASSET_PATHS.JIMOTHY_MODEL;
+    new GLTFLoader().loadAsync(path).then((gltf) => {
+      if (RIG.SKINNED) this._mountSkinned(gltf);
+      else this._mount(gltf);
       this.loaded = true;
       eventBus.emit(Events.RIG_LOADED, { pieces: this.pieces.length });
     }).catch((e) => console.error('JimothyRig load failed:', e));
+  }
+
+  /** Skinned path (ADR-0004): the model arrives as one SkinnedMesh plus an
+   *  armature, and must be mounted WHOLE — reparenting the mesh away from its
+   *  skeleton root breaks the bind. The game then poses bones by name where it
+   *  used to rotate slots. */
+  _mountSkinned(gltf) {
+    const root = gltf.scene;
+    root.updateMatrixWorld(true);
+
+    // Same normalization the split path uses: scale to nose-to-tail length
+    // and sit him on the ground.
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3());
+    const scale = RIG.TARGET_LENGTH / Math.max(size.x, size.y, size.z);
+    root.scale.setScalar(scale);
+    root.position.y = -box.min.y * scale;
+
+    root.traverse((o) => {
+      if (o.isBone) this.bones[o.name] = o;
+      if (o.isSkinnedMesh) {
+        this.skinned = o;
+        this.pieces.push(o);
+        // Skinned bounds are computed from the rest pose, so a posed bone can
+        // carry geometry outside it and get wrongly culled.
+        o.frustumCulled = false;
+      }
+    });
+
+    // Sibling of the slots, like the split path's leg pivots — the slots
+    // themselves are only scaffolding for the placeholder now.
+    this.slots.body.parent.add(root);
+    this.bodyPiece = this.skinned;
   }
 
   _mount(gltf) {

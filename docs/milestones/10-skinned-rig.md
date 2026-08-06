@@ -36,7 +36,7 @@ This is the fourth time the split has produced the same defect (JIM-10, JIM-11, 
 - [x] Every vertex is weighted — **18,766 / 18,766**, versus 0 from Blender's bone-heat solver
 - [x] The export is a valid skinned glTF — one skin, 8 joints, `JOINTS_0` + `WEIGHTS_0` present
 - [x] File size does not regress — 4.71 MB → **3.88 MB**
-- [ ] The model loads as a `SkinnedMesh` with all 8 bones resolved, no console errors
+- [x] The model loads as a `SkinnedMesh` with all 8 bones resolved, no console errors — verified in-browser; renders as one continuous animal with no seam at neck, hips or tail (`output/iterate/skin-load.png`)
 - [ ] Head bob, tail wiggle, leg swing, roll tuck and headbutt pitch all still animate
 - [ ] Fatness deforms the belly *and* carries head, tail and legs with it, with the anchoring code deleted
 - [ ] No seam is visible at the neck, hips or tail in any pose, including mid-roll and mid-headbutt — verified by user playtest
@@ -50,6 +50,18 @@ User rolls and headbutts, then eats until huge → Jimothy deforms as one animal
 Geometry and skin validity are asserted from the GLB itself (`tools/mesh_report.mjs` for topology; a direct check of `skins`/`JOINTS_0` for the bind). In-game, the existing `rig.spec.js` assertions carry over almost unchanged — they measure *where the pieces are relative to the body*, which is exactly what must keep holding once bones drive them.
 
 The `parts` metric in `render_game_to_text` keeps working, since it measures anchor positions against the belly's bounding box regardless of what moves them.
+
+## Where this stopped (2026-08-07) and exactly what is left
+
+The pipeline and the load path are done and verified. **What remains is porting the animation from slots to bones**, which is one focused job:
+
+1. **Bone axes are the real unknown.** A bone's local axes come from its direction and roll in Blender, then get converted Z-up → Y-up on export, so "rotate the head down" is not necessarily `rotation.x`. Do not guess: rotate each bone by a known angle one axis at a time, capture, and write the mapping down in a comment. Everything else here is mechanical.
+2. **Retire the fallback tube legs on the skinned path.** `JimothyLegs.useRealLegs()` bails when `rig.legs` is empty — which it is, since the skinned model has leg *bones*, not leg *objects* — so the tubes stay visible. That is the four dark cylinders in `output/iterate/skin-load.png`, and it is the same "eight legs" bug from the 2026-07-23 playtest. `useRealLegs` should take bones on this path.
+3. **Delete the fatness anchoring, do not port it.** The `anchor()` helper and `applyFatness(…, bodyBase)` exist only to keep detached pieces on a surface they were not attached to. Scaling the `body` bone deforms the belly and carries everything with it, because the mesh is continuous.
+4. **Flip `RIG.SKINNED` to `true`** once the above is done, and delete the `__FORCE_SKINNED__` opt-in.
+5. Then re-run `rig.spec.js` with the rig loaded — its assertions measure where parts sit relative to the body, which is exactly what must still hold.
+
+Only after that is it worth reconsidering JIM-18's thrust cap and JIM-11.
 
 ## Notes
 

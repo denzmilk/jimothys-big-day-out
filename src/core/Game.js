@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS } from './Constants.js';
+import {
+  CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS,
+} from './Constants.js';
 import { gameState } from './GameState.js';
 import { eventBus, Events } from './EventBus.js';
 import { DevOverrides } from './DevOverrides.js';
@@ -12,6 +14,10 @@ import { JimothyController } from '../gameplay/JimothyController.js';
 import { TrashCans } from '../gameplay/TrashCans.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
 import { LevelBuilder } from '../level/LevelBuilder.js';
+import { VoxelWorld } from '../level/VoxelWorld.js';
+import { buildDistrict } from '../level/VoxelCity.js';
+import { Debris } from '../gameplay/Debris.js';
+import { Pedestrians } from '../gameplay/Pedestrians.js';
 import { HUD } from '../ui/HUD.js';
 import { GameOverScreen } from '../ui/GameOverScreen.js';
 import { DevTools } from '../ui/DevTools.js';
@@ -44,9 +50,23 @@ class Game {
     this.input = new InputSystem(this.renderer.domElement);
     this.physics = new PhysicsSystem();
     this.level = new LevelBuilder(this.scene);
-    this.jimothy = new JimothyController(this.scene, this.physics, this.input);
+    this.voxels = new VoxelWorld(this.scene);
+    buildDistrict(this.voxels, WORLD.BOUNDS);
+    this.debris = new Debris(this.scene, this.physics);
+    this.jimothy = new JimothyController(this.scene, this.physics, this.input, this.voxels);
+    // Moves land their damage ahead of him (headbutt/roll), never underfoot.
+    // The offset is the blast radius itself plus the move's own reach, so a
+    // wrecking-ball Jimothy carves the wall in front rather than the floor
+    // beneath (playtest 2026-07-23: "he gets stuck in a hole").
+    this.jimothy.onImpact = (x, y, z, dirX, dirZ, scale, reach) => {
+      const r = this.blastRadius() * scale;
+      const dist = r * 0.95 + reach;
+      // Aimed at chest height so ground craters stay shallow and walkable.
+      this.blastAt({ x: x + dirX * dist, y: y + 0.35, z: z + dirZ * dist }, scale);
+    };
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy);
     this.pursuers = new Pursuers(this.scene, this.jimothy);
+    this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
     this.score = new ScoreSystem();
     this.heat = new HeatSystem();
     this.cameraSystem = new CameraSystem(this.camera, this.jimothy, this.input);
@@ -80,6 +100,10 @@ class Game {
       this.jimothy.reset();
       this.trashCans.reset();
       this.pursuers.reset();
+      this.pedestrians.reset();
+      this.debris.reset();
+      this.voxels.clear();
+      buildDistrict(this.voxels, WORLD.BOUNDS);
       gameState.game.started = true;
       gameState.game.isPlaying = true;
     });
@@ -139,9 +163,11 @@ class Game {
     this.jimothy.postUpdate(delta);
     this.trashCans.update(delta);
     this.pursuers.update(delta);
+    this.pedestrians.update(delta);
     this.score.update(delta);
     this.heat.update(delta);
-    this.cameraSystem.update(delta);
+    this.debris.update(delta);
+    if (!this.freeCamera) this.cameraSystem.update(delta);
     this.devTools.update(delta);
   }
 
@@ -182,6 +208,47 @@ class Game {
     );
   }
 
+  // Blow a hole in the world: clear voxels, re-mesh only the chunks that
+  // changed, and throw the removed cells as pooled debris.
+  /** Damage the world at an exact world position. Callers aim it themselves —
+   *  this used to add its own vertical offset, which stacked with the move's
+   *  aim and lifted the sphere clear of the ground it was meant to hit. */
+  blastAt(pos, radiusScale = 1) {
+    const removed = this.voxels.damageSphere(
+      pos.x, pos.y, pos.z, this.blastRadius() * radiusScale,
+    );
+    if (!removed.length) return 0;
+    this.voxels.remeshDirty();
+    this.debris.spawnBurst(removed);
+    eventBus.emit(Events.WORLD_DEMOLISHED, { voxels: removed.length });
+    return removed.length;
+  }
+
+  // Fat Jimothy hits harder — same asymptotic curve as his body and speed
+  // penalty, so what you see is what you wreck.
+  blastRadius() {
+    const f = gameState.player.fatness / (gameState.player.fatness + FATNESS.SOFTCAP);
+    return VOXEL.BLAST_RADIUS + f * FATNESS.BLAST_PER_FAT;
+  }
+
+  teleportJimothy(x, z) {
+    this.jimothy.body.position.x = x;
+    this.jimothy.body.position.z = z;
+    this.jimothy.vel.set(0, 0, 0);
+    this.jimothy._prevX = undefined;
+    this.jimothy._prevZ = undefined;
+    this.jimothy.postUpdate(0); // settle onto the ground at the new spot
+    // Snap the camera too. Controls are camera-relative, so leaving it to
+    // lerp from across the city means the input frame is garbage until it
+    // arrives — which sends anything steering by it (specs, and the player
+    // after a respawn) off in random directions.
+    this.cameraSystem.snapToTarget();
+  }
+
+  restart() {
+    eventBus.emit(Events.GAME_RESTART);
+  }
+
   // --- Test hooks (Playwright live-iterate loop) ---
 
   renderToText() {
@@ -202,6 +269,11 @@ class Game {
       game: gameState.game,
       pursuers: this.pursuers.snapshot(),
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
+      voxels: {
+        ...this.voxels.stats(),
+        debris: this.debris.liveCount,
+        drawCalls: this.renderer.info.render.calls,
+      },
       rig: {
         loaded: this.jimothy.rig.loaded,
         pieces: this.jimothy.rig.pieces.length,
@@ -216,6 +288,8 @@ class Game {
         grounded: this.jimothy.grounded,
         speed: +this.jimothy.speed.toFixed(2),
         widthScale: +(this.jimothy.widthScale || 1).toFixed(3),
+        move: this.jimothy.move?.kind ?? null,
+        moveCooldown: +this.jimothy.moveCooldown.toFixed(2),
       },
       camera: { x: +cp.x.toFixed(2), y: +cp.y.toFixed(2), z: +cp.z.toFixed(2) },
       cameraMode: this.cameraSystem.mode,

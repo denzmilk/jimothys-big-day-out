@@ -4,39 +4,42 @@
 
 ## Last updated
 
-2026-07-23 by Claude (milestones 01 + 04 implementation and the input-bug saga)
+2026-07-23 by Claude — end of a long session covering milestones 05/06, the voxel city, and tooling.
 
 ## Current phase
 
-development (scaffold complete)
+development
 
 ## Current milestone
 
-Milestone 06 (slop-rig) — implemented and green (39/39): Chris's Meshy GLB (40 MB, 800k tris) loads, runtime-splits into head/body/tail (RIG panel sliders re-cut live), placeholder hides, stretchy tube legs trot in diagonal pairs, all fatness/jiggle animation flows through the slots. Milestones 05 + trade-offs also staged and green. All awaiting Chris's movement playtest + commit. Ladder after: 03 trees & the army → civilians → powerups. Backlog: GLB size optimization.
+Milestone 07 (destructible voxels) implemented and extended well past its original scope into a full city. **`docs/roadmap.md` is now the delivery plan** — read it before picking up work; it orders every requested feature by what unblocks what and carries 9 marked-up issues.
 
 ## Last action
 
-Milestone 05 implemented red-then-green (6 specs in `tests/fatness.spec.js`): two-tier FOODS (scraps scoop on the move; feasts channel 1.2s standing still, reset on interrupt, "NOM NOM NOM…" stinger, spinning pizza puck), fatness stat fed by food fat values (combo multiplies points, never fat), asymptotic wide-load body distortion + bite-kicked jiggle spring + speed-scaled jelly wobble (applied as scale on the body slot so the slop-rig inherits it), HUD FAT readout, FATNESS dev-panel group. Test infra hardened: manual time from frame zero (`__MANUAL_TIME__`), bonk-tolerant assertions, 120s timeout / 4 workers — remaining flakes were pure wall-clock timeouts, sim is deterministic; clean idle-machine run 35/35 in 2.1m. Visual verified (`output/iterate/m05-fat-jimothy.png` — widthScale 1.42 at fatness 22). Staged, not committed.
+Playtest-driven fixes plus a large world expansion:
+
+- **Fixed:** jump "flying away" (ground scan snapped him onto rooftops; held-Space stair-stepped him skyward), double legs (now uses the model's own separated leg meshes), tail floating detached, paparazzi over-aggression, cans self-tipping on spawn, roll not visibly rotating, `applyImpulse` being passed a WORLD point where cannon-es wants a body-relative one (harmless near origin, flung containers into orbit at city coordinates), Jimothy getting stuck in his own craters (bedrock floor + auto-climb).
+- **Added:** procedural Seattle street grid (craftsman blocks + downtown towers), deformable voxel ground with walkable craters, 4 container kinds scattered citywide, 26 fleeing pedestrians, headbutt (E/B) and roll (C) moves that damage IN FRONT of him, demolition + scared locals as heat sources, fatness scaling destruction power.
+- **Tooling:** Blender installed + `tools/prep_jimothy.py` (39 MB → 4.4 MB, model pre-split into 7 named parts); TRELLIS.2 installed and tested (~2 min/model on the M5 Pro, mushier than Meshy — good for props, not heroes); CC0 asset research (ambientCG + Poly Haven have keyless APIs); `docs/lore.md` with verified Jimothy facts, accuracy guardrails, and 15 den props.
 
 ## Next step
 
-Chris playtests THE REAL JIMOTHY on the preview build: waddle/scurry gait feel (LEGS sliders), hop leg-stretch, cut-plane placement (RIG sliders), model facing direction (flip NOSE_POSITIVE_Z to 0 if he walks backwards), fatness jiggle on the real model, plus the M05 food pacing + trade-offs → commit on approval → milestone 03.
+Per `docs/roadmap.md`: **Phase 0 (stabilise) then Phase 1.1 (streaming/virtual ground)**. Streaming ground is the measured prerequisite for the map size Chris actually wants.
 
 ## Blockers
 
-- Milestone 01 feel AC + milestone 04 playtest ACs + commit approval need Chris's hands-on session.
-- Jimothy GLB: Chris generates in the Meshy web app (Meshy 5) and exports to `public/assets/models/jimothy.glb` — needed by the asset milestone (backlog), not by the current work.
+- **⚠️ 32 files staged and UNCOMMITTED.** Nothing from this session is committed. Chris hasn't approved a commit — ask first (house rule 1).
+- **⚠️ 3 tests failing** (heat specs at the new city scale; earlier the same flakiness landed on fatness specs). Feast-eating is NOT verified end-to-end on the current build — treat it as unknown, not working.
+- Map size is capped by eager ground allocation — 5×-per-side measured at 19 s boot / 1007 draw calls / 3.5 GB heap. Currently at 5× area (BOUNDS 250, ~7 s boot, 260 draw calls).
 
 ## Notes for next session
 
-- `npx playwright test` now auto-starts the dev server (playwright.config.js webServer, reuses a running one). The backlog item for this is done — tick it when touching backlog.md.
-- Headless screenshots composite the WebGL canvas black under SwiftShader — assert/capture via canvas pixel readback (see tests/boot-smoke.mjs and output/iterate capture pattern); don't chase the "black screenshot" as a bug.
-- The FIRST `advanceTime()` call switches the game to manual time (RAF renders but stops updating). Deliberate — deterministic tests. A human playtest session never calls it, so live play is unaffected.
-- The render loop uses a plain `performance.now()` delta (not `THREE.Clock` — deprecated — and not `THREE.Timer`, removed while chasing a machine-specific frozen-movement bug). Keep it that way.
-- Tuning overrides (localStorage `jimothy-dev`) clamp to Tunables ranges on load AND on entry; keybind overrides validate on load (empty/corrupt lists restore defaults). Chris's "W doesn't move" saga: zeroed override + possibly gamepad drift + playtesting against an HMR-reloading dev server mid-implementation. Never remove the clamps/validation; keyboard overrides gamepad axes while direction keys are held.
-- For playtests during active dev sessions, use the production preview (`npm run build && npm run preview -- --port 4173`) so HMR can't reload half-written code into the playtest tab.
-- **TRUE root cause of "moved once, then never again": cannon-es slept the idle kinematic player body and nothing wakes a kinematic body.** `allowSleep = false` on the player body (milestone 04 notes, fifth round). Any future player-adjacent body (launched-Jimothy dynamic body in M03!) must also be sleep-exempt or explicitly woken.
-- Controls are now CAMERA-RELATIVE with a pull-cam follow (yaw from camera→Jimothy line). Test helper `keysToward()` in gameplay.spec.js does the frame conversion — reuse it for any new steering tests.
-- Chris wants procedural stretchy-tube legs (backlog) — affects the asset milestone: Meshy export becomes body-only static GLB, no rigging needed.
-- GitHub Pages deploy is a later milestone: needs an Actions workflow building `dist/`; `vite.config.js` already uses relative `base: './'` so no path config should be needed.
-- House rule: commit/push only on Chris's explicit confirmation.
+- **Playtest on the production preview** (`npm run build && npm run preview -- --port 4173`), never the dev server — HMR reloads half-written code mid-session.
+- Tests boot with `__MANUAL_TIME__` (no real-time sim) and `__SKIP_RIG__` (skip the 4.4 MB model); only `rig.spec.js` loads it. `tests/helpers.mjs` has `warpNear`/`warpToFeast` because walking across a 500 m city eats the iteration budget.
+- **`teleportJimothy` must snap the camera** — controls are camera-relative, so a lagging camera makes the input frame meaningless (this silently broke many specs).
+- Chunks are **non-cubic** (64×12×64): draw calls scale with ground area, and cubic chunks waste height on empty sky.
+- Bedrock (material 7) is indestructible by design — without a floor, a roll digs through every layer and strands him.
+- cannon-es `applyImpulse(impulse, relativePoint)` takes a **body-relative** point. This bit us once; don't reintroduce it.
+- Blender scripts headlessly (`blender --background --python <script>`), which is a better agent loop than the Blender MCP for batch asset work. Capture renders by rendering and reading the canvas back **in the same evaluate call** — the WebGL buffer clears between calls.
+- `moss-sfx` MCP is connected and unused; audio is Phase 3 and is the cheapest big jump in perceived quality.
+- Legal: the Space Needle's *shape* is trademarked and Pike Place's name/sign are City of Seattle marks — use parodies. See `docs/lore.md` for the full accuracy guardrails (real animal, real institutions).

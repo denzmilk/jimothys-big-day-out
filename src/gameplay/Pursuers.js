@@ -16,6 +16,8 @@ export class Pursuers {
     this.paparazzi = [];
     this.animalControl = null;
     this.spawnIndex = 0;
+    // Shared across the whole pack so a crowd can't chain-stun the player.
+    this.globalFlashCooldown = 0;
 
     this.bodyGeo = new THREE.CylinderGeometry(0.28, 0.32, 1.2, 10);
     this.headGeo = new THREE.SphereGeometry(0.22, 12, 10);
@@ -95,6 +97,7 @@ export class Pursuers {
     // Hidden Jimothy is lost to them: everyone holds position, nobody
     // flashes, the net can't land — hiding must be a real pressure valve.
     const jp = this.jimothy.group.position;
+    this.globalFlashCooldown -= delta;
     for (const pap of this.paparazzi) {
       pap.flashCooldown -= delta;
       if (hidden) continue;
@@ -106,9 +109,11 @@ export class Pursuers {
       if (
         tier >= PAPARAZZI.MIN_TIER_FLASH &&
         d <= PAPARAZZI.FLASH_RANGE &&
-        pap.flashCooldown <= 0
+        pap.flashCooldown <= 0 &&
+        this.globalFlashCooldown <= 0
       ) {
         pap.flashCooldown = PAPARAZZI.FLASH_COOLDOWN;
+        this.globalFlashCooldown = PAPARAZZI.GLOBAL_FLASH_COOLDOWN;
         eventBus.emit(Events.PLAYER_STUNNED, { seconds: PAPARAZZI.STUN_SECONDS });
       }
     }

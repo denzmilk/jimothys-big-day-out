@@ -27,7 +27,8 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
   - **5** — **the ARMY.** Tanks roll in and fire shells at Jimothy. Shells ragdoll-launch him (dropping the combo, comedic knockback — possibly across the map) but never end the run. Shells can blast him out of trees.
 - **Fatness:** every snack makes Jimothy visibly fatter and jigglier — body distortion grows (wide-load blob, tiny head) with a springy wobble kicked by every bite. Score = points × combo; fatness = raw fat eaten (the body, and the capture screen's headline number). Fatness trade-offs (decided 2026-07-23): the fatter he is, the SLOWER he waddles and the harder he is to hide — bushes stop fitting entirely past a width threshold. Getting fat is winning and losing at the same time.
 - **Food comes in two tiers** (2026-07-23 playtest feedback): **scraps** scoop instantly at full waddle (fat 1, 10 pts); **feasts** (WHOLE PIZZA, TURKEY LEG…) demand standing still to chomp through a channel (fat 5, 50 pts) — a deliberate risk commitment at high heat. Interrupting the chomp loses the progress.
-- **Chaos raises heat** (not eating itself): tipping cans, wrecking/making a mess, scaring locals, blasting powerups at people. Heat drains slowly while hidden and out of sight.
+- **Chaos raises heat** (not eating itself): tipping cans, wrecking/making a mess, **smashing the neighbourhood apart**, scaring locals, blasting powerups at people. Heat drains slowly while hidden and out of sight.
+- **Everything breaks** (ADR-0003): the city is voxel-based and destructible — walls, fences, shopfronts, landmarks. Tank shells at tier 5 level the place; rubble is real geometry that piles up, blocks pursuers, and can bury food. Destruction is a chaos source, so wrecking things is itself a route up the heat ladder.
 - **Locals** (civilians) wander the block; scaring or slapstick-bonking them is chaos. Tone is strictly cartoon slapstick — startled leaps, dropped groceries, comedic fleeing. No gore, ever.
 - **Powerups** (post-slice content, see backlog): bubble blower (trap people in bubbles), poop-yourself gun, dance ray, sick ray (vomit), kamehameha, extra-long legs, super jump, food magnet. Chaos tools raise heat; movement tools aid escape.
 - **Trees:** Jimothy can climb; paparazzi and animal control cannot. Trees hold weird loot (bird nests, eggs, pants, other finds — "JIMOTHY ACQUIRES PANTS"). Pursuers wait below, so heat does not drain in a tree — and at tier 5, tank shells can dislodge him.
@@ -56,7 +57,7 @@ Procedural Web Audio, zero dependencies. Full meme slop: honks/squeaks for Jimot
 ## Anti-goals
 
 - Not a stealth sim — hiding is a pressure valve, not the game.
-- Not open world — one block, dense and hand-placed.
+- Not open world — **one dense, destructible Seattle district**, bounded and hand-authored, not a streaming city *(revised 2026-07-23, ADR-0003: the block becomes voxel-based and fully breakable; "hand-placed models" gave way to authored voxel level data)*.
 - No story, campaign, levels, or unlocks in v1.
 - No multiplayer in v1 (keep game state centralized so it stays possible later).
 - No mobile touch controls in v1 (desktop keyboard/mouse + gamepad only).

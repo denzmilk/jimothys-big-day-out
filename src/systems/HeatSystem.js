@@ -8,6 +8,7 @@ import { gameState } from '../core/GameState.js';
 // one entry here plus one constant.
 const SOURCES = {
   [Events.CAN_TIPPED]: 'PER_CAN_TIPPED',
+  [Events.LOCAL_SCARED]: 'PER_SCARED_LOCAL',
 };
 
 export class HeatSystem {
@@ -19,6 +20,13 @@ export class HeatSystem {
         this._retier();
       });
     }
+    // Demolition scales with how much you actually wrecked, so it can't use
+    // the flat per-event table above.
+    eventBus.on(Events.WORLD_DEMOLISHED, ({ voxels }) => {
+      if (!gameState.game.isPlaying) return;
+      gameState.heat.points += voxels * HEAT.PER_DEMOLITION;
+      this._retier();
+    });
   }
 
   _retier() {

@@ -51,6 +51,15 @@ export class CameraSystem {
     return this._look.set(jp.x, jp.y + CAMERA.LOOK_HEIGHT, jp.z);
   }
 
+  /** Jump the camera to where it should be, with no lerp — used after a
+   *  teleport so camera-relative input is immediately meaningful. */
+  snapToTarget() {
+    if (this.mode === 'orbit') this._computeOrbitDesired();
+    else this._computeFollowDesired();
+    this.camera.position.copy(this._desired);
+    this.camera.lookAt(this._lookTarget());
+  }
+
   update(delta) {
     if (this.input.pointerLocked) {
       this.mode = 'orbit';

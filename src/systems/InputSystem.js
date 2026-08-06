@@ -28,10 +28,15 @@ export class InputSystem {
       const t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (KEYBINDS.HOP.includes(e.code)) {
-        this._hopQueued = true;
+        // e.repeat filters the OS key-repeat storm from a held Space —
+        // otherwise every repeat queues another hop and he stair-steps into
+        // the sky the moment anything makes him grounded again.
+        if (!e.repeat) this._hopQueued = true;
         e.preventDefault(); // Space must never scroll/click
       }
       if (KEYBINDS.POINTER_LOCK.includes(e.code)) this.togglePointerLock();
+      if (!e.repeat && KEYBINDS.HEADBUTT.includes(e.code)) this._headbuttQueued = true;
+      if (!e.repeat && KEYBINDS.ROLL.includes(e.code)) this._rollQueued = true;
       this.codes.add(e.code);
     };
     this._onUp = (e) => this.codes.delete(e.code);
@@ -117,6 +122,18 @@ export class InputSystem {
     const h = this._hopQueued;
     this._hopQueued = false;
     return h;
+  }
+
+  consumeHeadbutt() {
+    const b = this._headbuttQueued;
+    this._headbuttQueued = false;
+    return b;
+  }
+
+  consumeRoll() {
+    const r = this._rollQueued;
+    this._rollQueued = false;
+    return r;
   }
 
   consumeMouseDelta() {

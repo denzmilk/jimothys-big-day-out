@@ -1,7 +1,7 @@
 // Milestone 01 acceptance specs. See tests/helpers.mjs for the harness
 // helpers (state/adv/boot/seek and the camera-frame steering math).
 import { test, expect } from '@playwright/test';
-import { FOODS, CAMERA, SNACKS, SCORE } from '../src/core/Constants.js';
+import { FOODS, CAMERA, SNACKS, SCORE, TRASH_CAN } from '../src/core/Constants.js';
 import { state, adv, boot, nearestSnack, seek, tipNearestCan } from './helpers.mjs';
 
 test('keyboard moves jimothy', async ({ page }) => {
@@ -90,7 +90,10 @@ test('can tips and spills snacks', async ({ page }) => {
   expect(final.cans.filter((c) => c.tipped).length).toBeGreaterThan(0);
   // Jimothy may waddle through the spill ring and eat some on the same pass,
   // so count remaining + eaten rather than expecting the full ring intact.
-  expect(final.snacks.length + final.snacksEaten).toBeGreaterThanOrEqual(SNACKS.SCRAPS_PER_CAN);
+  // Containers vary (a recycling tub yields fewer than a dumpster), so assert
+  // against the leanest kind rather than assuming a uniform payout.
+  const minScraps = Math.min(...TRASH_CAN.KINDS.map((k) => k.scraps));
+  expect(final.snacks.length + final.snacksEaten).toBeGreaterThanOrEqual(minScraps);
   expect(final.snacks.length).toBeGreaterThan(0);
 });
 

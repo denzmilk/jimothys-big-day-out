@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD, COLORS, HIDE_SPOTS } from '../core/Constants.js';
+import { WORLD, COLORS, HIDE_SPOTS, VOXEL } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
 // Static block dressing: ground + perimeter curbs matching the physics walls
@@ -13,6 +13,10 @@ export class LevelBuilder {
       new THREE.MeshStandardMaterial({ color: COLORS.GROUND }),
     );
     ground.rotation.x = -Math.PI / 2;
+    // Sits below the voxel ground slab as bedrock/horizon fill — the walkable
+    // surface is voxels now (ADR-0003), so craters expose this rather than
+    // z-fighting with it.
+    ground.position.y = -(VOXEL.GROUND_LAYERS + 2) * VOXEL.SIZE;
     scene.add(ground);
 
     // Bushes mark the hide spots; translucent so Jimothy reads through them.

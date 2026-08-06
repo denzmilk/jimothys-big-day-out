@@ -37,6 +37,52 @@
   - Rough size: L · Rough value: L
   - Notes: needs no Blender, no rigging, no piece exports, no extra Meshy generations — one `jimothy.glb` is the entire external dependency. Runtime split also means re-cutting is a slider drag, not a re-export. Blender chop remains the manual fallback if the splitter fights us. Should become milestone 05; blocked only on `public/assets/models/jimothy.glb`.
 
+- [ ] Silly rideables — terrible-on-purpose vehicles Jimothy can ride (shopping trolley, kid's scooter, escaped Roomba, a skateboard, the monorail?) with deliberately bad animation and worse physics. Comedy comes from the jank, not the driving model.
+  - Source: 2026-07-23 Chris ("some silly rideables with terrible animations and physics")
+  - Rough size: M · Rough value: L
+  - Notes: pairs with the voxel city (ADR-0003) — a trolley at speed should smash through walls. Jimothy is kinematic-while-controlled, so a rideable is a state swap, not a new controller.
+- [ ] Teardown-grade destruction — structural integrity (unsupported voxels fall), material-dependent toughness (glass shatters, brick resists), and cutting/pushing through walls rather than only sphere blasts. Reference: Teardown.
+  - Source: 2026-07-23 Chris ("Inspiration from Teardown for destructability is where I want to go with it")
+  - Rough size: L · Rough value: L
+  - Notes: the current implementation does sphere damage + debris only. Structural collapse needs a connectivity pass (flood-fill from ground per chunk-island) — expensive, so budget it as its own milestone after the city exists.
+- [ ] Seattle landmarks — Space Needle, Pike Place, Fremont Troll, monorail, Amazon spheres, ferries, Mount Rainier backdrop.
+  - Source: 2026-07-23 Chris ("We will need to do a seattle themed city too")
+  - Rough size: L · Rough value: L
+  - Notes: ⚠️ LEGAL — the Space Needle's *shape* is a registered trademark (Space Needle LLC) and "Pike Place Market"/its neon sign are City of Seattle marks. CC0 asset licences do NOT clear trademark. Use deliberately off-model parodies ("the Space Noodle") for the same joke with far less exposure.
+
+- [ ] Jimothy's den interior + lore props — dress the squashed trash-can house from the verified prop list in `docs/lore.md`: the tipped "raccoon-resistant" green bin (Toronto spent CA$31M on these; raccoons beat them by TIPPING THEM OVER — this game's core verb), the "Saint Jimothy" stained-glass window, a defeated-padlock trophy board with one mounted upside-down, the shredded city proclamation as bedding, a bobblehead of himself, the "WHITE HOUSE RACCOON" collar, and the cat-food-and-sprung-trap that foreshadows the net.
+  - Source: 2026-07-23 Chris ("Jimothy's house should be a squashed sideways trash can - maybe do research on what Jimothy/racoons do to add in some LORE into his house")
+  - Rough size: M · Rough value: L
+  - Notes: den shell already built in `VoxelCity.buildTrashCanDen`; this is the interior dressing. `docs/lore.md` holds the full 15-prop list plus accuracy guardrails — the game references a real living animal and real institutions, so read the guardrails before writing any in-game text (no "diagnosed with", no UW diploma, never depict feeding him, shiny-hoarding is a myth).
+- [ ] "Real raccoon facts" credits panel — one screen of genuine coexistence info, following the precedent of Chris Pirillo's 8-bit Jimothy game, which shipped real tips in its manual and got warm press for it. Cheap, on-brand, and inoculates the project against "glamourising wildlife harassment."
+  - Source: 2026-07-23 lore research (docs/lore.md guardrails)
+  - Rough size: S · Rough value: M
+
+- [ ] Stealable vehicles + rideables — cars, shopping trolley, scooter, monorail. Terrible-on-purpose handling; a trolley at speed smashes voxel walls. Jimothy is kinematic-while-controlled so a vehicle is a controller state swap, not a second controller.
+  - Source: 2026-07-23 Chris ("vehicles (stealable)", earlier "silly rideables with terrible animations and physics")
+  - Rough size: L · Rough value: L · Roadmap: Phase 4
+- [ ] Ragdoll bodies — pedestrians, paparazzi and animal control get jointed ragdolls. INJURED, NEVER KILLED: they flop, crawl and get back up. Goat-sim register, strictly cartoon (see docs/lore.md guardrails).
+  - Source: 2026-07-23 Chris ("more pedestrians with ragdoll effects (goat sim vibes)", "enemies can be injured/ragdolled (not killed)")
+  - Rough size: L · Rough value: L · Roadmap: Phase 2 — unblocks most of the weapon arsenal
+- [ ] Crowd-scale pedestrians — far more than the current 26, via instancing plus a shared ragdoll pool so only nearby/hit people simulate.
+  - Source: 2026-07-23 Chris ("more pedestrians")
+  - Rough size: M · Rough value: M · Roadmap: Phase 2
+- [ ] Day/night cycle — golden hour → dusk → night → dawn. Raccoons are nocturnal, so night should be a mechanical advantage: thinner crowds, easier hiding, faster heat decay in darkness, brighter/scarier camera flashes.
+  - Source: 2026-07-23 Chris ("day/night cycle")
+  - Rough size: M · Rough value: L · Roadmap: Phase 3
+- [ ] Temporary pickups/weapons — fire extinguisher (propulsion + fog), taser, suction-cap gun, plus the earlier list (bubble blower, dance ray, sick ray, food magnet, super jump, long legs). Timed pickups with a duration meter.
+  - Source: 2026-07-23 Chris ("temporary pickups/weapons (extinguishers, tazers, suction cap guns etc.)")
+  - Rough size: L · Rough value: L · Roadmap: Phase 5 — depends on ragdoll
+- [ ] Enterable houses — doors that open, interiors with food/lore/residents. Two approaches (hollow the voxel buildings vs. portal to an interior scene) — wants an ADR. Voxel-hollowing keeps destruction continuous, which is more Teardown.
+  - Source: 2026-07-23 Chris ("houses to enter")
+  - Rough size: L · Rough value: L · Roadmap: Phase 4
+- [ ] Streaming / virtual ground — stop allocating undamaged ground voxels up front; render intact terrain as merged tiles and materialise chunks only where damaged. MEASURED BLOCKER: 5×-per-side map costs 19 s boot, 1007 draw calls, 3.5 GB heap; currently capped at 5× area instead.
+  - Source: 2026-07-23 measurement while scaling the city
+  - Rough size: L · Rough value: L · Roadmap: Phase 1 — prerequisite for a genuinely city-scale map
+- [ ] Material toughness — glass shatters, clapboard splinters, brick resists, concrete needs a fat Jimothy. Makes fatness-as-power legible.
+  - Source: 2026-07-23 roadmap planning
+  - Rough size: M · Rough value: M · Roadmap: Phase 1
+
 ## Polish & juice
 
 - [ ] Asset milestone — Jimothy Meshy 5 GLB (waddle/scurry/stagger/caught clips), CC0 GLBs for houses/cans/trees/pursuers/tanks, CC0 photo PBR textures for the demi-real look

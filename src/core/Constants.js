@@ -3,8 +3,15 @@ export const PLAYER_CONFIG = {
   SCURRY_SPEED: 10,
   ACCEL: 30,
   TURN_SPEED: 8,
-  HOP_FORCE: 7,
-  HOP_GRAVITY: 20,
+  // Snappy pop, not a moon jump: a raccoon hop should land where you aimed
+  // it. Air control is throttled so he can't steer a whole flight path
+  // mid-hop (playtest 2026-07-23: "jumps and just flies away").
+  HOP_FORCE: 6,
+  HOP_GRAVITY: 34,
+  AIR_CONTROL: 0.35,
+  // How high a ledge he can auto-climb: crater walls, rubble, kerbs. Must
+  // exceed the deepest crater or his own destruction traps him.
+  CLIMB_HEIGHT: 2.6,
   RADIUS: 0.55,
   PICKUP_RADIUS: 1.0,
   BONK_MIN_SPEED: 2,
@@ -30,6 +37,34 @@ export const KEYBINDS = {
   POINTER_LOCK: ['KeyL'],
   DEVTOOLS: ['Backquote'],
   RESTART: ['KeyR'],
+  HEADBUTT: ['KeyB', 'KeyE'],
+  ROLL: ['KeyC'],
+};
+
+// Jimothy's two destruction moves. Both hit IN FRONT of him rather than at
+// his feet — blasting under himself dug a pit he fell into and got stuck in
+// (playtest 2026-07-23). Both scale with fatness: a chunky Jimothy is a
+// wrecking ball.
+export const MOVES = {
+  HEADBUTT: {
+    REACH: 1.6,        // how far ahead the impact lands
+    WINDUP: 0.12,      // rear back…
+    LUNGE: 0.18,       // …then snap forward
+    RECOVER: 0.22,
+    LUNGE_SPEED: 7,    // he shoves himself into the hit
+    COOLDOWN: 0.45,
+    RADIUS_SCALE: 1.0,
+  },
+  ROLL: {
+    DURATION: 0.75,
+    SPEED: 13,
+    SPINS: 2.5,        // full rotations during the roll
+    COOLDOWN: 0.9,
+    // A roll carves a wider, shallower path than a headbutt.
+    RADIUS_SCALE: 0.8,
+    // Destruction ticks along the roll rather than one big sphere.
+    TICKS: 5,
+  },
 };
 
 export const TRASH_CAN = {
@@ -42,11 +77,21 @@ export const TRASH_CAN = {
   BONK_LIFT: 3,
   // Bonks re-fire while overlapping; cooldown keeps cans from rocketing.
   BONK_COOLDOWN_SECONDS: 0.4,
-  // Hand-placed block layout (gameplan: dense, hand-placed, one block).
+  // Containers are scattered across the city procedurally (see
+  // TrashCans.defaultLayout) — hand-placing them across a 220 m district
+  // isn't viable. Kept as the fallback/dev-reset layout near spawn.
   POSITIONS: [
     [6, -4], [10, 3], [-7, 6], [-12, -8], [3, 12],
     [-3, -14], [14, -12], [-16, 4], [9, 16], [-11, 14],
   ],
+  // Variety of street containers — different sizes, masses and payouts.
+  KINDS: [
+    { name: 'can', radius: 0.38, height: 1.0, mass: 8, scraps: 4, feasts: 1, color: 0x3f6f5f },
+    { name: 'wheelie', radius: 0.5, height: 1.4, mass: 14, scraps: 6, feasts: 1, color: 0x2f5f3f },
+    { name: 'dumpster', radius: 0.95, height: 1.5, mass: 34, scraps: 9, feasts: 2, color: 0x4a5a72 },
+    { name: 'recycling', radius: 0.42, height: 1.0, mass: 7, scraps: 3, feasts: 0, color: 0x2f6a8a },
+  ],
+  COUNT: 70,
 };
 
 // Two-tier food economy (gameplan): scraps scoop instantly on the move,
@@ -80,6 +125,13 @@ export const FATNESS = {
   KICK_FEAST: 0.2,
   // Continuous jelly wobble while waddling, scaled by fatness.
   JELLY: 0.05,
+  // Eating makes him STRONGER, not just fatter (Chris 2026-07-23: "as jimothy
+  // eats he can get stronger"). Blast radius grows with the same asymptotic
+  // fat factor, so a well-fed Jimothy levels buildings a skinny one can only
+  // chip. This is the upside that makes the speed penalty a real trade.
+  // Destruction is the fat payoff: a lean Jimothy chips a wall, a gorged one
+  // levels the block. Steep on purpose so eating visibly buys power.
+  BLAST_PER_FAT: 5.5,
   // Trade-offs (Chris, 2026-07-23): fat = slower + too conspicuous to hide.
   // Fraction of waddle speed lost at the fat asymptote…
   SPEED_PENALTY_MAX: 0.45,
@@ -114,17 +166,25 @@ export const HEAT = {
   DECAY_PER_SECOND_HIDDEN: 2,
   PER_CAN_TIPPED: 5,
   PER_TREE_LOOT: 3,
+  PER_SCARED_LOCAL: 3,
+  PER_DEMOLITION: 0.4, // per voxel destroyed — levelling a house is chaos
 };
 
+// Tuned down after playtest (2026-07-23: "a bit aggressive/hard to deal
+// with"). They're a nuisance and a comedy beat, not a threat — the net is the
+// only real danger. Fewer of them, slower, shorter stuns, and a shared
+// cooldown so a crowd can't chain-stun you.
 export const PAPARAZZI = {
-  SPEED: 3.5,
-  COUNT_TIER1: 2,
-  COUNT_TIER2: 4,
+  SPEED: 2.6,
+  COUNT_TIER1: 1,
+  COUNT_TIER2: 3,
   // They stop at photo range and loiter; tier 2+ they flash.
-  FLASH_RANGE: 5,
-  FLASH_COOLDOWN: 3,
+  FLASH_RANGE: 4,
+  FLASH_COOLDOWN: 5,
+  // No matter how many are around, flashes can't land faster than this.
+  GLOBAL_FLASH_COOLDOWN: 2.5,
   MIN_TIER_FLASH: 2,
-  STUN_SECONDS: 0.8,
+  STUN_SECONDS: 0.45,
 };
 
 export const ANIMAL_CONTROL = {
@@ -139,9 +199,22 @@ export const PURSUER_SPAWN_POINTS = [
   [0, -25], [25, 0], [0, 25], [-25, 0],
 ];
 
+// Hiding is the only pressure valve, so bushes have to be reachable from
+// anywhere. Four of them clustered near spawn was fine on a 50 m block and
+// useless once the city grew to 500 m — spread across the district on the
+// block grid, with a couple kept close to spawn and the den.
 export const HIDE_SPOTS = {
   RADIUS: 2,
-  POSITIONS: [[-20, -20], [18, 8], [-6, 18], [22, -18]],
+  POSITIONS: (() => {
+    const spots = [[-20, -20], [18, 8], [-6, 18], [22, -18]];
+    for (let x = -220; x <= 220; x += 68) {
+      for (let z = -220; z <= 220; z += 68) {
+        if (Math.hypot(x, z) < 40) continue; // spawn area already covered
+        spots.push([x + 4, z - 4]);
+      }
+    }
+    return spots;
+  })(),
 };
 
 export const SCORE = {
@@ -152,10 +225,40 @@ export const SCORE = {
 };
 
 export const WORLD = {
-  BLOCK_SIZE: 80,
+  BLOCK_SIZE: 1200,
   // Playable square: Jimothy is clamped here; physics walls sit just outside.
-  BOUNDS: 26,
+  // 250 = ~5× the AREA of the previous district (110 → 250 is 2.3× per side).
+  // 5× per SIDE was measured and rejected for now: 19 s boot, 1007 draw calls,
+  // 3.5 GB heap, because undamaged ground voxels are allocated up front for
+  // the whole map. Streaming/virtual ground (see docs/roadmap.md) is the
+  // prerequisite for going bigger; this is the largest size that boots fast.
+  BOUNDS: 250,
   GRAVITY: 9.8,
+};
+
+// Procedural Ballard-ish street grid. Blocks of buildings separated by roads;
+// hand-authoring a city this size in voxels is not viable, so the layout is
+// generated from a seed and stays diffable as rules rather than voxel data.
+export const CITY = {
+  BLOCK: 34,        // world units per city block including its road
+  ROAD: 9,          // road width
+  BUILDING_MARGIN: 2.5,
+  MIN_HEIGHT: 6,
+  MAX_HEIGHT: 16,
+  // Downtown rises toward the middle; the edges stay residential.
+  DOWNTOWN_RADIUS: 45,
+  SEED: 1337,
+};
+
+export const PEDESTRIANS = {
+  COUNT: 26,
+  SPEED: 1.4,
+  // Wander target reached → pick a new one.
+  ARRIVE_RADIUS: 1.5,
+  // Jimothy this close sends them fleeing (and that's chaos → heat).
+  SCARE_RADIUS: 5,
+  FLEE_SPEED: 4.2,
+  FLEE_SECONDS: 3.5,
 };
 
 export const CAMERA = {
@@ -190,7 +293,10 @@ export const COLORS = {
 };
 
 export const ASSET_PATHS = {
-  JIMOTHY_MODEL: '/assets/models/jimothy.glb',
+  // Blender-prepped: decimated, texture-downscaled, pre-split into named
+  // head/body/tail/leg parts (tools/prep_jimothy.py). 4.4 MB vs the 39 MB raw
+  // Meshy export it was built from.
+  JIMOTHY_MODEL: '/assets/models/jimothy-rig.glb',
 };
 
 // Runtime model splitter (milestone 06): one full Meshy GLB cut into
@@ -203,6 +309,51 @@ export const RIG = {
   TAIL_FRAC: 0.12,
   // Flip if the export faces -z instead of +z.
   NOSE_POSITIVE_Z: 1,
+};
+
+// Destructible voxel city (ADR-0003). Chunked so one draw call covers a whole
+// 16³ block of voxels — a mesh per voxel is ~19k draw calls and does not run.
+export const VOXEL = {
+  // Chunky on purpose (playtest 2026-07-23: "voxel parts are very small").
+  // Big blocks read as destruction from across the street and cost less to
+  // mesh; fine detail is not the aesthetic here.
+  SIZE: 0.55,
+  // Chunks are WIDE and SHALLOW, not cubic. Draw calls scale with the
+  // horizontal chunk count while the world is mostly flat, so a cube wastes
+  // its height budget on empty sky. 64×12×64 holds the same voxel count as
+  // the old 32³ (so re-mesh cost per blast is unchanged) while covering 4×
+  // the ground area per draw call — which is what lets the city grow and the
+  // voxels shrink at the same time.
+  CHUNK_XZ: 64,
+  CHUNK_Y: 12,
+  // A skinny raccoon is not a wrecking ball. Base radius barely scratches
+  // paint — real demolition is earned by eating (FATNESS.BLAST_PER_FAT).
+  BLAST_RADIUS: 0.75,
+  // Ground is a real voxel slab so craters are possible, not a flat plane.
+  // Two layers: diggable dirt over indestructible bedrock.
+  GROUND_LAYERS: 2,
+  // Material ids → colour. 0 is always air.
+  MATERIALS: {
+    1: { name: 'clapboard', color: 0xd8d2c4 },
+    2: { name: 'shingle', color: 0x6b5f57 },
+    3: { name: 'brick', color: 0x9b5b45 },
+    4: { name: 'glass', color: 0x86b6c4 },
+    5: { name: 'moss', color: 0x4f7a43 },
+    6: { name: 'concrete', color: 0x9a9a94 },
+    7: { name: 'bedrock', color: 0x6a6258 },
+  },
+  // Bedrock can't be destroyed. Without a floor, a roll digs straight through
+  // every ground layer and leaves Jimothy stranded metres below grade in a
+  // pit he can't climb (playtest 2026-07-23).
+  BEDROCK: 7,
+};
+
+export const DEBRIS = {
+  MAX: 150,           // hard cap; oldest recycles
+  PER_BLAST: 14,
+  LIFETIME: 6,
+  IMPULSE: 4.5,
+  MASS: 0.4,
 };
 
 export const LEGS = {
@@ -218,4 +369,8 @@ export const LEGS = {
   STEP_LIFT: 0.22,
   // Feet lead the body by velocity × this, so the trot reads as walking.
   STRIDE_LEAD: 0.12,
+  // Real-leg swing mode: crude diagonal-pair flailing, on purpose.
+  SWING_HZ: 1.4,
+  SWING_AMPLITUDE: 0.75,
+  SWING_MIN: 0.06,
 };

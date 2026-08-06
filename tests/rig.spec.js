@@ -11,7 +11,9 @@ test('rig loads and splits', async ({ page }) => {
     { timeout: 90_000 },
   );
   const s = await state(page);
-  expect(s.rig.pieces).toBe(3);
+  // head + body + tail + four legs, pre-split at build time by
+  // tools/prep_jimothy.py (was 3 when the split happened at runtime).
+  expect(s.rig.pieces).toBe(7);
   expect(s.rig.placeholderHidden).toBe(true);
 });
 

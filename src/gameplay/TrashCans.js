@@ -1,9 +1,40 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { TRASH_CAN as TC, SNACKS, FOODS, PLAYER_CONFIG, COLORS } from '../core/Constants.js';
+import { TRASH_CAN as TC, SNACKS, FOODS, PLAYER_CONFIG, COLORS, WORLD, CITY } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import { DevOverrides } from '../core/DevOverrides.js';
+
+/** Containers scattered along the street grid across the whole district.
+ *  Deterministic (no Math.random) so restarts and tests are reproducible. */
+export function defaultLayout() {
+  let seed = 4242;
+  const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 0x100000000);
+  const out = [];
+  const b = WORLD.BOUNDS - 6;
+  const block = CITY.BLOCK;
+  // Overlapping containers get flung apart by the solver and topple on their
+  // own — which spills free food and free heat with no player input. Enforce
+  // spacing at placement rather than letting physics sort it out.
+  const MIN_GAP = 3.5;
+  let attempts = 0;
+  while (out.length < TC.COUNT && attempts < TC.COUNT * 30) {
+    attempts++;
+    // Bins live on kerbs, not in the middle of lawns: pin one axis into the
+    // road strip and let the other run along it.
+    const gx = Math.round((rnd() * 2 - 1) * b / block) * block;
+    const gz = Math.round((rnd() * 2 - 1) * b / block) * block;
+    const along = (rnd() * 2 - 1) * block * 0.42;
+    const horizontal = rnd() > 0.5;
+    const kind = Math.floor(rnd() * TC.KINDS.length);
+    const x = Math.max(-b, Math.min(b, horizontal ? gx + along : gx + CITY.ROAD * 0.55));
+    const z = Math.max(-b, Math.min(b, horizontal ? gz + CITY.ROAD * 0.55 : gz + along));
+    if (Math.hypot(x, z) < 6) continue; // keep spawn clear
+    if (out.some(([ox, oz]) => Math.hypot(ox - x, oz - z) < MIN_GAP)) continue;
+    out.push([+x.toFixed(1), +z.toFixed(1), kind]);
+  }
+  return out;
+}
 
 // Cans are dynamic boxes (visual stays a cylinder): boxes tumble comically and
 // are cheaper/stabler in cannon-es than convex cylinders. Snacks are
@@ -27,13 +58,15 @@ export class TrashCans {
 
     this.cans = [];
     this.snacks = [];
-    for (const [x, z] of DevOverrides.getCanLayout() ?? TC.POSITIONS) this.addCan(x, z);
+    for (const [x, z, kind] of DevOverrides.getCanLayout() ?? defaultLayout()) {
+      this.addCan(x, z, kind);
+    }
 
     // DevTools level tools — panel emits, we own the entities.
     eventBus.on(Events.DEV_SPAWN_CAN, () => {
       const jp = this.jimothy.body.position;
       const yaw = this.jimothy.yaw;
-      this.addCan(jp.x + Math.sin(yaw) * 2.5, jp.z + Math.cos(yaw) * 2.5);
+      this.addCan(jp.x + Math.sin(yaw) * 2.5, jp.z + Math.cos(yaw) * 2.5, 0);
       this._emitLayout();
     });
     eventBus.on(Events.DEV_REMOVE_CAN, () => {
@@ -54,22 +87,45 @@ export class TrashCans {
     });
   }
 
-  addCan(x, z) {
-    const mesh = new THREE.Mesh(this.canGeo, this.canMat);
+  // kindIndex selects from TRASH_CAN.KINDS — wheelie bins, dumpsters and
+  // recycling tubs differ in size, mass and payout, so the street reads as a
+  // city rather than a row of identical props.
+  addCan(x, z, kindIndex = 0) {
+    const kind = TC.KINDS[kindIndex] ?? TC.KINDS[0];
+    const geo = this._geoFor(kind);
+    const mesh = new THREE.Mesh(geo, this._matFor(kind));
     this.scene.add(mesh);
     const body = new CANNON.Body({
-      mass: TC.MASS,
-      shape: new CANNON.Box(new CANNON.Vec3(TC.RADIUS, TC.HEIGHT / 2, TC.RADIUS)),
-      position: new CANNON.Vec3(x, TC.HEIGHT / 2, z),
+      mass: kind.mass,
+      shape: new CANNON.Box(new CANNON.Vec3(kind.radius, kind.height / 2, kind.radius)),
+      position: new CANNON.Vec3(x, kind.height / 2, z),
       linearDamping: 0.25,
       angularDamping: 0.25,
     });
     body.sleepSpeedLimit = 0.3;
     body.sleepTimeLimit = 0.6;
     this.physics.add(body, mesh);
-    const can = { mesh, body, tipped: false, bonkCooldown: 0 };
+    const can = { mesh, body, tipped: false, bonkCooldown: 0, kind };
     this.cans.push(can);
     return can;
+  }
+
+  _geoFor(kind) {
+    this._geoCache ??= new Map();
+    if (!this._geoCache.has(kind.name)) {
+      this._geoCache.set(kind.name, kind.name === 'dumpster'
+        ? new THREE.BoxGeometry(kind.radius * 2, kind.height, kind.radius * 1.4)
+        : new THREE.CylinderGeometry(kind.radius + 0.02, kind.radius - 0.03, kind.height, 12));
+    }
+    return this._geoCache.get(kind.name);
+  }
+
+  _matFor(kind) {
+    this._matCache ??= new Map();
+    if (!this._matCache.has(kind.name)) {
+      this._matCache.set(kind.name, new THREE.MeshStandardMaterial({ color: kind.color }));
+    }
+    return this._matCache.get(kind.name);
   }
 
   removeCan(can) {
@@ -91,9 +147,9 @@ export class TrashCans {
 
   // Default layout honours a dev-tools layout override; the dev "reset"
   // button passes TC.POSITIONS explicitly to get back to shipped defaults.
-  resetCans(layout = DevOverrides.getCanLayout() ?? TC.POSITIONS) {
+  resetCans(layout = DevOverrides.getCanLayout() ?? defaultLayout()) {
     while (this.cans.length) this.removeCan(this.cans[0]);
-    for (const [x, z] of layout) this.addCan(x, z);
+    for (const [x, z, kind] of layout) this.addCan(x, z, kind);
   }
 
   clearSnacks() {
@@ -128,18 +184,30 @@ export class TrashCans {
       if (can.tipped) continue;
       const cp = can.body.position;
       const d = Math.hypot(cp.x - jp.x, cp.z - jp.z);
+      // Reach and impulse both scale with the container: a dumpster is wider
+      // than a kerbside can and needs a real shove to go over, while a fixed
+      // impulse would send a light recycling tub into orbit.
+      const kr = can.kind?.radius ?? TC.RADIUS;
+      const kh = can.kind?.height ?? TC.HEIGHT;
+      const massScale = (can.kind?.mass ?? TC.MASS) / TC.MASS;
       if (
         can.bonkCooldown <= 0 &&
         jspeed > PLAYER_CONFIG.BONK_MIN_SPEED &&
-        d < TC.RADIUS + PLAYER_CONFIG.RADIUS + 0.25
+        d < kr + PLAYER_CONFIG.RADIUS + 0.35
       ) {
         const nx = (cp.x - jp.x) / (d || 1);
         const nz = (cp.z - jp.z) / (d || 1);
         can.body.wakeUp();
         // Impulse lands above the centre of mass so the can topples instead of sliding.
+        const push = TC.BONK_IMPULSE * massScale;
+        // The second argument is RELATIVE to the body's centre of mass, not a
+        // world position. Passing world coords made the lever arm equal to the
+        // distance from the origin — harmless when the block was 20 m wide,
+        // but across a 220 m city it flung containers into orbit instead of
+        // tipping them. Offset upward so it topples rather than slides.
         can.body.applyImpulse(
-          new CANNON.Vec3(nx * TC.BONK_IMPULSE, TC.BONK_LIFT, nz * TC.BONK_IMPULSE),
-          new CANNON.Vec3(cp.x, cp.y + TC.HEIGHT * 0.4, cp.z),
+          new CANNON.Vec3(nx * push, TC.BONK_LIFT * massScale, nz * push),
+          new CANNON.Vec3(0, kh * 0.4, 0),
         );
         can.bonkCooldown = TC.BONK_COOLDOWN_SECONDS;
       }
@@ -192,8 +260,10 @@ export class TrashCans {
 
   spillFrom(can) {
     const cp = can.body.position;
-    for (let k = 0; k < SNACKS.SCRAPS_PER_CAN; k++) {
-      const a = (k / SNACKS.SCRAPS_PER_CAN) * Math.PI * 2;
+    const scraps = can.kind?.scraps ?? SNACKS.SCRAPS_PER_CAN;
+    const feasts = can.kind?.feasts ?? SNACKS.FEASTS_PER_CAN;
+    for (let k = 0; k < scraps; k++) {
+      const a = (k / scraps) * Math.PI * 2;
       const mesh = new THREE.Mesh(this.snackGeo, this.snackMat);
       mesh.position.set(
         cp.x + Math.cos(a) * SNACKS.SCATTER_RADIUS,
@@ -203,7 +273,7 @@ export class TrashCans {
       this.scene.add(mesh);
       this.snacks.push({ mesh, phase: k, type: 'scrap' });
     }
-    for (let k = 0; k < SNACKS.FEASTS_PER_CAN; k++) {
+    for (let k = 0; k < feasts; k++) {
       const mesh = new THREE.Mesh(this.feastGeo, this.feastMat);
       mesh.position.set(
         cp.x + SNACKS.FEAST_OFFSET[0] * (k + 1),

@@ -2,7 +2,7 @@
 // chomp) and the fatness body distortion.
 import { test, expect } from '@playwright/test';
 import { FOODS, SNACKS, HIDE_SPOTS } from '../src/core/Constants.js';
-import { state, adv, boot, seek, tipNearestCan, seedTuning } from './helpers.mjs';
+import { state, adv, boot, seek, tipNearestCan, seedTuning, warpToFeast } from './helpers.mjs';
 
 function nearestOfType(s, type) {
   let best = null;
@@ -57,12 +57,8 @@ test('feasts require stopping', async ({ page }) => {
   expect(survived).toBe(true);
 
   // Now walk onto it and STAND — the channel completes and pays out.
-  s = await seek(page, (st) => {
-    const f = nearestOfType(st, 'feast');
-    if (!f) return null;
-    const d = Math.hypot(f.x - st.jimothy.x, f.z - st.jimothy.z);
-    return d > 0.6 ? f : null;
-  }, { maxIters: 60 });
+  await warpToFeast(page);
+  s = await state(page);
   const scoreBefore = s.score;
   const fatBefore = s.fatness;
   await adv(page, 0.5); // momentum settles, channel starts
@@ -75,12 +71,8 @@ test('feasts require stopping', async ({ page }) => {
 test('interrupted feast resets progress', async ({ page }) => {
   await boot(page);
   await tipNearestCan(page);
-  let s = await seek(page, (st) => {
-    const f = nearestOfType(st, 'feast');
-    if (!f) return null;
-    const d = Math.hypot(f.x - st.jimothy.x, f.z - st.jimothy.z);
-    return d > 0.6 ? f : null;
-  }, { maxIters: 60 });
+  await warpToFeast(page);
+  let s = await state(page);
   const fatBefore = s.fatness;
   await adv(page, 0.5);
   await adv(page, FOODS.FEAST.CHANNEL_SECONDS * 0.6); // 60% chomped…
@@ -88,12 +80,7 @@ test('interrupted feast resets progress', async ({ page }) => {
   await page.keyboard.down('s');
   await adv(page, 0.8);
   await page.keyboard.up('s');
-  s = await seek(page, (st) => {
-    const f = nearestOfType(st, 'feast');
-    if (!f) return null;
-    const d = Math.hypot(f.x - st.jimothy.x, f.z - st.jimothy.z);
-    return d > 0.6 ? f : null;
-  }, { maxIters: 60 });
+  await warpToFeast(page);
   await adv(page, 0.5);
   await adv(page, FOODS.FEAST.CHANNEL_SECONDS * 0.6);
   const mid = await state(page);
@@ -131,15 +118,10 @@ test('fat jimothy waddles slower', async ({ page }) => {
   };
   const slimDistance = await walk();
   await tipNearestCan(page);
-  let s = await seek(page, (st) => {
-    if (st.fatness >= FOODS.FEAST.FAT) return null;
-    const f = st.snacks.find((sn) => sn.type === 'feast');
-    if (!f) return null;
-    return Math.hypot(f.x - st.jimothy.x, f.z - st.jimothy.z) > 0.6 ? f : null;
-  });
+  await warpToFeast(page);
   await adv(page, 0.5);
   await adv(page, FOODS.FEAST.CHANNEL_SECONDS + 0.5);
-  s = await state(page);
+  let s = await state(page);
   expect(s.fatness).toBeGreaterThanOrEqual(FOODS.FEAST.FAT);
   const fatDistance = await walk();
   expect(fatDistance).toBeLessThan(slimDistance * 0.85);
@@ -149,25 +131,15 @@ test('fat jimothy cannot fit in bushes', async ({ page }) => {
   await seedTuning(page, { FATNESS: { SOFTCAP: 5, HIDE_SQUEEZE: 6 } });
   await boot(page);
   await tipNearestCan(page);
-  await seek(page, (st) => {
-    if (st.fatness >= FOODS.FEAST.FAT) return null;
-    const f = st.snacks.find((sn) => sn.type === 'feast');
-    if (!f) return null;
-    return Math.hypot(f.x - st.jimothy.x, f.z - st.jimothy.z) > 0.6 ? f : null;
-  });
+  await warpToFeast(page);
   await adv(page, 0.5);
   await adv(page, FOODS.FEAST.CHANNEL_SECONDS + 0.5);
-  // Waddle to a bush center — a slim Jimothy would be hidden here (covered by
-  // the heat suite), but this blob bulges out of it.
-  const s = await seek(page, (st) => {
-    let best = null;
-    let bd = Infinity;
-    for (const h of st.hideSpots) {
-      const d = Math.hypot(h.x - st.jimothy.x, h.z - st.jimothy.z);
-      if (d < bd) { bd = d; best = h; }
-    }
-    return bd > 0.5 ? best : null;
-  });
+  // Stand in a bush centre — a slim Jimothy hides here (covered by the heat
+  // suite), but this blob bulges out of it.
+  const bush = (await state(page)).hideSpots[0];
+  await page.evaluate(([x, z]) => window.teleportJimothy(x, z), [bush.x, bush.z]);
+  await adv(page, 0.4);
+  const s = await state(page);
   const inBush = s.hideSpots.some(
     (h) => Math.hypot(h.x - s.jimothy.x, h.z - s.jimothy.z) < HIDE_SPOTS.RADIUS,
   );

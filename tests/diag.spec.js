@@ -21,10 +21,13 @@ test('diag strip shows key codes and movement', async ({ page }) => {
   await page.keyboard.down('w');
   await adv(page, 0.5);
   await expect(page.locator('#diag')).toContainText('KeyW');
-  const text = await page.locator('#diag').textContent();
+  // The strip refreshes on its own throttle (0.15s of RAF), so wait for it to
+  // catch up with the sim rather than racing it.
+  await page.waitForFunction(() => {
+    const m = document.querySelector('#diag').textContent.match(/vel:([\d.]+)/);
+    return m && parseFloat(m[1]) > 1;
+  });
   await page.keyboard.up('w');
-  // Velocity readout must be non-zero while waddling.
-  expect(parseFloat(text.match(/vel:([\d.]+)/)[1])).toBeGreaterThan(1);
 });
 
 test('keyboard hint appears on click without keys and clears on first key', async ({ page }) => {

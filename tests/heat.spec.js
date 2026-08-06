@@ -73,7 +73,9 @@ test('tier-2 camera flash stuns jimothy', async ({ page }) => {
   await boot(page);
   const s1 = await tipNearestCan(page);
   expect(s1.heat.tier).toBeGreaterThanOrEqual(2);
-  const stunned = await advUntil(page, (s) => s.stunned, { maxSeconds: 25 });
+  // Stuns are short by design (0.45s — they're a comedy beat, not a threat),
+  // so poll in fine slices or detection lands after the stun has expired.
+  const stunned = await advUntil(page, (s) => s.stunned, { slice: 0.1, maxSeconds: 40 });
   expect(stunned.stunned).toBe(true);
   // Input is suppressed during the stagger…
   const before = await state(page);

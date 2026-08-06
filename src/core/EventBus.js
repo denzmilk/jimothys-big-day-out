@@ -49,6 +49,10 @@ export const Events = {
   PLAYER_NETTED: 'player:netted',
   // can:*
   CAN_TIPPED: 'can:tipped',
+  // local:*
+  LOCAL_SCARED: 'local:scared',
+  // world:*
+  WORLD_DEMOLISHED: 'world:demolished',
   // heat:*
   HEAT_CHANGED: 'heat:changed',
   // score:*

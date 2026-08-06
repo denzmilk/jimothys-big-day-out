@@ -73,8 +73,38 @@ export async function seek(page, pick, { maxIters = 80 } = {}) {
   return state(page);
 }
 
-export const tipNearestCan = (page) =>
-  seek(page, (s) => (s.cans.some((c) => c.tipped) ? null : nearestUntippedCan(s)));
+/** Warp Jimothy next to a world position, leaving the last couple of metres
+ *  to be walked. The city is ~220 m across, so specs that walked from spawn
+ *  spent their whole iteration budget commuting; teleporting close keeps the
+ *  mechanic under test (the bonk, the pickup) without the cross-town trek. */
+export async function warpNear(page, x, z, offset = 2.5) {
+  await page.evaluate(([tx, tz]) => window.teleportJimothy(tx, tz), [x - offset, z - offset]);
+  await adv(page, 0.3);
+}
+
+/** Tip containers until a feast has actually spilled, then park Jimothy on
+ *  it. Not every container yields one — recycling tubs spill scraps only — so
+ *  specs can't assume the first can tipped produces a feast. */
+export async function warpToFeast(page, { maxCans = 6 } = {}) {
+  for (let i = 0; i < maxCans; i++) {
+    const s = await state(page);
+    const feast = s.snacks.find((sn) => sn.type === 'feast');
+    if (feast) {
+      await page.evaluate(([x, z]) => window.teleportJimothy(x, z), [feast.x, feast.z]);
+      await adv(page, 0.4); // settle: the channel needs him nearly still
+      return feast;
+    }
+    await tipNearestCan(page);
+  }
+  return null;
+}
+
+export async function tipNearestCan(page) {
+  const s = await state(page);
+  const can = nearestUntippedCan(s);
+  if (can) await warpNear(page, can.x, can.z);
+  return seek(page, (st) => (st.cans.some((c) => c.tipped) ? null : nearestUntippedCan(st)));
+}
 
 // Seed persistent dev overrides before the page loads — the supported way for
 // specs to reshape tuning (e.g. crank heat-per-can so one tip reaches tier 3).

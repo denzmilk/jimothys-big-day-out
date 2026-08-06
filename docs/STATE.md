@@ -66,11 +66,15 @@ Scope-triaged a nine-item request down to one focused pass over Jimothy himself,
 
 ## Next step
 
-Chris playtests milestone 08's exit condition, then **Phase 1.1 (streaming/virtual ground)** per `docs/roadmap.md` — still the measured prerequisite for the map size he wants, and now also for finer voxels, underground areas, and house interiors.
+**Finish milestone 10's animation port** — the five ordered steps are in `docs/milestones/10-skinned-rig.md` under "Where this stopped". Step 1 (establish the bone axis mapping empirically, one axis at a time, and write it down) is the only genuinely unknown part; the rest is mechanical.
+
+Then **streaming ground (JIM-01)**, which Chris picked on 2026-08-07.
 
 ## Blockers
 
-- **⚠️ Two commits are LOCAL ONLY — not pushed.** Chris approved committing, not pushing. Ask before touching `origin`.
+- **⚠️ All five commits are LOCAL ONLY — not pushed.** Chris approved committing, not pushing.
+- **⚠️ Milestone 10 is half-landed BY DESIGN.** The skinned model is real, loads, and renders seamlessly — but nothing animates it yet, so `RIG.SKINNED` stays opt-in and the game still ships the seven-piece model. Do not flip that flag until the animation port is done, or Jimothy will stand in a T-pose equivalent.
+- **⚠️ Old note kept for context:** Chris approved committing, not pushing. Ask before touching `origin`.
 - **⚠️ JIM-11 (legs read as detached) needs re-judging, not more code.** The leg sockets are now capped, so the join no longer shows a hole. Whatever gap remains is a different cause — most likely the hip pivot sitting at the top of the leg's bounding box, which swings the leg top out of the socket. Get Chris's eyes on it before changing anything.
 - **⚠️ Milestone 08 AND 09 both await playtest sign-off.** Everything either one claims is "implemented, tests pass" — that is the ceiling until Chris plays it (house rule 4).
 - **⚠️ 4 specs failing, confirmed PRE-EXISTING** (JIM-03) — `score and combo`, `heat rises with chaos`, `tier-2 camera flash`, `interrupted feast`. Not caused by milestone 08: verified by running them against the pre-session staged state in a throwaway worktree. The old "3 failing" list in the roadmap was wrong and has been corrected. Feast eating is still unverified end-to-end. Final suite: **50 passed / 5 failed of 55**, where the 5th (`animal control nets jimothy`) is a **parallel-worker flake** — it passed twice at `--workers=1`. Re-run any heat/fatness failure serially before blaming a code change; the four genuine ones reproduce serially.

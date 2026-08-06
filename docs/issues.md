@@ -120,6 +120,26 @@ Listed among the open issues only because it is the same underlying exposure as 
 
 ---
 
+### JIM-21 — Seams: the rig separates instead of stretching
+
+**Status:** open · **Severity:** high (it caps how far any animation can go) · **Reported:** 2026-08-07 (Chris)
+
+> "We do need to fix the seams — have the mesh stretch instead of just separate/break."
+
+Jimothy is **seven rigid solids** parented into slots (milestone 06). Any animation that moves a piece slides it past its neighbour, because there is no geometry spanning the joint. Milestone 09 capped the sockets so you no longer see *through* him, but a capped socket sliding past a capped stump is still a visible seam — and it is why the headbutt's head thrust had to be cut to 0.12 (JIM-18) and why the legs still read as detached (JIM-11).
+
+**No amount of work on the split approach fixes this.** Separate solids cannot deform across a joint; that is what skinning is for.
+
+**Fix:** one continuous mesh bound to an armature, with smooth vertex weights across each joint so the surface stretches. Bones can be placed from the same anatomy landmarks the split already computes (`neck_y`, `tail_y`, `leg_z`, plus L/R and front/back), so the hard-won calibration carries over. The game then drives **bone rotations** in exactly the places it currently drives slot rotations — head bob, tail wiggle, leg swing, roll tuck, headbutt pitch — so `JimothyController`'s animation logic survives largely intact.
+
+Retires: the socket-capping half of JIM-10, JIM-11, and the JIM-18 thrust cap. Also lays groundwork for Phase 2 ragdoll, which wants a joint hierarchy anyway.
+
+**Where:** `tools/prep_jimothy.py` (armature + auto-weights, export with skin), `src/gameplay/JimothyRig.js` (SkinnedMesh + bone lookup), `src/gameplay/JimothyController.js` and `JimothyLegs.js` (drive bones, not slots)
+
+**Tooling note:** no Blender MCP server is connected to this session, and none is needed — the pipeline already runs headlessly via `blender --background --python`, which `docs/STATE.md` records as the better loop for batch asset work.
+
+---
+
 ### JIM-11 — Legs still read as detached from the body
 
 **Status:** open · **Severity:** medium · **Reported:** 2026-08-06 (Chris, with screenshot)

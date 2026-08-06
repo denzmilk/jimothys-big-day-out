@@ -78,6 +78,11 @@ Then **milestone 11 — scamper gait** (`docs/milestones/11-scamper-gait.md`, JI
 
 **On Blender:** Chris offered to learn rigging. Told him not to — the remaining unknown is bone-axis mapping (a 20-minute empirical test, not a rigging skill), and procedural generation is genuinely better here because it re-derives from the model's proportions and stays diffable. The one place his Blender time WOULD pay off is weight painting, since distance falloff is anatomically naive near the tail/rump. Revisit only if it reads badly.
 
+## Newest asks (2026-08-07, logged not lost)
+
+- **JIM-23 lasso** — design now SETTLED by Chris: a landed lasso starts a struggle (mash the roll button), breaking free flings the catcher, a background **exhaustion** stat means escaping twice in a row is unlikely, and a thrown lasso can tangle pedestrians/bins. Only the rope *implementation* (real cannon-es chain vs. convincing fake) is open — decide that with a measurement, not a guess.
+- **JIM-24 "as big as a house"** — the fatness ceiling is currently ~1.9× width, roughly an order of magnitude short of the stated fantasy. `SPEED_PENALTY_MAX` is already raised 0.45 → 0.7 as step one. The rest is a rebalance, not a constant bump: the camera must pull back with girth, the kinematic sphere stops being a sane shape, the city becomes furniture rather than obstacles, and the asymptotic curve `fat/(fat+SOFTCAP)` mathematically cannot exceed `MAX_WIDTH_GAIN` no matter how much he eats. Wants its own milestone.
+
 ## Blockers
 
 - **⚠️ All five commits are LOCAL ONLY — not pushed.** Chris approved committing, not pushing.

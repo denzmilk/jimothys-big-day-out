@@ -180,8 +180,11 @@ export const FATNESS = {
   // levels the block. Steep on purpose so eating visibly buys power.
   BLAST_PER_FAT: 5.5,
   // Trade-offs (Chris, 2026-07-23): fat = slower + too conspicuous to hide.
-  // Fraction of waddle speed lost at the fat asymptote…
-  SPEED_PENALTY_MAX: 0.45,
+  // Fraction of waddle speed lost at the fat asymptote. Raised 0.45 → 0.7 on
+  // 2026-08-07: eating has to HURT, or there is no decision in it. This is
+  // also what makes the lasso (JIM-23) land — a gorged Jimothy is slow enough
+  // to rope — and it is step one of JIM-24, where he grows house-sized.
+  SPEED_PENALTY_MAX: 0.7,
   // …and how fast bushes stop fitting: effective hide radius shrinks by this
   // per unit of body-width gain, until the blob simply doesn't fit.
   HIDE_SQUEEZE: 2.5,

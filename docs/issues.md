@@ -132,12 +132,43 @@ Replace it with a **thrown lasso**: a physics rope the officer must land over Ji
 
 **Why the difficulty curve falls out for free:** fatness already costs speed (`FATNESS.SPEED_PENALTY_MAX`, 45% at the asymptote) and now grows the hitbox too. A fat Jimothy is both slower to dodge and a bigger target, so the lasso gets easier the greedier you've been — with no separate difficulty tuning. That is the fat-is-the-score fantasy paying off as *risk*, which the game currently only expresses as a speed penalty.
 
-Design questions to settle before building:
+**Design settled by Chris, 2026-08-07:**
 
-- Rope simulation: a cannon-es chain of small bodies with distance constraints is the honest version and gives real slapstick, but a chain per officer at tier 4–5 needs a budget. A cheaper fake (animated curve + a single "did it land" test) may read just as well.
-- Does a landed lasso end the run instantly, or start a tug-of-war Jimothy can struggle out of? A struggle is far better comedy and makes the net feel earned rather than arbitrary.
-- Can a lasso miss and *tangle a pedestrian or a bin*? Very much this game's register.
-- Does it interact with the hide bushes and heat tiers, or is it purely spatial?
+- **A landed lasso does not end the run — it starts a struggle.** Mash the roll button to break free. Reuses a control the player already knows, and turns the worst moment in the game into the most active one.
+- **Breaking free flings the catcher away.** The escape is a *win*, with a physical payoff, not just a reset to neutral.
+- **Exhaustion is a background stat.** Each capture drains it, so escaping twice in a row is unlikely — "if you get caught attempted twice in a row you're probably out". This is what stops mashing from being a free pass while keeping every single capture survivable. It also gives the run a soft failure curve instead of a binary one: the player can *feel* the noose tightening.
+- **A thrown lasso can catch the wrong thing.** Pedestrians, bins, other officers. Misses become comedy rather than dead air, and it rewards using crowds as cover.
+
+Still open:
+
+- Rope simulation: a cannon-es chain of small bodies with distance constraints is the honest version and gives real slapstick, but a chain per officer at tier 4–5 needs a budget. A cheaper fake (animated curve + a single "did it land" test) may read just as well. **Decide with a measurement, not a guess** — that is how JIM-01 and JIM-10 went wrong.
+- Does exhaustion regenerate, and how fast? It is the difference between a run that can recover and one that only decays.
+- Does it interact with hide bushes and heat tiers, or is it purely spatial?
+
+---
+
+### JIM-24 — Jimothy should be able to get as big as a house
+
+**Status:** open · **Severity:** high (it is the core fantasy) · **Reported:** 2026-08-07 (Chris)
+
+> "Speed slow down can be more aggressive, the idea is that Jimothy can get as big as a house if he keeps eating."
+
+Fatness currently asymptotes at roughly **1.9× body width** (`SOFTCAP 25`, `MAX_WIDTH_GAIN 0.9`). That is "chunky raccoon", not "the size of a house". The ceiling is the whole point of the game — *fat is the score* — and it is currently set about an order of magnitude too low.
+
+`FATNESS.SPEED_PENALTY_MAX` also raised 0.45 → 0.7 (2026-08-07) as the first step: eating should hurt, and it is what makes the lasso (JIM-23) land.
+
+Raising the ceiling properly touches more than one constant, and each of these is a real question rather than a number to bump:
+
+- **Camera.** A house-sized Jimothy does not fit the current follow distance. The camera must pull back with girth, or he fills the screen and the player cannot see the street.
+- **Collision radius** already tracks fatness, but at house scale the *kinematic sphere* stops being a reasonable shape for something that wide and low.
+- **The city stops being an obstacle course and becomes furniture.** At house scale he steps over craftsman houses rather than smashing through them, which inverts the destruction fantasy — destruction may need to scale with him, or the growth curve needs to stay under the rooflines.
+- **Hide spots stop working entirely** well before house scale (`HIDE_SQUEEZE` already handles this) — that is correct and intended, but worth confirming it degrades gracefully rather than snapping.
+- **Blast radius** (`BLAST_PER_FAT`) compounds with size; a house-sized Jimothy with the current curve levels a block per headbutt.
+- The **asymptotic** curve (`f = fat / (fat + SOFTCAP)`) can never exceed `MAX_WIDTH_GAIN` no matter how much he eats. House scale needs either a much larger gain or a different curve — a soft cap that keeps *rewarding* eating rather than flattening.
+
+Wants its own milestone; it is a rebalance of the whole game around a much larger dynamic range, not a constant change.
+
+**Where:** `src/core/Constants.js` (`FATNESS`, `CAMERA`), `src/systems/CameraSystem.js`, `src/gameplay/JimothyController.js`
 
 **Depends on:** nothing hard, though ragdoll (JIM-08, Phase 2) would make a tangled officer much funnier.
 **Where:** `src/gameplay/Pursuers.js`, `src/systems/PhysicsSystem.js`, `docs/gameplan.md` (the net is described there as the only run-ender — update it when this lands)

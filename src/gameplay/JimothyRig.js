@@ -19,7 +19,10 @@ export class JimothyRig {
     this.bodyPiece = null; // the mesh the belly-attachment check measures against
 
     this.bones = {};      // name -> Bone, when skinned
+    this.rest = {};       // name -> bind quaternion, never mutated
     this.skinned = null;  // the SkinnedMesh, when skinned
+    this._q = new THREE.Quaternion();
+    this._e = new THREE.Euler();
 
     const path = RIG.SKINNED ? ASSET_PATHS.JIMOTHY_SKINNED : ASSET_PATHS.JIMOTHY_MODEL;
     new GLTFLoader().loadAsync(path).then((gltf) => {
@@ -28,6 +31,24 @@ export class JimothyRig {
       this.loaded = true;
       eventBus.emit(Events.RIG_LOADED, { pieces: this.pieces.length });
     }).catch((e) => console.error('JimothyRig load failed:', e));
+  }
+
+  /** Pose a bone by a delta from its bind orientation, in the bone's own
+   *  frame. The ONLY sanctioned way to move a bone here — see `rest`. */
+  pose(name, x = 0, y = 0, z = 0) {
+    const b = this.bones[name];
+    if (!b) return;
+    this._e.set(x, y, z);
+    b.quaternion.copy(this.rest[name]).multiply(this._q.setFromEuler(this._e));
+  }
+
+  /** Uniform-ish scale on a bone, from its bind scale. Used for fatness: the
+   *  mesh is continuous, so scaling the body bone carries head, tail and legs
+   *  with it — which is why the split path's anchoring code is deleted, not
+   *  ported (JIM-15 cannot recur here). */
+  scaleBone(name, x, y, z) {
+    const b = this.bones[name];
+    if (b) b.scale.set(x, y, z);
   }
 
   /** Skinned path (ADR-0004): the model arrives as one SkinnedMesh plus an
@@ -47,7 +68,15 @@ export class JimothyRig {
     root.position.y = -box.min.y * scale;
 
     root.traverse((o) => {
-      if (o.isBone) this.bones[o.name] = o;
+      if (o.isBone) {
+        this.bones[o.name] = o;
+        // The bind orientation lives in the bone's quaternion. Every pose must
+        // be composed against this, never written over it — assigning
+        // `bone.rotation.x` the way the old slot code did collapses the
+        // skeleton (measured: head and tail rest pointing opposite ways both
+        // read identically once zeroed). See milestone 10.
+        this.rest[o.name] = o.quaternion.clone();
+      }
       if (o.isSkinnedMesh) {
         this.skinned = o;
         this.pieces.push(o);

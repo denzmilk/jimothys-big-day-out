@@ -68,6 +68,7 @@ export class JimothyController {
       this.headMesh.visible = false;
       this.placeholderHidden = true;
       this.bodyRender = this.rig.bodyPiece || this.bodyMesh;
+      if (this.rig.skinned) this.legs.useBones(this.rig);
       // Swap the fallback tubes for the model's own legs — running both is
       // what gave him eight legs in playtest.
       this.legs.useRealLegs(this.rig.legs);
@@ -533,6 +534,29 @@ export class JimothyController {
       height * (1 - wobble * 0.6) * (1 - squash),
       width * (1 - wobble * 0.3) * (1 + squash),
     );
+
+    // --- skinned rig (ADR-0004): pose bones from the values already computed
+    // above, so the animation logic has exactly one home. The slot code above
+    // still runs but drives nothing visible on this path — the placeholder
+    // meshes are hidden and the skinned mesh hangs off the group, not a slot.
+    //
+    // Axis mapping, MEASURED with the bind orientation intact (milestone 10):
+    // x = pitch, y = twist along the bone (invisible), z = lateral. Positive
+    // x on the head drops the chin.
+    if (this.rig.skinned) {
+      const bob = Math.abs(Math.sin(this.elapsed * P.WADDLE_BOB_HZ + 0.9)) * 0.12 * speedNorm;
+      this.rig.pose('head', -bodyPitch * MOVES.HEADBUTT.HEAD_PITCH_GAIN
+        + tuck * MOVES.ROLL.TUCK_HEAD + bob, 0, 0);
+      this.rig.pose('tail', tuck * MOVES.ROLL.TUCK_TAIL, 0,
+        Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck));
+      // Fatness scales the body bone's CROSS-SECTION. Its own +Y runs along
+      // the spine, so scaling y would stretch him nose-to-tail rather than
+      // fatten him. Because the mesh is continuous, this carries the head,
+      // tail and legs with it — which is why the split path's anchoring code
+      // has no equivalent here (JIM-15 cannot recur).
+      const belly = width * (1 + wobble) * (1 + squash);
+      this.rig.scaleBone('body', belly, 1, belly);
+    }
 
     // Tumble about his MIDDLE, not his toes. The group's origin sits at ground
     // level (its position is his feet), so pitching it swept his whole body

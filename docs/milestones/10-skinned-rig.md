@@ -67,6 +67,17 @@ The pipeline and the load path are done and verified. **What remains is porting 
 
 Only after that is it worth reconsidering JIM-18's thrust cap and JIM-11.
 
+## Open: fatness now scales the whole animal
+
+Verified in-browser (`output/iterate/skin-fat.png`): scaling the `body` bone carries head, tail and legs with it seamlessly — which is the milestone working. But the split path deliberately scaled the belly ONLY, on the grounds recorded in the code that "tiny head on an enormous body IS the meme". Skinning blends head vertices onto the body bone, so that intent is lost.
+
+Two options, both cheap — **needs Chris's call**:
+
+1. Counter-scale the `head` bone by the inverse of the belly scale, restoring the tiny-head silhouette.
+2. Accept it: he inflates as one animal, which is arguably a better read for a creature that ate too much.
+
+Do not just pick one. It is a deliberate character decision that was written down once already.
+
 ## Notes
 
 - **Blender's automatic weights fail silently on this mesh** — `Bone Heat Weighting: failed to find solution`, all 18,766 vertices left at zero influence, with an armature that still looks correct. Do not reach for `ARMATURE_AUTO` here. See ADR-0004.

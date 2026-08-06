@@ -41,6 +41,18 @@ export class JimothyLegs {
     this.pairOf = (i) => this.legs[[3, 2, 1, 0][i]];
   }
 
+  /** Switch to swinging the skinned rig's leg BONES and retire the tubes.
+   *  Separate from useRealLegs because the skinned model has leg bones, not
+   *  leg objects — leaving the tubes up is the "eight legs" bug (2026-07-23). */
+  useBones(rig) {
+    this.rig = rig;
+    this.mode = 'bones';
+    for (const leg of this.legs) {
+      leg.tube.visible = false;
+      leg.foot.visible = false;
+    }
+  }
+
   /** Switch to the model's real legs and retire the tubes. */
   useRealLegs(legMap) {
     if (!legMap || !Object.keys(legMap).length) return;
@@ -91,8 +103,35 @@ export class JimothyLegs {
   }
 
   update(delta) {
-    if (this.mode === 'real') this._updateReal(delta);
+    if (this.mode === 'bones') this._updateBones(delta);
+    else if (this.mode === 'real') this._updateReal(delta);
     else this._updateTubes(delta);
+  }
+
+  // Bone axes, measured through rig.pose() with the bind orientation intact
+  // (milestone 10): x pitches the limb fore/aft — the gait swing — z splays it
+  // sideways, and y twists along the bone and is invisible. The same mapping
+  // holds for head and tail, since every bone is built the same way.
+  //
+  // Still the crude diagonal-pair swing inherited from _updateReal. Planted
+  // feet and terrain-aware IK are milestone 11 (JIM-22), and the logic for
+  // them already exists in _updateTubes below — reconnect it, don't rewrite.
+  _updateBones(delta) {
+    const speedNorm = Math.min(1, this.controller.speed / PLAYER_CONFIG.SPEED);
+    this.phase += delta * LEGS.SWING_HZ * (0.4 + speedNorm * 1.6) * Math.PI * 2;
+    const amp = LEGS.SWING_MIN + speedNorm * LEGS.SWING_AMPLITUDE;
+    const tuck = this.tuck || 0;
+    ['leg_FL', 'leg_FR', 'leg_RL', 'leg_RR'].forEach((name, i) => {
+      const diagonal = (i === 0 || i === 3) ? 1 : -1;
+      const front = i < 2 ? 1 : -1;
+      const swing = Math.sin(this.phase) * amp * diagonal;
+      this.rig.pose(
+        name,
+        swing * (1 - tuck) + MOVES.ROLL.TUCK_LEG * front * tuck,
+        0,
+        Math.cos(this.phase) * amp * 0.25 * diagonal * (1 - tuck),
+      );
+    });
   }
 
   /** 0 = normal gait, 1 = fully tucked under him for the roll. Blended rather

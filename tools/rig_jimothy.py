@@ -94,13 +94,30 @@ bone('neck', (0, y_mid, spine_z), (0, neck_y, spine_z), 'body', True)
 bone('head', (0, neck_y, spine_z), (0, y_min + y_len * 0.04, spine_z + z_len * 0.05), 'neck', True)
 bone('tail', (0, tail_y, spine_z), (0, y_max, spine_z + z_len * 0.08), 'body')
 
-# Four legs, each hip -> foot. One bone per leg keeps the game's existing
-# swing animation (a single rotation about the hip) working unchanged.
-for label, sx, fy in (
-    ('FL', -1, y_mid - y_len * 0.22), ('FR', 1, y_mid - y_len * 0.22),
-    ('RL', -1, y_mid + y_len * 0.20), ('RR', 1, y_mid + y_len * 0.20),
+# Four legs, each hip -> knee -> foot. TWO segments, not one: foot IK needs a
+# limb that can bend, and a single hip-to-foot stick cannot plant a foot on
+# uneven ground (Chris 2026-08-07: "physics aware footing you get with
+# unity/unreal"). The knee also gives the sprawled, low-slung scamper pose
+# somewhere to bend outward from.
+#
+# The knee is pushed slightly OUTWARD in x and forward/back in y, which is
+# what pre-defines the bend direction — an IK solver needs to know which way
+# the joint folds, and a perfectly straight limb is ambiguous.
+KNEE_FRAC = 0.55          # how far down the leg the knee sits
+KNEE_OUT = 0.35           # sideways bend hint, as a fraction of hip offset
+for label, sx, fy, fwd in (
+    ('FL', -1, y_mid - y_len * 0.22, -1), ('FR', 1, y_mid - y_len * 0.22, -1),
+    ('RL', -1, y_mid + y_len * 0.20, 1), ('RR', 1, y_mid + y_len * 0.20, 1),
 ):
-    bone(f'leg_{label}', (sx * leg_x, fy, leg_z), (sx * leg_x, fy, foot_z), 'body')
+    hip = (sx * leg_x, fy, leg_z)
+    knee = (
+        sx * leg_x * (1 + KNEE_OUT),
+        fy + fwd * y_len * 0.03,
+        leg_z + (foot_z - leg_z) * KNEE_FRAC,
+    )
+    foot = (sx * leg_x * (1 + KNEE_OUT * 0.5), fy, foot_z)
+    bone(f'leg_{label}', hip, knee, 'body')
+    bone(f'shin_{label}', knee, foot, f'leg_{label}', True)
 
 bpy.ops.object.mode_set(mode='OBJECT')
 

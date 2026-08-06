@@ -120,6 +120,26 @@ Listed among the open issues only because it is the same underlying exposure as 
 
 ---
 
+### JIM-22 — Legs should scamper: sprawled, low, with physics-aware footing
+
+**Status:** open · **Severity:** medium (it's the character's whole read) · **Reported:** 2026-08-07 (Chris)
+
+> "What I want with his little legs is to have them be a bit more scamper-y, so a bit more sprawling and lower to the ground, like he's sort of creeping about — then have the physics aware footing you get with unity/unreal engine."
+
+Two separate things:
+
+**(a) Pose — sprawled and low.** Hips splayed wider, knees bent outward, body carried closer to the ground, faster cadence. A creeping raccoon, not a trotting dog. This is tuning, not architecture, and belongs in `Constants` so it can be dialled during playtest.
+
+**(b) Footing — feet plant on real terrain.** What Unity/Unreal give via IK rigs: the foot finds the ground, the limb bends to reach it, and the body responds. On this game's voxel terrain that means sampling `groundHeightAt` per foot, so feet land correctly on crater lips, rubble piles and kerbs instead of sliding through them.
+
+**Most of (b) already exists and was abandoned.** `JimothyLegs._updateTubes` implements a real gait — planted feet, drift threshold, step timing, foot lift — for the fallback stretchy tubes. When the real model loads, `_updateReal` takes over and is only a crude swing. The planting logic is the hard part and it is already written and playtested; it needs reconnecting to actual geometry rather than reinventing.
+
+**Prerequisite, now done:** two-segment legs. `tools/rig_jimothy.py` generates `leg_*` (hip→knee) and `shin_*` (knee→foot) per leg — 12 joints total. A single hip-to-foot bone is a rigid stick and cannot plant a foot on uneven ground. The knee is also deliberately offset outward, which pre-defines the bend direction; a perfectly straight limb is ambiguous to an IK solver.
+
+**Where:** `src/gameplay/JimothyLegs.js` (revive `_updateTubes`' planting against bones), `src/core/Constants.js` (`LEGS` sprawl/cadence), `tools/rig_jimothy.py` (done)
+
+---
+
 ### JIM-21 — Seams: the rig separates instead of stretching
 
 **Status:** open · **Severity:** high (it caps how far any animation can go) · **Reported:** 2026-08-07 (Chris)

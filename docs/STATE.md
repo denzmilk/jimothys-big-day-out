@@ -68,7 +68,13 @@ Scope-triaged a nine-item request down to one focused pass over Jimothy himself,
 
 **Finish milestone 10's animation port** — the five ordered steps are in `docs/milestones/10-skinned-rig.md` under "Where this stopped". Step 1 (establish the bone axis mapping empirically, one axis at a time, and write it down) is the only genuinely unknown part; the rest is mechanical.
 
-Then **streaming ground (JIM-01)**, which Chris picked on 2026-08-07.
+Then **milestone 11 — scamper gait** (`docs/milestones/11-scamper-gait.md`, JIM-22): sprawled low stance plus terrain-aware foot IK. Its prerequisite is already done — `tools/rig_jimothy.py` now generates TWO-segment legs (`leg_*` hip→knee, `shin_*` knee→foot, 12 joints), because a single hip-to-foot bone cannot plant a foot on uneven ground.
+
+**Do not rewrite the gait from scratch.** `JimothyLegs._updateTubes` already implements planted feet, drift threshold, step timing and foot lift — it was orphaned when the real model arrived and `_updateReal` (a crude swing) took over. Reconnect that logic to bones.
+
+Then **streaming ground (JIM-01)**, which Chris picked on 2026-08-07. **Open ordering question for Chris:** he picked streaming before asking for the scamper gait, so confirm which he wants first.
+
+**On Blender:** Chris offered to learn rigging. Told him not to — the remaining unknown is bone-axis mapping (a 20-minute empirical test, not a rigging skill), and procedural generation is genuinely better here because it re-derives from the model's proportions and stays diffable. The one place his Blender time WOULD pay off is weight painting, since distance falloff is anatomically naive near the tail/rump. Revisit only if it reads badly.
 
 ## Blockers
 

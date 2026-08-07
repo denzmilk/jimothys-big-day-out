@@ -1,5 +1,5 @@
 import * as Terrain from './Terrain.js';
-import { TERRAIN } from '../core/Constants.js';
+import { TERRAIN, SEWER } from '../core/Constants.js';
 import { inPolygon, polygonBounds } from '../core/MathUtils.js';
 
 const plan = Terrain.plan;
@@ -56,6 +56,7 @@ const HALF = SIZE / 2;
 
 let cells = null;
 let regionOf = null;   // which region owns a cell, so district lookups are free
+let trunk = null;      // the sewer centreline: the middle of every arterial
 let blockIdOf = null;
 let blocks = null;
 let buildings = null;
@@ -161,6 +162,19 @@ function stampRegion(region) {
       const i = idx(cx, cz);
       if (uOff < uw || vOff < vw) {
         cells[i] = CLASS.ROAD;
+        // The sewer runs down the middle of the arterials (milestone 18).
+        //
+        // DERIVED from the street network rather than authored as polylines in
+        // the plan, which is what the milestone imagined. The roads themselves
+        // are expanded from district polygons and grid angles, so hand-drawn
+        // sewer lines would be drawn against a network nobody has seen yet and
+        // would rot the first time a district's angle changed. Deriving them
+        // guarantees what the AC actually asks for — a tunnel under the street
+        // network, with entrances that land on streets — by construction.
+        const onU = uw === arterial && uOff < uw;
+        const onV = vw === arterial && vOff < vw;
+        if ((onU && Math.abs(uOff - uw / 2) <= CELL)
+          || (onV && Math.abs(vOff - vw / 2) <= CELL)) trunk[i] = 1;
       } else if (region.alleys && Math.abs(vOff - (vw + (bd - vw) / 2)) < alley / 2) {
         // One alley down the spine of each block, behind the frontages. The
         // single biggest change to how the city reads — and where the bins go,
@@ -377,6 +391,7 @@ export function bake() {
   // Outskirts and green space between the districts and the coast.
   cells = new Uint8Array(SIZE * SIZE).fill(CLASS.PARK);
   regionOf = new Int8Array(SIZE * SIZE).fill(-1);
+  trunk = new Uint8Array(SIZE * SIZE);
   for (const region of regions) stampRegion(region);
   // Parks and plazas are carved AFTER the streets, so they genuinely interrupt
   // the network instead of being a differently-coloured block. The island plan
@@ -407,13 +422,16 @@ export function bake() {
       // the flood fill finds a block in the middle of the canal.
       cells[i] = CLASS.ROAD;
       regionOf[i] = -1;
+      trunk[i] = 0; // no sewer under a bridge deck: there is nothing under it
     } else if (t.height[i] < TERRAIN.BUILD_MIN_HEIGHT) {
       cells[i] = CLASS.WATER;
       regionOf[i] = -1;
+      trunk[i] = 0;
     }
   }
 
   findBlocks();
+  findSewers();
   baked = true;
   indexBuildings();
 }
@@ -453,6 +471,105 @@ export function districtAtWorld(x, z) {
   if (c === CLASS.PARK || c === CLASS.PLAZA) return 'park';
   const r = regionOf[i];
   return r >= 0 ? regions[r].district : 'residential';
+}
+
+/** The sewer as a GRAPH, not just a mask (milestone 18).
+ *
+ *  Connected components of the centreline, each guaranteed at least one street
+ *  entrance. That guarantee is the AC "no dead space you cannot get out of",
+ *  and it is enforced here — by construction, at bake time — rather than
+ *  checked afterwards and hoped for. Components too small to be a tunnel are
+ *  dropped rather than left as sealed pockets in the rock.
+ */
+let sewerComponents = null;
+let sewerCell = null;
+
+function findSewers() {
+  sewerCell = new Uint8Array(SIZE * SIZE);
+  sewerComponents = [];
+  const seen = new Uint8Array(SIZE * SIZE);
+  const stack = [];
+  // 8-connected: the centreline runs down rotated grids, so a diagonal step is
+  // the same tunnel and treating it as a break would shatter every arterial in
+  // a rotated district into dozens of "components".
+  const NEIGHBOURS = [
+    [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1],
+  ];
+  for (let start = 0; start < trunk.length; start++) {
+    if (!trunk[start] || seen[start]) continue;
+    const cellsIn = [];
+    stack.push(start);
+    seen[start] = 1;
+    while (stack.length) {
+      const at = stack.pop();
+      cellsIn.push(at);
+      const cx = at % SIZE;
+      const cz = (at - cx) / SIZE;
+      for (const [dx, dz] of NEIGHBOURS) {
+        const nx = cx + dx;
+        const nz = cz + dz;
+        if (!inGrid(nx, nz)) continue;
+        const n = idx(nx, nz);
+        if (!trunk[n] || seen[n]) continue;
+        seen[n] = 1;
+        stack.push(n);
+      }
+    }
+    if (cellsIn.length * CELL < SEWER.MIN_RUN) continue; // a puddle, not a tunnel
+    // Entrances, spaced along the run. Sorted first, so which cells get one is
+    // a property of the plan and not of flood-fill order.
+    cellsIn.sort((a, b) => a - b);
+    const entrances = [];
+    for (const c of cellsIn) {
+      const cx = c % SIZE;
+      const x = toWorld(cx);
+      const z = toWorld((c - cx) / SIZE);
+      if (cells[c] !== CLASS.ROAD) continue; // on a street, never in a building
+      if (entrances.some((e) => Math.hypot(e.x - x, e.z - z) < SEWER.ENTRANCE_SPACING)) continue;
+      entrances.push({ x, z });
+    }
+    if (!entrances.length) continue; // nowhere to get in: not a place, so not built
+    for (const c of cellsIn) sewerCell[c] = 1;
+    sewerComponents.push({ id: sewerComponents.length, cells: cellsIn.length, entrances });
+  }
+}
+
+/** Every sewer entrance on the island. Used to carve the stairwells, and by the
+ *  specs to assert that each tunnel has one. */
+export function sewerNetwork() {
+  bake();
+  return sewerComponents;
+}
+
+/** Distance to the nearest sewer centreline, in metres, capped at `max`.
+ *
+ *  Scanned over a small neighbourhood rather than a distance field: the bore is
+ *  a couple of metres wide, so the answer is always within a cell or two, and a
+ *  fourth million-cell chamfer at boot to learn that is not worth it. */
+export function sewerDistance(x, z, max = 6) {
+  bake();
+  const reach = Math.ceil(max / CELL);
+  const cx = toCell(x);
+  const cz = toCell(z);
+  let best = max;
+  for (let dz = -reach; dz <= reach; dz++) {
+    for (let dx = -reach; dx <= reach; dx++) {
+      const nx = cx + dx;
+      const nz = cz + dz;
+      if (!inGrid(nx, nz) || !sewerCell[idx(nx, nz)]) continue;
+      const d = Math.hypot(toWorld(nx) - x, toWorld(nz) - z);
+      if (d < best) best = d;
+    }
+  }
+  return best;
+}
+
+/** Is the sewer centreline in this cell? */
+export function isSewerLine(x, z) {
+  bake();
+  const cx = toCell(x);
+  const cz = toCell(z);
+  return inGrid(cx, cz) ? sewerCell[idx(cx, cz)] === 1 : false;
 }
 
 /** Does this district have back alleys? What container placement keys off: a

@@ -310,6 +310,10 @@ export const VISION = {
   BUSH_RANGE_SCALE: 0.1,
   // Escalation buys better eyes, not just more bodies. Per tier above 1.
   TIER_RANGE_GAIN: 0.18,
+  // Underground it is dark (milestone 18). They follow him down, so the thing
+  // that makes a tunnel worth running into is that the same corner buys far
+  // more there than it does on the street.
+  DARK_RANGE_SCALE: 0.3,
 };
 
 // Destruction is loud, and that is what makes the demolition tool a decision
@@ -649,6 +653,92 @@ export const TERRAIN = {
   // Ground must be at least this far above the waterline to carry a road or a
   // building. Keeps the city off its own tideline without a second mask.
   BUILD_MIN_HEIGHT: 1.2,
+};
+
+// The underground (milestone 18).
+//
+// The island is 2 × 2 km of surface, and underneath it is the same 2 × 2 km for
+// almost nothing, because milestone 17's ground is implicit: nothing is stored
+// until it is disturbed. Carving a sewer is writing voxels exactly as building a
+// house is, so a second layer of the game costs the price of authoring it.
+//
+// It also solves a real problem: a 2000-unit map takes 3m 19s to cross at a
+// sprint. Sewers under the arterials are a SHORTCUT NETWORK — one that costs
+// visibility and puts you somewhere unexpected, rather than teleporting, which
+// is why fast travel was cut (milestone 13).
+export const SEWER = {
+  // Metres from the street surface down to the tunnel floor. Deep enough that
+  // a building's foundation never punches into it, shallow enough that the
+  // stairwell down is not an expedition.
+  DEPTH: 8.2,
+  // Bore. Wide enough for a fat Jimothy and an animal controller at once,
+  // low enough to feel like a pipe rather than a corridor.
+  WIDTH: 3.6,
+  HEIGHT: 2.9,
+  // Below this length a run of centreline is a puddle, not a tunnel, and gets
+  // no sewer at all — an unreachable pocket in the rock is worse than nothing.
+  MIN_RUN: 60,
+  // How far apart the stairwells are along a run. Every component gets at least
+  // one whatever this says: that is the "no dead space you cannot get out of"
+  // guarantee, and it is enforced at bake time rather than hoped for.
+  ENTRANCE_SPACING: 190,
+  // The stairwell is a square shaft with a step spiralling down its wall. Steps
+  // are ONE voxel high, so walking up is the auto-climb doing its ordinary job
+  // rather than a special case — a vertical ladder would need one.
+  SHAFT: 5,
+  // Underground light. The surface's golden-hour sun is useless down here, and
+  // the milestone asks for lit enough to move through and dark enough to be
+  // unpleasant.
+  LIGHT_COLOR: 0xffd9a8,
+  LIGHT_INTENSITY: 30,
+  LIGHT_RANGE: 16,
+  FOG_COLOR: 0x0a0c10,
+  FOG_NEAR: 3,
+  FOG_FAR: 30,
+  // How far below the surface counts as underground, for the light, the fog and
+  // the pursuit.
+  BELOW: 2.5,
+};
+
+// Treasure you can't do anything with (milestone 18).
+//
+// Chris: "treasure that you can't do anything with". The joke IS the
+// uselessness — they score nothing and buy nothing, and the moment anyone makes
+// them buy something they stop being funny. They pay off in the photo book
+// (JIM-31), and they give digging a reason without giving it a reward.
+export const TREASURE = {
+  SPACING: 26,      // metres between candidate burial spots
+  SHARE: 0.16,      // …of which this fraction actually holds something
+  MIN_DEPTH: 1.6,
+  MAX_DEPTH: 9,     // deep enough to reach the sewers, so some lie on the floor
+  MIN_GROUND: 1.5,  // not at sea, not on the tideline
+  RADIUS: 0.22,
+  REACH: 1.4,
+  COLOR: 0xffcf6a,
+  NAMES: [
+    'A HUBCAP', "SOMEONE'S RETAINER", 'A TAMAGOTCHI', 'A CURSED FURBY',
+    'A BRIEFCASE THAT WILL NOT OPEN', 'ONE ROLLERBLADE', 'A BAG OF OLD KEYS',
+    'A TROPHY FOR PARTICIPATION', 'A VERY OLD SANDWICH', 'HALF A GARDEN GNOME',
+    'A PHONE WITH NO BATTERY', 'A JAR OF TEETH (DENTAL, PROBABLY)',
+  ],
+};
+
+// The crab people (milestone 18).
+//
+// An underground faction with their own territory, going about their business
+// and reacting badly to a raccoon. NOT a heat tier — a separate ecology that
+// does not care about your wanted level, which is what makes going down there a
+// change of situation rather than a safer version of the surface.
+export const CRABS = {
+  COUNT: 22,        // live at once, streamed around him like everything else
+  SPEED: 1.7,
+  SCUTTLE_SPEED: 4.4,
+  // Jimothy this close and they scatter. They are not a threat and not a score
+  // — play it straight and let the absurdity do the work.
+  ALARM_RADIUS: 7,
+  SCUTTLE_SECONDS: 3,
+  SIZE: 0.34,
+  COLOR: 0xc9502f,
 };
 
 // Chunk streaming (milestone 12, JIM-01). The world is generated around the

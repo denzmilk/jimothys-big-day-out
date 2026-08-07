@@ -2,7 +2,7 @@
 
 ## Status
 
-scoped, not started. **Depends on milestone 17.**
+**implemented 2026-08-07, awaiting playtest.** Landed after 17 and 19, as planned.
 
 ## Objective
 
@@ -70,16 +70,30 @@ No special case, no off-switch: the chase continues underground. That avoids the
 - **Depends on:** milestone 17 (depth, strata, implicit ground) and its edit store; **milestone 19** (pursuer AI) — an underground chase against a beeline AI is not worth building.
 - **Relates to:** milestone 13 — a map that only shows where you have been is what makes tunnels tense. JIM-31 — the photo book is where treasure pays off.
 
+## What shipped
+
+**Implemented 2026-08-07. Awaiting Chris's playtest** (house rule 4). `tests/underground.spec.js`, 7 specs.
+
+**The network is DERIVED, not authored.** The milestone imagined sewer polylines in `islandPlan.js` alongside the roads. But the roads are themselves expanded from district polygons and grid angles — so hand-drawn lines would be drawn against a network nobody has seen, and would rot the first time a district's angle changed. The sewer runs down the **middle of every arterial**, marked during the same pass that stamps the streets. That gives what the AC actually asks for by construction: a tunnel under the street network, with entrances that land on streets. 11 tunnels, 21 stairwells, 34% of the island's land within 60 m of one.
+
+**Entrances are guaranteed at bake time, not checked afterwards.** A run of centreline shorter than `SEWER.MIN_RUN`, or one with nowhere on a street to put a stairwell, is **not built at all**. So there is no such thing as a sealed pocket in the rock to discover later — the bad case is prevented rather than reported.
+
+**The stairwell is a square shaft with a one-voxel step spiralling down its wall.** One voxel on purpose: walking back up is then the auto-climb doing its ordinary job, where a ladder or a sheer shaft would have needed a special case in the controller. It is the way in *and* the way out, which is what makes the reachability guarantee worth having.
+
+**Written at generation time, not as edits.** Edits are the player's damage and must survive an unload; the sewer is world and re-derives itself from the plan every time a column is rebuilt. Cost: **203 chunks against 191**, and boot 1415 ms against 1332. A second 2 × 2 km layer for 6% more chunks, because milestone 17's ground was implicit.
+
+**One real bug the ACs caught, which no surface test could have.** The net's range check was horizontal — `_steer` returned a flat distance and the net and the flash both gated on it. An animal controller standing at the top of a shaft was "5 m away" from a raccoon **9 m below it**, and netted him through the ceiling. Vision and the net are both three-dimensional now.
+
 ## Acceptance criteria
 
-- [ ] A sewer network exists under the street network and is enterable from street level
-- [ ] Entrances are always on streets, never inside a building or in the sea
-- [ ] Tunnels are navigable — no dead space you cannot get out of, asserted as a reachability property the way milestone 15's safety checks are
-- [ ] Underground is lit well enough to move through and dark enough to be unpleasant
-- [ ] Crab people exist, hold territory, and react to Jimothy
-- [ ] Treasure can be dug up, is recorded for the photo book, and buys **nothing**
-- [ ] Pursuers follow Jimothy underground and behave sensibly in tunnels — searching corners rather than tracking through rock (needs milestone 19)
-- [ ] Memory still scales with what has been dug, not with the size of the underground
+- [x] A sewer network exists under the street network and is enterable from street level — 11 tunnels, 21 stairwells
+- [x] Entrances are always on streets, never inside a building or in the sea — asserted on class *and* on the coastline, because the class check alone would miss it if the water carve ever stopped running before the sewer bake
+- [x] Tunnels are navigable — a real breadth-first search over standable voxels (air, headroom, something underfoot, a climbable step), run from **deep inside a tunnel** rather than at the stairs. "There is an entrance" is exactly the proxy this repo has shipped twice
+- [x] Underground is lit well enough to move through and dark enough to be unpleasant — the sun goes out, he carries the only light, fog closes to 30 m. *Unpleasant* is playtest
+- [x] Crab people exist, hold territory, and react to Jimothy — 22 live in the tunnels, none on the surface; reaction asserted as movement, since a "reacting" crab that stays put has not reacted
+- [x] Treasure can be dug up, is recorded for the photo book, and buys **nothing** — score, fatness and heat all asserted unchanged across the pickup, with the baseline taken *between* the digging and the find
+- [x] Pursuers follow Jimothy underground and behave sensibly in tunnels — measured: an animal controller searches the street, drops down the shaft, reacquires and nets him at 9 m down. `VISION.DARK_RANGE_SCALE` cuts sight to 30% below ground, so a corner is worth far more down there
+- [x] Memory still scales with what has been dug, not with the size of the underground — walking a tunnel records **zero** edits
 - [ ] It is a place worth going — **verified by user playtest**
 
 ## Exit condition

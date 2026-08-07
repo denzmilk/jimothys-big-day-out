@@ -13,6 +13,10 @@ class GameState {
       stunned: false,
       inTree: false,
       hidden: false,
+      // Everything he dug up on his big day out (milestone 18). Deliberately
+      // NOT a currency and not a score — the joke is that it buys nothing. It
+      // exists so the game-over photo book (JIM-31) has something to print.
+      finds: [],
     };
     this.heat = {
       points: 0,

@@ -44,7 +44,8 @@ src/
   systems/         # InputSystem (e.code + rebindable KEYBINDS), PhysicsSystem
                    # (cannon-es, ADR-0002), CameraSystem (follow/orbit),
                    # FlyCamera (free look, milestone 17), Score
-  gameplay/        # JimothyController, TrashCans; later paparazzi, tanks
+  gameplay/        # JimothyController, TrashCans, Pursuers (vision + state
+                   #   machine), Pedestrians, Treasures, CrabPeople, Debris
   level/           # islandPlan.js (DATA: coast, districts, hills, water,
                    #   bridges) -> Terrain.js (height field + implicit ground)
                    #   -> CityPlanner.js (bakes the class grid, finds blocks,

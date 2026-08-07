@@ -1,4 +1,4 @@
-import { VOXEL, STREAM, TERRAIN } from '../core/Constants.js';
+import { VOXEL, STREAM, TERRAIN, SEWER } from '../core/Constants.js';
 import * as Layout from './Layout.js';
 
 // Authored voxel content. Buildings are written as footprints + rules rather
@@ -222,6 +222,87 @@ function buildFoundation(world, b) {
   }
 }
 
+/** The sewers, for one chunk column (milestone 18).
+ *
+ *  Written at GENERATION time, not as edits. Edits are the player's damage and
+ *  have to survive an unload; the sewer is part of the world and re-derives
+ *  itself from the plan every time the column is rebuilt — so the underground
+ *  costs the same as the buildings above it, and the milestone's "memory scales
+ *  with what has been dug" stays a statement about digging.
+ *
+ *  `VOXEL.EMPTY`, not 0, for the bore. Below the stored skin a 0 means "nothing
+ *  here, ask the height field", which fills the tunnel back in with rock the
+ *  instant anything looks at it. */
+function buildSewers(world, cx, cz) {
+  const C = VOXEL.CHUNK_XZ;
+  const s = VOXEL.SIZE;
+  const halfW = SEWER.WIDTH / 2;
+  for (let x = cx * C; x < cx * C + C; x++) {
+    for (let z = cz * C; z < cz * C + C; z++) {
+      const wx = (x + 0.5) * s;
+      const wz = (z + 0.5) * s;
+      const d = Layout.Masterplan.sewerDistance(wx, wz, halfW + 1.2);
+      if (d > halfW + s) continue;
+      const surface = Layout.terrain.topSolidVoxelY(wx, wz);
+      const floor = surface - Math.round(SEWER.DEPTH / s);
+      const ceiling = floor + Math.round(SEWER.HEIGHT / s);
+      if (d <= halfW) {
+        // The bore, plus a floor and a ceiling that read as built rather than
+        // as a hole someone left in the rock.
+        world.set(x, floor - 1, z, CONCRETE);
+        for (let y = floor; y <= ceiling; y++) world.set(x, y, z, VOXEL.EMPTY);
+        world.set(x, ceiling + 1, z, BRICK);
+      } else {
+        // The lining. Without it the tunnel wall is implicit ground — solid to
+        // every query and invisible to the mesher, so the sewer would render as
+        // a black void with a floor.
+        for (let y = floor - 1; y <= ceiling + 1; y++) world.set(x, y, z, BRICK);
+      }
+    }
+  }
+}
+
+/** A stairwell down to the tunnel: a square shaft with a one-voxel step
+ *  spiralling round its wall.
+ *
+ *  One-voxel steps on purpose — walking back up is then the auto-climb
+ *  (CLIMB_HEIGHT 2.6) doing its ordinary job, where a ladder or a sheer shaft
+ *  would need a special case in the controller. It is a way IN and a way OUT,
+ *  which is what makes the reachability guarantee mean anything. */
+function buildStairwell(world, e) {
+  const s = VOXEL.SIZE;
+  const half = Math.floor(SEWER.SHAFT / 2);
+  const ox = Math.round(e.x / s) - half;
+  const oz = Math.round(e.z / s) - half;
+  const top = Layout.terrain.topSolidVoxelY(e.x, e.z);
+  const floor = top - Math.round(SEWER.DEPTH / s);
+  const N = SEWER.SHAFT;
+
+  // Hollow the shaft from the street down to the tunnel.
+  for (let x = 0; x < N; x++) {
+    for (let z = 0; z < N; z++) {
+      for (let y = floor; y <= top + 1; y++) world.set(ox + x, y, oz + z, VOXEL.EMPTY);
+    }
+  }
+  // …and line it, so it reads as a shaft rather than a hole.
+  for (let x = -1; x <= N; x++) {
+    for (let z = -1; z <= N; z++) {
+      if (x >= 0 && x < N && z >= 0 && z < N) continue;
+      for (let y = floor - 1; y <= top; y++) world.set(ox + x, y, oz + z, CONCRETE);
+    }
+  }
+  // The step, one voxel per perimeter cell, spiralling down the wall.
+  const ring = [];
+  for (let x = 0; x < N; x++) ring.push([x, 0]);
+  for (let z = 1; z < N; z++) ring.push([N - 1, z]);
+  for (let x = N - 2; x >= 0; x--) ring.push([x, N - 1]);
+  for (let z = N - 2; z >= 1; z--) ring.push([0, z]);
+  for (let step = 0; top - step >= floor; step++) {
+    const [sx, sz] = ring[step % ring.length];
+    world.set(ox + sx, top - step, oz + sz, BRICK);
+  }
+}
+
 /** Generate one chunk column: ground, every building that overlaps it, and
  *  the den if it falls inside.
  *
@@ -238,6 +319,19 @@ export function generateColumn(world, cx, cz) {
     const build = BUILDERS[b.type] || buildCraftsman;
     buildFoundation(world, b);
     build(world, b.vx, b.vy, b.vz, b.vw, b.vd, b.vh);
+  }
+
+  // The underground, after the buildings: a house planted on the street above
+  // must not have its foundation punched through the tunnel, and writing the
+  // sewer second means the tunnel wins wherever they meet.
+  buildSewers(world, cx, cz);
+  const pad = SEWER.SHAFT * VOXEL.SIZE + 2;
+  for (const e of Layout.Masterplan.sewerNetwork()) {
+    for (const entrance of e.entrances) {
+      if (entrance.x < cx * C - pad || entrance.x > (cx + 1) * C + pad) continue;
+      if (entrance.z < cz * C - pad || entrance.z > (cz + 1) * C + pad) continue;
+      buildStairwell(world, entrance);
+    }
   }
 
   // Jimothy's den sits just off spawn, in the open. Written by whichever

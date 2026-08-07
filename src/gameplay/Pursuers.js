@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   PAPARAZZI, ANIMAL_CONTROL, PURSUER_SPAWN_POINTS, COLORS, WORLD,
-  VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG,
+  VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, SEWER,
 } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
@@ -202,13 +202,24 @@ export class Pursuers {
     const pos = p.group.position;
     const dx = jp.x - pos.x;
     const dz = jp.z - pos.z;
-    const d = Math.hypot(dx, dz);
+    // In THREE dimensions. Steering is flat, and reusing its distance here made
+    // a pursuer standing at the top of a sewer shaft "five metres away" from a
+    // raccoon nine metres below it (milestone 18).
+    const d = Math.hypot(dx, jp.y - pos.y, dz);
 
     let range = this.sightRange(p.type);
     // The bush is a vision modifier, not a flag. Hiding works because they
     // cannot see you — which also means hiding in a bush somebody is already
     // standing beside does not work, and that is the right answer.
     if (gameState.player.hidden) range *= VISION.BUSH_RANGE_SCALE;
+    // …and so is the dark (milestone 18). They follow him down — Chris: "Nah
+    // they can follow you in" — but a sewer is unlit, so the same corner is
+    // worth far more down there than it is on the street. This is what makes a
+    // tunnel a place to lose someone rather than a corridor with no exits.
+    if (this.voxels
+      && this.voxels.terrainHeightAt(jp.x, jp.z) - jp.y > SEWER.BELOW) {
+      range *= VISION.DARK_RANGE_SCALE;
+    }
     if (d > range) return false;
 
     // Facing, except at arm's length: you cannot sneak up onto someone's toes.
@@ -336,7 +347,8 @@ export class Pursuers {
     // Photographers stop at photo range and loiter rather than dogpiling.
     if (p.type === 'paparazzo' && p.sees) {
       const jp = this.jimothy.group.position;
-      const d = Math.hypot(jp.x - p.group.position.x, jp.z - p.group.position.z);
+      const pos = p.group.position;
+      const d = Math.hypot(jp.x - pos.x, jp.y - pos.y, jp.z - pos.z);
       if (d <= PAPARAZZI.FLASH_RANGE * 0.8) return 0;
     }
     return base;
@@ -457,7 +469,10 @@ export class Pursuers {
     }
     pos.y = this._groundY(pos.x, pos.z);
     const jp = this.jimothy.group.position;
-    return Math.hypot(jp.x - pos.x, jp.z - pos.z);
+    // Three dimensions, for the same reason the vision check uses them: this
+    // number gates the NET and the flash, and a flat one nets him through a
+    // sewer ceiling from the street above (milestone 18).
+    return Math.hypot(jp.x - pos.x, jp.y - pos.y, jp.z - pos.z);
   }
 
   update(delta) {

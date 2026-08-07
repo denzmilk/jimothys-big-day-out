@@ -4,7 +4,7 @@
 
 ## Last updated
 
-2026-08-07 by Claude — **milestones 10, 12, 15 and 16 landed; 17, 18 and 19 scoped for a fresh thread.** The city was rebuilt twice this session and the second rebuild is the one that matters: Chris signed off the island structure (*"Now we're looking like a place!"*).
+2026-08-07 by Claude — **milestones 17, 19 and 18 all landed, in that order.** The island has a coast, hills and 200 m of free depth; the pursuit has eyes, a memory and the ability to give up; and there is a sewer network under the arterials with crab people in it. All three are **implemented and awaiting Chris's playtest** (house rule 4).
 
 ## Current phase
 
@@ -12,52 +12,77 @@ development
 
 ## Current milestone
 
-**Nothing in flight. Milestones 17 → 19 → 18 are scoped and ready; Chris is starting them in a fresh thread.**
+**Nothing in flight. Three milestones are implemented and unplayed — that is the next thing.**
 
-- **17 — island and terrain** (`docs/milestones/17-island-and-terrain.md`). Imaginary Seattle as a 2 km island: coastline, 12 named districts, 8 hills, and ground diggable to 20 m+. The authored structure is already committed at `src/level/islandPlan.js`. **Order within it: fly camera first**, because everything after is judged by eye.
-- **19 — pursuer AI** (`docs/milestones/19-pursuer-ai.md`). Vision, memory, search, giving up. Chris, 2026-08-07: *"they just make a beeline for you and never stop - no AI there at all."* Blocks 18.
-- **18 — underground** (`docs/milestones/18-underground.md`). Sewers, crab people, treasure you cannot spend. Pursuers **do** follow you down (resolved), which is why 19 comes first.
+| milestone | state | tests |
+|---|---|---|
+| 17 — island and terrain | implemented, awaiting playtest | `terrain.spec.js` (9), `flycam.spec.js` (5) |
+| 19 — pursuer AI | implemented, awaiting playtest | `pursuers.spec.js` (8) |
+| 18 — underground | implemented, awaiting playtest | `underground.spec.js` (7) |
 
-**The one engineering decision that matters across all three:** ground becomes *implicit* — `solid(x,y,z) = y < surfaceHeight(x,z)` unless an edit says otherwise. 20 m of depth built eagerly is an 18× rise in ground voxels and would undo milestone 12's boot-flat result; built implicitly, 20 m and 200 m cost the same and memory scales with how much has been dug. The edit store that persists blast damage across a chunk unload is already exactly the right mechanism.
+**Suite: 102 passed / 2 failed.** Both failures are the pre-existing JIM-03 pair (`score and combo`, `interrupted feast`), down from three — `heat rises with chaos` fixed itself. `animal control nets jimothy`, historically the flakiest spec in the suite, ran 7/7 three times end to end.
 
-**Previous — milestone 15 — density and variety** (`docs/milestones/15-density-and-variety.md`, absorbs JIM-32): **implemented, awaiting playtest.**
+## The next step: play it
 
-Density is now a property of a *block*, so it cannot dilute as the map grows: **61–81 live containers at every corner of the island**, where before there were 70 across the whole map (i.e. none outside the centre). Six archetypes over five districts, with blocks subdividing into lots — craftsman 638, shop 485, apartment 445, warehouse 252, shed 170, tower 64 across 841 blocks.
+Everything below is a claim a test makes. None of it is a claim Chris has made.
 
-**Milestone 12 — streaming ground** (`docs/milestones/12-streaming-ground.md`, JIM-01): **implemented, every AC ticked, awaiting Chris's playtest.**
+1. **Press F and fly.** WASD in the camera frame, Space/Z up and down, shift boosts ×5, ctrl creeps, **−/=** step the speed multiplier ×2 per press over 0.25×–32×. Mouse look while pointer-locked. Does the island read as a place from the air?
+2. **Land and climb Trash Panda Heights.** It rises 40 m from its foot. Does a hill feel like a hill from the ground?
+3. **Dig 20 m down.** The strata should change on the way.
+4. **Get chased into an alley, break line of sight, and watch them search the wrong end of it.** Then blast a wall somewhere else and see them all turn toward the noise.
+5. **Find a stairwell and go down.** They are in the middle of arterial roads. It should be dark and unpleasant, there should be crab people, and animal control should follow you in.
 
-Boot cost is now **flat in map size** — 1654 / 1652 / 1640 ms at `BOUNDS` 250 / 1000 / 4000, a 256× range in area inside measurement noise, against JIM-01's baseline of 19 s / 1007 draw calls / 3.5 GB. Shipped at `BOUNDS 1000` (16× the old area). 4000 is free at boot but the game has never been *played* that big.
+**Two things to look at specifically**, because they are judgement calls the tests deliberately do not make:
 
-**Milestone 10 — skinned rig: COMPLETE**, signed off by Chris (*"Looking much better now"*). Milestones 13 (navigation), 14 (island + water) and 11 (scamper gait) are written and unstarted.
+- **The fly camera loads a 385 m disc** (`STREAM.FLY_LOAD_RADIUS`, a slider in DevTools → Tune → Streaming). Seeing the *whole* island at once is not something this renderer does — see JIM-34.
+- **Container density** was rebalanced (`CONTAINERS.KERB_SHARE_NO_ALLEYS`) and now reads 22–52 per streaming disc in every district. Does the street feel furnished, or cluttered?
 
-**Suite: 78 passed / 2 failed of 80, serial.** Both failures are pre-existing (JIM-03), which is down from four — `tier-2 camera flash` and `heat rises with chaos` fixed themselves as side effects. `heat.spec` went 3/7 → 7/7.
+## Milestone 17 — the island, and the one engineering decision
 
-## What this session did — part 2: milestone 12, streaming ground
+**Ground is IMPLICIT.** `solid(x, y, z) = y < surfaceHeight(x, z)` unless an edit says otherwise. Only a constant 4-voxel skin is stored, because that is what the mesher draws; a blast below it materialises the faces it exposes and nothing else. Measured at `TERRAIN.DEPTH` 20 m and 200 m:
 
-`WORLD.BOUNDS` 250 → 1000 (16× the area) with boot **flat in map size**: 1654 / 1652 / 1640 ms at 250 / 1000 / 4000. The work is bounded by `STREAM.LOAD_RADIUS`, not by `BOUNDS`, so map size is now a design dial rather than a performance one.
+| | 20 m | 200 m |
+|---|---|---|
+| stored voxels | 947,634 | **947,634** |
+| chunks | 191 | **191** |
+| boot | 1237 ms | 1224 ms |
 
-**The layout / voxelize split is the thing to understand.** `src/level/Layout.js` answers "what is at (x, z)?" for the whole city as a pure seeded function — no voxels, no browser. `VoxelCity` only turns a footprint into voxels. Milestone 13's minimap and waypoints read layout, and milestone 14's coastline is one more layout function.
+**Byte-identical.** Boot is *under* milestone 12's 1654 ms baseline despite a height field, two bakes and hills. `tests/terrain.spec.js` asserts the equality exactly, so one voxel of drift fails it.
 
-**Three things it turned up, all of which cost real time:**
+**Two shape decisions worth not re-litigating**, both recorded in the milestone:
 
-1. **The old PRNG made the city order-dependent.** `buildDistrict` drew every block from one sequential stream in loop order, so a block depended on how many were built before it — under streaming the city would rearrange itself as you explored. Found by *writing the order-independence spec*, not by reading the code.
-2. **Entities were regenerating the world behind the streamer's back.** Every gameplay query generates on demand (that is what stops JIM-19-shaped fall-throughs), but 26 pedestrians each sample the ground under themselves every frame from wherever they are. The resident set climbed 57 → 83 and kept going. On-demand generation is now bounded to `LOAD_RADIUS` of the streaming centre; outside it, `groundHeightAt` reports grade.
-3. **The contents did not scale with the world**, and two of three had to be fixed here — see Blockers and JIM-32.
+- **Coastal hills are BLUFFS.** Trash Panda Heights' summit is 34 m from the water; it cannot be both 48 m tall and walkable from the beach. Fading hills in over a long coastal run "fixed" the slope and took the island's landmark climb from 48 m to 8. The spec now asserts *a walkable way up exists*, not that every approach is one.
+- **The plan's per-bridge `span` is a crossing LENGTH, not a deck width** (70 m at a canal 84 m wide). Read as a width it built ribbons that filled a third of Lake Onion.
 
-**Measured traversal** (40 s sim runs through the real city): **3m 19s** to scurry one side, 5m 31s walking, 7m 19s / 12m 12s while huge. Chris: *"It's meant to be explored."*
+## ⚠️ Constants that secretly meant "grade" — five more, all silent
 
-## What this session did — part 1: milestone 10, the skinned rig
+The three from earlier milestones meant "the middle of the old map". These meant "the waterline", and every one was wrong on a hill rather than broken:
 
-Steps 4 and 5 of the animation port. Step 4 was one line. **Step 5 was the whole session**, and it found two real bugs.
+| where | was | broke |
+|---|---|---|
+| `damageSphere(minVoxelY)` | absolute `0` | a headbutt on a 50 m hill was told to spare everything below sea level, and would have cratered the hillside |
+| `Game.findWallTarget(probeY)` | absolute `1.0` | on a hill every probe hits rock, so it called the first spot it tried a wall |
+| `Pedestrians._sync` | scan from `0.5` | started 50 m underground, found nothing, buried them at bedrock |
+| bins and snacks | `height / 2`, `0.18` | spawned 45 m under a hill and stayed there |
+| `voxel.spec`'s `sparedGround` | `>= 0` | passes however deep the crater is, as long as the hill is taller |
 
-The old `rig.spec.js` measured seven detached pieces' distance from the belly — the failure mode of an architecture that no longer exists. One continuous mesh cannot reproduce it. Restating those assertions around what skinning actually promises is what surfaced the defects:
+Plus **JIM-33**: `Tunables` still declared `WORLD.BOUNDS` as `[10, 38]` — the 250-unit map's slider — so any stored override was clamped to 38 and would have collapsed the island to a 76 m square.
 
-- **JIM-25 — a fat Jimothy's feet walked out past his nose and under the road.** Scaling `body` multiplies every direct child's local *position*, not just its size. The counter-scale from `4a5cd67` fixed size only. At `widthScale` 1.70 the front feet reached `z 1.25` with the nose at `1.04`, sitting `0.20` **below grade**. Found by instrumenting, not by eye — nothing reported bone positions until this session. `JimothyRig.splayLeg` now lets the legs ride only the body bone's lateral axis (bow-legged waddle) and returns the spine and drop axes to rest.
-- **JIM-26 — the roll pivot fed itself stale matrices.** JIM-20's symptom, a different cause, skinned path only. `_pivot` **feeds** `group.position`, so reading it from unrefreshed matrices is a feedback loop rather than a one-frame lag: traced mid-roll past π it diverged 0.21 → 2.21 → 0.39 and put the belly at `y -0.34`. `updateMatrixWorld(true)` before the read.
+**`voxels.terrainHeightAt(x, z)` is the answer to all of them.** Anything that needs to know where the floor is asks; `y = 0` now means the waterline and nothing else.
 
-**New instrumentation** (`render_game_to_text`): `rig.skinned`, `rig.bones`, `rig.boneScales` (world scale per bone) and `rig.parts` (each animated part's position in Jimothy's own frame, so walking and turning drop out and anything left moving is the animation). Bones have no per-piece object to read a transform off — without this there was no way to assert from outside that an animation moved anything, which is why the port could half-land unnoticed.
+## Milestone 19 — the bug that looked like the opposite of itself
 
-`JimothyRig` gained `_indexRestParts`, which buckets every vertex under the bone that dominates it. That is the skinned replacement for "which piece is this triangle in".
+The steering was never the problem, exactly as the milestone predicted. `_steer` still walks straight at a target; the target now belongs to a state machine (patrol / suspicious / chase / search / give up), and vision is a cone plus a DDA march through the voxel grid.
+
+**The obstacle avoidance re-derived which way to turn every frame.** That gives a four-frame limit cycle: step left, which unblocks the right and blocks the left, step right, repeat. Every frame it moved its full 8 cm; every second it travelled 5 cm. Traced: `-9.81,34.09 → -9.86,34.03 → -9.81,34.09 → …`. **The first stuck-detector missed it completely, because it asked "did it move" — and it did.** Commitment is the fix (a wall-follower, not a pathfinder), and the detector now measures net displacement over a window, which is the only thing that can tell walking from pacing.
+
+Also: **they spawn `suspicious`, briefed with where he was** — they appear *because* the wanted level says someone reported him. And **suspicion runs on the same clock as a search while they are still walking to the lead**, or an unreachable lead is followed forever.
+
+## Milestone 18 — a second 2 × 2 km layer for 6% more chunks
+
+The sewer is **derived from the arterials**, not authored: the roads are themselves expanded from district polygons, so hand-drawn sewer lines would rot the first time an angle changed. Entrances are **guaranteed at bake time** — a run with nowhere to put a stairwell is not built at all, so a sealed pocket cannot exist to be found later.
+
+**The AC caught a bug no surface test could have.** The net's range check was horizontal: an animal controller at the top of a shaft was "5 m away" from a raccoon 9 m below it, and netted him through the ceiling. Vision and the net are three-dimensional now.
 
 ## Read this before writing another seam check
 
@@ -67,62 +92,38 @@ Triangles straddle the boundary between two bones, so a joint that **stretches**
 
 The mesh is one continuous surface and is topologically incapable of tearing. "Seam" names a *rendering* judgement, which is why the AC says playtest. Do not rebuild this.
 
-## ⚠️ Constants that secretly meant "the middle of the old map"
-
-**Three of these have now been found in two milestones.** Assume there are more, and check every world-unit constant the next time `WORLD.BOUNDS` moves:
-
-| constant | was | broke |
-|---|---|---|
-| `PURSUER_SPAWN_POINTS` | absolute ±25 | the run had **no lose condition** away from spawn |
-| `HIDE_SPOTS.POSITIONS` | grid hardcoded to ±220 | the only pressure valve covered ~5% of the world |
-| `CITY.DOWNTOWN_RADIUS` | literal 45 | downtown was four blocks; the tower archetype never appeared |
-
-All three now derive from `WORLD.BOUNDS` or from the player.
-
-## Next step
-
-**Chris playtests milestones 12 and 15** — walk a long way, smash something, walk back, check it is still smashed. Watch for: whether the map feels explorable or empty (JIM-32 says it will feel empty away from the centre), and whether the pursuit still has teeth now pursuers spawn on a ring around him.
-
-**Then pick from three written, unstarted milestones plus JIM-29.** Two milestones of infrastructure are behind us, so the case for something visible next is strong:
-
-- **Milestone 14 — island + water.** Coastline instead of a walled edge, water deliberately too good, and the fairy godmother who bubbles Jimothy ashore saying the AI could not handle swimming mechanics. The most *visible* win available, and `isLand(x, z)` is one more layout function.
-- **JIM-29 — katamari roll.** Now unblocked: there is finally something worth rolling through. Design is settled bar two questions (does food count on pickup or on sifting; what happens to the stash if the net lands).
-- **Milestone 13 — navigation** (minimap, map screen, waypoints). Needs 12's layout layer, and draws the coastline for free once 14 lands — so it is cheapest *after* 14.
-- **Milestone 11 — scamper gait** (JIM-22). Independent of all the above.
-
-**The easter-egg world tour is now unblocked too** (`docs/backlog.md`) — milestone 15 built the shelf. Milestone 11's prerequisite is done: `tools/rig_jimothy.py` generates TWO-segment legs (`leg_*` hip→knee, `shin_*` knee→foot), because a single hip-to-foot bone cannot plant a foot on uneven ground.
-
-**Fast travel was cut**, by Chris, after being asked how it should interact with the chase: *"nvm skip fast travel, waypoints only."* The reasoning is in milestone 13 — do not re-propose it without a deliberate decision about the pursuit structure.
-
-**Do not rewrite the gait from scratch.** `JimothyLegs._updateTubes` already implements planted feet, drift threshold, step timing and foot lift. It was orphaned when the real model arrived. `_updateBones` is currently the crude diagonal-pair swing inherited from `_updateReal`; reconnect the tube logic to bones. `snapshot()` now reports real foot positions in bones mode, which milestone 11 needs to plant against terrain.
-
 ## Blockers
 
-- **⚠️ Milestone 12 awaits playtest.** "Implemented, all AC ticked" is the ceiling (house rule 4). Milestones 08 and 09 sign-offs are also still open; milestone 10 is signed off.
-- **⚠️ JIM-11 (legs read as detached) needs re-judging, not more code.** The skinned rig should have retired it outright — the legs are now part of the same surface. Confirm at the same playtest before touching anything.
-- **⚠️ 3 specs failing, all PRE-EXISTING** (JIM-03) — `score and combo`, `heat rises with chaos`, `interrupted feast`. Feast eating is still unverified end-to-end. Down from four: **`tier-2 camera flash` now passes**, fixed as a side effect of making pursuers spawn relative to the player. Re-run any heat/fatness failure serially before blaming a code change; `animal control nets jimothy` is a known parallel-worker flake.
-  - Suite grew 55 → 71 this session (rig 9 → 11, plus 8 layout and 6 streaming specs). Every spec file was run after the final change; only the three above fail.
-- **⚠️ JIM-32: the map is 16× bigger and its contents are not.** Beyond the central district there are no cans and no snacks — ground and buildings only. This is the "empty big map" failure the gameplan explicitly warns about. Probably the next thing to do.
-- ~~Map size is still capped by eager ground allocation (JIM-01)~~ — **fixed**, milestone 12.
+- **⚠️ Three milestones await playtest, plus milestones 08, 09, 12 and 15 from before.** "Implemented, all AC ticked" is the ceiling (house rule 4). Milestone 10 is the only recent one signed off.
+- **⚠️ 2 specs failing, both PRE-EXISTING** (JIM-03) — `score and combo`, `interrupted feast`. Feast eating is still unverified end to end. Re-run any heat/fatness failure serially before blaming a code change.
+- **⚠️ JIM-11 (legs read as detached) needs re-judging, not more code.** The skinned rig should have retired it outright. Confirm at the same playtest before touching anything.
+- **JIM-34 — no greedy meshing.** A flat chunk of ground emits 4096 quads where one would do, so a ground chunk costs ~1 MB of geometry. Invisible in normal play (210 m disc, ~110 draw calls); it is what caps the fly camera at 385 m.
+- **JIM-35 — one headbutt is a five-star wanted level.** `HEAT.PER_DEMOLITION` is 0.4 per voxel and a fat headbutt removes ~1,075 of them: 430 points against a tier-5 threshold of 100. May well be intended; wants a decision rather than a discovery.
 
 ## Newest asks (2026-08-07, logged not lost)
 
 - **JIM-23 lasso** — design SETTLED by Chris: a landed lasso starts a struggle (mash the roll button), breaking free flings the catcher, a background **exhaustion** stat means escaping twice in a row is unlikely, and a thrown lasso can tangle pedestrians/bins. Only the rope *implementation* (real cannon-es chain vs. convincing fake) is open — decide that with a measurement, not a guess.
-- **JIM-24 "as big as a house"** — the fatness ceiling is ~1.9× width, roughly an order of magnitude short of the stated fantasy. `SPEED_PENALTY_MAX` is already raised 0.45 → 0.7 as step one. The rest is a rebalance, not a constant bump: the camera must pull back with girth, the kinematic sphere stops being a sane shape, the city becomes furniture rather than obstacles, and the asymptotic curve `fat/(fat+SOFTCAP)` mathematically cannot exceed `MAX_WIDTH_GAIN` no matter how much he eats. Wants its own milestone. **Note JIM-25 is the first thing that rebalance will meet** — the belly's underside already reaches `y 0.36` at the current ceiling, and it goes below grade well before "house".
+- **JIM-24 "as big as a house"** — the fatness ceiling is ~1.9× width, roughly an order of magnitude short of the stated fantasy. `SPEED_PENALTY_MAX` is already raised 0.45 → 0.7 as step one. The rest is a rebalance, not a constant bump: the camera must pull back with girth, the kinematic sphere stops being a sane shape, the city becomes furniture rather than obstacles, and the asymptotic curve `fat/(fat+SOFTCAP)` mathematically cannot exceed `MAX_WIDTH_GAIN` no matter how much he eats. Wants its own milestone. **Note JIM-25 is the first thing that rebalance will meet.**
+
+## What is left, and what it now unblocks
+
+- **Milestone 13 — navigation** (minimap, map screen, waypoints). Cheapest it will ever be: the coastline, the districts, the sewer network and their names are all baked and queryable (`districtNameAtWorld`, `sewerNetwork`). A map that shows only where you have been is also what the milestone says makes tunnels tense.
+- **Milestone 11 — scamper gait** (JIM-22). Independent of everything above. **Do not rewrite it from scratch** — `JimothyLegs._updateTubes` already implements planted feet, drift threshold, step timing and foot lift; it was orphaned when the real model arrived. Reconnect the tube logic to bones.
+- **JIM-29 katamari roll**, **JIM-31 photo book** (which now has treasure to print), and the **easter-egg world tour**.
+- **`cityPlan.js`'s parks, plazas and landmarks are not on the island** — the Space Noodle is currently nowhere. In the backlog; re-read its trademark warning before re-siting it.
 
 ## Notes for next session
 
-- **The bone rest-pose trap, still the first thing that will bite you.** glTF bones carry their bind orientation in `bone.quaternion`. Writing `bone.rotation.x = …` the way the old code wrote `slot.rotation.x = …` destroys the rest pose and collapses the skeleton — measured: `head` and `tail` rest pointing in opposite directions, but after zeroing both read identically. `JimothyRig.pose()` is the only sanctioned way to move a bone; it composes a delta against the captured rest quaternion. Full detail in milestone 10 step 1.
-- **Bone axis mapping, measured with the bind orientation intact:** `x` pitch (head chin drops, tail lifts, legs swing fore/aft — the gait axis), `y` twist along the bone (invisible), `z` lateral (head turns, tail wags, legs splay — the sprawl axis for JIM-22). Consistent across bones because `rig_jimothy.py` builds them all the same way.
-- **The `body` bone's own frame, measured from the four hips' bind positions:** `x` lateral (flips sign L↔R), `y` along the spine (differs front↔rear; the only non-zero component on `neck` and `head`), `z` the drop from spine to hip (identical on all four). This is what JIM-25 needed. `tail`'s bind position is exactly `[0,0,0]` — the body bone's origin — so it never rides outward, by construction.
-- **Measure the SOURCE before blaming an asset.** JIM-10 cost an extra session because it was recorded as "the Meshy model is rough" without ever checking it. It was fine. Use `node tools/mesh_report.mjs <file.glb>` — it welds vertices by position first, because glTF splits them per face-corner at UV/normal seams and raw indices make a perfect mesh look like loose triangles.
-- **A probe aimed at the middle of a thing cannot find a defect at its edges.** Two pixel probes sampled Jimothy's belly centre, correctly reported "solid", and missed a model that was 64% open at the seams. Sample where the geometry is interesting.
+- **Grade is not a constant.** Ask `voxels.terrainHeightAt(x, z)`. See the table above — five separate literals meant "just above grade" and all five were wrong.
+- **`VOXEL.EMPTY` (255), not 0, for anything removed or carved.** Below the stored skin a 0 means "nothing stored, ask the height field", so a hole written as 0 heals itself the instant anything looks at it.
+- **The bone rest-pose trap.** glTF bones carry their bind orientation in `bone.quaternion`. Writing `bone.rotation.x = …` destroys the rest pose and collapses the skeleton. `JimothyRig.pose()` is the only sanctioned way to move a bone.
+- **Bone axis mapping, measured:** `x` pitch (the gait axis), `y` twist along the bone (invisible), `z` lateral (the sprawl axis for JIM-22).
+- **Measure the SOURCE before blaming an asset.** JIM-10 cost an extra session because it was recorded as "the Meshy model is rough" without checking. It was fine. `node tools/mesh_report.mjs <file.glb>`.
+- **A probe aimed at the middle of a thing cannot find a defect at its edges.** Sample where the geometry is interesting.
 - **Never edit source while a Playwright run is in flight.** Vite HMR injects the change into the running suite and the results become meaningless.
-- **To prove a failure is pre-existing rather than yours, without touching the working tree:** `TREE=$(git write-tree)`, `COMMIT=$(git commit-tree $TREE -p HEAD -m baseline)`, `git worktree add --detach <path> $COMMIT`, symlink `node_modules` in, kill the dev server on 3000, run the specs there, then `git worktree remove --force`. This is how JIM-03 was cleared.
-- Terrain is voxel **y < 0** (`buildGround` writes strata at -1/-2, buildings start at 0). That single fact is what lets a blast be told to spare the road.
+- **To prove a failure is pre-existing rather than yours, without touching the working tree:** `TREE=$(git write-tree)`, `COMMIT=$(git commit-tree $TREE -p HEAD -m baseline)`, `git worktree add --detach <path> $COMMIT`, symlink `node_modules` in, kill the dev server on 3000, run the specs there, then `git worktree remove --force`.
 - Playtest on the production preview (`npm run build && npm run preview -- --port 4173`), never the dev server.
-- Tests boot with `__MANUAL_TIME__` and `__SKIP_RIG__`. **`__SKIP_RIG__` hides real bugs** — only `rig.spec.js` pays the model load, and every defect this session found was invisible without it.
-- `MOVES` carries per-move destruction *policy* (`FAT_BLAST_SHARE`, `DIGS_TERRAIN`), and `onImpact` takes the move's whole config rather than positional arguments. Add new moves by adding a config, not by threading another parameter.
-- `findWallTarget()` searches for a standoff facing real structure rather than hardcoding a coordinate — the city is procedural and any fixed coordinate rots the moment the layout changes.
-- **Chris's asks are in `docs/backlog.md`, not lost:** water physics, finer voxels (hard-blocked on streaming), underground areas, aimable headbutt, world variety, and the Trump sun/moon gag.
+- Tests boot with `__MANUAL_TIME__` and `__SKIP_RIG__`. **`__SKIP_RIG__` hides real bugs** — only `rig.spec.js` pays the model load.
+- `MOVES` carries per-move destruction *policy*, and `onImpact` takes the move's whole config. Add new moves by adding a config, not by threading another parameter.
+- **The level pipeline, in order:** `islandPlan.js` (data) → `Terrain.js` (height field + implicit ground) → `CityPlanner.js` (class grid, blocks, buildings, sewers) → `Layout.js` (adapter, joins the two) → `VoxelCity.js` (footprint → voxels) → `VoxelWorld.js` (voxel engine, knows nothing about islands). The one-way dependency is what lets `CityPlanner` ask `Terrain` where the water is without a cycle.
 - cannon-es `applyImpulse(impulse, relativePoint)` takes a **body-relative** point. `cannon-es` keeps shapes in `body.shapes[]`; there is no `body.shape`.

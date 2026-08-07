@@ -53,6 +53,9 @@ export const Events = {
   LOCAL_SCARED: 'local:scared',
   // world:*
   WORLD_DEMOLISHED: 'world:demolished',
+  // underground:* (milestone 18)
+  TREASURE_FOUND: 'treasure:found',
+  CRAB_ALARMED: 'crab:alarmed',
   // heat:*
   HEAT_CHANGED: 'heat:changed',
   // score:*

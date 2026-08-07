@@ -75,6 +75,20 @@ window.voxelLineOfSight = (ax, ay, az, bx, by, bz) =>
 // measurable without staging five separate chases.
 window.pursuerSightRange = (type, tier) => game.pursuers.sightRange(type, tier);
 
+// --- Milestone 18: the underground ---
+// Every stairwell on the island. "Enterable from street level" is a claim about
+// these coordinates, so the specs need them rather than a search of the map.
+window.sewerEntrances = () => game.sewerEntrances();
+// Can he WALK from here to daylight? A breadth-first search over standable
+// voxels — air with headroom, something solid underfoot, and a step to the next
+// one he could actually climb. Run in the page in one call, because doing it
+// through a few thousand round-trips would take longer than the spec.
+//
+// This is the AC "no dead space you cannot get out of", and it is the reason it
+// is a property rather than an eyeball: a tunnel that looks fine from the
+// street can still be sealed 200 m along it.
+window.sewerEscapeRoute = (x, z, budget = 20000) => game.sewerEscapeRoute(x, z, budget);
+
 // Free-look hook for capturing overviews without the follow cam fighting it.
 window.debugCamera = (x, y, z, lx = 0, ly = 0, lz = 0) => {
   game.freeCamera = true;

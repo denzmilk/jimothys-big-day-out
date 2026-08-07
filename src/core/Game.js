@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {
-  CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM,
+  CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { eventBus, Events } from './EventBus.js';
@@ -20,6 +20,8 @@ import { installCity } from '../level/VoxelCity.js';
 import * as Layout from '../level/Layout.js';
 import { Debris } from '../gameplay/Debris.js';
 import { Pedestrians } from '../gameplay/Pedestrians.js';
+import { Treasures } from '../gameplay/Treasures.js';
+import { CrabPeople } from '../gameplay/CrabPeople.js';
 import { HUD } from '../ui/HUD.js';
 import { GameOverScreen } from '../ui/GameOverScreen.js';
 import { DevTools } from '../ui/DevTools.js';
@@ -84,6 +86,8 @@ class Game {
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
+    this.treasures = new Treasures(this.scene, this.jimothy, this.voxels);
+    this.crabs = new CrabPeople(this.scene, this.jimothy, this.voxels);
     this.score = new ScoreSystem();
     this.heat = new HeatSystem();
     this.cameraSystem = new CameraSystem(this.camera, this.jimothy, this.input);
@@ -119,6 +123,8 @@ class Game {
       this.trashCans.reset();
       this.pursuers.reset();
       this.pedestrians.reset();
+      this.treasures.reset();
+      this.crabs.reset();
       this.debris.reset();
       this.voxels.clear();
       installCity(this.voxels);
@@ -153,10 +159,34 @@ class Game {
     this.scene.background = new THREE.Color(COLORS.SKY);
     this.scene.fog = new THREE.Fog(COLORS.FOG, 40, 200);
 
-    this.scene.add(new THREE.AmbientLight(COLORS.AMBIENT, 0.6));
-    const sun = new THREE.DirectionalLight(COLORS.SUN, 2.2);
-    sun.position.set(-30, 18, 25); // low in the sky: golden hour
-    this.scene.add(sun);
+    this.ambient = new THREE.AmbientLight(COLORS.AMBIENT, 0.6);
+    this.scene.add(this.ambient);
+    this.sun = new THREE.DirectionalLight(COLORS.SUN, 2.2);
+    this.sun.position.set(-30, 18, 25); // low in the sky: golden hour
+    this.scene.add(this.sun);
+
+    // Underground (milestone 18). Golden hour is useless down a sewer, and the
+    // milestone asks for lit enough to move through and dark enough to be
+    // unpleasant — so the only light down there is the one he carries, and the
+    // fog closes to a few metres. Nothing is added or removed at the boundary;
+    // the same three lights are re-weighted, which keeps the transition free of
+    // a shader recompile.
+    this.lamp = new THREE.PointLight(SEWER.LIGHT_COLOR, 0, SEWER.LIGHT_RANGE, 1.4);
+    this.scene.add(this.lamp);
+    this.underground = false;
+  }
+
+  /** Cross between daylight and the sewer. Called on the transition only. */
+  _setUnderground(on) {
+    if (on === this.underground) return;
+    this.underground = on;
+    this.lamp.intensity = on ? SEWER.LIGHT_INTENSITY : 0;
+    this.sun.intensity = on ? 0.05 : 2.2;
+    this.ambient.intensity = on ? 0.12 : 0.6;
+    this.scene.background.set(on ? SEWER.FOG_COLOR : COLORS.SKY);
+    this.scene.fog.color.set(on ? SEWER.FOG_COLOR : COLORS.FOG);
+    this.scene.fog.near = on ? SEWER.FOG_NEAR : 40;
+    this.scene.fog.far = on ? SEWER.FOG_FAR : 200;
   }
 
   setupCamera() {
@@ -214,6 +244,12 @@ class Game {
     this.score.update(delta);
     this.heat.update(delta);
     this.debris.update(delta);
+    this.treasures.update(delta);
+    this.crabs.update(delta);
+    // Underground is a property of DEPTH BELOW THIS COLUMN, not of a y value —
+    // grade stopped being a constant when the island got hills (milestone 17).
+    this._setUnderground(this.voxels.terrainHeightAt(jp.x, jp.z) - jp.y > SEWER.BELOW);
+    this.lamp.position.set(jp.x, jp.y + 1.6, jp.z);
     if (this.flyCamera.active) this.flyCamera.update(delta);
     else if (!this.freeCamera) this.cameraSystem.update(delta);
     this.devTools.update(delta);
@@ -347,6 +383,73 @@ class Game {
     return null;
   }
 
+  /** Every sewer stairwell on the island (milestone 18). */
+  sewerEntrances() {
+    return Layout.Masterplan.sewerNetwork().flatMap((c) => c.entrances);
+  }
+
+  /** Is there a walkable route from underground at (x, z) back to daylight?
+   *
+   *  A breadth-first search over STANDABLE voxels: air with headroom, something
+   *  solid underfoot, and a step to the next one no taller than he can climb.
+   *  It is the executable form of "tunnels are navigable — no dead space you
+   *  cannot get out of", and it has to be a search rather than a look, because
+   *  a tunnel that is obviously fine at the stairs can be sealed 200 m along.
+   *
+   *  Returns the surfacing point, or null. Bounded by `budget`, so a spec on a
+   *  broken world fails instead of hanging. */
+  sewerEscapeRoute(x, z, budget = 20000) {
+    const s = VOXEL.SIZE;
+    const headroom = Math.ceil(1.2 / s);
+    const climb = Math.floor(PLAYER_CONFIG.CLIMB_HEIGHT / s);
+    const start = this.standableUnder(x, z);
+    if (!start) return null;
+    const key = (v) => `${v[0]},${v[1]},${v[2]}`;
+    const seen = new Set([key(start)]);
+    const queue = [start];
+    let visited = 0;
+    while (queue.length && visited++ < budget) {
+      const [vx, vy, vz] = queue.shift();
+      // Daylight: open sky above this voxel means he has surfaced.
+      if ((vy + 0.5) * s >= this.voxels.terrainHeightAt((vx + 0.5) * s, (vz + 0.5) * s) - 0.5) {
+        return { x: (vx + 0.5) * s, y: vy * s, z: (vz + 0.5) * s, visited };
+      }
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        // Try every height he could step to, nearest first.
+        for (let dy = -climb - 1; dy <= climb; dy++) {
+          const n = [vx + dx, vy + dy, vz + dz];
+          if (seen.has(key(n))) continue;
+          if (!this.isStandable(n[0], n[1], n[2], headroom)) continue;
+          seen.add(key(n));
+          queue.push(n);
+          break; // one landing per direction: the lowest reachable one
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Air, with headroom, on top of something solid. */
+  isStandable(vx, vy, vz, headroom) {
+    if (this.voxels.get(vx, vy, vz) !== 0) return false;
+    if (this.voxels.get(vx, vy - 1, vz) === 0) return false;
+    for (let h = 1; h <= headroom; h++) if (this.voxels.get(vx, vy + h, vz) !== 0) return false;
+    return true;
+  }
+
+  /** The lowest standable voxel below the surface at (x, z) — the tunnel floor,
+   *  if there is one here. */
+  standableUnder(x, z) {
+    const s = VOXEL.SIZE;
+    const headroom = Math.ceil(1.2 / s);
+    const [vx, , vz] = this.voxels.worldToVoxel(x, 0, z);
+    const top = Math.floor(this.voxels.terrainHeightAt(x, z) / s);
+    for (let vy = top - Math.ceil(SEWER.BELOW / s); vy > top - 40; vy--) {
+      if (this.isStandable(vx, vy, vz, headroom)) return [vx, vy, vz];
+    }
+    return null;
+  }
+
   renderToText() {
     const jp = this.jimothy.group.position;
     const cp = this.camera.position;
@@ -364,6 +467,13 @@ class Game {
       },
       game: gameState.game,
       pursuers: this.pursuers.snapshot(),
+      underground: {
+        below: this.underground,
+        depth: +(this.voxels.terrainHeightAt(jp.x, jp.z) - jp.y).toFixed(2),
+        treasure: this.treasures.snapshot(),
+        crabs: this.crabs.snapshot(),
+        finds: gameState.player.finds,
+      },
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
       voxels: {
         ...this.voxels.stats(),

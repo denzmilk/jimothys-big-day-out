@@ -25,6 +25,9 @@ window.findWallTarget = () => game.findWallTarget();
 // Raw voxel probe. "Is this building whole?" cannot be answered by counts —
 // a sliced house and an intact one have the same chunk count (milestone 12).
 window.voxelSolidAt = (x, y, z) => game.voxels.solidAtWorld(x, y, z);
+// "Has the world been built here?" — distinct from "is there a voxel here",
+// which reads the same (false) for empty sky and for ungenerated void.
+window.isLoadedAtWorld = (x, z) => game.voxels.isLoadedAtWorld(x, z);
 // Drop him from a height so specs can exercise landing, which is where the
 // ground resolution actually goes wrong (JIM-19).
 window.dropJimothy = (x, z, height) => {

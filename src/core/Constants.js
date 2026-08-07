@@ -43,6 +43,15 @@ export const KEYBINDS = {
   RESTART: ['KeyR'],
   HEADBUTT: ['KeyB', 'KeyE'],
   ROLL: ['KeyC'],
+  // Fly camera (milestone 17). FORWARD/BACK/LEFT/RIGHT and SCURRY are shared
+  // with the raccoon on purpose — flying takes the controls AWAY from him
+  // (InputSystem.suppressed) rather than running two things off one keypress.
+  FLY_TOGGLE: ['KeyF'],
+  FLY_UP: ['Space'],
+  FLY_DOWN: ['KeyZ'],
+  FLY_FASTER: ['Equal'],
+  FLY_SLOWER: ['Minus'],
+  FLY_SLOW: ['ControlLeft', 'ControlRight'],
 };
 
 // Jimothy's two destruction moves. Both hit IN FRONT of him rather than at
@@ -356,6 +365,28 @@ export const CAMERA = {
   PITCH_MAX: 1.35,
 };
 
+// Free camera (milestone 17). The island is 2 km across and, until this
+// existed, the only way to look at it was to walk. Everything the milestone
+// adds after this — coastline, hills, districts — is judged by eye.
+export const FLY = {
+  // Base cruise, before the multiplier. About 5x a scurry: fast enough to
+  // cross a district, slow enough to look at one.
+  SPEED: 30,
+  // Held-key modifiers on top of the multiplier, so you can dart and creep
+  // without stepping the multiplier up and down.
+  BOOST: 5,      // SCURRY (shift)
+  PRECISE: 0.15, // FLY_SLOW (ctrl)
+  // Stepped by -/= . Doubling per press covers 0.25x to 32x in nine presses,
+  // which is the whole useful range from "read a doorway" to "cross the map".
+  MULT_STEP: 2,
+  MULT_MIN: 0.25,
+  MULT_MAX: 32,
+  MOUSE_SENS: 0.0022,
+  // Just short of straight up/down: at exactly 90 the yaw axis degenerates and
+  // the view rolls as you pass through it.
+  PITCH_LIMIT: 1.5,
+};
+
 export const COLORS = {
   SKY: 0xffd9a0,          // golden hour
   FOG: 0xf2c98c,
@@ -454,6 +485,10 @@ export const STREAM = {
   // Generating several columns in one frame hitches. A visible pop at the
   // horizon is a better trade than a stutter under the player's feet.
   COLUMNS_PER_FRAME: 1,
+  // The fly camera outruns that budget — it crosses a column every fraction of
+  // a second — and a hitch while inspecting the map costs nothing, because
+  // nobody is trying to land a hop.
+  FLY_COLUMNS_PER_FRAME: 6,
   // Vertical extent generated per column. Ground strata sit at voxel y -1 and
   // -2; a craftsman's roof ridge reaches roughly y 41 (its peak is half the
   // footprint width, and footprints are ~40 voxels across). CHUNK_Y is 12.

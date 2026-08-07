@@ -17,8 +17,16 @@ export class InputSystem {
     // "events not reaching the page" (embedded previews, focus loss).
     this.everKeydown = false;
     this.everPointer = false;
+    // Set by the fly camera (milestone 17). The camera and the raccoon share
+    // WASD, SCURRY and Space, so flight has to TAKE the controls rather than
+    // read them alongside him — otherwise inspecting the map hops him off a
+    // roof. Raw key state (`held`) is deliberately still readable, since that
+    // is what the fly camera steers by.
+    this.suppressed = false;
     this._hopQueued = false;
     this._gpHopHeld = false;
+    this._flyQueued = false;
+    this._flySteps = 0;
     this._mouseDX = 0;
     this._mouseDY = 0;
 
@@ -37,6 +45,11 @@ export class InputSystem {
       if (KEYBINDS.POINTER_LOCK.includes(e.code)) this.togglePointerLock();
       if (!e.repeat && KEYBINDS.HEADBUTT.includes(e.code)) this._headbuttQueued = true;
       if (!e.repeat && KEYBINDS.ROLL.includes(e.code)) this._rollQueued = true;
+      // Fly toggle and speed steps survive suppression — they are the controls
+      // OF the suppressor, so gating them on it would lock you in the sky.
+      if (!e.repeat && KEYBINDS.FLY_TOGGLE.includes(e.code)) this._flyQueued = true;
+      if (KEYBINDS.FLY_FASTER.includes(e.code)) this._flySteps += 1;
+      if (KEYBINDS.FLY_SLOWER.includes(e.code)) this._flySteps -= 1;
       this.codes.add(e.code);
     };
     this._onUp = (e) => this.codes.delete(e.code);
@@ -73,11 +86,38 @@ export class InputSystem {
     else this.canvas.requestPointerLock?.();
   }
 
+  requestPointerLock() {
+    if (document.pointerLockElement) return;
+    // Chrome returns a promise that REJECTS whenever the document isn't
+    // eligible (embedded previews, an unfocused host). Unhandled, that logs a
+    // console error — and the console being error-free is the first step of
+    // every live-iterate pass. Flight works on the keyboard without the lock.
+    this.canvas.requestPointerLock?.()?.catch?.(() => {});
+  }
+
   _pressed(action) {
     return KEYBINDS[action].some((c) => this.codes.has(c));
   }
 
+  /** Raw held state for an action, ignoring suppression. The fly camera reads
+   *  this; gameplay reads the analog fields below. */
+  held(action) {
+    return this._pressed(action);
+  }
+
   update() {
+    // Suppressed: the analog interface reads dead and every queued one-shot is
+    // dropped, so nothing the player does to the camera reaches the raccoon.
+    if (this.suppressed) {
+      this.moveX = 0;
+      this.moveZ = 0;
+      this.scurry = false;
+      this._hopQueued = false;
+      this._headbuttQueued = false;
+      this._rollQueued = false;
+      this._gpHopHeld = false;
+      return;
+    }
     let x = 0;
     let z = 0;
     if (this._pressed('LEFT')) x -= 1;
@@ -134,6 +174,20 @@ export class InputSystem {
     const r = this._rollQueued;
     this._rollQueued = false;
     return r;
+  }
+
+  consumeFlyToggle() {
+    const f = this._flyQueued;
+    this._flyQueued = false;
+    return f;
+  }
+
+  /** Net -/= presses since the last read. Steps, not a level, so the fly camera
+   *  owns the multiplier and this stays a pure input edge. */
+  consumeFlySpeedSteps() {
+    const s = this._flySteps;
+    this._flySteps = 0;
+    return s;
   }
 
   consumeMouseDelta() {

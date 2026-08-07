@@ -36,9 +36,9 @@ export class VoxelWorld {
     // straddling a seam is written in full by every column it touches, and
     // each keeps only its own share.
     this._writeColumn = null;
-    // Last streamAround position, in columns. Bounds where an on-demand query
+    // Last streamAround centres, in columns. Bounds where an on-demand query
     // is allowed to build the world — see _ensureAtWorld.
-    this._center = null;
+    this._centers = null;
   }
 
   _key(cx, cy, cz) { return `${cx},${cy},${cz}`; }
@@ -106,20 +106,35 @@ export class VoxelWorld {
   /** Load what is near the player and drop what is not. Budgeted, because
    *  generating several columns in one frame is a visible hitch. */
   streamAround(worldX, worldZ) {
-    const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
-    const px = Math.floor(worldX / C);
-    const pz = Math.floor(worldZ / C);
-    this._center = { cx: px, cz: pz };
+    this.streamAroundPoints([[worldX, worldZ]]);
+  }
 
-    let budget = STREAM.COLUMNS_PER_FRAME;
+  /** The same, around SEVERAL centres.
+   *
+   *  A list rather than a point because the fly camera (milestone 17) detaches
+   *  from Jimothy: streaming only around him leaves the camera over ground that
+   *  was never generated, and streaming only around the camera pulls the floor
+   *  out from under the raccoon. Both discs stay resident. */
+  streamAroundPoints(points, budget = STREAM.COLUMNS_PER_FRAME) {
+    const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
+    const centers = points.map(([x, z]) => ({
+      cx: Math.floor(x / C), cz: Math.floor(z / C),
+    }));
+    this._centers = centers;
+
     // Nearest-first, so the ground under the player's feet is never the thing
     // still waiting on the budget.
     const wanted = [];
+    const seen = new Set();
     const R = STREAM.LOAD_RADIUS;
-    for (let dx = -R; dx <= R; dx++) {
-      for (let dz = -R; dz <= R; dz++) {
-        if (this.generated.has(this._colKey(px + dx, pz + dz))) continue;
-        wanted.push([dx * dx + dz * dz, px + dx, pz + dz]);
+    for (const { cx, cz } of centers) {
+      for (let dx = -R; dx <= R; dx++) {
+        for (let dz = -R; dz <= R; dz++) {
+          const key = this._colKey(cx + dx, cz + dz);
+          if (this.generated.has(key) || seen.has(key)) continue;
+          seen.add(key);
+          wanted.push([dx * dx + dz * dz, cx + dx, cz + dz]);
+        }
       }
     }
     wanted.sort((a, b) => a[0] - b[0]);
@@ -131,7 +146,10 @@ export class VoxelWorld {
     const U = STREAM.UNLOAD_RADIUS;
     for (const key of [...this.generated]) {
       const [cx, cz] = key.split(',').map(Number);
-      if (Math.abs(cx - px) > U || Math.abs(cz - pz) > U) this.unloadColumn(cx, cz);
+      const near = centers.some(
+        (c) => Math.abs(cx - c.cx) <= U && Math.abs(cz - c.cz) <= U,
+      );
+      if (!near) this.unloadColumn(cx, cz);
     }
   }
 
@@ -222,9 +240,10 @@ export class VoxelWorld {
     // could drop it. Distant queries fall back to grade instead (below), which
     // is right for a background prop and wrong only for the player — and the
     // player is always at the centre by construction.
-    if (this._center
-      && (Math.abs(cx - this._center.cx) > STREAM.LOAD_RADIUS
-        || Math.abs(cz - this._center.cz) > STREAM.LOAD_RADIUS)) return false;
+    if (this._centers && !this._centers.some(
+      (c) => Math.abs(cx - c.cx) <= STREAM.LOAD_RADIUS
+        && Math.abs(cz - c.cz) <= STREAM.LOAD_RADIUS,
+    )) return false;
     return this.ensureColumn(cx, cz);
   }
 

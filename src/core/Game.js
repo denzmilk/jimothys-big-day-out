@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {
-  CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS,
+  CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { eventBus, Events } from './EventBus.js';
@@ -8,6 +8,7 @@ import { DevOverrides } from './DevOverrides.js';
 import { InputSystem } from '../systems/InputSystem.js';
 import { PhysicsSystem } from '../systems/PhysicsSystem.js';
 import { CameraSystem } from '../systems/CameraSystem.js';
+import { FlyCamera } from '../systems/FlyCamera.js';
 import { ScoreSystem } from '../systems/ScoreSystem.js';
 import { HeatSystem } from '../systems/HeatSystem.js';
 import { JimothyController } from '../gameplay/JimothyController.js';
@@ -75,6 +76,7 @@ class Game {
     this.score = new ScoreSystem();
     this.heat = new HeatSystem();
     this.cameraSystem = new CameraSystem(this.camera, this.jimothy, this.input);
+    this.flyCamera = new FlyCamera(this.camera, this.input);
     this.hud = new HUD();
     this.gameOverScreen = new GameOverScreen();
     this.devTools = new DevTools(this.input);
@@ -162,14 +164,33 @@ class Game {
   }
 
   update(delta) {
+    if (this.input.consumeFlyToggle()) {
+      this.flyCamera.toggle();
+      // Landing puts the follow camera back on him immediately. Controls are
+      // camera-relative, so lerping in from wherever the flight ended means the
+      // input frame is garbage until it arrives — the same reason
+      // teleportJimothy snaps it.
+      if (!this.flyCamera.active) this.cameraSystem.snapToTarget();
+    }
     this.input.update();
     // Before he moves, not after: the ground he is about to walk onto has to
     // exist by the time the controller queries it. The queries generate on
     // demand anyway, but arriving first is what keeps that a safety net rather
     // than the hot path.
+    //
+    // Two centres while flying: the camera needs ground under it to be worth
+    // looking at, and dropping HIS column to pay for that would put the raccoon
+    // over a void the moment you land.
     const jp = this.jimothy.group.position;
-    this.voxels.streamAround(jp.x, jp.z);
+    const cp = this.camera.position;
+    this.voxels.streamAroundPoints(
+      this.flyCamera.active ? [[jp.x, jp.z], [cp.x, cp.z]] : [[jp.x, jp.z]],
+      this.flyCamera.active ? STREAM.FLY_COLUMNS_PER_FRAME : STREAM.COLUMNS_PER_FRAME,
+    );
     this.voxels.remeshDirty();
+    // Containers stay tied to HIM, never to the camera: streaming them around a
+    // free-flying viewpoint would despawn and respawn the cans he is standing
+    // next to, losing which ones he had already tipped.
     this.trashCans.streamAround(jp.x, jp.z);
     this.jimothy.update(delta, this.cameraSystem.yaw);
     this.physics.update(delta);
@@ -180,7 +201,8 @@ class Game {
     this.score.update(delta);
     this.heat.update(delta);
     this.debris.update(delta);
-    if (!this.freeCamera) this.cameraSystem.update(delta);
+    if (this.flyCamera.active) this.flyCamera.update(delta);
+    else if (!this.freeCamera) this.cameraSystem.update(delta);
     this.devTools.update(delta);
   }
 
@@ -212,7 +234,8 @@ class Game {
       `fw:${KEYBINDS.FORWARD.join('/')} ` +
       `spd:${PLAYER_CONFIG.SPEED} vel:${this.jimothy.speed.toFixed(1)} ` +
       `pos:${jp.x.toFixed(1)},${jp.z.toFixed(1)} ` +
-      `cam:${this.cameraSystem.mode}${gp ? ' 🎮drift:' + gp.axes.slice(0, 2).join(',') : ''}`;
+      `cam:${this.flyCamera.active ? `fly×${this.flyCamera.multiplier}` : this.cameraSystem.mode}` +
+      `${gp ? ' 🎮drift:' + gp.axes.slice(0, 2).join(',') : ''}`;
     // Pointer events arriving without a single key event ever = the host is
     // eating the keyboard. Tell the player instead of feeling broken.
     this.hintEl.classList.toggle(
@@ -367,7 +390,8 @@ class Game {
         })(),
       },
       camera: { x: +cp.x.toFixed(2), y: +cp.y.toFixed(2), z: +cp.z.toFixed(2) },
-      cameraMode: this.cameraSystem.mode,
+      cameraMode: this.flyCamera.active ? 'fly' : this.cameraSystem.mode,
+      fly: this.flyCamera.snapshot(),
       cans: this.trashCans.cans.map((c) => ({
         x: +c.body.position.x.toFixed(1),
         z: +c.body.position.z.toFixed(1),

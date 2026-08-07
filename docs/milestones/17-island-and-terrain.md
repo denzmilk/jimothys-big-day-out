@@ -84,6 +84,13 @@ Strata (surface-relative, not absolute): topsoil → clay → rock → deep rock
 
 A free camera with speed control, detached from Jimothy. Small, and **everything after it is judged by eye**, so it pays for itself immediately. `window.debugCamera` already exists as a one-shot; this wants proper WASD/mouse flight with a speed multiplier and a toggle.
 
+**Shipped 2026-08-07** — `src/systems/FlyCamera.js`. **F** toggles; WASD flies in the camera frame, **Space/Z** up and down, **shift** boosts ×5, **ctrl** creeps ×0.15, **−/=** step the multiplier ×2 per press over 0.25×–32×. Mouse look while pointer-locked. Flight begins from the follow camera's own pose, so there is no jump, and landing snaps the follow camera back onto Jimothy — controls are camera-relative, so a camera lerping in from across the city steers him at random.
+
+Two things it had to get right, both asserted:
+
+- **It takes the controls rather than sharing them.** WASD, shift and Space are Jimothy's. `InputSystem.suppressed` blanks the analog interface and drops every queued one-shot, and the fly camera steers off raw key state (`input.held`) instead. Without it, looking at the map hops him off a roof.
+- **The world streams around BOTH.** `VoxelWorld.streamAroundPoints` takes a list of centres. Around the camera only pulls the floor out from under the raccoon; around him only leaves the camera over ungenerated void, which is the whole thing the camera exists to avoid.
+
 ## Out of scope
 
 - The underground — **milestone 18**. This milestone owes it depth and strata; the sewers, the crab people and the treasure are its own job.
@@ -92,7 +99,7 @@ A free camera with speed control, detached from Jimothy. Small, and **everything
 
 ## Acceptance criteria
 
-- [ ] Fly camera with speed control, so the map can be inspected
+- [x] Fly camera with speed control, so the map can be inspected — `tests/flycam.spec.js`, 5 specs
 - [ ] The island silhouette matches the plan, and walking off the edge means water rather than an invisible wall
 - [ ] Hills are walkable and readable from the ground — Trash Panda Heights should feel like a climb
 - [ ] Trashattan and SoTrash are flat

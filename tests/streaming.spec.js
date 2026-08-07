@@ -123,17 +123,29 @@ test('a building on a chunk seam is generated whole, not sliced', async ({ page 
   const COL = VOXEL.CHUNK_XZ * VOXEL.SIZE;
   const seamOf = (v) => Math.floor(v / COL);
 
-  // Find a building the seam actually runs through, from layout — never a
-  // hardcoded coordinate, since the city is procedural (cf. findWallTarget).
+  // Find a building the seam runs WELL through — at least a couple of metres
+  // of footprint on each side. A marginal straddle (the seam grazing the last
+  // voxel) samples almost nothing on the far side and fails for a reason that
+  // has nothing to do with slicing. Lots are smaller since milestone 15
+  // subdivided blocks, so this matters more than it used to.
+  const MIN_OVERHANG = 2;
   let target = null;
-  for (let i = -12; i <= 12 && !target; i++) {
-    for (let j = -12; j <= 12 && !target; j++) {
-      const b = Layout.buildingAt(i, j);
-      if (!b) continue;
-      if (seamOf(b.x) !== seamOf(b.x + b.w) || seamOf(b.z) !== seamOf(b.z + b.d)) target = b;
+  let best = 0;
+  for (let i = -16; i <= 16; i++) {
+    for (let j = -16; j <= 16; j++) {
+      for (const b of Layout.buildingsAt(i, j)) {
+        for (const axis of ['x', 'z']) {
+          const lo = b[axis];
+          const hi = b[axis] + (axis === 'x' ? b.w : b.d);
+          if (seamOf(lo) === seamOf(hi)) continue;
+          const seam = seamOf(hi) * COL;
+          const overhang = Math.min(seam - lo, hi - seam);
+          if (overhang > best) { best = overhang; target = { ...b, axis, seam }; }
+        }
+      }
     }
   }
-  expect(target, 'no building straddles a chunk seam — the test cannot prove anything').toBeTruthy();
+  expect(target && best, `no building straddles a seam by ${MIN_OVERHANG}m`).toBeGreaterThan(MIN_OVERHANG);
 
   await boot(page);
   // Stand on it so every column it touches is resident.
@@ -142,31 +154,30 @@ test('a building on a chunk seam is generated whole, not sliced', async ({ page 
   ]);
   await adv(page, 0.6);
 
-  // Walls are written around the footprint edge. Count solid voxels along the
-  // perimeter on each side of the seam: a sliced building has geometry on one
-  // side and nothing on the other.
-  const counts = await page.evaluate(({ b, col }) => {
-    const seam = (v) => Math.floor(v / col);
-    const sx = seam(b.x) !== seam(b.x + b.w) ? seam(b.x + b.w) * col : null;
-    const sz = sx === null ? seam(b.z + b.d) * col : null;
+  // Walls sit on the footprint perimeter. Count solid voxels along it on each
+  // side of the seam: a sliced building has geometry on one side and none on
+  // the other.
+  const counts = await page.evaluate(({ b, vox }) => {
     let lo = 0;
     let hi = 0;
     for (let t = 0; t <= 1; t += 0.02) {
       for (const y of [0.4, 1.0, 1.8]) {
         for (const edge of [0, 1]) {
-          const x = sx !== null ? b.x + b.w * t : b.x + b.w * edge;
-          const z = sx !== null ? b.z + b.d * edge : b.z + b.d * t;
+          // The far wall is the LAST voxel, not one past it.
+          const along = b.axis === 'x' ? b.x + b.w * t : b.z + b.d * t;
+          const cross = b.axis === 'x'
+            ? b.z + (edge ? b.d - vox : 0)
+            : b.x + (edge ? b.w - vox : 0);
+          const x = b.axis === 'x' ? along : cross;
+          const z = b.axis === 'x' ? cross : along;
           if (!window.voxelSolidAt(x, y, z)) continue;
-          const across = sx !== null ? x < sx : z < sz;
-          if (across) lo++; else hi++;
+          if (along < b.seam) lo++; else hi++;
         }
       }
     }
     return { lo, hi };
-  }, { b: target, col: COL });
+  }, { b: target, vox: VOXEL.SIZE });
 
-  // Both halves must have real wall. Zero on either side is a house cut in two
-  // by a chunk boundary.
   expect(counts.lo, `no geometry on the low side of the seam: ${JSON.stringify(counts)}`).toBeGreaterThan(3);
   expect(counts.hi, `no geometry on the high side of the seam: ${JSON.stringify(counts)}`).toBeGreaterThan(3);
 });

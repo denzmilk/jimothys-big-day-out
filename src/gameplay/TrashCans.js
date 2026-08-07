@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { TRASH_CAN as TC, SNACKS, FOODS, PLAYER_CONFIG, COLORS, WORLD, CITY } from '../core/Constants.js';
+import {
+  TRASH_CAN as TC, SNACKS, FOODS, PLAYER_CONFIG, COLORS, WORLD, CITY, STREAM, VOXEL,
+} from '../core/Constants.js';
+import * as Layout from '../level/Layout.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import { DevOverrides } from '../core/DevOverrides.js';
@@ -58,9 +61,17 @@ export class TrashCans {
 
     this.cans = [];
     this.snacks = [];
-    for (const [x, z, kind] of DevOverrides.getCanLayout() ?? defaultLayout()) {
-      this.addCan(x, z, kind);
-    }
+    // Bins already emptied. Without this, walking away until a block unloads
+    // and coming back would refill every bin on it — infinite food for the
+    // cost of a stroll (JIM-32).
+    this.emptied = new Set();
+    // A hand-authored layout (DevTools export) pins the world; otherwise cans
+    // stream from the seed like everything else.
+    this.fixedLayout = DevOverrides.getCanLayout();
+    if (this.fixedLayout) for (const [x, z, kind] of this.fixedLayout) this.addCan(x, z, kind);
+    // Populate immediately rather than on the first update, so frame zero has
+    // a furnished world — the same thing installCity does for voxels.
+    else this.streamAround(jimothy.body.position.x, jimothy.body.position.z);
 
     // DevTools level tools — panel emits, we own the entities.
     eventBus.on(Events.DEV_SPAWN_CAN, () => {
@@ -85,6 +96,40 @@ export class TrashCans {
         }
       }
     });
+  }
+
+  /** Spawn containers near the player and drop the ones far behind him.
+   *
+   *  Density is per BLOCK, so it no longer dilutes as the map grows, and the
+   *  live rigid-body count tracks the streaming radius rather than the world:
+   *  holding the old density with a fixed count would have meant ~1120 bodies
+   *  at BOUNDS 1000. */
+  streamAround(worldX, worldZ) {
+    if (this.fixedLayout) return; // authored layouts are absolute, not streamed
+    const R = STREAM.LOAD_RADIUS * VOXEL.CHUNK_XZ * VOXEL.SIZE;
+    const live = new Set();
+    for (const p of Layout.propsIn(worldX - R, worldZ - R, worldX + R, worldZ + R)) {
+      live.add(p.id);
+      if (this.emptied.has(p.id) || this._byId?.has(p.id)) continue;
+      const can = this.addCan(p.x, p.z, p.kind);
+      can.id = p.id;
+      (this._byId ??= new Map()).set(p.id, can);
+    }
+    // Hysteresis, as with chunks: drop only well outside the load radius, or
+    // standing on the boundary thrashes bodies in and out every frame.
+    const U = R * (STREAM.UNLOAD_RADIUS / STREAM.LOAD_RADIUS);
+    for (const can of [...this.cans]) {
+      if (!can.id) continue;
+      const d = Math.max(
+        Math.abs(can.body.position.x - worldX), Math.abs(can.body.position.z - worldZ),
+      );
+      if (d <= U) continue;
+      // A bin that was tipped is spent: remember it rather than restoring it
+      // untipped next time he passes.
+      if (can.tipped) this.emptied.add(can.id);
+      this._byId.delete(can.id);
+      this.removeCan(can);
+    }
   }
 
   // kindIndex selects from TRASH_CAN.KINDS — wheelie bins, dumpsters and
@@ -132,6 +177,7 @@ export class TrashCans {
     this.physics.remove(can.body, can.mesh);
     this.scene.remove(can.mesh); // geometry/material shared — no dispose
     this.cans.splice(this.cans.indexOf(can), 1);
+    if (can.id) this._byId?.delete(can.id);
   }
 
   removeNearest() {
@@ -147,9 +193,15 @@ export class TrashCans {
 
   // Default layout honours a dev-tools layout override; the dev "reset"
   // button passes TC.POSITIONS explicitly to get back to shipped defaults.
-  resetCans(layout = DevOverrides.getCanLayout() ?? defaultLayout()) {
+  resetCans(layout = this.fixedLayout) {
     while (this.cans.length) this.removeCan(this.cans[0]);
-    for (const [x, z, kind] of layout) this.addCan(x, z, kind);
+    this._byId?.clear();
+    // A new run gets full bins everywhere — emptied is per-run, like voxel
+    // damage.
+    this.emptied.clear();
+    // Streamed cans are re-spawned by the next streamAround, so an empty
+    // layout here is correct rather than a missing step.
+    if (layout) for (const [x, z, kind] of layout) this.addCan(x, z, kind);
   }
 
   clearSnacks() {
@@ -160,6 +212,13 @@ export class TrashCans {
   reset() {
     this.resetCans();
     this.clearSnacks();
+    // A restart must leave the world as complete as a boot does. Without this
+    // the city is briefly binless — streaming would refill it a frame later,
+    // which is invisible to a player and a race to anything checking state.
+    if (!this.fixedLayout) {
+      const jp = this.jimothy.body.position;
+      this.streamAround(jp.x, jp.z);
+    }
   }
 
   layout() {

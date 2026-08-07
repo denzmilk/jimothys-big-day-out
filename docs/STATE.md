@@ -4,7 +4,7 @@
 
 ## Last updated
 
-2026-08-07 by Claude — **milestones 10 (skinned rig) and 12 (streaming ground) both landed.** Milestone 10 is signed off; 12 awaits playtest.
+2026-08-07 by Claude — **milestones 10, 12 and 15 all landed.** Milestone 10 is signed off; 12 and 15 await playtest.
 
 ## Current phase
 
@@ -12,11 +12,17 @@ development
 
 ## Current milestone
 
+**Milestone 15 — density and variety** (`docs/milestones/15-density-and-variety.md`, absorbs JIM-32): **implemented, awaiting playtest.**
+
+Density is now a property of a *block*, so it cannot dilute as the map grows: **61–81 live containers at every corner of the island**, where before there were 70 across the whole map (i.e. none outside the centre). Six archetypes over five districts, with blocks subdividing into lots — craftsman 638, shop 485, apartment 445, warehouse 252, shed 170, tower 64 across 841 blocks.
+
 **Milestone 12 — streaming ground** (`docs/milestones/12-streaming-ground.md`, JIM-01): **implemented, every AC ticked, awaiting Chris's playtest.**
 
 Boot cost is now **flat in map size** — 1654 / 1652 / 1640 ms at `BOUNDS` 250 / 1000 / 4000, a 256× range in area inside measurement noise, against JIM-01's baseline of 19 s / 1007 draw calls / 3.5 GB. Shipped at `BOUNDS 1000` (16× the old area). 4000 is free at boot but the game has never been *played* that big.
 
 **Milestone 10 — skinned rig: COMPLETE**, signed off by Chris (*"Looking much better now"*). Milestones 13 (navigation), 14 (island + water) and 11 (scamper gait) are written and unstarted.
+
+**Suite: 78 passed / 2 failed of 80, serial.** Both failures are pre-existing (JIM-03), which is down from four — `tier-2 camera flash` and `heat rises with chaos` fixed themselves as side effects. `heat.spec` went 3/7 → 7/7.
 
 ## What this session did — part 2: milestone 12, streaming ground
 
@@ -53,16 +59,30 @@ Triangles straddle the boundary between two bones, so a joint that **stretches**
 
 The mesh is one continuous surface and is topologically incapable of tearing. "Seam" names a *rendering* judgement, which is why the AC says playtest. Do not rebuild this.
 
+## ⚠️ Constants that secretly meant "the middle of the old map"
+
+**Three of these have now been found in two milestones.** Assume there are more, and check every world-unit constant the next time `WORLD.BOUNDS` moves:
+
+| constant | was | broke |
+|---|---|---|
+| `PURSUER_SPAWN_POINTS` | absolute ±25 | the run had **no lose condition** away from spawn |
+| `HIDE_SPOTS.POSITIONS` | grid hardcoded to ±220 | the only pressure valve covered ~5% of the world |
+| `CITY.DOWNTOWN_RADIUS` | literal 45 | downtown was four blocks; the tower archetype never appeared |
+
+All three now derive from `WORLD.BOUNDS` or from the player.
+
 ## Next step
 
-**Chris playtests milestone 12** — walk a long way, smash something, walk back, check it is still smashed. Watch for: whether the map feels explorable or empty (JIM-32 says it will feel empty away from the centre), and whether the pursuit still has teeth now pursuers spawn on a ring around him.
+**Chris playtests milestones 12 and 15** — walk a long way, smash something, walk back, check it is still smashed. Watch for: whether the map feels explorable or empty (JIM-32 says it will feel empty away from the centre), and whether the pursuit still has teeth now pursuers spawn on a ring around him.
 
-**Then pick from four written, unstarted milestones.** My recommendation is **JIM-32 (density) before any of them** — the map is now big and its contents are not, which is the one failure mode Chris and the gameplan both single out (*"like yakuza!"*; an empty big map is worse than the full small one it replaced).
+**Then pick from three written, unstarted milestones plus JIM-29.** Two milestones of infrastructure are behind us, so the case for something visible next is strong:
 
-- **JIM-32 / density** — stream props per column from the seed, as buildings now are. Unblocks the easter-egg world tour, which needs somewhere to put the eggs.
-- **Milestone 13 — navigation** (minimap, map screen, waypoints). Needs 12's layout layer; the coastline draws for free once 14 lands.
-- **Milestone 14 — island + water.** Coastline instead of a walled edge, water deliberately too good, and the fairy godmother who bubbles Jimothy back ashore.
-- **Milestone 11 — scamper gait** (JIM-22). Independent of all the above. Milestone 11's prerequisite is done: `tools/rig_jimothy.py` generates TWO-segment legs (`leg_*` hip→knee, `shin_*` knee→foot), because a single hip-to-foot bone cannot plant a foot on uneven ground.
+- **Milestone 14 — island + water.** Coastline instead of a walled edge, water deliberately too good, and the fairy godmother who bubbles Jimothy ashore saying the AI could not handle swimming mechanics. The most *visible* win available, and `isLand(x, z)` is one more layout function.
+- **JIM-29 — katamari roll.** Now unblocked: there is finally something worth rolling through. Design is settled bar two questions (does food count on pickup or on sifting; what happens to the stash if the net lands).
+- **Milestone 13 — navigation** (minimap, map screen, waypoints). Needs 12's layout layer, and draws the coastline for free once 14 lands — so it is cheapest *after* 14.
+- **Milestone 11 — scamper gait** (JIM-22). Independent of all the above.
+
+**The easter-egg world tour is now unblocked too** (`docs/backlog.md`) — milestone 15 built the shelf. Milestone 11's prerequisite is done: `tools/rig_jimothy.py` generates TWO-segment legs (`leg_*` hip→knee, `shin_*` knee→foot), because a single hip-to-foot bone cannot plant a foot on uneven ground.
 
 **Fast travel was cut**, by Chris, after being asked how it should interact with the chase: *"nvm skip fast travel, waypoints only."* The reasoning is in milestone 13 — do not re-propose it without a deliberate decision about the pursuit structure.
 

@@ -53,6 +53,95 @@ export function buildTower(world, ox, oy, oz, w, d, h) {
   }
 }
 
+/** Apartment block: a plain box with banded windows and a flat roof. Reads as
+ *  bulk — the thing a street of craftsmen needs next to it to stop looking
+ *  like a suburb. */
+export function buildApartment(world, ox, oy, oz, w, d, h) {
+  const solid = (x, y, z, m) => world.set(ox + x, oy + y, oz + z, m);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      for (let z = 0; z < d; z++) {
+        const edge = x === 0 || x === w - 1 || z === 0 || z === d - 1;
+        if (!edge && y !== h - 1) continue;
+        if (y === h - 1) { solid(x, y, z, CONCRETE); continue; }
+        const isDoor = z === 0 && y < 3 && Math.abs(x - (w >> 1)) <= 1;
+        if (isDoor) continue;
+        // Two-storey window rhythm, so height reads at a glance.
+        const window = y % 4 >= 2 && x % 3 !== 0 && z % 3 !== 0;
+        solid(x, y, z, y < 2 ? CONCRETE : window ? GLASS : BRICK);
+      }
+    }
+  }
+}
+
+/** Corner shop: wide, low, flat-roofed, with a glass frontage and a parapet.
+ *  The horizontal counterpoint to the apartment's verticality. */
+export function buildShop(world, ox, oy, oz, w, d, h) {
+  const solid = (x, y, z, m) => world.set(ox + x, oy + y, oz + z, m);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      for (let z = 0; z < d; z++) {
+        const edge = x === 0 || x === w - 1 || z === 0 || z === d - 1;
+        if (!edge && y !== h - 1) continue;
+        if (y === h - 1) { solid(x, y, z, CONCRETE); continue; }
+        // Shopfront: the whole z=0 face is glass above the stall riser, with a
+        // door gap Jimothy can waddle through.
+        const front = z === 0;
+        const isDoor = front && y < 3 && x >= w - 4 && x <= w - 3;
+        if (isDoor) continue;
+        const glazed = front && y >= 1 && y < h - 2;
+        solid(x, y, z, glazed ? GLASS : y === h - 2 ? MOSS : CLAPBOARD);
+      }
+    }
+  }
+}
+
+/** Warehouse: long, low, corrugated, with a roller door. Industrial mass —
+ *  and the biggest single volume the roll gets to bowl through. */
+export function buildWarehouse(world, ox, oy, oz, w, d, h) {
+  const solid = (x, y, z, m) => world.set(ox + x, oy + y, oz + z, m);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      for (let z = 0; z < d; z++) {
+        const edge = x === 0 || x === w - 1 || z === 0 || z === d - 1;
+        if (!edge && y !== h - 1) continue;
+        if (y === h - 1) { solid(x, y, z, SHINGLE); continue; }
+        // Roller door: wide and tall, so a rolling Jimothy fits.
+        const isDoor = z === 0 && y < Math.max(3, h - 2) && Math.abs(x - (w >> 1)) <= 2;
+        if (isDoor) continue;
+        // Corrugation — alternating material every other column. Cheap, and it
+        // reads as ribbed metal rather than a painted box.
+        solid(x, y, z, y < 1 ? CONCRETE : x % 2 === 0 ? CONCRETE : MOSS);
+      }
+    }
+  }
+}
+
+/** Garage / shed: a small box with a shallow pitched roof. Fills the leftover
+ *  lots that would otherwise be conspicuous gaps. */
+export function buildShed(world, ox, oy, oz, w, d, h) {
+  const solid = (x, y, z, m) => world.set(ox + x, oy + y, oz + z, m);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      for (let z = 0; z < d; z++) {
+        const edge = x === 0 || x === w - 1 || z === 0 || z === d - 1;
+        if (!edge) continue;
+        const isDoor = z === 0 && y < 2 && Math.abs(x - (w >> 1)) <= 1;
+        if (isDoor) continue;
+        solid(x, y, z, CLAPBOARD);
+      }
+    }
+  }
+  // Shallow gable: two rakes and a ridge, a third the height of a craftsman's.
+  const peak = Math.max(1, Math.floor(w / 4));
+  for (let r = 0; r < peak; r++) {
+    for (let z = 0; z < d; z++) {
+      for (const x of [r, w - 1 - r]) solid(x, h + r, z, SHINGLE);
+      if (r === peak - 1) for (let x = r; x <= w - 1 - r; x++) solid(x, h + r, z, SHINGLE);
+    }
+  }
+}
+
 /** Jimothy's house: a squashed trash can on its side, torn open at the front.
  *  Real raccoon dens are tree hollows and abandoned vehicles — a crushed
  *  "raccoon-resistant" bin is the joke (see docs/lore.md). */
@@ -118,14 +207,26 @@ export function generateColumn(world, cx, cz) {
 
   const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
   for (const b of Layout.buildingsIntersecting(cx * C, cz * C, (cx + 1) * C, (cz + 1) * C)) {
-    if (b.type === 'tower') buildTower(world, b.vx, 0, b.vz, b.vw, b.vd, b.vh);
-    else buildCraftsman(world, b.vx, 0, b.vz, b.vw, b.vd, b.vh);
+    const build = BUILDERS[b.type] || buildCraftsman;
+    build(world, b.vx, 0, b.vz, b.vw, b.vd, b.vh);
   }
 
   // Jimothy's den sits just off spawn, in the open. Written by whichever
   // column contains it; the write filter discards it everywhere else.
   buildTrashCanDen(world, DEN.vx, 0, DEN.vz, DEN.length, DEN.radius);
 }
+
+// Archetype → voxelizer. Layout decides WHICH; this decides what it looks
+// like. Adding a building type is adding a builder and a name in
+// Layout's ARCHETYPES — never threading a new branch through generation.
+const BUILDERS = {
+  craftsman: buildCraftsman,
+  tower: buildTower,
+  apartment: buildApartment,
+  shop: buildShop,
+  warehouse: buildWarehouse,
+  shed: buildShed,
+};
 
 const DEN = {
   vx: Math.round(-10 / VOXEL.SIZE),

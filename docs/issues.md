@@ -223,7 +223,7 @@ Open, and worth deciding before generating a library:
 
 ### JIM-32 — The map got 16× bigger and the contents did not: density collapse
 
-**Status:** open → **milestone 15** (`docs/milestones/15-density-and-variety.md`) · **Severity:** high (it is the difference between "explorable" and "empty") · **Found:** 2026-08-07 (milestone 12)
+**Status:** **fixed** 2026-08-07 (milestone 15), awaiting playtest · **Severity:** high (it is the difference between "explorable" and "empty") · **Found:** 2026-08-07 (milestone 12) · **Tests:** `tests/layout.spec.js::container density is a property of a block, not of the map`, `::SAFE: containers are never placed close enough to topple each other`
 
 Raising `WORLD.BOUNDS` 250 → 1000 multiplied the world's area by 16 and left every piece of content at its old count. **This is the exact failure Chris and the gameplan both name as the thing to avoid** — an empty big map is worse than the full small one it replaced (*"like yakuza!"*, 2026-08-07).
 
@@ -427,16 +427,21 @@ Separately: the only *deliberate* translucency in the build is the hide fade (`o
 
 ---
 
-### JIM-03 — Four specs failing at city scale
+### JIM-03 — Two specs failing at city scale
 
-**Status:** open · **Severity:** medium · **Carried from:** roadmap ⚠️ #3 (2026-07-23), **list corrected 2026-08-06**
+**Status:** open, **halved 2026-08-07** · **Severity:** medium · **Carried from:** roadmap ⚠️ #3 (2026-07-23), list corrected 2026-08-06, **narrowed 2026-08-07**
 
-The previously recorded list was wrong. Measured on 2026-08-06 (`--workers=1`, so not worker contention), the actual failing set is:
+Measured serially (`--workers=1`, so not worker contention). The set is now:
 
 - `tests/gameplay.spec.js::score and combo`
-- `tests/heat.spec.js::heat rises with chaos but not with eating`
-- `tests/heat.spec.js::tier-2 camera flash stuns jimothy` — times out in `advUntil`, i.e. the condition is never reached inside the 20 s sim budget
 - `tests/fatness.spec.js::interrupted feast resets progress`
+
+**Two of the four fixed themselves as side effects of milestones 12 and 15**, which is worth recording because neither was being worked on:
+
+- ~~`tests/heat.spec.js::tier-2 camera flash stuns jimothy`~~ — fixed by making pursuers spawn on a ring around Jimothy instead of at absolute map coordinates. The paparazzi simply could not reach him to flash him.
+- ~~`tests/heat.spec.js::heat rises with chaos but not with eating`~~ — fixed somewhere in the layout/density work; the likeliest cause is bins no longer toppling themselves and generating chaos heat with no player input.
+
+**Both remaining failures are about scoring**, which is now the strongest hint yet at where the real defect is: `score and combo` and `interrupted feast` both assert on score/combo bookkeeping rather than on the world. Feast eating is still unverified end-to-end.
 
 `waddles slower` and `cannot fit in bushes` — both named in the old list — now pass.
 

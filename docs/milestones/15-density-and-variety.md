@@ -2,7 +2,22 @@
 
 ## Status
 
-not started
+implemented — awaiting Chris's playtest (house rule 4)
+
+## Measured 2026-08-07
+
+**Density**, live trash cans at four corners of the island (was 70 *total* map-wide, i.e. effectively none outside the centre):
+
+| spot | cans live | within 60 m | columns | draw calls |
+|---|---|---|---|---|
+| spawn | 78 | 17 | 49 | 140 |
+| mid (200, 200) | 81 | 15 | 61 | 180 |
+| far (600, −400) | 70 | 20 | 49 | 156 |
+| corner (900, 900) | 61 | 13 | 49 | 113 |
+
+Density is now a property of a *block*, so it cannot dilute as the map grows, and the live rigid-body count tracks the streaming radius rather than the world.
+
+**Variety**, over 841 blocks: craftsman 638, shop 485, apartment 445, warehouse 252, shed 170, tower 64. Districts: residential 303, commercial 287, downtown 124, park 108, industrial (inner ring added after measuring it at 2%).
 
 ## Objective
 
@@ -74,20 +89,34 @@ Trash cans (and later trees, hide spots, pedestrians) spawn **per loaded column 
 
 ## Acceptance criteria
 
-- [ ] Prop count tracks the load radius, not `WORLD.BOUNDS` — assert it is flat as bounds change, the same way boot time now is
-- [ ] Cans and snacks are findable anywhere on the island, not just near spawn
-- [ ] At least six building archetypes, all destructible on equal terms
-- [ ] Walking a straight line across several blocks passes visibly different buildings — asserted from layout as archetype variety within a window, not judged by eye
-- [ ] Residential blocks subdivide into multiple lots rather than one centred building
-- [ ] Districts exist and differ measurably in their archetype mix
-- [ ] **Safety, asserted over thousands of blocks in a unit test:** nothing overlaps a road, nothing overlaps another building, every enclosed structure has a door gap, spawn stays clear
-- [ ] Still order-independent and seed-deterministic — the milestone-12 assertion, extended to the new fields
-- [ ] Layout queries stay inside a frame budget as they get richer (the minimap will call them every frame)
+- [x] Prop count tracks the load radius, not `WORLD.BOUNDS` — assert it is flat as bounds change, the same way boot time now is
+- [x] Cans and snacks are findable anywhere on the island, not just near spawn
+- [x] At least six building archetypes, all destructible on equal terms
+- [x] Walking a straight line across several blocks passes visibly different buildings — asserted from layout as archetype variety within a window, not judged by eye
+- [x] Residential blocks subdivide into multiple lots rather than one centred building
+- [x] Districts exist and differ measurably in their archetype mix
+- [x] **Safety, asserted over thousands of blocks in a unit test:** nothing overlaps a road, nothing overlaps another building, every enclosed structure has a door gap, spawn stays clear
+- [x] Still order-independent and seed-deterministic — the milestone-12 assertion, extended to the new fields
+- [x] Layout queries stay inside a frame budget as they get richer (the minimap will call them every frame)
 - [ ] The city reads as a place rather than a grid — **verified by user playtest**
 
 ## Exit condition
 
 User crosses the island and passes through recognisably different neighbourhoods, with something to tip, loot or smash the whole way — and never sees the same street twice.
+
+## Found while building it
+
+**`CITY.DOWNTOWN_RADIUS: 45` was another constant that quietly meant "the middle of the old map"** — the same family as the absolute pursuer spawns and the hardcoded hide-spot grid. At 45 it covered about four blocks of a 2000-unit island, a village green rather than a city centre, and the tower archetype effectively never appeared: the variety spec found five archetypes instead of six. Derived from `WORLD.BOUNDS` now.
+
+That is three constants in two milestones which encoded the old map size. Worth assuming there are more, and worth checking any constant expressed in world units the next time `BOUNDS` moves.
+
+**Streamed bins toppled themselves, and the old code had warned about exactly this.** The eager layout enforced a 3.5 m gap by rejection sampling, with the reason in a comment: *"Overlapping containers get flung apart by the solver and topple on their own — which spills free food and free heat with no player input."* Placing 1–3 bins per block and letting each pick its own kerb put two of them centimetres apart at the corner, and cannon-es resolved the overlap by flinging both over.
+
+It surfaced as five failing eat-related specs, and the diagnosis only came from measuring: the "nearest snack" after tipping a bin was **78 m away** — a different, freshly-streamed bin had toppled by itself and spilled. Now one kerb line per block with a bin per segment, which gets the guarantee by construction rather than by rejection, and `SAFE: containers are never placed close enough to topple each other` holds it there.
+
+**A restart has to leave the world as complete as a boot does.** `resetCans` clears every bin and the streamer refills a frame later — invisible to a player, a race to anything reading state. `reset()` now repopulates immediately, the same thing `installCity` does for voxels.
+
+**Emptied bins have to be remembered.** A streamed can that respawns when the player walks back is infinite food for the price of a stroll. `TrashCans.emptied` keeps the ids of tipped bins so they stay empty for the run, and clears on restart — the same per-run rule as voxel damage.
 
 ## Notes
 

@@ -170,6 +170,7 @@ class Game {
     const jp = this.jimothy.group.position;
     this.voxels.streamAround(jp.x, jp.z);
     this.voxels.remeshDirty();
+    this.trashCans.streamAround(jp.x, jp.z);
     this.jimothy.update(delta, this.cameraSystem.yaw);
     this.physics.update(delta);
     this.jimothy.postUpdate(delta);

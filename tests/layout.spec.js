@@ -106,3 +106,159 @@ test('bounds still bound the city', () => {
   const outside = WORLD.BOUNDS + CITY.BLOCK * 2;
   expect(Layout.buildingsIntersecting(outside, outside, outside + 200, outside + 200)).toEqual([]);
 });
+
+// --- Milestone 15: density and variety ---
+
+// A wide window of blocks, used by several tests below.
+const WINDOW = [];
+for (let i = -14; i <= 14; i++) for (let j = -14; j <= 14; j++) WINDOW.push([i, j]);
+const allLots = () => WINDOW.flatMap(([i, j]) => Layout.buildingsAt(i, j));
+
+test('a block subdivides into lots, not one centred box', () => {
+  // "don't just have rows and columns of the same destructable house" — one
+  // building per block cell is what makes it read as a grid.
+  const counts = WINDOW.map(([i, j]) => Layout.buildingsAt(i, j).length);
+  expect(Math.max(...counts), 'no block holds more than one building').toBeGreaterThan(1);
+  // Some blocks are parks or roads-only; that variation is the point.
+  expect(counts.filter((c) => c === 0).length).toBeGreaterThan(0);
+});
+
+test('a street passes visibly different buildings', () => {
+  const kinds = new Set(allLots().map((b) => b.type));
+  expect([...kinds].length, `only these archetypes exist: ${[...kinds]}`).toBeGreaterThanOrEqual(6);
+
+  // Variety has to be LOCAL, not just present somewhere on the island — a map
+  // of uniform neighbourhoods still reads as rows and columns up close.
+  let worst = Infinity;
+  for (let i = -10; i <= 10; i += 5) {
+    for (let j = -10; j <= 10; j += 5) {
+      const near = [];
+      for (let di = 0; di < 4; di++) for (let dj = 0; dj < 4; dj++) near.push([i + di, j + dj]);
+      const local = new Set(near.flatMap(([a, b]) => Layout.buildingsAt(a, b)).map((b) => b.type));
+      if (local.size) worst = Math.min(worst, local.size);
+    }
+  }
+  expect(worst, 'some 4x4 block neighbourhood is entirely one archetype').toBeGreaterThan(1);
+});
+
+test('districts exist and differ in what they contain', () => {
+  const byDistrict = new Map();
+  for (const [i, j] of WINDOW) {
+    const d = Layout.districtAt(i, j);
+    if (!byDistrict.has(d)) byDistrict.set(d, new Set());
+    for (const b of Layout.buildingsAt(i, j)) byDistrict.get(d).add(b.type);
+  }
+  expect(byDistrict.size, 'the whole island is one district').toBeGreaterThan(2);
+  // Two districts that contain exactly the same archetypes are not districts.
+  const sigs = [...byDistrict.values()].map((s) => [...s].sort().join(','));
+  expect(new Set(sigs).size).toBeGreaterThan(1);
+});
+
+test('SAFE: nothing overlaps a road, at any lot', () => {
+  // The guarantee milestone 12 established by construction — the buildable
+  // span starts after the road band. Lot subdivision must subdivide that
+  // span, never the block, or this is silently lost.
+  //
+  // Collected then asserted once. Thousands of lots x an expect() each costs
+  // minutes in Playwright; the check itself is arithmetic and instant.
+  const onRoad = [];
+  for (const b of allLots()) {
+    for (const [wx, wz] of [
+      [b.x, b.z], [b.x + b.w - VOXEL.SIZE, b.z],
+      [b.x, b.z + b.d - VOXEL.SIZE], [b.x + b.w - VOXEL.SIZE, b.z + b.d - VOXEL.SIZE],
+    ]) {
+      if (Layout.roadAtVoxel(Math.floor(wx / VOXEL.SIZE), Math.floor(wz / VOXEL.SIZE))) {
+        onRoad.push(`${b.type}@${b.i},${b.j}`);
+      }
+    }
+  }
+  expect(onRoad.slice(0, 5)).toEqual([]);
+});
+
+test('SAFE: no two buildings overlap', () => {
+  // Bucketed by block and compared only against the 3x3 neighbourhood: two
+  // lots further apart than a block cannot overlap, and the naive all-pairs
+  // sweep is millions of comparisons.
+  const byBlock = new Map();
+  for (const b of allLots()) {
+    const k = `${b.i},${b.j}`;
+    if (!byBlock.has(k)) byBlock.set(k, []);
+    byBlock.get(k).push(b);
+  }
+  const hits = [];
+  for (const [k, lots] of byBlock) {
+    const [i, j] = k.split(',').map(Number);
+    const near = [];
+    for (let di = -1; di <= 1; di++) {
+      for (let dj = -1; dj <= 1; dj++) near.push(...(byBlock.get(`${i + di},${j + dj}`) || []));
+    }
+    for (const A of lots) {
+      for (const B of near) {
+        if (A === B) continue;
+        if (A.x < B.x + B.w && B.x < A.x + A.w && A.z < B.z + B.d && B.z < A.z + A.d) {
+          hits.push(`${A.type}@${A.i},${A.j}+${A.vx},${A.vz} overlaps ${B.type}@${B.i},${B.j}`);
+        }
+      }
+    }
+  }
+  expect(hits.slice(0, 5)).toEqual([]);
+});
+
+test('SAFE: every building has a positive footprint and sits on the ground', () => {
+  const bad = allLots()
+    .filter((b) => b.vw <= 2 || b.vd <= 2 || b.vh <= 1)
+    .map((b) => `${b.type} ${b.vw}x${b.vd}x${b.vh}`);
+  expect(bad.slice(0, 5)).toEqual([]);
+});
+
+test('lots stay order-independent', () => {
+  const fwd = WINDOW.map(([i, j]) => JSON.stringify(Layout.buildingsAt(i, j)));
+  const rev = [...WINDOW].reverse().map(([i, j]) => JSON.stringify(Layout.buildingsAt(i, j)));
+  expect(rev).toEqual([...fwd].reverse());
+});
+
+test('SAFE: containers are never placed close enough to topple each other', () => {
+  // cannon-es resolves an overlap by flinging both bodies apart, so two bins
+  // spawned on top of each other tip themselves — free food and free heat with
+  // no player input, continuously, as the world streams in. The old eager
+  // layout bought this with rejection sampling and a 3.5 m gap; the streamed
+  // one has to get it by construction.
+  const MIN_GAP = 2.5;
+  const props = WINDOW.flatMap(([i, j]) => Layout.propsAt(i, j));
+  expect(props.length, 'no containers at all').toBeGreaterThan(100);
+
+  const cell = new Map();
+  const key = (x, z) => `${Math.floor(x / 8)},${Math.floor(z / 8)}`;
+  for (const p of props) {
+    const k = key(p.x, p.z);
+    if (!cell.has(k)) cell.set(k, []);
+    cell.get(k).push(p);
+  }
+  const tooClose = [];
+  for (const p of props) {
+    const [cx, cz] = key(p.x, p.z).split(',').map(Number);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        for (const q of cell.get(`${cx + dx},${cz + dz}`) || []) {
+          if (q === p) continue;
+          const d = Math.hypot(p.x - q.x, p.z - q.z);
+          if (d < MIN_GAP) tooClose.push(`${p.id} and ${q.id} are ${d.toFixed(2)}m apart`);
+        }
+      }
+    }
+  }
+  expect(tooClose.slice(0, 5)).toEqual([]);
+});
+
+test('container density is a property of a block, not of the map', () => {
+  // The bug this whole milestone exists for: TRASH_CAN.COUNT (70) spread over
+  // WORLD.BOUNDS meant raising bounds 250 -> 1000 divided density by 16.
+  const per = WINDOW.map(([i, j]) => Layout.propsAt(i, j).length);
+  const avg = per.reduce((a, b) => a + b, 0) / per.length;
+  expect(avg).toBeGreaterThan(0.8);
+  // …and it holds just as well far from the origin as near it.
+  const far = [];
+  for (let i = 20; i < 26; i++) for (let j = 20; j < 26; j++) far.push(Layout.propsAt(i, j).length);
+  const farAvg = far.reduce((a, b) => a + b, 0) / far.length;
+  expect(Math.abs(farAvg - avg)).toBeLessThan(1);
+});

@@ -315,8 +315,14 @@ export const CITY = {
   BUILDING_MARGIN: 2.5,
   MIN_HEIGHT: 6,
   MAX_HEIGHT: 16,
-  // Downtown rises toward the middle; the edges stay residential.
-  DOWNTOWN_RADIUS: 45,
+  // Downtown rises toward the middle; the edges stay residential. Derived from
+  // the map rather than fixed: at the literal 45 it was tuned for, downtown
+  // covered about four blocks of a 2000-unit island — a village green, not a
+  // city centre, and the tower archetype effectively never appeared. Same
+  // family of bug as the absolute pursuer spawns and the hardcoded hide-spot
+  // grid (milestone 12): a constant that quietly meant "the middle of the old
+  // map".
+  DOWNTOWN_RADIUS: Math.max(45, WORLD.BOUNDS * 0.22),
   SEED: 1337,
 };
 

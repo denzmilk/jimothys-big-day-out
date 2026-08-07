@@ -2,7 +2,9 @@
 
 ## Status
 
-not started
+**shipped, then superseded** (2026-08-07). The layout/voxelize split, the baked class grid, block-finding by flood fill and semantic prop placement all landed and are still in use. The *plan* it read — six generated grid regions — did not survive playtest: Chris, *"It definitely still reads as a grid."* Rotating a lattice does not stop it being a lattice.
+
+**Milestone 17 replaces the plan, not the machinery.** `CityPlanner` keeps its bake, its queries and its block finder; only the source of the design changes, from generated regions to an authored island.
 
 ## Objective
 

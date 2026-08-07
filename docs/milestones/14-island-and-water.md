@@ -2,7 +2,7 @@
 
 ## Status
 
-not started
+**superseded in part by milestone 17** (2026-08-07). The island's SHAPE — coastline, water bodies, districts, hills — is authored in `src/level/islandPlan.js` and built by milestone 17. What remains here is the **sea itself**: the water surface, the Gerstner-wave shader, buoyancy, and the fairy godmother. Read milestone 17 first.
 
 ## Objective
 

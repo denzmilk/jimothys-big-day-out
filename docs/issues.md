@@ -223,7 +223,7 @@ Open, and worth deciding before generating a library:
 
 ### JIM-32 — The map got 16× bigger and the contents did not: density collapse
 
-**Status:** open · **Severity:** high (it is the difference between "explorable" and "empty") · **Found:** 2026-08-07 (milestone 12)
+**Status:** open → **milestone 15** (`docs/milestones/15-density-and-variety.md`) · **Severity:** high (it is the difference between "explorable" and "empty") · **Found:** 2026-08-07 (milestone 12)
 
 Raising `WORLD.BOUNDS` 250 → 1000 multiplied the world's area by 16 and left every piece of content at its old count. **This is the exact failure Chris and the gameplan both name as the thing to avoid** — an empty big map is worse than the full small one it replaced (*"like yakuza!"*, 2026-08-07).
 
@@ -239,7 +239,9 @@ Three systems were anchored to the old map. Two were fixed in milestone 12 becau
 
 `Layout` already makes this straightforward: a `propsIn(box)` query alongside `buildingsIntersecting`, and `TrashCans` spawns and despawns against the streamer. Trees, hide spots and pedestrians all want the same treatment, which is why this is worth doing once, properly, rather than three times.
 
-**Until it lands, the map beyond the central district is effectively empty** — ground and buildings, no cans, no snacks, nothing to do. Streaming made the world big; this is what makes it worth crossing, and it should probably come before the world-tour easter-egg pass in `docs/backlog.md` (which needs somewhere to put the eggs).
+**Until it lands, the map beyond the central district is effectively empty** — ground and buildings, no cans, no snacks, nothing to do. Streaming made the world big; this is what makes it worth crossing, and it should come before the world-tour easter-egg pass in `docs/backlog.md` (which needs somewhere to put the eggs).
+
+**Density alone is not enough.** Chris, 2026-08-07: *"but also variety - don't just have rows and columns of the same destructable house."* There are exactly two archetypes today, one per block, centred on a rigid grid — it reads as rows and columns because it is. Density and variety are the same milestone: see **milestone 15**.
 
 **Where:** `src/gameplay/TrashCans.js` (`defaultLayout`), `src/level/Layout.js`, `src/gameplay/Pedestrians.js`, `src/core/Constants.js` (`TRASH_CAN.COUNT`, `HIDE_SPOTS`)
 

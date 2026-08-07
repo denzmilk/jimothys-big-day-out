@@ -274,6 +274,41 @@ test('the ground digs to 20 m and the hole is still there afterwards', async ({ 
   expect((await state(page)).voxels.edits).toBeGreaterThan(0);
 });
 
+test('undisturbed ground is smooth; ground you have dug is not', async ({ page }) => {
+  // Chris, playtest: "how can we smooth out the terrain while keeping the
+  // voxels?" The mesher moves the top face of an intact ground voxel onto the
+  // exact height field, and the floor follows it — otherwise he walks half a
+  // voxel above or below a surface he can see.
+  //
+  // Asserted as the DIFFERENCE between the two cases. "The floor equals the
+  // height field" alone would also pass on a world with no voxels in it at all,
+  // and the whole point is that the crater stays blocky.
+  await boot(page);
+  const spot = { x: 40, z: 24 };
+  await page.evaluate((p) => window.teleportJimothy(p.x, p.z), spot);
+  await adv(page, 0.5);
+
+  const smooth = await page.evaluate((p) => {
+    const out = [];
+    // A line across a slope, where quantisation is worst.
+    for (let d = 0; d < 14; d += 0.7) {
+      const x = p.x + d;
+      out.push(window.terrainSurfaceAt(x, p.z) - window.groundHeightAtWorld(x, p.z));
+    }
+    return out;
+  }, spot);
+  const worst = Math.max(...smooth.map(Math.abs));
+  expect(worst, `floor drifts from the surface by ${worst.toFixed(3)} m`).toBeLessThan(0.02);
+
+  // …and once it has been dug, it is voxels again, snapped to the grid.
+  const dug = await page.evaluate((p) => {
+    window.setFatness(90);
+    window.blastAtWorld(p.x, window.terrainSurfaceAt(p.x, p.z) - 1, p.z);
+    return window.terrainSurfaceAt(p.x, p.z) - window.groundHeightAtWorld(p.x, p.z);
+  }, spot);
+  expect(dug, 'the crater floor followed the smooth surface').toBeGreaterThan(0.5);
+});
+
 test('boot cost and memory do not move with terrain depth', async ({ page, browser }) => {
   // THE assertion the implicit-ground design exists for. Built eagerly, 20 m at
   // VOXEL.SIZE 0.55 is ~36 layers of ground voxels against the old 2 — an 18x

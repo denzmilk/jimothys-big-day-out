@@ -381,8 +381,22 @@ export class VoxelWorld {
     // `top < bottom` the loop simply never ran, and this silently reported a
     // floor 30 m over the player's head.
     const bottom = Math.min(Math.floor((surface - TERRAIN.DEPTH) / s) - 2, top);
+    // Which voxel the terrain's own surface was quantised into. Standing on
+    // THAT one means standing on ground the mesher has smoothed, so the honest
+    // floor is the height field itself — otherwise he floats or sinks by up to
+    // half a voxel on every slope, against a surface he can see.
+    //
+    // Sampled at the VOXEL CENTRE, because that is where the generator and the
+    // mesher sample it. Deriving it from `surface` — the height at the caller's
+    // exact (x, z) — disagrees by a whole voxel near a voxel edge on a slope,
+    // and the smoothing then silently does not apply there (measured: 0.30 m of
+    // drift on a hillside, against 0.02 m once the two agree).
+    const terrainTop = this.terrain
+      ? this.terrain.topSolidVoxelY((vx + 0.5) * s, (vz + 0.5) * s)
+      : NaN;
     for (let vy = top; vy >= bottom; vy--) {
-      if (this.get(vx, vy, vz) !== 0) return (vy + 1) * s;
+      if (this.get(vx, vy, vz) === 0) continue;
+      return vy === terrainTop ? surface : (vy + 1) * s;
     }
     return bottom * s; // dug clean through: fall to bedrock
   }
@@ -538,6 +552,71 @@ export class VoxelWorld {
     } else {
       tops.fill(-2147483648);
     }
+
+    // --- smoothing (playtest 2026-08-07) -------------------------------------
+    //
+    // The height field is continuous; the voxels are 0.55 m. Quantising one
+    // into the other terraces every hillside — a step roughly every metre on
+    // Trash Panda Heights, which reads as a staircase rather than a hill.
+    //
+    // The fix costs no geometry: the top face of an UNDISTURBED ground voxel
+    // has its four corners moved to the exact height field. Corners are lattice
+    // points, so neighbouring voxels — and neighbouring CHUNKS — sample the same
+    // world position and get the same answer. The surface comes out continuous
+    // and watertight by construction rather than by tolerance.
+    //
+    // Only the top face, and only where nothing has happened to the ground.
+    // Everything the player MAKES stays hard-edged: a crater's floor is no
+    // longer the terrain's top voxel, so it drops out of this and renders
+    // blocky. Smooth is what you found, voxel is what you did to it.
+    //
+    // Side walls are still emitted (never skipped): a step's wall ends up buried
+    // under the tilted quad above it, and skipping them opens half-voxel cracks
+    // wherever a smoothed column meets an unsmoothed one.
+    const Q = CX + 3;
+    const cornerH = new Float32Array(Q * Q);
+    const intact = new Uint8Array(P * P);
+    if (this.terrain) {
+      for (let lz = -1; lz <= CX + 1; lz++) {
+        for (let lx = -1; lx <= CX + 1; lx++) {
+          // LATTICE corners, not voxel centres — that is what makes the value
+          // shared between the voxels either side of it.
+          cornerH[(lz + 1) * Q + (lx + 1)] = this.terrain.surfaceHeight(
+            (base[0] + lx) * s, (base[2] + lz) * s,
+          );
+        }
+      }
+      for (let lz = -1; lz <= CX; lz++) {
+        for (let lx = -1; lx <= CX; lx++) {
+          const top = tops[(lz + 1) * P + (lx + 1)];
+          const here = this.storedAt(base[0] + lx, top, base[2] + lz);
+          const above = this.storedAt(base[0] + lx, top + 1, base[2] + lz);
+          // Intact = the terrain's own top voxel is still there, with open air
+          // over it. A dug column fails the first test; one with a building or a
+          // foundation on it fails the second, and a wall must not be smeared
+          // into the hillside it stands on.
+          intact[(lz + 1) * P + (lx + 1)] =
+            here && here !== VOXEL.EMPTY && (!above || above === VOXEL.EMPTY) ? 1 : 0;
+        }
+      }
+    }
+    const isTerrainTop = (lx, ly, lz) => this.terrain
+      && intact[(lz + 1) * P + (lx + 1)] === 1
+      && base[1] + ly === tops[(lz + 1) * P + (lx + 1)];
+    const corner = (lx, lz) => cornerH[(lz + 1) * Q + (lx + 1)];
+    // Vertex normal straight off the height field's gradient, which is where the
+    // rest of the win is: flat-lit terraces band a hillside into stripes even
+    // when the geometry underneath them is already smooth. Central differences
+    // over corners that have been computed anyway, so it costs nothing.
+    const slopeNormal = (lx, lz, out) => {
+      const dx = (corner(lx + 1, lz) - corner(lx - 1, lz)) / (2 * s);
+      const dz = (corner(lx, lz + 1) - corner(lx, lz - 1)) / (2 * s);
+      const len = Math.hypot(dx, 1, dz);
+      out[0] = -dx / len;
+      out[1] = 1 / len;
+      out[2] = -dz / len;
+    };
+    const nrm = [0, 1, 0];
     /** Occupancy for a voxel given in LOCAL coordinates, where lx/lz may be -1
      *  or CX and ly may be -1 or CY (the one-voxel skirt the faces need). */
     const occupied = (lx, ly, lz) => {
@@ -568,13 +647,27 @@ export class VoxelWorld {
           const vy = base[1] + ly;
           const vz = base[2] + lz;
           const color = this._colors.get(mat) || this._colors.get(1);
+          const smooth = isTerrainTop(lx, ly, lz);
           for (const f of FACES) {
             if (occupied(lx + f.d[0], ly + f.d[1], lz + f.d[2])) continue;
-            const quad = f.v.map(([ox, oy, oz]) => [(vx + ox) * s, (vy + oy) * s, (vz + oz) * s]);
+            // Undisturbed ground: every vertex on the voxel's TOP plane moves to
+            // the real surface. That covers the top face and the upper edge of
+            // any side wall in one rule, so the two always meet.
+            const quad = f.v.map(([ox, oy, oz]) => [
+              (vx + ox) * s,
+              smooth && oy === 1 ? corner(lx + ox, lz + oz) : (vy + oy) * s,
+              (vz + oz) * s,
+            ]);
+            const lit = smooth && f.d[1] === 1;
             for (const [a, b, c] of [[0, 1, 2], [0, 2, 3]]) {
               for (const idx of [a, b, c]) {
                 pos.push(quad[idx][0], quad[idx][1], quad[idx][2]);
-                norm.push(f.d[0], f.d[1], f.d[2]);
+                if (lit) {
+                  slopeNormal(lx + f.v[idx][0], lz + f.v[idx][2], nrm);
+                  norm.push(nrm[0], nrm[1], nrm[2]);
+                } else {
+                  norm.push(f.d[0], f.d[1], f.d[2]);
+                }
                 col.push(color.r, color.g, color.b);
               }
             }

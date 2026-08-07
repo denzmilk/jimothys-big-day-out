@@ -127,6 +127,19 @@ Also `Tunables`' `WORLD.BOUNDS` range, still `[10, 38]` from the 250-unit map �
 
 **Container density regressed and was caught.** Changing the district mix left every alleyless district — most of the island by area — with 5–13 containers per streaming disc against downtown's 38–56. `CONTAINERS.KERB_SHARE_NO_ALLEYS` fixes it the way a city does (no alleys means everyone's bin is out front): now 22–52 everywhere. The spec that should have caught it was measuring `Math.max` over districts, which passes on one good district while eleven are bare — it now asserts the density of **every** district.
 
+**Smoothing, added after the first playtest** (Chris: *"how can we smooth out the terrain while keeping the voxels?"*). The height field is continuous and the voxels are 0.55 m, so quantising one into the other terraced every hillside — a step roughly every metre on Trash Panda Heights.
+
+The fix costs **no geometry**: the top face of an undisturbed ground voxel has its four corners moved onto the exact height field, and its normals come from the field's gradient. Corners are *lattice* points, so neighbouring voxels — and neighbouring chunks — sample the same world position and get the same answer; the surface is continuous and watertight by construction rather than by tolerance.
+
+Two things make it work rather than merely look smooth:
+
+- **Only where nothing has happened to the ground.** A crater's floor is no longer the terrain's top voxel, so it drops out and renders blocky. **Smooth is what you found; voxel is what you did to it** — which keeps the chunky-damage identity the game trades on.
+- **The floor follows the mesh.** `groundHeightAt` returns the height field itself on undisturbed terrain, or he walks up to half a voxel above or below a surface he can see. That one has a trap in it: the generator and the mesher sample the height at the **voxel centre**, and deriving the same value from the caller's exact `(x, z)` disagrees by a whole voxel near a voxel edge on a slope — measured at **0.30 m of drift**, against 0.02 m once the two agree.
+
+Side walls are still emitted rather than skipped: a step's wall ends up buried under the tilted quad above it, and skipping them opens half-voxel cracks wherever a smoothed column meets an unsmoothed one.
+
+Cost: boot 1505 → 1655 ms, no extra triangles, no change to collision, digging or buildings.
+
 **Decisions worth not re-litigating:**
 
 - **Coastal hills are bluffs.** Trash Panda Heights' summit is 34 m from the water; it cannot be both 48 m tall and walkable from the beach. Fading hills in over a long coastal run "fixed" the slope and took the island's landmark climb from 48 m to 8. The hill spec now asserts *a walkable way up exists* (≥ 8 of 24 approaches), which is the property the player cares about, and the coast spec asserts >70% beach with every bluff explained by a hill.

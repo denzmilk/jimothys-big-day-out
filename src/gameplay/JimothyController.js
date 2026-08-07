@@ -116,6 +116,8 @@ export class JimothyController {
     // these per frame would churn the GC on the hot path.
     this._pivot = new THREE.Vector3();
     this._pivotRotated = new THREE.Vector3();
+    this._bellyC = new THREE.Vector3();
+    this._bellyBox = new THREE.Box3();
     this.onImpact = null; // set by Game: (x, y, z, radiusScale) => void
 
     eventBus.on(Events.PLAYER_STUNNED, ({ seconds }) => {
@@ -170,7 +172,14 @@ export class JimothyController {
   inspect() {
     this.group.updateMatrixWorld(true);
     const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.group.quaternion);
-    const box = new THREE.Box3().setFromObject(this.bodyRender);
+    // The belly, and the anchors measured against it, must both come off the
+    // path that is actually rendering. On the skinned path the slots below
+    // still run but drive nothing visible, so measuring them would report a
+    // healthy raccoon no matter what the bones did (milestone 10).
+    const skinned = this.rig.skinned;
+    const box = skinned
+      ? this.rig.bellyBox()
+      : new THREE.Box3().setFromObject(this.bodyRender);
     const c = box.getCenter(new THREE.Vector3());
     const h = box.getSize(new THREE.Vector3()).multiplyScalar(0.5);
     const q = (p) => Math.hypot(
@@ -179,11 +188,17 @@ export class JimothyController {
       (p.z - c.z) / Math.max(1e-4, h.z),
     );
     const tmp = new THREE.Vector3();
-    const parts = {
-      head: q(this.headSlot.getWorldPosition(tmp.clone())),
-      tail: q(this.tailSlot.getWorldPosition(tmp.clone())),
-      hips: this.legs.hipAnchors().map(q),
-    };
+    const parts = skinned
+      ? {
+        head: q(this.rig.partCentroid('head')),
+        tail: q(this.rig.partCentroid('tail')),
+        hips: ['leg_FL', 'leg_FR', 'leg_RL', 'leg_RR'].map((n) => q(this.rig.partCentroid(n))),
+      }
+      : {
+        head: q(this.headSlot.getWorldPosition(tmp.clone())),
+        tail: q(this.tailSlot.getWorldPosition(tmp.clone())),
+        hips: this.legs.hipAnchors().map(q),
+      };
     // World height of the belly's centre. Tumbling about his feet drags this
     // down to grade at 90°; tumbling about his middle holds it steady.
     return { up, parts, bodyY: c.y, bodyBottom: box.min.y };
@@ -588,6 +603,11 @@ export class JimothyController {
       for (const n of ['neck', 'tail', 'leg_FL', 'leg_FR', 'leg_RL', 'leg_RR']) {
         this.rig.scaleBone(n, inv, inv, inv);
       }
+      // The counter-scale fixes each child's SIZE; it does not stop the belly
+      // dragging its POSITION. For the head that drag is the point — it rides
+      // forward on a bigger animal. For the legs it walked his feet out past
+      // his own nose and down under the road, so they only splay sideways.
+      for (const n of ['leg_FL', 'leg_FR', 'leg_RL', 'leg_RR']) this.rig.splayLeg(n, belly);
     }
 
     // Tumble about his MIDDLE, not his toes. The group's origin sits at ground
@@ -599,7 +619,28 @@ export class JimothyController {
     // which turns rotation-about-the-origin into rotation-about-c exactly.
     // c is kept purely vertical so that yaw — which leaves (0, h, 0) fixed —
     // contributes nothing, and ordinary turning is untouched.
-    this._pivot.set(0, this.bodySlot.position.y + this.bodyRender.position.y * this.bodySlot.scale.y, 0);
+    // On the skinned path the belly is a bone deep inside one mesh, not a
+    // child of the body slot, so the slot arithmetic below resolves to the
+    // slot's own origin — his feet — and JIM-20 comes straight back. Take the
+    // height from the belly itself, via worldToLocal, which undoes the group's
+    // transform and so yields a height above his feet rather than a world y.
+    //
+    // The refresh is load-bearing, not defensive. Bone poses and scales were
+    // set above but the matrices behind them are still from the last render,
+    // and this value FEEDS group.position — so a stale read is not a one-frame
+    // lag, it is a feedback loop. Measured mid-roll past π it diverged
+    // (0.21 → 2.21 → 0.39) and threw the belly under the road. Refreshed, the
+    // reads agree with each other and the height holds steady at 1.056.
+    if (this.rig.skinned) {
+      this.group.updateMatrixWorld(true);
+      this._pivot.set(
+        0,
+        this.group.worldToLocal(this.rig.bellyBox(this._bellyBox).getCenter(this._bellyC)).y,
+        0,
+      );
+    } else {
+      this._pivot.set(0, this.bodySlot.position.y + this.bodyRender.position.y * this.bodySlot.scale.y, 0);
+    }
     this._pivotRotated.copy(this._pivot).applyEuler(this.group.rotation);
     this.group.position.set(
       p.x - this._pivotRotated.x,

@@ -311,6 +311,17 @@ class Game {
       rig: {
         loaded: this.jimothy.rig.loaded,
         pieces: this.jimothy.rig.pieces.length,
+        skinned: !!this.jimothy.rig.skinned,
+        bones: Object.keys(this.jimothy.rig.bones || {}).length,
+        // Fatness must grow the belly and NOTHING else (Chris 2026-08-07), so
+        // every bone but `body` has to read 1 however much he has eaten.
+        boneScales: this.jimothy.rig.skinned ? this.jimothy.rig.boneScales() : null,
+        // Each animated part's position in Jimothy's own frame. Bones have no
+        // per-piece object to read a transform off, so without this there is
+        // no way to assert from outside that an animation moved anything.
+        parts: this.jimothy.rig.skinned
+          ? this.jimothy.rig.partOffsets(this.jimothy.group)
+          : null,
         placeholderHidden: this.jimothy.placeholderHidden,
         // Read off the meshes themselves, not off any list the controller
         // keeps — "is he see-through?" has to be answered by what actually

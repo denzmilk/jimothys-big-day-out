@@ -19,7 +19,7 @@
   - Rough size: L · Rough value: L
   - Notes: post-slice content, gated on civilians existing (most powerups need targets). Extra-long legs should reuse the procedural leg rig. Delivery method open (gameplan open questions).
 
-- [ ] Pants as wearable cosmetic — Jimothy visibly wears looted pants for the rest of the run (vs score-only pickup)
+- [x] Pants as wearable cosmetic — Jimothy visibly wears looted pants for the rest of the run (vs score-only pickup) → absorbed into **JIM-27 (Jimothy costumes)** in `docs/issues.md`, 2026-08-07
   - Source: 2026-07-23 scoping session ("maybe there's pants in trees")
   - Rough size: M · Rough value: L
   - Notes: pure comedy/clip value; blocked on the milestone 03 loot system and the open question below
@@ -125,9 +125,14 @@
 
 ## Tech & refactors
 
-- [ ] GitHub Pages deploy — Actions workflow building `dist/` to Pages; `base: './'` already set in vite.config.js
-  - Source: 2026-07-23 scoping session (deploy decision)
-  - Rough size: S · Rough value: L
+- [ ] **Entity registry — one consistent way to add a vehicle, item or prop.** Before vehicles and items land, define the shape they all plug into: a declarative config per entity (mesh/asset, physics body, interaction verbs, score/heat contribution, spawn rules) that a generic system reads, so adding the shopping trolley is *writing a config*, not threading another parameter through five files. Precedent already in the repo: `MOVES` carries per-move destruction policy and `onImpact` takes a whole config — the same trick, scaled up.
+  - Source: 2026-08-07 Chris ("when we get to adding in vehicles, items etc. see if you can come up with a structured modular approach to adding them in consistently")
+  - Rough size: M · Rough value: L
+  - Notes: **architecture-enabling — must land BEFORE the first vehicle, not after.** Retrofitting a registry onto three hand-rolled vehicles costs more than building it once. Wants an ADR, since it constrains every content addition afterwards. Feeds the rideables, powerup-arsenal and pants-as-cosmetic entries above, all of which are currently blocked on "how do we add a thing".
+- [ ] **Procedural space authoring — a safe method for building out different spaces.** A repeatable way to generate a *kind* of place (a block, a shop interior, a park, an alley, an underground section) rather than hand-placing voxels per location, with "safe" meaning it cannot produce a space that traps the player, floats, or blocks the only exit — validated at generation time, not discovered in playtest. Once it exists, a "world tour" pass drops meme-worthy easter eggs across the map.
+  - Source: 2026-08-07 Chris ("come up with a safe procedural method for building out different spaces - then we can do a world tour and add in meme-worthy easter eggs everywhere")
+  - Rough size: L · Rough value: L
+  - Notes: **Depends on streaming ground (JIM-01)** — authoring spaces against an eagerly-allocated map means authoring them twice, which is the same reasoning that put streaming ahead of city content. The easter-egg pass is a separate, cheap follow-up once the generator exists; keep them apart so the generator isn't held up by content. Absorbs the "world variety" ask (road hierarchy, building types, interior furnishings) and gives the Seattle-landmarks entry somewhere to live — **re-read its trademark warning before authoring any recognisable landmark.**
 
 ## Tooling & QA
 

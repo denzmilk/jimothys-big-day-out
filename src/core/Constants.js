@@ -356,11 +356,13 @@ export const ASSET_PATHS = {
 // Runtime model splitter (milestone 06): one full Meshy GLB cut into
 // head/body/tail at load time — no Blender, no rigging.
 export const RIG = {
-  // Use the skinned armature model instead of the seven separate solids
-  // (ADR-0004). Opt-in while the animation is ported bone-by-bone, so the
-  // working split model stays shippable until the skinned one is playtested.
-  // Flip the default to true once JimothyController drives bones.
-  SKINNED: typeof window !== 'undefined' && !!window.__FORCE_SKINNED__,
+  // One continuous mesh on an armature instead of seven separate solids
+  // (ADR-0004). The split model could not deform across a joint, so every
+  // animation showed a seam and each fix capped how far a move was allowed to
+  // travel — which was capping the comedy the game exists for (JIM-21).
+  // tools/prep_jimothy.py and the split load path stay until this has a
+  // playtest behind it, so the fallback is one line away.
+  SKINNED: true,
   // Overall nose-to-tail length in world units after normalization.
   TARGET_LENGTH: 1.7,
   // Cut positions as fractions of body length from the nose / from the rear.

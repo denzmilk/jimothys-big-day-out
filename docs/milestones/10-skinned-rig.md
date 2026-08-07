@@ -2,7 +2,8 @@
 
 ## Status
 
-in-progress
+implemented — awaiting Chris's playtest (house rule 4). Every measurable AC
+passes; the seam AC is playtest-only by nature and is the exit condition.
 
 ## Objective
 
@@ -37,9 +38,10 @@ This is the fourth time the split has produced the same defect (JIM-10, JIM-11, 
 - [x] The export is a valid skinned glTF — one skin, 8 joints, `JOINTS_0` + `WEIGHTS_0` present
 - [x] File size does not regress — 4.71 MB → **3.88 MB**
 - [x] The model loads as a `SkinnedMesh` with all 8 bones resolved, no console errors — verified in-browser; renders as one continuous animal with no seam at neck, hips or tail (`output/iterate/skin-load.png`)
-- [ ] Head bob, tail wiggle, leg swing, roll tuck and headbutt pitch all still animate
-- [ ] Fatness deforms the belly *and* carries head, tail and legs with it, with the anchoring code deleted
-- [ ] No seam is visible at the neck, hips or tail in any pose, including mid-roll and mid-headbutt — verified by user playtest
+- [x] Head bob, tail wiggle, leg swing, roll tuck and headbutt pitch all still animate — `every animated bone actually moves` samples each part's travel in Jimothy's own frame; roll tuck and headbutt pitch keep their existing specs
+- [x] Fatness deforms the belly *and* carries head, tail and legs with it, with the anchoring code deleted — head rides forward, legs splay sideways only, tail stays on the rump (see "Legs rode out of the world", below)
+- [x] `RIG.SKINNED` defaults to true and `__FORCE_SKINNED__` is gone — the skinned model is what ships
+- [ ] No seam is visible at the neck, hips or tail in any pose, including mid-roll and mid-headbutt — **verified by user playtest**, and it has to be: see "Why there is no automated seam check"
 
 ## Exit condition
 
@@ -51,9 +53,73 @@ Geometry and skin validity are asserted from the GLB itself (`tools/mesh_report.
 
 The `parts` metric in `render_game_to_text` keeps working, since it measures anchor positions against the belly's bounding box regardless of what moves them.
 
-## Where this stopped (2026-08-07) and exactly what is left
+## Landed 2026-08-07: the port is complete, awaiting playtest
 
-The pipeline and the load path are done and verified. **What remains is porting the animation from slots to bones**, which is one focused job:
+Steps 1–3 below were done earlier the same day. This session finished steps 4
+and 5, and finishing them turned up two defects that only became visible once
+the skinned path was the one under test.
+
+### Legs rode out of the world as he fattened
+
+Scaling `body` multiplies every direct child's local position by the same
+factor, in the body bone's own frame. The counter-scale added earlier fixed
+each child's **size**; nothing was undoing the drag on its **position**.
+
+For the head that drag is the point — it rides forward on a bigger animal. For
+the legs it was a bug, and a bad one. Measured at the current fatness ceiling
+(`widthScale` 1.70): the front feet reached `z 1.25` while the nose was at
+`1.04`, so his feet were out in front of his own face, and they sat at
+`y -0.20` — a fifth of a metre **under the road**.
+
+The body bone's frame, measured from the four hips' bind positions:
+
+| axis | meaning | how it was identified |
+|---|---|---|
+| x | lateral | flips sign between the L and R legs |
+| y | along the spine | differs between the front and rear pairs; the only non-zero component on `neck` and `head` |
+| z | drop from spine to hip | identical on all four legs |
+
+`JimothyRig.splayLeg` now lets only x ride out, which is the bow-legged waddle
+of a fat raccoon, and returns y and z to their rest values. `tail` needs no
+such fix and gets none: its bind position is exactly `[0,0,0]`, the body bone's
+own origin, so the belly grows around it and leaves it on the rump.
+
+### The roll pivot fed itself stale matrices
+
+`_pivot` has to be the belly's height above his feet, and on the skinned path
+the belly is a bone deep inside one mesh rather than a child of the body slot —
+so the old slot arithmetic resolved to the slot's own origin, his feet, and
+JIM-20 came straight back.
+
+Reading the belly's real height through `worldToLocal` fixed that, but only
+once the matrices were refreshed first. The value **feeds** `group.position`,
+so a stale read is not a one-frame lag, it is a feedback loop: traced mid-roll
+past π it diverged 0.21 → 2.21 → 0.39 and threw the belly to `y -0.34`, under
+the road. With `updateMatrixWorld` called first the reads agree and the height
+holds steady at 1.056.
+
+### Why there is no automated seam check
+
+An attempt at one is worth recording, because it looked convincing and was
+wrong. It bucketed every vertex under the bone that dominates it and measured
+the gap between adjacent buckets' boxes — zero everywhere would mean nothing
+had come apart.
+
+It cannot work, and no threshold rescues it. Triangles straddle the boundary
+between two bones, so a joint that **stretches** separates the two vertex sets
+exactly as a torn one would. A fat mid-roll Jimothy measured 0.077 world units
+at the hip by exact per-vertex skinning, with a provably intact mesh. Stretching
+is what this milestone was built to do, so the metric reports success as
+failure.
+
+The mesh is one continuous surface; it is topologically incapable of tearing.
+What "seam" actually names is a *rendering* judgement, which is why the AC says
+playtest and why it still does. `rig.parts` reports each part's position for
+diagnosis if Chris does see one.
+
+## How it stopped (2026-08-07) — the five steps, all now done
+
+Kept because step 1 is the trap anyone touching this rig will hit next.
 
 1. **Bone axes — and a trap that will bite you first.** Measured 2026-08-07:
 
@@ -62,10 +128,10 @@ The pipeline and the load path are done and verified. **What remains is porting 
    So: capture each bone's rest quaternion at load, and compose deltas against it — `bone.quaternion.copy(rest).multiply(delta)` for a rotation in the bone's own frame, or `delta.clone().multiply(rest)` for one in its parent's frame. Then re-measure which local axis is pitch/yaw/roll *with the rest pose intact*, and write the mapping into a comment. The probe used for this reads a bone's local +Y column out of `matrixWorld` (`elements[4..6]`), which is the bone's own length axis and the clearest thing to watch.
 2. **Retire the fallback tube legs on the skinned path.** `JimothyLegs.useRealLegs()` bails when `rig.legs` is empty — which it is, since the skinned model has leg *bones*, not leg *objects* — so the tubes stay visible. That is the four dark cylinders in `output/iterate/skin-load.png`, and it is the same "eight legs" bug from the 2026-07-23 playtest. `useRealLegs` should take bones on this path.
 3. **Delete the fatness anchoring, do not port it.** The `anchor()` helper and `applyFatness(…, bodyBase)` exist only to keep detached pieces on a surface they were not attached to. Scaling the `body` bone deforms the belly and carries everything with it, because the mesh is continuous.
-4. **Flip `RIG.SKINNED` to `true`** once the above is done, and delete the `__FORCE_SKINNED__` opt-in.
-5. Then re-run `rig.spec.js` with the rig loaded — its assertions measure where parts sit relative to the body, which is exactly what must still hold.
+4. **Flip `RIG.SKINNED` to `true`** once the above is done, and delete the `__FORCE_SKINNED__` opt-in. **Done.**
+5. Then re-run `rig.spec.js` with the rig loaded. **Done, and this was the step with the work in it.** The old assertions measured seven detached pieces' distance from the belly, which one continuous mesh cannot reproduce — the failure mode they guarded is now impossible by construction. They were restated around what the new architecture actually promises, and two of them found real bugs while being restated (above).
 
-Only after that is it worth reconsidering JIM-18's thrust cap and JIM-11.
+Only now is it worth reconsidering JIM-18's thrust cap and JIM-11.
 
 ## Resolved: fatness grows the belly only, and the hitbox with it
 

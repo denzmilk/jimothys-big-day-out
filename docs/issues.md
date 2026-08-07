@@ -175,6 +175,52 @@ Wants its own milestone; it is a rebalance of the whole game around a much large
 
 ---
 
+### JIM-27 — Jimothy costumes
+
+**Status:** open · **Severity:** medium (clip value; not on the critical path) · **Reported:** 2026-08-07 (Chris)
+
+> "Jimothy costumes too as an issue"
+
+Wearable looks for Jimothy, persisting for a run. Absorbs the older **"pants as wearable cosmetic"** backlog entry (looted pants visibly worn rather than score-only), which was blocked on the milestone 03 loot system and on there being any way to dress him at all.
+
+**The skinned rig (milestone 10) decides how hard this is, and the two options are very far apart:**
+
+1. **Texture swap** — a costume is an alternate base-colour map on the one material. Nearly free, works today, no new geometry, no rig work. Covers anything paint-shaped: hi-vis vest, hawaiian shirt, a tuxedo painted on.
+2. **Costume geometry bound to the same skeleton** — a separate mesh skinned to the *same* 12 bones and posed by the same `rig.pose()` calls. Needed for anything with a silhouette: a hat, a cape, sunglasses, a traffic cone on his head. Costs a per-costume Blender export step in `tools/rig_jimothy.py`, and every costume has to be re-bound if the armature ever changes.
+
+**Do not mix the two without deciding.** Option 1 for the first pass is almost certainly right — it gets costumes into the game for a texture each, and the whole art direction is "photoreal texture on a bad model" anyway (JIM-28), so a painted-on tuxedo *is* the joke. Option 2 only for the ones that need a shape.
+
+**Note the fatness interaction:** costume geometry bound to `body` inflates with the belly, which is correct; bound to `neck`/`leg_*` it inherits the counter-scale and stays default size, also correct. A hat parented to `head` will behave. This is only a problem if a costume spans the belly *and* an extremity.
+
+**Where:** `src/gameplay/JimothyRig.js`, `tools/rig_jimothy.py`, `src/core/Constants.js` (`ASSET_PATHS`)
+
+**Depends on:** JIM-28 for the textures themselves. Feeds the `scaffold-gateables` skin-picker shape if monetization ever happens.
+
+---
+
+### JIM-28 — Everything needs textures, and they should be janky on purpose
+
+**Status:** open · **Severity:** medium (it is most of the game's look) · **Reported:** 2026-08-07 (Chris)
+
+> "we'll need to texture everything too… you're welcome to use pinokio to install an image gen LLM (high quality, use my M5 pro to get some good results). I think if the textures are a bit janky - like photo realistic on a shitty model - that's the right vibe."
+
+**This confirms the art direction already written into `docs/tech.md`** rather than changing it — that file has said "photographic PBR textures… the photo-texture-on-simple-geometry look is the intended demi-real jank" since the idea phase. What is new is the *source*: locally generated rather than CC0-sourced.
+
+**Plan:** install a local image-gen model via Pinokio (there is a `pinokio` skill available) and run it on Chris's M5 Pro, so texture generation costs nothing per asset and can be iterated on freely — which matters, because "janky in the right way" is a taste target that will need many passes.
+
+Open, and worth deciding before generating a library:
+
+- **Which model.** Needs to do tileable/seamless PBR-ish output, not just pretty pictures. Some are much better at repeating surfaces than others.
+- **Tileability.** A non-tiling texture on a voxel wall reads as a bug, not as jank. This is the one place "janky" is the wrong answer.
+- **What gets a generated texture vs. a flat colour.** The voxel city is thousands of faces; texturing everything is a memory and draw-call question, not just an art one. Check against `voxels.drawCalls` in `render_game_to_text()`.
+- **Consistency.** Independently generated textures drift in lighting and colour temperature, and a city built from them looks like a collage rather than a place. Generate in batches with a shared prompt stem.
+
+**Where:** `public/assets/textures/`, `src/world/VoxelCity.js` (materials), `docs/tech.md` (asset pipeline — update when the source changes)
+
+**Blocks:** JIM-27 (costumes are textures first). Pairs naturally with the procedural-space work in `docs/backlog.md` — a generator that authors a *kind* of place wants a matching set of surfaces for it.
+
+---
+
 ### JIM-22 — Legs should scamper: sprawled, low, with physics-aware footing
 
 **Status:** open · **Severity:** medium (it's the character's whole read) · **Reported:** 2026-08-07 (Chris)
@@ -197,9 +243,11 @@ Two separate things:
 
 ### JIM-21 — Seams: the rig separates instead of stretching
 
-**Status:** open · **Severity:** high (it caps how far any animation can go) · **Reported:** 2026-08-07 (Chris)
+**Status:** implemented 2026-08-07 (milestone 10), **awaiting Chris's playtest** — the skinned model is now what ships (`RIG.SKINNED` defaults true) · **Severity:** high (it caps how far any animation can go) · **Reported:** 2026-08-07 (Chris)
 
 > "We do need to fix the seams — have the mesh stretch instead of just separate/break."
+
+**Why this stays open until Chris plays it.** There is no automated seam check and there cannot be a useful one: the mesh is one continuous surface, topologically incapable of tearing, and an attempt to measure gaps between adjacent bones' vertex sets reported 0.077 world units at the hip of a fat mid-roll Jimothy whose mesh was provably intact — because triangles straddle the boundary, so a joint that *stretches* separates them exactly as a torn one would. "Seam" is a rendering judgement. `rig.parts` in `render_game_to_text()` reports every part's position if one does show up.
 
 Jimothy is **seven rigid solids** parented into slots (milestone 06). Any animation that moves a piece slides it past its neighbour, because there is no geometry spanning the joint. Milestone 09 capped the sockets so you no longer see *through* him, but a capped socket sliding past a capped stump is still a visible seam — and it is why the headbutt's head thrust had to be cut to 0.12 (JIM-18) and why the legs still read as detached (JIM-11).
 
@@ -344,6 +392,24 @@ Identical craftsman houses in regular rows. Needs a real Seattle reference, a ro
 
 ## Fixed
 
+### JIM-26 — Roll pivot fed itself stale matrices and buried the belly
+
+**Status:** fixed 2026-08-07 (milestone 10) · **Test:** `tests/rig.spec.js::roll tumbles about his middle, not his toes`
+
+Same symptom as JIM-20, different cause, and only on the skinned path. `_pivot` must be the belly's height above his feet; on the skinned path the belly is a bone inside one mesh rather than a child of the body slot, so the old slot arithmetic resolved to his feet.
+
+Reading the belly's real height via `worldToLocal` fixed that only once the matrices were refreshed first. The value **feeds** `group.position`, so a stale read is a feedback loop rather than a one-frame lag — traced mid-roll past π it diverged 0.21 → 2.21 → 0.39 and put the belly at `y -0.34`, under the road. `updateMatrixWorld(true)` before the read; the height then holds at 1.056 for the whole tumble.
+
+### JIM-25 — A fat Jimothy's feet walked out past his nose and under the road
+
+**Status:** fixed 2026-08-07 (milestone 10) · **Test:** `tests/rig.spec.js::the belly carries head, tail and legs outward as it grows`
+
+Found by instrumenting, not by eye — it needed `widthScale` near the ceiling to be obvious, and nothing was reporting bone positions until this session.
+
+Scaling `body` multiplies every direct child's local position by the same factor. The counter-scale from `4a5cd67` fixed each child's *size* and nothing undid the drag on its *position*. At `widthScale` 1.70 the front feet reached `z 1.25` with the nose at `1.04`, and sat at `y -0.20` — under the road.
+
+For the head the drag is correct: it rides forward on a bigger animal. `JimothyRig.splayLeg` now lets the legs ride only along the body bone's lateral axis (the bow-legged waddle) and returns the spine and drop axes to rest. The axis identification is in the milestone. `tail` needs no fix — its bind position is the body bone's own origin.
+
 ### JIM-14 — Roll spun sideways instead of tumbling forward
 
 **Status:** fixed 2026-08-06 (milestone 08) · **Test:** `tests/rig.spec.js::roll tumbles forward, not sideways`
@@ -352,9 +418,11 @@ Identical craftsman houses in regular rows. Needs a real Seattle reference, a ro
 
 ### JIM-15 — Head, tail and legs drifted off the body as he fattened
 
-**Status:** fixed 2026-08-06 (milestone 08) · **Test:** `tests/rig.spec.js::parts stay attached as he fattens`
+**Status:** fixed 2026-08-06 (milestone 08); **made impossible** 2026-08-07 (milestone 10) · **Test:** `tests/rig.spec.js::the belly carries head, tail and legs outward as it grows`
 
 The belly scales about its slot's origin; the anchors were scaled about the *group* origin (`base * fatWidth`), i.e. about his feet. Different pivots, so the surfaces diverged as he grew. Anchors now scale about `bodyBase`. Note this defect **cannot reproduce under `__SKIP_RIG__`** — see the note in `docs/STATE.md`. Residual baseline separation is JIM-11.
+
+The skinned rig retires the whole class: detached pieces cannot drift off a body they are part of, so the anchoring code was deleted rather than ported. The spec that guarded it was restated around what a continuous mesh actually promises, and found JIM-25 while being restated.
 
 ### JIM-16 — Headbutt and roll ploughed the terrain
 

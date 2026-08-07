@@ -12,6 +12,9 @@ import { LEGS, MOVES, PLAYER_CONFIG } from '../core/Constants.js';
 //
 // Both never run at once — drawing tubes over the model's real legs is what
 // gave him eight legs in the 2026-07-23 playtest.
+const LEG_NAMES = ['leg_FL', 'leg_FR', 'leg_RL', 'leg_RR'];
+const SHIN_NAMES = ['shin_FL', 'shin_FR', 'shin_RL', 'shin_RR'];
+
 export class JimothyLegs {
   constructor(scene, controller) {
     this.scene = scene;
@@ -56,7 +59,7 @@ export class JimothyLegs {
   /** Switch to the model's real legs and retire the tubes. */
   useRealLegs(legMap) {
     if (!legMap || !Object.keys(legMap).length) return;
-    this.realLegs = ['leg_FL', 'leg_FR', 'leg_RL', 'leg_RR'].map((n) => legMap[n]).filter(Boolean);
+    this.realLegs = LEG_NAMES.map((n) => legMap[n]).filter(Boolean);
     if (!this.realLegs.length) return;
     this.mode = 'real';
     // Remember slim hip positions so fatness can splay them outward.
@@ -121,7 +124,7 @@ export class JimothyLegs {
     this.phase += delta * LEGS.SWING_HZ * (0.4 + speedNorm * 1.6) * Math.PI * 2;
     const amp = LEGS.SWING_MIN + speedNorm * LEGS.SWING_AMPLITUDE;
     const tuck = this.tuck || 0;
-    ['leg_FL', 'leg_FR', 'leg_RL', 'leg_RR'].forEach((name, i) => {
+    LEG_NAMES.forEach((name, i) => {
       const diagonal = (i === 0 || i === 3) ? 1 : -1;
       const front = i < 2 ? 1 : -1;
       const swing = Math.sin(this.phase) * amp * diagonal;
@@ -204,6 +207,16 @@ export class JimothyLegs {
   }
 
   snapshot() {
+    // Bones mode has no `planted` targets — the swing is open-loop — so the
+    // tube branch below would report four feet parked at the world origin.
+    // Read the shins' actual flesh instead; milestone 11 (JIM-22) needs a
+    // truthful foot position to plant against terrain anyway.
+    if (this.mode === 'bones') {
+      return SHIN_NAMES.map((n) => {
+        const p = this.rig.partCentroid(n);
+        return { x: +p.x.toFixed(2), z: +p.z.toFixed(2) };
+      });
+    }
     if (this.mode === 'real') {
       const p = this.controller.group.position;
       return this.realLegs.map(() => ({ x: +p.x.toFixed(2), z: +p.z.toFixed(2) }));

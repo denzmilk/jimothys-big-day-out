@@ -387,6 +387,60 @@ export class VoxelWorld {
     return bottom * s; // dug clean through: fall to bedrock
   }
 
+  /** Can a straight line from A to B reach it without passing through solid?
+   *
+   *  A DDA march (Amanatides & Woo) over the voxel grid rather than a physics
+   *  raycast, because the world has no collision bodies at all — Jimothy is
+   *  kinematic and collides by grid lookup (ADR-0003), so there is nothing for
+   *  a physics ray to hit. Marching the grid is also exact and free of tuning:
+   *  it respects buildings, the rubble he made a second ago, and tunnel walls,
+   *  with no extra bookkeeping (milestone 19).
+   *
+   *  The endpoints' own voxels are skipped. An eye inside a wall and a target
+   *  inside rubble are both states the game can legitimately be in, and neither
+   *  should mean "blind". */
+  hasLineOfSight(ax, ay, az, bx, by, bz) {
+    const s = VOXEL.SIZE;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const dz = bz - az;
+    let [x, y, z] = this.worldToVoxel(ax, ay, az);
+    const [ex, ey, ez] = this.worldToVoxel(bx, by, bz);
+    const stepX = Math.sign(dx);
+    const stepY = Math.sign(dy);
+    const stepZ = Math.sign(dz);
+    // Parametric distance (in t, where t = 1 is B) to the next grid plane on
+    // each axis, and how much t one whole voxel costs.
+    const boundary = (v, step) => (step > 0 ? (v + 1) * s : v * s);
+    let tMaxX = dx === 0 ? Infinity : (boundary(x, stepX) - ax) / dx;
+    let tMaxY = dy === 0 ? Infinity : (boundary(y, stepY) - ay) / dy;
+    let tMaxZ = dz === 0 ? Infinity : (boundary(z, stepZ) - az) / dz;
+    const tDeltaX = dx === 0 ? Infinity : Math.abs(s / dx);
+    const tDeltaY = dy === 0 ? Infinity : Math.abs(s / dy);
+    const tDeltaZ = dz === 0 ? Infinity : Math.abs(s / dz);
+
+    // A hard iteration cap rather than trusting the loop to terminate: this
+    // runs per pursuer per frame, and a degenerate ray must cost a bounded
+    // amount rather than freezing the game.
+    const maxSteps = Math.ceil((Math.abs(dx) + Math.abs(dy) + Math.abs(dz)) / s) + 3;
+    for (let n = 0; n < maxSteps; n++) {
+      if (x === ex && y === ey && z === ez) return true;
+      if (tMaxX < tMaxY && tMaxX < tMaxZ) {
+        if (tMaxX > 1) return true;
+        x += stepX; tMaxX += tDeltaX;
+      } else if (tMaxY < tMaxZ) {
+        if (tMaxY > 1) return true;
+        y += stepY; tMaxY += tDeltaY;
+      } else {
+        if (tMaxZ > 1) return true;
+        z += stepZ; tMaxZ += tDeltaZ;
+      }
+      if (x === ex && y === ey && z === ez) return true;
+      if (this.get(x, y, z) !== 0) return false;
+    }
+    return true;
+  }
+
   /** Clear voxels in a sphere. Returns the world-space centers removed so the
    *  caller can spawn debris where the wall actually was.
    *

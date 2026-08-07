@@ -39,6 +39,16 @@ Merging co-planar faces of the same material is the standard fix and would cut g
 
 Not urgent: normal play streams a 210 m disc and sits at ~110 draw calls.
 
+### JIM-35 — One headbutt is a five-star wanted level
+
+**Status:** open (balance — needs Chris's judgement, not a fix) · **Severity:** low · **Found:** 2026-08-07, milestone 19
+
+`HEAT.PER_DEMOLITION` is 0.4 *per voxel destroyed*. A single fat headbutt into open ground removes about **1,075 voxels**, which is **430 heat points** — against a tier-5 threshold of 100. So one swing at maximum fatness takes the run from calm to the army.
+
+It may well be intended ("levelling a house is chaos", and the constant is commented as exactly that). But it was written when a blast was small, and `FATNESS.BLAST_PER_FAT` has been raised since. Worth a decision rather than a discovery: either heat scales sub-linearly with the size of a blast, or the per-voxel rate comes down.
+
+Found while writing the pursuer noise spec, which raised the tier to 5 by accident and spawned three paparazzi into the middle of the test.
+
 ### JIM-10 — Jimothy's mesh is full of holes; you can see his interior
 
 **Status:** fixed 2026-08-07 (milestone 09) · **Severity:** high (it's the character, on screen at all times) · **Reported:** 2026-08-06 (Chris, with screenshot)

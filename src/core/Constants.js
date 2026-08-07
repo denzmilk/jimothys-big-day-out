@@ -267,12 +267,77 @@ export const PAPARAZZI = {
   GLOBAL_FLASH_COOLDOWN: 2.5,
   MIN_TIER_FLASH: 2,
   STUN_SECONDS: 0.45,
+  // A photographer wants the shot, not the raccoon: ordinary eyes, and it loses
+  // interest sooner than animal control does (milestone 19).
+  VISION_SCALE: 1.0,
+  SEARCH_SCALE: 0.7,
 };
 
 export const ANIMAL_CONTROL = {
   SPEED: 5,
   NET_RANGE: 1.1,
   MIN_TIER: 3,
+  // The one that commits (milestone 19). Better eyes than a photographer and a
+  // much longer temper — a paparazzo wants a picture, this one wants the net.
+  VISION_SCALE: 1.25,
+  SEARCH_SCALE: 1.6,
+};
+
+// Pursuer awareness (milestone 19).
+//
+// Chris: "they just make a beeline for you and never stop - no AI there at
+// all." Vision is what makes geometry mean something: alleys to duck down,
+// corners to break line of sight behind, and — once milestone 18 lands — tunnels
+// where a dead end is a gamble. It is a cone plus a DDA march through the same
+// voxel grid the world is made of, so it respects buildings, rubble he has just
+// made, and tunnel walls for free.
+export const VISION = {
+  RANGE: 34,
+  // Half-angle of the cone: a 120° field of view, which is generous for a
+  // human and stops "he was directly behind me" feeling arbitrary.
+  HALF_ANGLE: 1.05,
+  // Where they look FROM and what they look AT. Both matter: eyes at ground
+  // level see through a kerb, and aiming at his feet loses him behind rubble.
+  EYE_HEIGHT: 1.45,
+  TARGET_HEIGHT: 0.5,
+  // Close enough to notice whatever you are facing. Without it you can stand on
+  // someone's toes unseen, which reads as a bug rather than as stealth.
+  PERIPHERAL_RANGE: 5,
+  // A bush cuts sight range HARD rather than toggling a flag, so hiding works
+  // because they cannot see you. At 0.1 of 34 m that is 3.4 m — close enough
+  // that hiding in a bush animal control is already standing next to does not
+  // save you, which is the right answer.
+  BUSH_RANGE_SCALE: 0.1,
+  // Escalation buys better eyes, not just more bodies. Per tier above 1.
+  TIER_RANGE_GAIN: 0.18,
+};
+
+// Destruction is loud, and that is what makes the demolition tool a decision
+// rather than free chaos: a headbutt through a wall pulls every pursuer in
+// earshot toward the NOISE, not toward Jimothy.
+export const HEARING = {
+  DEMOLITION_BASE: 26,
+  DEMOLITION_PER_VOXEL: 0.45,
+  DEMOLITION_MAX: 160,
+  CAN_TIPPED: 24,
+};
+
+// Losing sight of him is the interesting half of a chase.
+export const SEARCH = {
+  DURATION: 14,
+  // How far around the last known position they cast about.
+  WANDER_RADIUS: 9,
+  ARRIVE_RADIUS: 2,
+  REPICK_SECONDS: 2.2,
+};
+
+// What they do when they have nothing to chase. They used to stand and stare.
+export const PATROL = {
+  RADIUS: 42,
+  ARRIVE_RADIUS: 3,
+  LOITER_SECONDS: 2.5,
+  // A beat, not a chase.
+  SPEED_SCALE: 0.5,
 };
 
 // Shared by all pursuer types, round-robin — deterministic for tests.

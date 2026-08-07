@@ -2,7 +2,7 @@
 
 ## Status
 
-scoped, not started. **Should land before milestone 18.**
+**implemented 2026-08-07, awaiting playtest.** Landed before milestone 18, as planned.
 
 ## Objective
 
@@ -68,17 +68,31 @@ A standard awareness model, kept small:
 - **Depends on:** nothing hard. Better after milestone 17 (terrain), since slopes change what "can see" means.
 - **Blocks:** milestone 18 — the underground is not worth building for a beeline AI.
 
+## What shipped
+
+**Implemented 2026-08-07. Awaiting Chris's playtest** (house rule 4). `tests/pursuers.spec.js`, 8 specs.
+
+The steering was never the bug, exactly as this milestone predicted — `_steer` still walks straight at a target. What changed is that the target belongs to a state machine, and vision is a cone plus a DDA march through the same voxel grid the world is made of (`VoxelWorld.hasLineOfSight`), so buildings, rubble he made a second ago and — once milestone 18 lands — tunnel walls all block sight for free.
+
+**Three decisions worth recording:**
+
+- **They spawn SUSPICIOUS, briefed with where he was.** They appear *because* the wanted level says somebody reported him, so "dispatch told me roughly where" is both the honest fiction and what stops the pursuit depending on a lucky sightline. Patrolling at spawn would mean a tier-3 animal controller wandering a street two blocks away while the run had no lose condition at all.
+- **Suspicion runs on the same clock as a search, while they are still walking to the lead.** Without that, a lead they cannot reach — across the canal, up a bluff — is followed forever, and "giving up" only ever applied to the half of the behaviour that had already arrived.
+- **Steering got a wall-follower, not a pathfinder.** Pathfinding stays out of scope. But a pursuer that grinds into a wall while the state machine insists it is going somewhere makes a search unreadable, and this was not a small effect: an animal controller stood in a doorway for the rest of the run.
+
+**The bug that took the longest, because it looked like the opposite of itself.** The first avoidance re-derived which way to turn every frame. That gives a four-frame limit cycle: step left, which unblocks the right and blocks the left, step right, repeat. Every frame it moved its full 8 cm; every second it travelled 5 cm. Traced frame by frame it reads `-9.81,34.09 → -9.86,34.03 → -9.81,34.09 → …`. The first stuck-detector missed it completely, because it asked "did it move" — and it did. **Commitment is the fix**: turn one way until straight is clear again. The detector now measures net displacement over a window, which is the only thing that can tell walking from pacing.
+
 ## Acceptance criteria
 
-- [ ] A pursuer with no line of sight to Jimothy does **not** move straight at him — the assertion that this milestone happened at all
-- [ ] Breaking line of sight around a corner causes a search at the last known position, not instant re-acquisition
-- [ ] Searching ends: after `SEARCH.DURATION` with no sighting, the pursuer gives up
-- [ ] A bush cuts sight range so that hiding works by not being seen, not by a flag
-- [ ] Destruction noise pulls pursuers toward the **noise**, not toward Jimothy
-- [ ] Vision respects geometry — assert a pursuer cannot see through a building, and that blasting the building open restores the sightline
-- [ ] Heat tier changes behaviour, not just head-count
-- [ ] Pursuer state, sight and last-known-position are in `render_game_to_text()`
-- [ ] `animal control nets jimothy` stops being flaky
+- [x] A pursuer with no line of sight to Jimothy does **not** move straight at him — the assertion that this milestone happened at all
+- [x] Breaking line of sight around a corner causes a search at the last known position, not instant re-acquisition
+- [x] Searching ends: after `SEARCH.DURATION` with no sighting, the pursuer gives up — and so does suspicion, which had no clock at all in the first draft
+- [x] A bush cuts sight range so that hiding works by not being seen, not by a flag — asserted both ways, since "always invisible" passes the first half
+- [x] Destruction noise pulls pursuers toward the **noise**, not toward Jimothy — `Events.WORLD_DEMOLISHED` now carries a position
+- [x] Vision respects geometry — asserted through a wall, then through the hole blasted in it
+- [x] Heat tier changes behaviour, not just head-count — sight range grows per tier, and animal control sees further and searches longer than a photographer at the same tier
+- [x] Pursuer state, sight and last-known-position are in `render_game_to_text()` — plus a stable `id`, because the snapshot's ORDER is not stable: a blast raises heat, heat spawns paparazzi, and `pursuers[0]` quietly becomes someone else mid-spec
+- [x] `animal control nets jimothy` stops being flaky — `heat.spec.js` run three times end to end, 7/7 each time; the approach is now deterministic under `advanceTime` (hashed wander, no `Math.random`)
 - [ ] The chase reads as a chase — **verified by user playtest**
 
 ## Exit condition

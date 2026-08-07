@@ -269,7 +269,10 @@ class Game {
     if (!removed.length) return 0;
     this.voxels.remeshDirty();
     this.debris.spawnBurst(removed);
-    eventBus.emit(Events.WORLD_DEMOLISHED, { voxels: removed.length });
+    // WHERE, not just how much (milestone 19). Destruction is loud, and the
+    // noise is what pulls pursuers — toward the wall he just came through
+    // rather than toward him, which is what makes demolition a decision.
+    eventBus.emit(Events.WORLD_DEMOLISHED, { voxels: removed.length, x: pos.x, z: pos.z });
     return removed.length;
   }
 

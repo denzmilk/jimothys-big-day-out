@@ -62,6 +62,19 @@ window.dropJimothy = (x, z, height) => {
 // the same evaluate() call that triggers them — the WebGL buffer clears
 // between calls, which is why screenshots of this game come out black.
 window.__game = game;
+// --- Milestone 19: the awareness model, from outside ---
+// A pursuer at an EXACT spot. The heat-driven spawn ring cannot put one on the
+// far side of a known wall, which is precisely what the vision specs need.
+window.spawnPursuerAt = (type, x, z) => game.pursuers.spawnAt(type, x, z);
+// Line of sight on its own, so "can he see through a building" is a question
+// about geometry rather than about a pursuer that might also be out of range or
+// facing the wrong way.
+window.voxelLineOfSight = (ax, ay, az, bx, by, bz) =>
+  game.voxels.hasLineOfSight(ax, ay, az, bx, by, bz);
+// Sight range for a type at a tier, so "escalation buys better eyes" is
+// measurable without staging five separate chases.
+window.pursuerSightRange = (type, tier) => game.pursuers.sightRange(type, tier);
+
 // Free-look hook for capturing overviews without the follow cam fighting it.
 window.debugCamera = (x, y, z, lx = 0, ly = 0, lz = 0) => {
   game.freeCamera = true;

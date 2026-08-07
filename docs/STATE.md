@@ -12,11 +12,14 @@ development
 
 ## Current milestone
 
-**Milestone 10 — skinned rig** (`docs/milestones/10-skinned-rig.md`, ADR-0004): implemented, **awaiting Chris's playtest**. Every measurable AC passes. `RIG.SKINNED` now defaults to `true` and `__FORCE_SKINNED__` is gone — Jimothy is one continuous mesh on a 12-joint armature, and the seven-piece split path survives only as a one-line fallback.
+**Milestone 12 — streaming ground** (`docs/milestones/12-streaming-ground.md`, JIM-01). Planned and confirmed 2026-08-07, **not yet started**.
 
-The one open AC is the exit condition and is playtest-only by nature: **no seam visible at the neck, hips or tail in any pose, including mid-roll and mid-headbutt.**
+Chris chose **"much bigger map"** over a same-size perf fix, and **damage persists** across a chunk unload. The milestone doc has the full design; the two things to know before touching it:
 
-**Next milestone, order CONFIRMED by Chris 2026-08-07:** streaming ground (JIM-01, roadmap Phase 1.1) → milestone 11 scamper gait. Rationale: streaming gates finer voxels, underground areas and house interiors, and doing city content first means authoring it twice.
+1. **The layout / voxelize split is the central decision.** Generation splits into a pure, cheap, seeded *layout* layer ("what is at (x, z)?" — no voxels) and an expensive *voxelize* layer that runs near the player only. Milestone 13's minimap and waypoints read layout, never loaded chunks — otherwise a minimap under streaming shows a small disc around the player and nothing else.
+2. **Buildings straddle chunk seams.** `buildCraftsman` writes a 14×12×9 footprint; `CHUNK_XZ` is 64. Generating "the buildings in this chunk" by origin alone leaves sliced houses at every seam. A chunk must ask layout for every footprint that *intersects* it and voxelize each one clipped.
+
+**Milestone 10 — skinned rig: COMPLETE**, playtested and signed off by Chris (*"Looking much better now"*). Milestone 13 — navigation is written and depends on 12. Milestone 11 — scamper gait is unblocked and unstarted.
 
 ## What this session did
 
@@ -41,9 +44,11 @@ The mesh is one continuous surface and is topologically incapable of tearing. "S
 
 ## Next step
 
-**Chris playtests milestone 10** (house rule 4) — roll, headbutt, then eat until huge. Watch for: a seam at neck/hips/tail in any pose, and whether the fat silhouette reads right now that the legs splay sideways instead of sliding forward.
+**Implement milestone 12 — streaming ground.** Start by extracting `src/level/Layout.js` from `buildDistrict`'s existing block-grid logic: it is a pure refactor with unit-testable output and everything else hangs off it. Then chunk-clipped voxelization, then the load/unload lifecycle, then the edit store for damage persistence.
 
-Then **streaming ground (JIM-01)**, then **milestone 11 — scamper gait** (`docs/milestones/11-scamper-gait.md`, JIM-22): sprawled low stance plus terrain-aware foot IK. Its prerequisite is done — `tools/rig_jimothy.py` generates TWO-segment legs (`leg_*` hip→knee, `shin_*` knee→foot), because a single hip-to-foot bone cannot plant a foot on uneven ground.
+**Sequence after that:** milestone 13 navigation (needs 12's layout layer) and milestone 11 scamper gait (`docs/milestones/11-scamper-gait.md`, JIM-22) are both unblocked and independent — pick by appetite. Milestone 11's prerequisite is done: `tools/rig_jimothy.py` generates TWO-segment legs (`leg_*` hip→knee, `shin_*` knee→foot), because a single hip-to-foot bone cannot plant a foot on uneven ground.
+
+**Fast travel was cut**, by Chris, after being asked how it should interact with the chase: *"nvm skip fast travel, waypoints only."* The reasoning is in milestone 13 — do not re-propose it without a deliberate decision about the pursuit structure.
 
 **Do not rewrite the gait from scratch.** `JimothyLegs._updateTubes` already implements planted feet, drift threshold, step timing and foot lift. It was orphaned when the real model arrived. `_updateBones` is currently the crude diagonal-pair swing inherited from `_updateReal`; reconnect the tube logic to bones. `snapshot()` now reports real foot positions in bones mode, which milestone 11 needs to plant against terrain.
 

@@ -57,7 +57,7 @@ No special case, no off-switch: the chase continues underground. That avoids the
 - Underground lighting — the surface's golden-hour directional sun is useless down there.
 - Crab-people faction: spawning, territory, behaviour.
 - Buried treasure: placement, digging them up, and the collection that feeds the photo book.
-- Whatever the chase rule above turns out to be.
+- Tuning the pursuit for tunnels: darkness shortening sight range, and how sound carries underground.
 
 ## Out of scope
 

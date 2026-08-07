@@ -4,7 +4,7 @@
 
 ## Last updated
 
-2026-08-07 by Claude — **milestones 10, 12 and 15 all landed.** Milestone 10 is signed off; 12 and 15 await playtest.
+2026-08-07 by Claude — **milestones 10, 12, 15 and 16 landed; 17, 18 and 19 scoped for a fresh thread.** The city was rebuilt twice this session and the second rebuild is the one that matters: Chris signed off the island structure (*"Now we're looking like a place!"*).
 
 ## Current phase
 
@@ -12,7 +12,15 @@ development
 
 ## Current milestone
 
-**Milestone 15 — density and variety** (`docs/milestones/15-density-and-variety.md`, absorbs JIM-32): **implemented, awaiting playtest.**
+**Nothing in flight. Milestones 17 → 19 → 18 are scoped and ready; Chris is starting them in a fresh thread.**
+
+- **17 — island and terrain** (`docs/milestones/17-island-and-terrain.md`). Imaginary Seattle as a 2 km island: coastline, 12 named districts, 8 hills, and ground diggable to 20 m+. The authored structure is already committed at `src/level/islandPlan.js`. **Order within it: fly camera first**, because everything after is judged by eye.
+- **19 — pursuer AI** (`docs/milestones/19-pursuer-ai.md`). Vision, memory, search, giving up. Chris, 2026-08-07: *"they just make a beeline for you and never stop - no AI there at all."* Blocks 18.
+- **18 — underground** (`docs/milestones/18-underground.md`). Sewers, crab people, treasure you cannot spend. Pursuers **do** follow you down (resolved), which is why 19 comes first.
+
+**The one engineering decision that matters across all three:** ground becomes *implicit* — `solid(x,y,z) = y < surfaceHeight(x,z)` unless an edit says otherwise. 20 m of depth built eagerly is an 18× rise in ground voxels and would undo milestone 12's boot-flat result; built implicitly, 20 m and 200 m cost the same and memory scales with how much has been dug. The edit store that persists blast damage across a chunk unload is already exactly the right mechanism.
+
+**Previous — milestone 15 — density and variety** (`docs/milestones/15-density-and-variety.md`, absorbs JIM-32): **implemented, awaiting playtest.**
 
 Density is now a property of a *block*, so it cannot dilute as the map grows: **61–81 live containers at every corner of the island**, where before there were 70 across the whole map (i.e. none outside the centre). Six archetypes over five districts, with blocks subdividing into lots — craftsman 638, shop 485, apartment 445, warehouse 252, shed 170, tower 64 across 841 blocks.
 

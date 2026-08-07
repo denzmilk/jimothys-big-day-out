@@ -40,17 +40,15 @@ Buried finds: a hubcap, someone's retainer, a Tamagotchi, a cursed Furby, a brie
 
 Where they *do* pay off is the photo book (JIM-31): a game-over spread of everything you dug up on your big day out is worth more than points would be. And they give digging a reason without giving it a reward, which is a nicer economy than it sounds.
 
-## ⚠️ Decide before building: does the underground break the chase?
+## Resolved: pursuers follow you down
 
-The same trap that killed fast travel (milestone 13) and got the fairy godmother invented for water (milestone 14). **If Jimothy can drop down a manhole and pursuers cannot follow, the underground is an off-switch for the entire heat system.**
+> Chris, 2026-08-07: *"Nah they can follow you in - but we need a vision system and some kind of logic to go with them because at the moment they just make a beeline for you and never stop - no AI there at all."*
 
-Candidates, none chosen:
+No special case, no off-switch: the chase continues underground. That avoids the trap that killed fast travel (milestone 13) and invented the fairy godmother for water (milestone 14) — the underground is a different *place*, not a safe one.
 
-1. **Animal control follows, the army does not.** The chase continues but the escalation resets — tunnels are where you go to shed a tank, at the cost of the crab people.
-2. **Nobody follows, but heat does not drain either.** They wait at the manhole. You have swapped a chase for a siege, and you still have to come up somewhere.
-3. **Crab people are the underground's pursuit**, wholly replacing the surface one. Cleanest thematically and the most work.
+**It is only a good decision if milestone 19 lands first.** Today's pursuers steer straight at Jimothy through solid matter, with no vision, memory or search. In a tunnel network that is worse than useless: they would track him through rock and ignore every corner and dead end, making the most atmospheric space in the game the least interesting.
 
-Option 2 is closest to how hiding already works (bushes drain heat only while out of sight) and needs no new AI. Option 3 is the best game and the biggest build.
+**Vision is what makes tunnels mean anything** — corners to break line of sight behind, darkness that shortens sight range, dead ends that are a gamble. Build milestone 19 first, then this.
 
 ## Scope
 
@@ -69,7 +67,7 @@ Option 2 is closest to how hiding already works (bushes drain heat only while ou
 
 ## Dependencies
 
-- **Depends on:** milestone 17 (depth, strata, implicit ground) and its edit store.
+- **Depends on:** milestone 17 (depth, strata, implicit ground) and its edit store; **milestone 19** (pursuer AI) — an underground chase against a beeline AI is not worth building.
 - **Relates to:** milestone 13 — a map that only shows where you have been is what makes tunnels tense. JIM-31 — the photo book is where treasure pays off.
 
 ## Acceptance criteria
@@ -80,7 +78,7 @@ Option 2 is closest to how hiding already works (bushes drain heat only while ou
 - [ ] Underground is lit well enough to move through and dark enough to be unpleasant
 - [ ] Crab people exist, hold territory, and react to Jimothy
 - [ ] Treasure can be dug up, is recorded for the photo book, and buys **nothing**
-- [ ] The chase rule above is implemented and its refusal case is asserted — the assertion that matters, as with fast travel
+- [ ] Pursuers follow Jimothy underground and behave sensibly in tunnels — searching corners rather than tracking through rock (needs milestone 19)
 - [ ] Memory still scales with what has been dug, not with the size of the underground
 - [ ] It is a place worth going — **verified by user playtest**
 

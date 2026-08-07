@@ -1,5 +1,6 @@
-import { VOXEL } from '../core/Constants.js';
+import { VOXEL, CONTAINERS } from '../core/Constants.js';
 import * as Masterplan from './CityPlanner.js';
+import * as TerrainField from './Terrain.js';
 
 // Layout is now an ADAPTER over the authored masterplan (milestone 16), not a
 // generator.
@@ -52,6 +53,55 @@ export function isInsideBounds(x, z) {
   return Math.abs(x) <= Masterplan.BOUNDS && Math.abs(z) <= Masterplan.BOUNDS;
 }
 
+// Voxel-space material ids that the terrain hands back. CLAPBOARD..CONCRETE are
+// VoxelCity's; these are the surface classes the ground wears.
+const CONCRETE = 6;
+const MOSS = 5;
+const BRICK = 3;
+
+/** The terrain, as VoxelWorld wants it (milestone 17).
+ *
+ *  `Terrain` answers "how deep is the rock here"; the masterplan answers "is
+ *  this a road". Joining them is Layout's job, exactly as joining the plan to
+ *  the voxelizer already was — which is what keeps `Terrain` free of any
+ *  knowledge of streets (so `CityPlanner` can ask it where the water is without
+ *  a cycle) and keeps `VoxelWorld` a pure voxel engine.
+ */
+export const terrain = {
+  surfaceHeight: (x, z) => TerrainField.surfaceHeight(x, z),
+  topSolidVoxelY: (x, z) => TerrainField.topSolidVoxelY(x, z),
+
+  /** Implicit ground. 0 is air; anything else is solid, whether or not a single
+   *  voxel of it has ever been stored. */
+  materialAtVoxel(vx, vy, vz) {
+    const m = TerrainField.materialAtVoxel(vx, vy, vz);
+    if (m !== TerrainField.TOPSOIL) return m;
+    // The visible skin follows the masterplan's classes, so a park is grass, an
+    // alley is scruffier than a street, and the road network you SEE is the one
+    // the city was designed with. Same rule the flat world's buildGround had —
+    // it just now applies to a surface that moves.
+    const x = (vx + 0.5) * VOXEL.SIZE;
+    const z = (vz + 0.5) * VOXEL.SIZE;
+    const cls = Masterplan.classAt(x, z);
+    const C = Masterplan.CLASS;
+    if (cls === C.ROAD || cls === C.PLAZA) return CONCRETE;
+    if (cls === C.ALLEY) return BRICK;
+    return MOSS;
+  },
+};
+
+// Hide spots that ended up in the sea are not hiding places, they are floating
+// bushes. Filtered once against the coastline rather than authored around it,
+// so the grid in Constants stays a simple density rule (milestone 12's lesson:
+// a hardcoded ±220 grid is what left the pressure valve unreachable).
+let _hideSpots = null;
+export function hideSpots(all) {
+  if (!_hideSpots) {
+    _hideSpots = all.filter(([x, z]) => TerrainField.isBuildableGround(x, z));
+  }
+  return _hideSpots;
+}
+
 /** Convert a masterplan building into the voxel-space shape the city builders
  *  take. Deterministic: the height comes from the building's own stored roll,
  *  never from a fresh random draw, so a chunk built twice is identical. */
@@ -63,6 +113,11 @@ function toVoxelBuilding(b) {
     blockId: b.blockId,
     vx: v(b.x),
     vz: v(b.z),
+    // The floor sits at the HIGHEST ground under the footprint. Planting at the
+    // lowest instead buries the uphill half — a 26 m building on Trash Panda
+    // Heights spans about 9 m of drop, which is two storeys of a craftsman
+    // gone. VoxelCity fills the downhill gap with a perimeter foundation.
+    vy: plantVoxelY(b),
     vw: Math.max(4, v(b.w)),
     vd: Math.max(4, v(b.d)),
     vh: range[0] + Math.floor(b.heightRoll * (range[1] - range[0] + 1)),
@@ -71,6 +126,23 @@ function toVoxelBuilding(b) {
     w: b.w,
     d: b.d,
   };
+}
+
+/** Highest terrain voxel under a footprint, sampled on a 4×4 grid.
+ *
+ *  Sampled rather than exhaustive on purpose: this runs for every building of
+ *  every column generated, and a full footprint scan is ~2200 height lookups
+ *  per building. Sixteen catches the corners and the middle of any slope a
+ *  hill this size produces. */
+function plantVoxelY(b) {
+  let top = -Infinity;
+  for (let i = 0; i <= 3; i++) {
+    for (let j = 0; j <= 3; j++) {
+      const y = TerrainField.topSolidVoxelY(b.x + (b.w * i) / 3, b.z + (b.d * j) / 3);
+      if (y > top) top = y;
+    }
+  }
+  return top + 1;
 }
 
 /** Every building whose footprint INTERSECTS the world box — by intersection,
@@ -88,7 +160,7 @@ export function buildingsIntersecting(minX, minZ, maxX, maxZ) {
  *  anything, which is the "nonsensical" Chris named in playtest. */
 export function propsIn(minX, minZ, maxX, maxZ) {
   const out = [];
-  const STEP = 7; // metres between candidate points
+  const STEP = CONTAINERS.STEP;
   const x0 = Math.floor(minX / STEP) * STEP;
   const z0 = Math.floor(minZ / STEP) * STEP;
   for (let x = x0; x <= maxX; x += STEP) {
@@ -97,16 +169,19 @@ export function propsIn(minX, minZ, maxX, maxZ) {
       // Hash the PLACE, so a bin's existence and kind are a property of where
       // it is and identical however the player arrives at it.
       const h = hashCell(x, z);
+      const roll = (h % 1024) / 1024;
       let keep = false;
       if (Masterplan.isAlley(x, z)) {
-        // Alleys are where the bins live — densely. Both what a city does and
-        // where a raccoon belongs.
-        keep = (h & 3) !== 0;
+        keep = roll < CONTAINERS.ALLEY_SHARE;
       } else if (Masterplan.classAt(x, z) === Masterplan.CLASS.LAND) {
-        // Otherwise: on the kerb of a buildable lot that actually fronts a
-        // road, sparsely. Residential districts have no alleys, and a street
-        // of houses with no bins at all is its own kind of nonsensical.
-        keep = (h & 7) === 0 && nearRoad(x, z);
+        // On the kerb of a buildable lot that actually fronts a road. The rate
+        // depends on whether this district has alleys to put them down instead
+        // — a street of houses with no bins at all is its own kind of
+        // nonsensical, and most of the island is streets of houses.
+        const share = Masterplan.hasAlleysAt(x, z)
+          ? CONTAINERS.KERB_SHARE
+          : CONTAINERS.KERB_SHARE_NO_ALLEYS;
+        keep = roll < share && nearRoad(x, z);
       }
       if (!keep) continue;
       out.push({
@@ -123,7 +198,8 @@ export function propsIn(minX, minZ, maxX, maxZ) {
 /** Is there a road within a couple of metres? Kerbside means beside the road,
  *  not in it — 586 of 586 bins once shipped in the carriageway. */
 function nearRoad(x, z) {
-  for (const [dx, dz] of [[2.5, 0], [-2.5, 0], [0, 2.5], [0, -2.5]]) {
+  const r = CONTAINERS.KERB_REACH;
+  for (const [dx, dz] of [[r, 0], [-r, 0], [0, r], [0, -r]]) {
     if (Masterplan.isRoad(x + dx, z + dz)) return true;
   }
   return false;

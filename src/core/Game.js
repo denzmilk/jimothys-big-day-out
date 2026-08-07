@@ -17,6 +17,7 @@ import { Pursuers } from '../gameplay/Pursuers.js';
 import { LevelBuilder } from '../level/LevelBuilder.js';
 import { VoxelWorld } from '../level/VoxelWorld.js';
 import { installCity } from '../level/VoxelCity.js';
+import * as Layout from '../level/Layout.js';
 import { Debris } from '../gameplay/Debris.js';
 import { Pedestrians } from '../gameplay/Pedestrians.js';
 import { HUD } from '../ui/HUD.js';
@@ -43,6 +44,14 @@ class Game {
     // Overrides mutate the Constants objects, so they must land before any
     // system bakes a value at construction.
     DevOverrides.apply();
+    // …and the coastline prunes them, for the same reason: a hide spot in the
+    // sea is a floating bush, and the grid in Constants is deliberately a plain
+    // density rule that knows nothing about the island (milestone 12's lesson —
+    // a hardcoded ±220 grid is what left the pressure valve unreachable). In
+    // place, like the keybind overrides, so every consumer sees one list.
+    HIDE_SPOTS.POSITIONS.splice(
+      0, HIDE_SPOTS.POSITIONS.length, ...Layout.hideSpots(HIDE_SPOTS.POSITIONS),
+    );
 
     this.setupRenderer();
     this.setupScene();
@@ -50,9 +59,11 @@ class Game {
 
     this.input = new InputSystem(this.renderer.domElement);
     this.physics = new PhysicsSystem();
-    this.level = new LevelBuilder(this.scene);
     this.voxels = new VoxelWorld(this.scene);
     installCity(this.voxels);
+    // After the world: the bushes and the sea have to sit on ground that
+    // already knows how high it is.
+    this.level = new LevelBuilder(this.scene, this.voxels);
     this.debris = new Debris(this.scene, this.physics);
     this.jimothy = new JimothyController(this.scene, this.physics, this.input, this.voxels);
     // Moves land their damage ahead of him (headbutt/roll), never underfoot.
@@ -70,8 +81,8 @@ class Game {
         { x: x + dirX * dist, y: y + 0.35, z: z + dirZ * dist }, cfg.RADIUS_SCALE, opts,
       );
     };
-    this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy);
-    this.pursuers = new Pursuers(this.scene, this.jimothy);
+    this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
+    this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
     this.score = new ScoreSystem();
     this.heat = new HeatSystem();
@@ -184,7 +195,9 @@ class Game {
     const jp = this.jimothy.group.position;
     const cp = this.camera.position;
     this.voxels.streamAroundPoints(
-      this.flyCamera.active ? [[jp.x, jp.z], [cp.x, cp.z]] : [[jp.x, jp.z]],
+      this.flyCamera.active
+        ? [[jp.x, jp.z], [cp.x, cp.z, STREAM.FLY_LOAD_RADIUS]]
+        : [[jp.x, jp.z]],
       this.flyCamera.active ? STREAM.FLY_COLUMNS_PER_FRAME : STREAM.COLUMNS_PER_FRAME,
     );
     this.voxels.remeshDirty();
@@ -251,8 +264,7 @@ class Game {
    *  aim and lifted the sphere clear of the ground it was meant to hit. */
   blastAt(pos, radiusScale = 1, { fatShare = 1, digsTerrain = true } = {}) {
     const removed = this.voxels.damageSphere(
-      pos.x, pos.y, pos.z, this.blastRadius(fatShare) * radiusScale,
-      digsTerrain ? -Infinity : 0,
+      pos.x, pos.y, pos.z, this.blastRadius(fatShare) * radiusScale, { digsTerrain },
     );
     if (!removed.length) return 0;
     this.voxels.remeshDirty();
@@ -274,6 +286,15 @@ class Game {
   teleportJimothy(x, z) {
     this.jimothy.body.position.x = x;
     this.jimothy.body.position.z = z;
+    // …and onto the ground THERE. Keeping his old y was invisible on a flat
+    // world and is a 40 m fall on the island: teleporting from Compost Hill to
+    // Trashattan left him in the air for two seconds, which any spec that warps
+    // and immediately measures would read as a bug in whatever it was testing.
+    this.voxels.streamAround(x, z);
+    const surface = this.voxels.terrainHeightAt(x, z);
+    this.jimothy.body.position.y =
+      this.voxels.groundHeightAt(x, z, surface + 3) + this.jimothy.radius;
+    this.jimothy.vy = 0;
     this.jimothy.vel.set(0, 0, 0);
     this.jimothy._prevX = undefined;
     this.jimothy._prevZ = undefined;
@@ -294,20 +315,27 @@ class Game {
 
   /** A standoff position facing a real wall, found by search rather than
    *  hardcoded: the city is procedural, so any fixed coordinate rots the first
-   *  time the layout changes. Probes above grade so it can only ever find
-   *  structure, never terrain. */
+   *  time the layout changes.
+   *
+   *  `probeY` is height ABOVE THIS COLUMN'S OWN GROUND, not an absolute y. Read
+   *  as absolute it stopped meaning "just above the pavement" the moment the
+   *  island got hills: at a literal y = 1.0 every point on a 40 m hill probes
+   *  solid rock, so the search reported the first spot it tried as a wall and
+   *  never found a standoff. */
   findWallTarget(probeY = 1.0, standoff = 2.6) {
     const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const solidAbove = (x, z) =>
+      this.voxels.solidAtWorld(x, this.voxels.terrainHeightAt(x, z) + probeY, z);
     for (let r = 4; r < WORLD.BOUNDS; r += 2) {
       for (let a = 0; a < 32; a++) {
         const th = (a / 32) * Math.PI * 2;
         const wx = Math.cos(th) * r;
         const wz = Math.sin(th) * r;
-        if (!this.voxels.solidAtWorld(wx, probeY, wz)) continue;
+        if (!solidAbove(wx, wz)) continue;
         for (const [dx, dz] of DIRS) {
           const sx = wx - dx * standoff;
           const sz = wz - dz * standoff;
-          if (this.voxels.solidAtWorld(sx, probeY, sz)) continue;
+          if (solidAbove(sx, sz)) continue;
           // Forward is (sin yaw, cos yaw), so this yaw points at the wall.
           return { x: sx, z: sz, yaw: Math.atan2(dx, dz) };
         }

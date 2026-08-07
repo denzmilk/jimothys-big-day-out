@@ -1,14 +1,23 @@
 import * as THREE from 'three';
-import { VOXEL, STREAM } from '../core/Constants.js';
+import { VOXEL, STREAM, TERRAIN } from '../core/Constants.js';
 
 // Chunked destructible voxel grid (ADR-0003).
 //
-// Two rules keep this fast enough to actually run, and both cost about the
-// same as doing it naively:
+// Three rules keep this fast enough to actually run, and all three cost about
+// the same as doing it naively:
 //   1. Geometry is built per CHUNK with hidden faces culled — never a mesh
 //      per voxel (that measures ~19k draw calls; this is one per chunk).
 //   2. Static structure gets no physics bodies at all. Jimothy is kinematic
 //      and already hand-clamped, so he collides by grid lookup instead.
+//   3. Ground is IMPLICIT (milestone 17). A voxel with nothing stored in it is
+//      not empty — it defers to the terrain height field, which answers
+//      "solid?" at any depth for free. Only a constant-thickness skin at the
+//      surface is stored, because that is what the mesher draws, and more is
+//      materialised only where a blast exposes it. So `TERRAIN.DEPTH` is free:
+//      20 m and 200 m have the same boot cost and the same memory, and memory
+//      tracks how much has been DUG rather than how deep the world is.
+const NEIGHBOURS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+
 export class VoxelWorld {
   constructor(scene) {
     this.scene = scene;
@@ -24,7 +33,18 @@ export class VoxelWorld {
     // building's full height belong together, and splitting them vertically
     // would mean generating the same building several times over.
     this.generator = null;     // (world, cx, cz) => void, set by the caller
+    // The implicit ground, injected by installCity: { surfaceHeight(x,z),
+    // topSolidVoxelY(x,z), materialAtVoxel(vx,vy,vz) }. Null means the old flat
+    // world — every query then answers from stored voxels alone.
+    this.terrain = null;
     this.generated = new Set(); // "cx,cz" of columns already built
+    // Which chunks belong to a column. Chunks used to be assumed to live in a
+    // fixed vertical band (STREAM.CY_MIN..CY_MAX) — true for a flat world, and
+    // false the moment the ground runs from a seabed at -10 m to a hilltop at
+    // 50 m, or the player digs 20 m down. Tracking what actually exists is
+    // both correct and cheaper than widening the band.
+    this.columnChunks = new Map(); // "cx,cz" -> Set(chunkKey)
+    this.editChunks = new Map();   // "cx,cz" -> Set(chunkKey), for replay
     // Player damage, kept SEPARATELY from chunk data so it survives an unload.
     // A regenerated chunk comes back pristine otherwise, healing every hole
     // Jimothy made — unacceptable in a game about destruction (Chris,
@@ -68,8 +88,8 @@ export class VoxelWorld {
     // A neighbour's seam faces were culled against air that is now solid (or
     // exposed against solid that is now gone), so its mesh is stale.
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      for (let cy = STREAM.CY_MIN; cy <= STREAM.CY_MAX; cy++) {
-        const n = this.chunks.get(this._key(cx + dx, cy, cz + dz));
+      for (const key of this.columnChunks.get(this._colKey(cx + dx, cz + dz)) || []) {
+        const n = this.chunks.get(key);
         if (n) n.dirty = true;
       }
     }
@@ -77,21 +97,40 @@ export class VoxelWorld {
   }
 
   _replayEdits(cx, cz) {
-    for (let cy = STREAM.CY_MIN; cy <= STREAM.CY_MAX; cy++) {
-      const edits = this.edits.get(this._key(cx, cy, cz));
+    const keys = this.editChunks.get(this._colKey(cx, cz));
+    if (!keys) return;
+    for (const key of keys) {
+      const edits = this.edits.get(key);
       if (!edits) continue;
-      const chunk = this.chunks.get(this._key(cx, cy, cz))
-        || this._createChunk(cx, cy, cz);
+      const [ex, ey, ez] = key.split(',').map(Number);
+      const chunk = this.chunks.get(key) || this._createChunk(ex, ey, ez);
       for (const [idx, mat] of edits) chunk.data[idx] = mat;
       chunk.dirty = true;
+    }
+    // A hole is a hole because of what SURROUNDS it. Below the stored skin the
+    // rock is implicit — solid to every query, invisible to the mesher — so
+    // replaying the edits alone brings the crater back as a black void with no
+    // walls. Re-expose the faces it cut, exactly as the blast did.
+    for (const key of keys) {
+      const edits = this.edits.get(key);
+      if (!edits) continue;
+      const [ex, ey, ez] = key.split(',').map(Number);
+      for (const [idx, mat] of edits) {
+        if (mat !== VOXEL.EMPTY) continue;
+        const CX = VOXEL.CHUNK_XZ;
+        const lx = idx % CX;
+        const ly = ((idx - lx) / CX) % VOXEL.CHUNK_Y;
+        const lz = (idx - lx - ly * CX) / (CX * VOXEL.CHUNK_Y);
+        this._materialiseAround(ex * CX + lx, ey * VOXEL.CHUNK_Y + ly, ez * CX + lz);
+      }
     }
   }
 
   /** Drop a column's geometry and data. Its edits are deliberately kept. */
   unloadColumn(cx, cz) {
-    if (!this.generated.delete(this._colKey(cx, cz))) return false;
-    for (let cy = STREAM.CY_MIN; cy <= STREAM.CY_MAX; cy++) {
-      const key = this._key(cx, cy, cz);
+    const col = this._colKey(cx, cz);
+    if (!this.generated.delete(col)) return false;
+    for (const key of this.columnChunks.get(col) || []) {
       const chunk = this.chunks.get(key);
       if (!chunk) continue;
       if (chunk.mesh) {
@@ -100,6 +139,7 @@ export class VoxelWorld {
       }
       this.chunks.delete(key);
     }
+    this.columnChunks.delete(col);
     return true;
   }
 
@@ -117,8 +157,8 @@ export class VoxelWorld {
    *  out from under the raccoon. Both discs stay resident. */
   streamAroundPoints(points, budget = STREAM.COLUMNS_PER_FRAME) {
     const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
-    const centers = points.map(([x, z]) => ({
-      cx: Math.floor(x / C), cz: Math.floor(z / C),
+    const centers = points.map(([x, z, radius = STREAM.LOAD_RADIUS]) => ({
+      cx: Math.floor(x / C), cz: Math.floor(z / C), radius,
     }));
     this._centers = centers;
 
@@ -126,8 +166,7 @@ export class VoxelWorld {
     // still waiting on the budget.
     const wanted = [];
     const seen = new Set();
-    const R = STREAM.LOAD_RADIUS;
-    for (const { cx, cz } of centers) {
+    for (const { cx, cz, radius: R } of centers) {
       for (let dx = -R; dx <= R; dx++) {
         for (let dz = -R; dz <= R; dz++) {
           const key = this._colKey(cx + dx, cz + dz);
@@ -143,11 +182,15 @@ export class VoxelWorld {
       this.ensureColumn(cx, cz);
     }
 
-    const U = STREAM.UNLOAD_RADIUS;
+    // Hysteresis is a MARGIN on each centre's own radius, not a fixed ring:
+    // with a fixed one, the fly camera's wider load disc would be unloaded the
+    // frame after it was built, and the streamer would thrash forever.
+    const margin = STREAM.UNLOAD_RADIUS - STREAM.LOAD_RADIUS;
     for (const key of [...this.generated]) {
       const [cx, cz] = key.split(',').map(Number);
       const near = centers.some(
-        (c) => Math.abs(cx - c.cx) <= U && Math.abs(cz - c.cz) <= U,
+        (c) => Math.abs(cx - c.cx) <= c.radius + margin
+          && Math.abs(cz - c.cz) <= c.radius + margin,
       );
       if (!near) this.unloadColumn(cx, cz);
     }
@@ -158,7 +201,12 @@ export class VoxelWorld {
     const chunk = {
       cx, cy, cz, data: new Uint8Array(CX * VOXEL.CHUNK_Y * CX), mesh: null, dirty: true,
     };
-    this.chunks.set(this._key(cx, cy, cz), chunk);
+    const key = this._key(cx, cy, cz);
+    this.chunks.set(key, chunk);
+    const col = this._colKey(cx, cz);
+    let set = this.columnChunks.get(col);
+    if (!set) this.columnChunks.set(col, set = new Set());
+    set.add(key);
     return chunk;
   }
 
@@ -196,21 +244,65 @@ export class VoxelWorld {
   }
 
   /** A player-made change: written to the world AND recorded, so it survives
-   *  the column being unloaded and regenerated. */
+   *  the column being unloaded and regenerated.
+   *
+   *  Removal is recorded as VOXEL.EMPTY, never as 0. With implicit ground a 0
+   *  means "nothing stored, ask the height field", so a hole written as 0 heals
+   *  itself the next time anything looks at it. */
   setEdit(vx, vy, vz, mat) {
-    this.set(vx, vy, vz, mat);
+    const stored = mat === 0 ? VOXEL.EMPTY : mat;
+    this.set(vx, vy, vz, stored);
     const CX = VOXEL.CHUNK_XZ;
-    const key = this._key(
-      Math.floor(vx / CX), Math.floor(vy / VOXEL.CHUNK_Y), Math.floor(vz / CX),
-    );
+    const cx = Math.floor(vx / CX);
+    const cy = Math.floor(vy / VOXEL.CHUNK_Y);
+    const cz = Math.floor(vz / CX);
+    const key = this._key(cx, cy, cz);
     let edits = this.edits.get(key);
     if (!edits) this.edits.set(key, edits = new Map());
-    edits.set(this._localIndex(vx, vy, vz), mat);
+    edits.set(this._localIndex(vx, vy, vz), stored);
+    const col = this._colKey(cx, cz);
+    let keys = this.editChunks.get(col);
+    if (!keys) this.editChunks.set(col, keys = new Set());
+    keys.add(key);
+  }
+
+  /** The raw stored value: 0 means "nothing here", which is NOT the same as
+   *  "empty" — see `get`. VOXEL.EMPTY means the player took it out. */
+  storedAt(vx, vy, vz) {
+    const chunk = this._chunkFor(vx, vy, vz);
+    return chunk ? chunk.data[this._localIndex(vx, vy, vz)] : 0;
   }
 
   get(vx, vy, vz) {
-    const chunk = this._chunkFor(vx, vy, vz);
-    return chunk ? chunk.data[this._localIndex(vx, vy, vz)] : 0;
+    const stored = this.storedAt(vx, vy, vz);
+    if (stored === VOXEL.EMPTY) return 0;
+    if (stored) return stored;
+    // Nothing stored: the ground answers for itself. This is what makes depth
+    // free — the rock 40 m under a hill is solid to a collision query without
+    // a byte of it existing anywhere.
+    return this.terrain ? this.terrain.materialAtVoxel(vx, vy, vz) : 0;
+  }
+
+  /** Give the mesher something to draw where a blast has just cut into
+   *  implicit ground.
+   *
+   *  Below the stored skin the rock is real to every query and invisible to
+   *  the renderer, so a deep hole would come out as a black void. Storing only
+   *  the faces a dig EXPOSES is what keeps memory tracking how much has been
+   *  dug rather than how deep the world goes. */
+  _materialiseAround(vx, vy, vz) {
+    if (!this.terrain) return;
+    for (const [dx, dy, dz] of NEIGHBOURS) {
+      const nx = vx + dx;
+      const ny = vy + dy;
+      const nz = vz + dz;
+      if (this.storedAt(nx, ny, nz)) continue; // already real, or already gone
+      const mat = this.terrain.materialAtVoxel(nx, ny, nz);
+      // `set`, not `setEdit`: this is the world revealing itself, not damage.
+      // Recording it would grow the edit store with every metre dug for no
+      // gain — regeneration re-derives it from the holes it already stores.
+      if (mat) this.set(nx, ny, nz, mat);
+    }
   }
 
   // --- world <-> voxel ---
@@ -241,10 +333,16 @@ export class VoxelWorld {
     // is right for a background prop and wrong only for the player — and the
     // player is always at the centre by construction.
     if (this._centers && !this._centers.some(
-      (c) => Math.abs(cx - c.cx) <= STREAM.LOAD_RADIUS
-        && Math.abs(cz - c.cz) <= STREAM.LOAD_RADIUS,
+      (c) => Math.abs(cx - c.cx) <= c.radius && Math.abs(cz - c.cz) <= c.radius,
     )) return false;
     return this.ensureColumn(cx, cz);
+  }
+
+  /** The terrain's own surface, ignoring everything built on it or dug out of
+   *  it. What anything that needs to START a ground scan should scan from —
+   *  a fixed height only ever meant "grade", and grade is not a constant now. */
+  terrainHeightAt(x, z) {
+    return this.terrain ? this.terrain.surfaceHeight(x, z) : 0;
   }
 
   /** Has the column covering this world position been built? */
@@ -267,14 +365,22 @@ export class VoxelWorld {
    *  him into the sky). `stepUp` is the small lip he's allowed to mount. */
   groundHeightAt(x, z, fromY = 0, stepUp = VOXEL.SIZE * 0.75) {
     this._ensureAtWorld(x, z);
-    // Too far out to be worth building: report grade rather than the
-    // dug-through-to-bedrock answer the scan below would give for empty
-    // space. A pedestrian out there would otherwise sink through the floor.
-    if (!this.isLoadedAtWorld(x, z)) return 0;
+    const surface = this.terrain ? this.terrain.surfaceHeight(x, z) : 0;
+    // Too far out to be worth building: report the terrain's own answer rather
+    // than the dug-through-to-bedrock one the scan below would give for empty
+    // space. A pedestrian out there would otherwise sink through the floor —
+    // and before the height field existed this returned a literal 0, which
+    // silently meant "grade" and is now only true at the waterline.
+    if (!this.isLoadedAtWorld(x, z)) return surface;
     const s = VOXEL.SIZE;
     const [vx, , vz] = this.worldToVoxel(x, 0, z);
     const top = Math.floor((fromY + stepUp) / s);
-    const bottom = -VOXEL.GROUND_LAYERS - 2;
+    // Bedrock sits DEPTH below this column's own surface, not at a fixed y.
+    // Clamped to `top`, so a caller that starts the scan below bedrock gets its
+    // own start height back rather than an answer ABOVE where it asked — with
+    // `top < bottom` the loop simply never ran, and this silently reported a
+    // floor 30 m over the player's head.
+    const bottom = Math.min(Math.floor((surface - TERRAIN.DEPTH) / s) - 2, top);
     for (let vy = top; vy >= bottom; vy--) {
       if (this.get(vx, vy, vz) !== 0) return (vy + 1) * s;
     }
@@ -284,11 +390,16 @@ export class VoxelWorld {
   /** Clear voxels in a sphere. Returns the world-space centers removed so the
    *  caller can spawn debris where the wall actually was.
    *
-   *  `minVoxelY` is the floor the blast will not reach below. Terrain occupies
-   *  y < 0 (buildGround writes its strata at -1 and below) and structures
-   *  start at 0, so passing 0 cleanly means "smash the house, spare the road"
-   *  — which is how the moves distinguish demolition from digging. */
-  damageSphere(cx, cy, cz, radius, minVoxelY = -Infinity) {
+   *  `digsTerrain: false` means "smash the house, spare the ground" — how the
+   *  moves distinguish demolition from digging (MOVES.DIGS_TERRAIN).
+   *
+   *  It used to be an absolute voxel floor of 0, because terrain lived at y < 0
+   *  and structures started at 0. On a height field that constant silently
+   *  meant "the waterline": a headbutt on a 50 m hill would have been told to
+   *  spare everything below y = 0 and cheerfully cratered the hillside. The
+   *  floor is now the column's OWN surface, which is what the constant always
+   *  meant. (Third constant of this family — see docs/STATE.md.) */
+  damageSphere(cx, cy, cz, radius, { digsTerrain = true } = {}) {
     const s = VOXEL.SIZE;
     const r = Math.ceil(radius / s);
     // A blast can straddle a seam into a column that has not been built yet;
@@ -299,21 +410,30 @@ export class VoxelWorld {
     const [bx, by, bz] = this.worldToVoxel(cx, cy, cz);
     const removed = [];
     for (let x = bx - r; x <= bx + r; x++) {
-      for (let y = Math.max(by - r, minVoxelY); y <= by + r; y++) {
-        for (let z = bz - r; z <= bz + r; z++) {
-          const mat0 = this.get(x, y, z);
-          if (mat0 === 0 || mat0 === VOXEL.BEDROCK) continue;
-          const wx = (x + 0.5) * s;
-          const wy = (y + 0.5) * s;
-          const wz = (z + 0.5) * s;
-          if (Math.hypot(wx - cx, wy - cy, wz - cz) > radius) continue;
+      for (let z = bz - r; z <= bz + r; z++) {
+        // One height lookup per COLUMN of the blast, not per voxel.
+        const floor = digsTerrain || !this.terrain
+          ? -Infinity
+          : this.terrain.topSolidVoxelY((x + 0.5) * s, (z + 0.5) * s);
+        const wx = (x + 0.5) * s;
+        const wz = (z + 0.5) * s;
+        for (let y = Math.max(by - r, floor + 1); y <= by + r; y++) {
           const mat = this.get(x, y, z);
+          if (mat === 0 || mat === VOXEL.BEDROCK) continue;
+          const wy = (y + 0.5) * s;
+          if (Math.hypot(wx - cx, wy - cy, wz - cz) > radius) continue;
           // Recorded, not just written: this hole has to still be here when
           // the player walks away and comes back.
           this.setEdit(x, y, z, 0);
           removed.push({ x: wx, y: wy, z: wz, mat });
         }
       }
+    }
+    // Only after every removal, or a face exposed by one voxel would be
+    // re-materialised and then removed again by the next.
+    for (const cell of removed) {
+      const [vx, vy, vz] = this.worldToVoxel(cell.x, cell.y, cell.z);
+      this._materialiseAround(vx, vy, vz);
     }
     this.removedCount += removed.length;
     return removed;
@@ -343,6 +463,38 @@ export class VoxelWorld {
     const norm = [];
     const col = [];
     const base = [chunk.cx * CX, chunk.cy * CY, chunk.cz * CX];
+
+    // Face culling asks "is my neighbour solid?" six times per voxel, and with
+    // implicit ground every one of those is a height-field sample. Answering
+    // them through `get()` measured out at tens of thousands of bilinear
+    // lookups per chunk. The surface only varies per COLUMN, so cache the
+    // topmost solid terrain voxel once for the chunk plus a one-voxel skirt:
+    // 4356 samples instead of ~60000, and the inner loop becomes an integer
+    // compare.
+    const P = CX + 2;
+    const tops = new Int32Array(P * P);
+    if (this.terrain) {
+      for (let lz = -1; lz <= CX; lz++) {
+        for (let lx = -1; lx <= CX; lx++) {
+          tops[(lz + 1) * P + (lx + 1)] = this.terrain.topSolidVoxelY(
+            (base[0] + lx + 0.5) * s, (base[2] + lz + 0.5) * s,
+          );
+        }
+      }
+    } else {
+      tops.fill(-2147483648);
+    }
+    /** Occupancy for a voxel given in LOCAL coordinates, where lx/lz may be -1
+     *  or CX and ly may be -1 or CY (the one-voxel skirt the faces need). */
+    const occupied = (lx, ly, lz) => {
+      const inside = lx >= 0 && lx < CX && ly >= 0 && ly < CY && lz >= 0 && lz < CX;
+      const stored = inside
+        ? chunk.data[lx + CX * (ly + CY * lz)]
+        : this.storedAt(base[0] + lx, base[1] + ly, base[2] + lz);
+      if (stored) return stored !== VOXEL.EMPTY;
+      return base[1] + ly <= tops[(lz + 1) * P + (lx + 1)];
+    };
+
     const FACES = [
       { d: [1, 0, 0], v: [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]] },
       { d: [-1, 0, 0], v: [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]] },
@@ -356,13 +508,14 @@ export class VoxelWorld {
       for (let ly = 0; ly < CY; ly++) {
         for (let lx = 0; lx < CX; lx++) {
           const mat = chunk.data[lx + CX * (ly + CY * lz)];
-          if (!mat) continue;
+          // EMPTY is a hole the player made, not a material to draw.
+          if (!mat || mat === VOXEL.EMPTY) continue;
           const vx = base[0] + lx;
           const vy = base[1] + ly;
           const vz = base[2] + lz;
           const color = this._colors.get(mat) || this._colors.get(1);
           for (const f of FACES) {
-            if (this.get(vx + f.d[0], vy + f.d[1], vz + f.d[2]) !== 0) continue;
+            if (occupied(lx + f.d[0], ly + f.d[1], lz + f.d[2])) continue;
             const quad = f.v.map(([ox, oy, oz]) => [(vx + ox) * s, (vy + oy) * s, (vz + oz) * s]);
             for (const [a, b, c] of [[0, 1, 2], [0, 2, 3]]) {
               for (const idx of [a, b, c]) {
@@ -399,9 +552,11 @@ export class VoxelWorld {
       }
     }
     this.chunks.clear();
+    this.columnChunks.clear();
     this.generated.clear();
     // A new run gets a pristine city — damage is per-run, not persistent.
     this.edits.clear();
+    this.editChunks.clear();
     this.removedCount = 0;
   }
 

@@ -134,6 +134,17 @@
   - Rough size: L · Rough value: L
   - Notes: **Depends on streaming ground (JIM-01)** — authoring spaces against an eagerly-allocated map means authoring them twice, which is the same reasoning that put streaming ahead of city content. The easter-egg pass is a separate, cheap follow-up once the generator exists; keep them apart so the generator isn't held up by content. Absorbs the "world variety" ask (road hierarchy, building types, interior furnishings) and gives the Seattle-landmarks entry somewhere to live — **re-read its trademark warning before authoring any recognisable landmark.**
 
+- [ ] **Port `cityPlan.js`'s parks, plazas and landmarks onto the island.** Milestone 17 switched the masterplan's source from `cityPlan.js` to `islandPlan.js`, which carries coastline, districts, hills, water and bridges — but no parks, no plazas and no landmarks. So the Space Noodle and the civic plaza are currently nowhere, and `PARK` is down to 1.2% of the map (the unclaimed land between districts) with `PLAZA` at 0%. The old data is still in `cityPlan.js`, unimported, with a header saying so.
+  - Source: 2026-08-07, milestone 17
+  - Rough size: S · Rough value: M
+  - Notes: not a straight copy — the old polygons were drawn against a flat square, so they need re-siting against the coast. Mangy Point's "big park" is named in the district table and does not exist. **Re-read the trademark warning on the Space Noodle before re-siting it.**
+- [ ] **Raised bridge spans with real piers, and `span` honoured as authored.** Milestone 17's decks are a raised strip with ramped approaches and a constant 16 m width; the plan's per-bridge `span` (a crossing length) is currently used for nothing, because the crossing is measured off the land mask instead. Piers, a deck you can go under in the sewers, and the heat-4 police cordon the milestone imagines all want a bridge that is more than a raised path.
+  - Source: 2026-08-07, milestone 17
+  - Rough size: M · Rough value: M
+- [ ] **Thirst Hill got flattened by downtown and should probably come back.** It sits 20 m outside Trashattan, and `TERRAIN.FLATTEN_RUN` relaxes the flat district over 120 m — so a 30 m hill renders as 3 m. Real First Hill is right next to downtown and is a hill. Either move it in `islandPlan.js` or give the flatten a per-district run.
+  - Source: 2026-08-07, milestone 17
+  - Rough size: S · Rough value: S
+
 ## Tooling & QA
 
 - [x] Full Playwright suite config — `playwright.config.js` with webServer auto-start so `npx playwright test` doesn't need a manually running dev server → milestone 01-core-waddle-loop.md (trivially adjacent; needed to write the specs)

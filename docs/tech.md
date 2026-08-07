@@ -42,9 +42,17 @@ src/
   core/            # Game.js orchestrator, EventBus, GameState, Constants,
                    # Tunables (DevTools registry), DevOverrides (localStorage)
   systems/         # InputSystem (e.code + rebindable KEYBINDS), PhysicsSystem
-                   # (cannon-es, ADR-0002), CameraSystem (follow/orbit), Score
+                   # (cannon-es, ADR-0002), CameraSystem (follow/orbit),
+                   # FlyCamera (free look, milestone 17), Score
   gameplay/        # JimothyController, TrashCans; later paparazzi, tanks
-  level/           # LevelBuilder (the block), AssetLoader
+  level/           # islandPlan.js (DATA: coast, districts, hills, water,
+                   #   bridges) -> Terrain.js (height field + implicit ground)
+                   #   -> CityPlanner.js (bakes the class grid, finds blocks,
+                   #   places buildings) -> Layout.js (adapter: joins the two
+                   #   and answers "what is at x,z") -> VoxelCity.js (turns a
+                   #   footprint into voxels) -> VoxelWorld.js (chunked voxel
+                   #   engine, knows nothing about islands)
+                   # LevelBuilder (the sea, bushes, bounds), AssetLoader
   ui/              # HUD + stingers, DevTools panel (tuning/keybinds/level)
 public/assets/models/    # jimothy.glb (Meshy 5 export) + CC0 GLBs
 public/assets/textures/  # CC0 photo PBR textures (note sources in README)
@@ -58,6 +66,7 @@ docs/              # this folder
 - **State:** centralized GameState + EventBus (threejs-game skill architecture) — keeps future multiplayer possible without a rewrite.
 - **Asset naming:** kebab-case GLB names (`jimothy.glb`, `trash-can.glb`).
 - **Testing hook:** expose `render_game_to_text()` and `advanceTime()` for Playwright-driven verification (live-iterate pipeline).
+- **Grade is not a constant** (milestone 17). The ground is a height field, so `y = 0` means the **waterline** and nothing else. Anything that needs to know where the floor is asks `voxels.terrainHeightAt(x, z)` — including anything that starts a ground scan, spawns a prop, or decides what a blast may not dig through. Five separate literals meant "just above grade" and every one of them was silently wrong on a hill; see the milestone for the list.
 
 ## Deployment
 

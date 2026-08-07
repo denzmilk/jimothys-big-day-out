@@ -1,4 +1,4 @@
-import { VOXEL, STREAM } from '../core/Constants.js';
+import { VOXEL, STREAM, TERRAIN } from '../core/Constants.js';
 import * as Layout from './Layout.js';
 
 // Authored voxel content. Buildings are written as footprints + rules rather
@@ -169,35 +169,55 @@ export function buildTrashCanDen(world, ox, oy, oz, length = 9, radius = 4) {
   }
 }
 
-/** Deformable ground for ONE chunk column: real voxel strata, so blasts leave
- *  craters you can walk into rather than scorch marks.
+/** The ground you can SEE, for one chunk column.
  *
- *  Was a single eager pass over the entire map — roughly 910 × 910 × 2 voxels
- *  at BOUNDS 250, which forced every chunk into existence before the first
- *  frame and is what JIM-01 measured at 19 s / 3.5 GB. */
+ *  Only `TERRAIN.SKIN` voxels of it are real. Everything below is implicit —
+ *  solid to every query, stored nowhere, and materialised only where a blast
+ *  exposes it (VoxelWorld._materialiseAround). That is why `TERRAIN.DEPTH` can
+ *  be 20 m or 200 m for the same boot cost and the same memory: nothing here
+ *  iterates it.
+ *
+ *  This was a single eager pass over the entire map — roughly 910 × 910 × 2
+ *  voxels at BOUNDS 250, which forced every chunk into existence before the
+ *  first frame and is what JIM-01 measured at 19 s / 3.5 GB. Then it became one
+ *  column of a flat plane (milestone 12). Now it follows a height field, and
+ *  costs the same as it did flat. */
 function buildGroundColumn(world, cx, cz) {
   const C = VOXEL.CHUNK_XZ;
   const x0 = cx * C;
   const z0 = cz * C;
   for (let x = x0; x < x0 + C; x++) {
     for (let z = z0; z < z0 + C; z++) {
-      const wx = x * VOXEL.SIZE;
-      const wz = z * VOXEL.SIZE;
+      const wx = (x + 0.5) * VOXEL.SIZE;
+      const wz = (z + 0.5) * VOXEL.SIZE;
       if (!Layout.isInsideBounds(wx, wz)) continue;
-      // Surface follows the masterplan's classes, so a park is grass, an alley
-      // is scruffier than a street, and the road network you see is the one
-      // the city was designed with.
-      const cls = Layout.Masterplan.classAt(wx, wz);
-      const C = Layout.Masterplan.CLASS;
-      const surface = cls === C.ROAD ? CONCRETE
-        : cls === C.ALLEY ? BRICK
-          : cls === C.PLAZA ? CONCRETE
-            : MOSS;
-      for (let layer = 1; layer <= VOXEL.GROUND_LAYERS; layer++) {
-        const mat = layer === VOXEL.GROUND_LAYERS ? VOXEL.BEDROCK
-          : layer === 1 ? surface : CONCRETE;
-        world.set(x, -layer, z, mat);
+      // Surface material — road, alley, park, sand, strata — is the terrain's
+      // answer, joined to the masterplan's classes by Layout. This file no
+      // longer decides what the ground is made of, only how much of it is real.
+      const top = Layout.terrain.topSolidVoxelY(wx, wz);
+      for (let d = 0; d < TERRAIN.SKIN; d++) {
+        const mat = Layout.terrain.materialAtVoxel(x, top - d, z);
+        if (mat) world.set(x, top - d, z, mat);
       }
+    }
+  }
+}
+
+/** Fill the gap between a building's floor and the ground it stands on.
+ *
+ *  Buildings are planted at the HIGHEST point under their footprint, so no
+ *  corner is ever left hanging in the air on a hillside. Downhill that leaves a
+ *  gap, and only the walls can be seen through — so only the perimeter is
+ *  filled. Cheap, and it reads as the retaining walls a hilly city is full of.
+ */
+function buildFoundation(world, b) {
+  for (let x = 0; x < b.vw; x++) {
+    for (let z = 0; z < b.vd; z++) {
+      if (x !== 0 && x !== b.vw - 1 && z !== 0 && z !== b.vd - 1) continue;
+      const top = Layout.terrain.topSolidVoxelY(
+        (b.vx + x + 0.5) * VOXEL.SIZE, (b.vz + z + 0.5) * VOXEL.SIZE,
+      );
+      for (let y = top; y < b.vy; y++) world.set(b.vx + x, y, b.vz + z, CONCRETE);
     }
   }
 }
@@ -216,12 +236,16 @@ export function generateColumn(world, cx, cz) {
   const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
   for (const b of Layout.buildingsIntersecting(cx * C, cz * C, (cx + 1) * C, (cz + 1) * C)) {
     const build = BUILDERS[b.type] || buildCraftsman;
-    build(world, b.vx, 0, b.vz, b.vw, b.vd, b.vh);
+    buildFoundation(world, b);
+    build(world, b.vx, b.vy, b.vz, b.vw, b.vd, b.vh);
   }
 
   // Jimothy's den sits just off spawn, in the open. Written by whichever
   // column contains it; the write filter discards it everywhere else.
-  buildTrashCanDen(world, DEN.vx, 0, DEN.vz, DEN.length, DEN.radius);
+  buildTrashCanDen(
+    world, DEN.vx, Layout.terrain.topSolidVoxelY(DEN.x, DEN.z) + 1, DEN.vz,
+    DEN.length, DEN.radius,
+  );
 }
 
 // Archetype → voxelizer. Layout decides WHICH; this decides what it looks
@@ -237,6 +261,8 @@ const BUILDERS = {
 };
 
 const DEN = {
+  x: -10,
+  z: 9,
   vx: Math.round(-10 / VOXEL.SIZE),
   vz: Math.round(9 / VOXEL.SIZE),
   length: 8,
@@ -250,6 +276,10 @@ const DEN = {
  *  the first frame (JIM-01). Nothing outside the spawn radius is built here;
  *  the rest arrives as he walks into it. */
 export function installCity(world, spawnX = 0, spawnZ = 0) {
+  // The implicit ground (milestone 17). Injected rather than imported, so
+  // VoxelWorld stays a voxel engine that knows nothing about islands, and so a
+  // spec can hand it a flat one.
+  world.terrain = Layout.terrain;
   world.generator = generateColumn;
   world.streamAround(spawnX, spawnZ);
   // Boot has no frame budget to protect, so fill the load radius immediately

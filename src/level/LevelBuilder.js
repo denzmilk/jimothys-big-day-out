@@ -1,23 +1,35 @@
 import * as THREE from 'three';
-import { WORLD, COLORS, HIDE_SPOTS, VOXEL } from '../core/Constants.js';
+import { WORLD, COLORS, HIDE_SPOTS, TERRAIN } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
-// Static block dressing: ground + perimeter curbs matching the physics walls
-// in PhysicsSystem, plus hide-spot bushes. Houses and trees arrive in later
-// milestones.
+// Static block dressing: the sea, hide-spot bushes, and the perimeter curbs
+// matching the physics walls in PhysicsSystem.
 export class LevelBuilder {
-  constructor(scene) {
+  constructor(scene, voxels = null) {
     this.scene = scene;
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(WORLD.BLOCK_SIZE, WORLD.BLOCK_SIZE),
-      new THREE.MeshStandardMaterial({ color: COLORS.GROUND }),
+    this.voxels = voxels;
+    // The sea, at y = 0. One flat plane and one draw call — milestone 17 owns
+    // the SHAPE of the coast, milestone 14 owns the surface (waves, and the
+    // fairy godmother who bubbles you ashore). Until then this is what makes
+    // walking off the edge read as water rather than as falling off the world.
+    // It replaces the old green horizon plane, which was a flat world's answer
+    // to "what is under the voxels" and is now just the seabed.
+    const sea = new THREE.Mesh(
+      new THREE.PlaneGeometry(WORLD.BOUNDS * 4, WORLD.BOUNDS * 4),
+      new THREE.MeshStandardMaterial({
+        color: COLORS.SEA,
+        transparent: true,
+        opacity: 0.72,
+        roughness: 0.25,
+        metalness: 0.1,
+      }),
     );
-    ground.rotation.x = -Math.PI / 2;
-    // Sits below the voxel ground slab as bedrock/horizon fill — the walkable
-    // surface is voxels now (ADR-0003), so craters expose this rather than
-    // z-fighting with it.
-    ground.position.y = -(VOXEL.GROUND_LAYERS + 2) * VOXEL.SIZE;
-    scene.add(ground);
+    sea.rotation.x = -Math.PI / 2;
+    sea.position.y = TERRAIN.SEA_LEVEL;
+    // Rendered after the terrain so the shallows show through it rather than
+    // being z-sorted away.
+    sea.renderOrder = 1;
+    scene.add(sea);
 
     // Bushes mark the hide spots; translucent so Jimothy reads through them.
     const bushGeo = new THREE.SphereGeometry(HIDE_SPOTS.RADIUS, 12, 8);
@@ -29,7 +41,9 @@ export class LevelBuilder {
     for (const [x, z] of HIDE_SPOTS.POSITIONS) {
       const bush = new THREE.Mesh(bushGeo, bushMat);
       bush.scale.y = 0.7;
-      bush.position.set(x, HIDE_SPOTS.RADIUS * 0.45, z);
+      // On the hillside it stands on, not at a height that used to mean grade.
+      const ground = voxels ? voxels.terrainHeightAt(x, z) : 0;
+      bush.position.set(x, ground + HIDE_SPOTS.RADIUS * 0.45, z);
       scene.add(bush);
     }
 

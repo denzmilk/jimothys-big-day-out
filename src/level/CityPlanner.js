@@ -1,6 +1,10 @@
-import plan from './cityPlan.js';
+import * as Terrain from './Terrain.js';
+import { TERRAIN } from '../core/Constants.js';
+import { inPolygon, polygonBounds } from '../core/MathUtils.js';
 
-// The city's design, as data (milestone 16).
+const plan = Terrain.plan;
+
+// The city's design, as data (milestone 16), on the island (milestone 17).
 //
 // Milestone 15 added archetypes and districts and the world still read as a
 // grid, because the grid was never in the data — it was in the generator.
@@ -19,11 +23,24 @@ import plan from './cityPlan.js';
 //
 // NOTE the file names. `Masterplan.js` alongside `masterplan.js` is the same
 // file on macOS, and writing one silently destroyed the other mid-session.
-// Engine is `CityPlanner.js`, data is `cityPlan.js` — no case-only collision.
+// Engine is `CityPlanner.js`, data is `islandPlan.js` — no case-only collision.
+//
+// MILESTONE 17 changed only the SOURCE of the plan. `cityPlan.js` described
+// six regions on a flat square; `islandPlan.js` describes twelve named
+// districts on a coastline. The bake, the flood-fill block finder and the
+// semantic prop placement below are milestone 16's and are untouched — which
+// was the point of separating the data from the engine in the first place.
+//
+// What the island adds is a NEGATIVE: the coast, the lakes and the canal are
+// carved out of the class grid as WATER before blocks are found, so the street
+// network is cut by an edge that was not generated alongside it. That edge is
+// the texture six rotated lattices never produced (Chris, on Rev A: "It
+// definitely still reads as a grid").
 
 // World units per grid cell. 2 is finer than the narrowest road (an alley at
-// 4), and 1000×1000 cells at one byte is 1 MB.
-export const CELL = 2;
+// 4), and 1000×1000 cells at one byte is 1 MB. Must equal the terrain's cell
+// size — the two grids are indexed interchangeably during the bake.
+export const CELL = TERRAIN.CELL;
 
 export const CLASS = {
   LAND: 0,
@@ -55,11 +72,7 @@ const inGrid = (cx, cz) => cx >= 0 && cz >= 0 && cx < SIZE && cz < SIZE;
  *  region does not touch. Without it the bake tested every cell against every
  *  region — 6 million point-in-polygon calls, 1.3 s. */
 function cellBounds(poly) {
-  let minX = Infinity; let maxX = -Infinity; let minZ = Infinity; let maxZ = -Infinity;
-  for (const [x, z] of poly) {
-    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-    minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
-  }
+  const [minX, minZ, maxX, maxZ] = polygonBounds(poly);
   return {
     x0: Math.max(0, toCell(minX)),
     x1: Math.min(SIZE - 1, toCell(maxX) + 1),
@@ -68,17 +81,37 @@ function cellBounds(poly) {
   };
 }
 
-/** Even-odd point-in-polygon. Called once per cell during the bake, never at
- *  query time. */
-function inPolygon(x, z, poly) {
-  let hit = false;
-  for (let a = 0, b = poly.length - 1; a < poly.length; b = a++) {
-    const [xa, za] = poly[a];
-    const [xb, zb] = poly[b];
-    if ((za > z) !== (zb > z) && x < ((xb - xa) * (z - za)) / (zb - za) + xa) hit = !hit;
-  }
-  return hit;
-}
+// Road widths. Held here rather than in the plan: the island describes WHERE
+// districts are, this describes what a street is.
+const ROAD_CLASSES = {
+  arterial: { width: 15 },
+  street: { width: 9 },
+  alley: { width: 4 },
+};
+
+/** What a district's CHARACTER means for its street network and its buildings.
+ *
+ *  The island plan says "retail" or "suburb" — a description of a place, not a
+ *  block size. This is the one table that turns the first into the second, so
+ *  re-characterising a district is a one-word edit in the plan rather than a
+ *  set of numbers copied into it. */
+const CHARACTER = {
+  core: { district: 'downtown', block: [58, 92], alleys: true, arterialEvery: 4 },
+  industrial: { district: 'industrial', block: [92, 132], alleys: true, arterialEvery: 3 },
+  'dense-residential': { district: 'dense', block: [64, 88], alleys: true, arterialEvery: 4 },
+  residential: { district: 'residential', block: [78, 104], alleys: false, arterialEvery: 4 },
+  suburb: { district: 'residential', block: [98, 130], alleys: false, arterialEvery: 5 },
+  mixed: { district: 'commercial', block: [70, 96], alleys: true, arterialEvery: 4 },
+  retail: { district: 'retail', block: [120, 152], alleys: false, arterialEvery: 4 },
+};
+
+// Districts, expanded into the region shape the bake below already understood.
+const regions = plan.districts.map((d, i) => {
+  const c = CHARACTER[d.character] || CHARACTER.residential;
+  return {
+    id: d.id, polygon: d.polygon, angle: d.angle, realName: d.realName, ...c, _index: i,
+  };
+});
 
 /** Stamp a region's street grid, drawn in its own ROTATED frame.
  *
@@ -100,9 +133,9 @@ function stampRegion(region) {
     vMin = Math.min(vMin, -x * sin + z * cos);
   }
 
-  const arterial = plan.roadClasses.arterial.width;
-  const street = plan.roadClasses.street.width;
-  const alley = plan.roadClasses.alley.width;
+  const arterial = ROAD_CLASSES.arterial.width;
+  const street = ROAD_CLASSES.street.width;
+  const alley = ROAD_CLASSES.alley.width;
 
   // Phase from the region's own identity, not the world origin: otherwise
   // every region's streets line up through the seams and the collision that
@@ -214,6 +247,11 @@ const MIX = {
   commercial: ['shop', 'shop', 'apartment', 'warehouse'],
   residential: ['craftsman', 'craftsman', 'craftsman', 'shed', 'apartment'],
   industrial: ['warehouse', 'warehouse', 'shed'],
+  // Milestone 17's two new characters. Compost Hill is dense housing over a
+  // high street; Northgorge is strip malls and big-box, which is warehouses
+  // wearing a shopfront.
+  dense: ['apartment', 'apartment', 'craftsman', 'shop'],
+  retail: ['shop', 'warehouse', 'shop', 'shed'],
   park: [],
 };
 
@@ -233,7 +271,7 @@ function hash2(a, b) {
  *  boxes, which is the honest voxel answer; rotating them would staircase every
  *  wall instead. */
 function buildingsForBlock(block) {
-  const district = plan.regions[block.region]?.district || 'residential';
+  const district = regions[block.region]?.district || 'residential';
   const mix = MIX[district];
   if (!mix || !mix.length) return [];
   if (block.maxX - block.minX < 10 || block.maxZ - block.minZ < 10) return [];
@@ -336,15 +374,15 @@ export function bake() {
   if (baked) return;
   // PARK, not LAND: anything no region claims is not city, and starting it as
   // buildable let every un-regioned acre flood-fill into one 1.24 km² "block".
-  // Outskirts and green space until the coastline lands (milestone 14).
+  // Outskirts and green space between the districts and the coast.
   cells = new Uint8Array(SIZE * SIZE).fill(CLASS.PARK);
   regionOf = new Int8Array(SIZE * SIZE).fill(-1);
-  plan.regions.forEach((r, i) => { r._index = i; });
-  for (const region of plan.regions) stampRegion(region);
+  for (const region of regions) stampRegion(region);
   // Parks and plazas are carved AFTER the streets, so they genuinely interrupt
-  // the network instead of being a differently-coloured block.
-  stampPolygons(plan.parks, CLASS.PARK);
-  for (const p of plan.plazas) {
+  // the network instead of being a differently-coloured block. The island plan
+  // carries none yet — cityPlan.js's are noted in the backlog for porting.
+  stampPolygons(plan.parks || [], CLASS.PARK);
+  for (const p of plan.plazas || []) {
     const poly = [];
     for (let a = 0; a < 12; a++) {
       const th = (a / 12) * Math.PI * 2;
@@ -352,6 +390,29 @@ export function bake() {
     }
     stampPolygons([{ polygon: poly }], CLASS.PLAZA);
   }
+
+  // The coastline, carved LAST and straight off the height field (milestone
+  // 17). Everything the sea, the lakes and the canal cover stops being city,
+  // whatever a district polygon claimed — a district drawn a little into the
+  // water simply loses that part, with no reconciliation step to get wrong.
+  //
+  // Read cell-for-cell rather than through surfaceHeight(): both grids are the
+  // same bake of the same plan, so this is an array read instead of a million
+  // bilinear samples.
+  const t = Terrain.grid();
+  Terrain.assertSameGrid(SIZE, HALF, CELL);
+  for (let i = 0; i < cells.length; i++) {
+    if (t.deck[i]) {
+      // A bridge is a road. It has to be, or the network stops at the water and
+      // the flood fill finds a block in the middle of the canal.
+      cells[i] = CLASS.ROAD;
+      regionOf[i] = -1;
+    } else if (t.height[i] < TERRAIN.BUILD_MIN_HEIGHT) {
+      cells[i] = CLASS.WATER;
+      regionOf[i] = -1;
+    }
+  }
+
   findBlocks();
   baked = true;
   indexBuildings();
@@ -388,9 +449,34 @@ export function districtAtWorld(x, z) {
   if (!inGrid(cx, cz)) return 'park';
   const i = idx(cx, cz);
   const c = cells[i];
+  if (c === CLASS.WATER) return 'water';
   if (c === CLASS.PARK || c === CLASS.PLAZA) return 'park';
   const r = regionOf[i];
-  return r >= 0 ? plan.regions[r].district : 'residential';
+  return r >= 0 ? regions[r].district : 'residential';
+}
+
+/** Does this district have back alleys? What container placement keys off: a
+ *  district with alleys puts its bins behind the frontages, one without has to
+ *  put them on the kerb, and using one rate for both left most of the island
+ *  nearly binless. */
+export function hasAlleysAt(x, z) {
+  bake();
+  const cx = toCell(x);
+  const cz = toCell(z);
+  if (!inGrid(cx, cz)) return false;
+  const r = regionOf[idx(cx, cz)];
+  return r >= 0 ? !!regions[r].alleys : false;
+}
+
+/** The district's own NAME, not its character — "trash-panda-heights" rather
+ *  than "residential". What the map screen and the gazetteer want. */
+export function districtNameAtWorld(x, z) {
+  bake();
+  const cx = toCell(x);
+  const cz = toCell(z);
+  if (!inGrid(cx, cz)) return null;
+  const r = regionOf[idx(cx, cz)];
+  return r >= 0 ? regions[r].id : null;
 }
 
 /** Buildings whose footprint intersects the box. Bucketed, so the minimap and
@@ -423,9 +509,9 @@ export function allBlocks() {
 }
 
 export function regionCount() {
-  return plan.regions.length;
+  return regions.length;
 }
 
 export const BOUNDS = plan.bounds;
 export const GRID_SIZE = SIZE;
-export { plan };
+export { plan, regions };

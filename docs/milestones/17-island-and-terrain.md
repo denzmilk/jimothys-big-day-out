@@ -97,19 +97,58 @@ Two things it had to get right, both asserted:
 - Streets. The structure lands first, then the network is drawn against a coastline that already exists.
 - Water rendering and the fairy godmother (was milestone 14) — the coast is *shape* here, the sea is *surface* there.
 
+## What shipped, and what it cost
+
+**Implemented 2026-08-07. Awaiting Chris's playtest** (house rule 4).
+
+**The implicit-ground result, measured.** Booted at `TERRAIN.DEPTH` 20 m and 200 m:
+
+| | 20 m | 200 m |
+|---|---|---|
+| stored voxels | 947,634 | **947,634** |
+| chunks | 191 | **191** |
+| boot | 1237 ms | 1224 ms |
+
+Byte-identical, not merely close — a 10× depth is the same world with a bigger number in it. Boot is *under* milestone 12's 1654 ms baseline despite the island now having a height field, two bakes and hills. `tests/terrain.spec.js` asserts the equality exactly, so a single voxel of drift fails it.
+
+The shape it actually took: ground is implicit for every **query** at any depth, and only a constant `TERRAIN.SKIN` of 4 voxels is **stored**, because that is what the mesher draws. A blast below the skin materialises the faces it exposes (`VoxelWorld._materialiseAround`) and nothing else, so memory tracks how much has been *dug*. On regeneration the holes replay from the edit store and re-expose their own walls — without that, a re-entered crater came back as an invisible void with no sides.
+
+**Five constants that secretly meant "grade".** The docs warned about three of this family from earlier milestones; the height field found five more, and every one was silently wrong rather than loudly broken:
+
+| where | was | broke |
+|---|---|---|
+| `damageSphere(minVoxelY)` | absolute `0` | a headbutt on a 50 m hill was told to spare everything below the waterline, and would have cratered the hillside |
+| `Game.findWallTarget(probeY)` | absolute `1.0` | on a hill every probe hits solid rock, so it reported the first spot it tried as a wall and never found a standoff |
+| `Pedestrians._sync` | scan from `0.5` | the scan started 50 m underground, found nothing, and buried the pedestrian at bedrock |
+| `TrashCans.addCan` / snacks | `height / 2`, `0.18` | bins and food spawned 45 m under a hill and stayed there |
+| `voxel.spec`'s `sparedGround` | `>= 0` | passes however deep the crater is, as long as the hill is taller than the hole |
+
+Also `Tunables`' `WORLD.BOUNDS` range, still `[10, 38]` from the 250-unit map — **JIM-33**, fixed here: any stored override was being clamped to 38, which would have collapsed the island to a 76 m square.
+
+**Container density regressed and was caught.** Changing the district mix left every alleyless district — most of the island by area — with 5–13 containers per streaming disc against downtown's 38–56. `CONTAINERS.KERB_SHARE_NO_ALLEYS` fixes it the way a city does (no alleys means everyone's bin is out front): now 22–52 everywhere. The spec that should have caught it was measuring `Math.max` over districts, which passes on one good district while eleven are bare — it now asserts the density of **every** district.
+
+**Decisions worth not re-litigating:**
+
+- **Coastal hills are bluffs.** Trash Panda Heights' summit is 34 m from the water; it cannot be both 48 m tall and walkable from the beach. Fading hills in over a long coastal run "fixed" the slope and took the island's landmark climb from 48 m to 8. The hill spec now asserts *a walkable way up exists* (≥ 8 of 24 approaches), which is the property the player cares about, and the coast spec asserts >70% beach with every bluff explained by a hill.
+- **`span` in the plan is a crossing LENGTH, not a deck width.** Its numbers say so (70 m at a canal 84 m wide). Read as a width it built 70 m ribbons that filled a third of Lake Onion. Deck width is `TERRAIN.BRIDGE_WIDTH`; the length is measured off the land mask, which is the only way to be sure a deck reaches both shores. The crossing axis is found by probing for land in all four directions and taking the shorter crossing — reading it off the water body's bounding box gets the canals right and a bridge anchored in a lake badly wrong.
+- **Bridge decks are raised 7 m with ramped approaches**, so water reads as water underneath.
+- **Thirst Hill is gone**, absorbed by downtown's flat plateau — it sits 20 m outside Trashattan and `FLATTEN_RUN` is 120 m. Move it in the plan if it should be a hill.
+
 ## Acceptance criteria
 
 - [x] Fly camera with speed control, so the map can be inspected — `tests/flycam.spec.js`, 5 specs
-- [ ] The island silhouette matches the plan, and walking off the edge means water rather than an invisible wall
-- [ ] Hills are walkable and readable from the ground — Trash Panda Heights should feel like a climb
-- [ ] Trashattan and SoTrash are flat
-- [ ] Ground is diggable to at least 20 m, with visible strata changes
-- [ ] **Boot cost and memory stay flat in terrain depth** — measured at 20 m and at 200 m, and the two match. This is the assertion the implicit-ground design exists for
-- [ ] Damage still survives a chunk unload (milestone 12's guarantee, now over a height field)
-- [ ] Districts are placed per the plan and read as distinct on the ground
-- [ ] The city is still deterministic and order-independent
+- [x] The island silhouette matches the plan, and walking off the edge means water rather than an invisible wall — asserted against the authored polygons; the sea is a plane at `y = 0` (`LevelBuilder`)
+- [x] Hills are walkable and readable from the ground — Trash Panda Heights climbs 40 m from its foot; *readable* is playtest
+- [x] Trashattan and SoTrash are flat — under 4 m of relief each, against 40+ in a hill district
+- [x] Ground is diggable to at least 20 m, with visible strata changes — dug and then measured, not asserted off a count
+- [x] **Boot cost and memory stay flat in terrain depth** — 947,634 stored voxels and 191 chunks at both 20 m and 200 m
+- [x] Damage still survives a chunk unload (milestone 12's guarantee, now over a height field) — including 20 m below the stored skin, where the walls are implicit and have to be re-exposed on replay
+- [x] Districts are placed per the plan — all twelve present under their own names; *read as distinct* is playtest
+- [x] The city is still deterministic and order-independent
 - [ ] It reads as a place — **verified by user playtest**
 
 ## Exit condition
 
 User flies over the island and recognises it as a city with a coast and hills; then lands, climbs Trash Panda Heights, and digs a hole 20 m into it.
+
+**Note for the playtest:** the fly camera loads a 385 m disc (`STREAM.FLY_LOAD_RADIUS`, tunable in DevTools). Seeing the *whole* island at once is not something this renderer does — a flat ground chunk emits 4096 separate quads where one would do, so each ground chunk costs about a megabyte of geometry. That is the thing to fix if the view needs to go wider, and the island-scale view proper is milestone 13's map screen.

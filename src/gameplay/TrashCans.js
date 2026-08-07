@@ -44,10 +44,11 @@ export function defaultLayout() {
 // non-physics pickups — distance checks beat rigid bodies for food scattered
 // on the ground, and keep the spill ring deterministic for tests.
 export class TrashCans {
-  constructor(scene, physics, jimothy) {
+  constructor(scene, physics, jimothy, voxels = null) {
     this.scene = scene;
     this.physics = physics;
     this.jimothy = jimothy;
+    this.voxels = voxels;
     this.elapsed = 0;
     this._up = new CANNON.Vec3();
 
@@ -140,10 +141,14 @@ export class TrashCans {
     const geo = this._geoFor(kind);
     const mesh = new THREE.Mesh(geo, this._matFor(kind));
     this.scene.add(mesh);
+    // On the ground it is actually standing on. `kind.height / 2` alone meant
+    // "resting on grade", which is only true on a flat world — on a 45 m hill
+    // it spawned the bin 45 m underground, where it stayed (milestone 17).
+    const ground = this.voxels ? this.voxels.terrainHeightAt(x, z) : 0;
     const body = new CANNON.Body({
       mass: kind.mass,
       shape: new CANNON.Box(new CANNON.Vec3(kind.radius, kind.height / 2, kind.radius)),
-      position: new CANNON.Vec3(x, kind.height / 2, z),
+      position: new CANNON.Vec3(x, ground + kind.height / 2 + 0.05, z),
       linearDamping: 0.25,
       angularDamping: 0.25,
     });
@@ -280,7 +285,8 @@ export class TrashCans {
 
     for (let i = this.snacks.length - 1; i >= 0; i--) {
       const s = this.snacks[i];
-      s.mesh.position.y = 0.18 + Math.sin(this.elapsed * SNACKS.BOB_HZ + s.phase) * 0.05;
+      s.mesh.position.y = (s.baseY ?? 0.18)
+        + Math.sin(this.elapsed * SNACKS.BOB_HZ + s.phase) * 0.05;
       const d = Math.hypot(s.mesh.position.x - jp.x, s.mesh.position.z - jp.z);
       if (s.type === 'feast') {
         // Feasts are a commitment: stand within reach, nearly still, and chomp
@@ -317,6 +323,12 @@ export class TrashCans {
     }
   }
 
+  /** Rest height for a dropped snack: on the ground under it, not at 0.18,
+   *  which meant "just above grade" and only ever worked on a flat world. */
+  _restY(x, z) {
+    return (this.voxels ? this.voxels.terrainHeightAt(x, z) : 0) + 0.18;
+  }
+
   spillFrom(can) {
     const cp = can.body.position;
     const scraps = can.kind?.scraps ?? SNACKS.SCRAPS_PER_CAN;
@@ -324,23 +336,21 @@ export class TrashCans {
     for (let k = 0; k < scraps; k++) {
       const a = (k / scraps) * Math.PI * 2;
       const mesh = new THREE.Mesh(this.snackGeo, this.snackMat);
-      mesh.position.set(
-        cp.x + Math.cos(a) * SNACKS.SCATTER_RADIUS,
-        0.18,
-        cp.z + Math.sin(a) * SNACKS.SCATTER_RADIUS,
-      );
+      const x = cp.x + Math.cos(a) * SNACKS.SCATTER_RADIUS;
+      const z = cp.z + Math.sin(a) * SNACKS.SCATTER_RADIUS;
+      const baseY = this._restY(x, z);
+      mesh.position.set(x, baseY, z);
       this.scene.add(mesh);
-      this.snacks.push({ mesh, phase: k, type: 'scrap' });
+      this.snacks.push({ mesh, phase: k, type: 'scrap', baseY });
     }
     for (let k = 0; k < feasts; k++) {
       const mesh = new THREE.Mesh(this.feastGeo, this.feastMat);
-      mesh.position.set(
-        cp.x + SNACKS.FEAST_OFFSET[0] * (k + 1),
-        0.18,
-        cp.z + SNACKS.FEAST_OFFSET[1] * (k + 1),
-      );
+      const x = cp.x + SNACKS.FEAST_OFFSET[0] * (k + 1);
+      const z = cp.z + SNACKS.FEAST_OFFSET[1] * (k + 1);
+      const baseY = this._restY(x, z);
+      mesh.position.set(x, baseY, z);
       this.scene.add(mesh);
-      this.snacks.push({ mesh, phase: k, type: 'feast', progress: 0 });
+      this.snacks.push({ mesh, phase: k, type: 'feast', progress: 0, baseY });
     }
   }
 }

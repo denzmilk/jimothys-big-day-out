@@ -96,7 +96,14 @@ export class Pedestrians {
   _sync() {
     for (let i = 0; i < this.people.length; i++) {
       const p = this.people[i];
-      const groundY = this.voxels ? this.voxels.groundHeightAt(p.x, p.z, 0.5) : 0;
+      // Scan from just above THIS column's own surface. The literal 0.5 that
+      // used to be here meant "a bit above grade", which was true only while
+      // the world was flat — on a 50 m hill the scan started 50 m underground,
+      // found nothing, and buried the pedestrian at bedrock (milestone 17).
+      const surface = this.voxels ? this.voxels.terrainHeightAt(p.x, p.z) : 0;
+      const groundY = this.voxels
+        ? this.voxels.groundHeightAt(p.x, p.z, surface + 0.5)
+        : 0;
       // Panic wobble so fleeing reads as slapstick, not a jog.
       const lean = p.flee > 0 ? Math.sin(p.flee * 22) * 0.25 : 0;
       this._q.setFromEuler(new THREE.Euler(lean, p.yaw || 0, lean * 0.6));

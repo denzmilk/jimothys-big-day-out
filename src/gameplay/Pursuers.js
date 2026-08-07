@@ -10,9 +10,12 @@ import { gameState } from '../core/GameState.js';
 // bodies: pursuers steer meshes directly and everything is distance checks,
 // which keeps them deterministic under advanceTime and immune to sleep bugs.
 export class Pursuers {
-  constructor(scene, jimothy) {
+  constructor(scene, jimothy, voxels = null) {
     this.scene = scene;
     this.jimothy = jimothy;
+    // Only used to stand them on the ground for now. Milestone 19 wants it for
+    // line of sight (a DDA march through the same grid).
+    this.voxels = voxels;
     this.paparazzi = [];
     this.animalControl = null;
     this.spawnIndex = 0;
@@ -67,9 +70,18 @@ export class Pursuers {
       group.add(net);
     }
     const [x, z] = this._spawnPoint();
-    group.position.set(x, 0, z);
+    group.position.set(x, this._groundY(x, z), z);
     this.scene.add(group);
     return group;
+  }
+
+  /** The ground under a pursuer. They used to be pinned to y = 0, which was
+   *  fine on a flat world and leaves them buried in a hillside or hovering over
+   *  a valley on the island (milestone 17). */
+  _groundY(x, z) {
+    if (!this.voxels) return 0;
+    const surface = this.voxels.terrainHeightAt(x, z);
+    return this.voxels.groundHeightAt(x, z, surface + 1);
   }
 
   _steer(group, delta, speed) {
@@ -86,6 +98,7 @@ export class Pursuers {
       group.position.x = THREE.MathUtils.clamp(group.position.x, -B, B);
       group.position.z = THREE.MathUtils.clamp(group.position.z, -B, B);
     }
+    group.position.y = this._groundY(group.position.x, group.position.z);
     return d;
   }
 

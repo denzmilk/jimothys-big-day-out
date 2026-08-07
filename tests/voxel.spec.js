@@ -1,13 +1,21 @@
 // Milestone 07: destructible voxels (ADR-0003).
 import { test, expect } from '@playwright/test';
-import { DEBRIS } from '../src/core/Constants.js';
+import { DEBRIS, PLAYER_CONFIG, VOXEL } from '../src/core/Constants.js';
 import { state, adv, boot } from './helpers.mjs';
 
 // The city is procedurally generated, so specs target the ground slab rather
 // than a hardcoded building — it's destructible everywhere and its position
 // can't drift when the layout changes.
-const TARGET = { x: 4, y: 0.2, z: -6 };
-const blast = (page) => page.evaluate((w) => window.blastAtWorld(w.x, w.y, w.z), TARGET);
+//
+// The height is resolved AT RUNTIME against the terrain (milestone 17). It used
+// to be a literal 0.2, which meant "just above grade" — and on the island that
+// point is 41 m inside Compost Hill, where the strata are bedrock and a blast
+// correctly removes nothing.
+const TARGET = { x: 4, z: -6, above: 0.2 };
+const blast = (page) => page.evaluate(
+  (w) => window.blastAtWorld(w.x, window.terrainSurfaceAt(w.x, w.z) + w.above, w.z),
+  TARGET,
+);
 
 async function goToWall(page) {
   await adv(page, 0.1);
@@ -68,16 +76,22 @@ test('stays sane after twenty blasts', async ({ page }) => {
 // Open road well clear of the spawn props, so nothing but ground is in range.
 const ROAD = { x: 30, z: 30 };
 
-/** Ground surface heights on a short line ahead of Jimothy — the honest test
- *  of "did that move dig?", since voxel counts alone can't tell a wall from a
- *  pavement. */
-function groundLine(page, yaw, samples = 6) {
+/** How far BELOW its own undug surface the ground sits, on a short line ahead
+ *  of Jimothy — the honest test of "did that move dig?", since voxel counts
+ *  alone can't tell a wall from a pavement.
+ *
+ *  Measured as a drop rather than an absolute height (milestone 17). The
+ *  absolute version compared against a literal 0 and was only ever asking "is
+ *  this below grade"; on a hill that passes however deep the crater is. */
+function digDepthLine(page, yaw, samples = 6) {
   return page.evaluate(([y, n]) => {
     const j = JSON.parse(window.render_game_to_text()).jimothy;
     const out = [];
     for (let i = 1; i <= n; i++) {
       const d = i * 0.8;
-      out.push(window.groundHeightAtWorld(j.x + Math.sin(y) * d, j.z + Math.cos(y) * d));
+      const x = j.x + Math.sin(y) * d;
+      const z = j.z + Math.cos(y) * d;
+      out.push(window.terrainSurfaceAt(x, z) - window.groundHeightAtWorld(x, z));
     }
     return out;
   }, [yaw, samples]);
@@ -90,24 +104,24 @@ async function setupOnRoad(page, yaw) {
   await adv(page, 0.2);
 }
 
-// Grade is y = 0: buildGround writes its strata at voxel y < 0, so an intact
-// surface reads exactly 0 and any dig reads negative. Asserting "never below
-// grade" is therefore precisely "the road is still walkable", and — unlike
-// comparing whole height lines — it doesn't fail when the move legitimately
-// flattens a BUILDING standing on that line.
-const sparedGround = (line) => expect(Math.min(...line)).toBeGreaterThanOrEqual(0);
+// An intact surface has dropped nothing; any dig shows as a positive drop. One
+// voxel of slack absorbs the rounding between a bilinear height field and the
+// voxel grid it is quantised onto. Unlike comparing whole height lines this
+// doesn't fail when the move legitimately flattens a BUILDING on that line.
+const sparedGround = (drops) => expect(Math.max(...drops)).toBeLessThan(0.6);
 
 /** Prove the terrain under the test actually is diggable, so a passing
  *  "spared the ground" can't just mean the move did nothing. */
 async function assertGroundIsDiggableAhead(page, yaw, distance) {
-  const dug = await page.evaluate(([y, d]) => {
+  const drop = await page.evaluate(([y, d]) => {
     const j = JSON.parse(window.render_game_to_text()).jimothy;
     const x = j.x + Math.sin(y) * d;
     const z = j.z + Math.cos(y) * d;
-    window.blastAtWorld(x, 0, z);
-    return window.groundHeightAtWorld(x, z);
+    window.blastAtWorld(x, window.terrainSurfaceAt(x, z), z);
+    return window.terrainSurfaceAt(x, z) - window.groundHeightAtWorld(x, z);
   }, [yaw, distance]);
-  expect(dug).toBeLessThan(0);
+  expect(drop, 'the ground here was not diggable, so sparing it proves nothing')
+    .toBeGreaterThan(0.6);
 }
 
 test('headbutt spares the ground', async ({ page }) => {
@@ -120,7 +134,7 @@ test('headbutt spares the ground', async ({ page }) => {
 
   // A fat headbutt used to crater the street it lunged over, digging the pit
   // it then had to climb out of. It should demolish structures only.
-  sparedGround(await groundLine(page, yaw));
+  sparedGround(await digDepthLine(page, yaw));
   await assertGroundIsDiggableAhead(page, yaw, 2.4);
 });
 
@@ -133,7 +147,7 @@ test('roll scrapes instead of trenching', async ({ page }) => {
   await adv(page, 1.2);
 
   // The roll covers ~10 m, and every metre of it used to become a trench.
-  sparedGround(await groundLine(page, yaw, 12));
+  sparedGround(await digDepthLine(page, yaw, 12));
   await assertGroundIsDiggableAhead(page, yaw, 2.4);
 });
 
@@ -166,12 +180,25 @@ test('lands beside a building instead of hovering beside it', async ({ page }) =
   // blocked, air above, lift, fall, repeat. He hovered against the wall
   // forever — never grounded, unable to hop, and holding a big negative
   // velocity for the next gap he met.
-  await page.evaluate((w) => window.dropJimothy(w.x, w.z, 40), wall);
+  // 40 m above the ground HERE, not 40 m above the waterline — the latter is
+  // underground on any of the island's hills.
+  await page.evaluate(
+    (w) => window.dropJimothy(w.x, w.z, window.terrainSurfaceAt(w.x, w.z) + 40),
+    wall,
+  );
   await adv(page, 5);
 
   const s = await state(page);
   expect(s.jimothy.grounded).toBe(true);
-  expect(s.jimothy.y).toBeGreaterThanOrEqual(-0.01); // never below grade
+  // His FEET are on the floor that is actually there. The literal `>= -0.01`
+  // this replaces meant "never below grade", which on a 40 m hill stays true
+  // however deeply he is buried; and measuring his centre rather than his feet
+  // hid a whole body radius of slack. One voxel of tolerance, because the floor
+  // is a quantisation of a continuous height field.
+  const floor = await page.evaluate((j) => window.groundHeightAtWorld(j.x, j.z), s.jimothy);
+  const feet = s.jimothy.y - PLAYER_CONFIG.RADIUS;
+  expect(feet, `feet ${feet} vs floor ${floor}`).toBeGreaterThanOrEqual(floor - VOXEL.SIZE);
+  expect(feet, 'hovering above the floor').toBeLessThan(floor + VOXEL.SIZE);
   // …and it must be a resting state, not a frame of a bouncing cycle.
   const settled = s.jimothy.y;
   await adv(page, 2);

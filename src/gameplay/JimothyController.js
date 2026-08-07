@@ -89,7 +89,7 @@ export class JimothyController {
     this.body = new CANNON.Body({
       type: CANNON.Body.KINEMATIC,
       shape: new CANNON.Sphere(P.RADIUS),
-      position: new CANNON.Vec3(0, P.RADIUS, 0),
+      position: new CANNON.Vec3(0, this._spawnY(), 0),
     });
     // cannon-es puts idle bodies to sleep after ~1s and a sleeping kinematic
     // body ignores velocity forever — the "moved once, then never again" bug.
@@ -130,8 +130,18 @@ export class JimothyController {
     });
   }
 
+  /** Standing height at spawn. Spawn sits partway up Compost Hill on the island
+   *  (milestone 17), so the literal `P.RADIUS` this replaced would have put him
+   *  40 m inside a hill — recoverable only via postUpdate's anti-stuck lift,
+   *  and only after a frame of being underground. */
+  _spawnY() {
+    if (!this.voxels) return P.RADIUS;
+    const surface = this.voxels.terrainHeightAt(0, 0);
+    return this.voxels.groundHeightAt(0, 0, surface + 2) + P.RADIUS;
+  }
+
   reset() {
-    this.body.position.set(0, P.RADIUS, 0);
+    this.body.position.set(0, this._spawnY(), 0);
     this.body.velocity.set(0, 0, 0);
     this.vel.set(0, 0, 0);
     this.vy = 0;

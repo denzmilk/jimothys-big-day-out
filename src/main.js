@@ -17,10 +17,31 @@ window.setFatness = (fat) => { gameState.player.fatness = fat; };
 // Heading matters for the move specs: bugs that hide when he faces world +z
 // (the spawn heading) are exactly the ones that shipped.
 window.faceJimothy = (yaw) => { game.jimothy.yaw = yaw; game.jimothy.postUpdate(0); };
-// "Did that move dig the road?" can't be answered by voxel counts, which
-// can't tell a wall from a pavement. Grade is y = 0, so a negative reading
-// here IS a hole in the terrain.
-window.groundHeightAtWorld = (x, z) => game.voxels.groundHeightAt(x, z, 3);
+// "Did that move dig the road?" can't be answered by voxel counts, which can't
+// tell a wall from a pavement. Compare against terrainSurfaceAt: the scan
+// starts above THIS column's own surface, because the literal 3 that used to be
+// here meant "a bit above grade" and grade stopped being a constant when the
+// island got hills (milestone 17).
+window.groundHeightAtWorld = (x, z) =>
+  game.voxels.groundHeightAt(x, z, game.voxels.terrainHeightAt(x, z) + 3);
+// The undug ground, so a spec can say "this is lower than it should be" instead
+// of "this is below zero".
+window.terrainSurfaceAt = (x, z) => game.voxels.terrainHeightAt(x, z);
+// Which MATERIAL, not just solid/air: "a tunnel goes somewhere" is a claim
+// about the strata changing on the way down, and a boolean can't carry it.
+window.materialAtWorld = (x, y, z) =>
+  game.voxels.get(...game.voxels.worldToVoxel(x, y, z));
+// Real stored voxels, counted rather than estimated. The whole implicit-ground
+// design is a claim about this number NOT moving with TERRAIN.DEPTH, so it has
+// to be measurable from outside. Deliberately a separate hook: walking 2.4 MB
+// of chunk data does not belong in the per-call state snapshot.
+window.storedVoxelCount = () => {
+  let n = 0;
+  for (const chunk of game.voxels.chunks.values()) {
+    for (let i = 0; i < chunk.data.length; i++) if (chunk.data[i]) n++;
+  }
+  return n;
+};
 window.findWallTarget = () => game.findWallTarget();
 // Raw voxel probe. "Is this building whole?" cannot be answered by counts —
 // a sliced house and an intact one have the same chunk count (milestone 12).

@@ -150,6 +150,29 @@ export const TRASH_CAN = {
   COUNT: 70,
 };
 
+// Where street containers go (Layout.propsIn). Placement is SEMANTIC — a bin is
+// behind a shop or on a kerb, never at a hash-chosen point on a lattice — and
+// these are the rates at which each kind of place gets one.
+export const CONTAINERS = {
+  STEP: 7,          // metres between candidate points
+  // Alleys are where bins live, densely: both what a city does and where a
+  // raccoon belongs.
+  ALLEY_SHARE: 0.75,
+  // Kerbside, in a district that HAS alleys — the back of house takes most of
+  // them, so the street front stays sparse.
+  KERB_SHARE: 0.125,
+  // …and in a district that has none. Four times the rate, because that is
+  // literally what happens in a city without alleys: everybody's bin is out
+  // front. One rate for both left every residential and retail district on the
+  // island with 5–13 containers per streaming disc against downtown's 38–56 —
+  // the "empty big map" failure the gameplan warns about (JIM-32), returning
+  // through the back door when milestone 17 changed the district mix.
+  KERB_SHARE_NO_ALLEYS: 0.5,
+  // Kerbside means BESIDE the road, not in it: 586 of 586 bins once shipped in
+  // the carriageway. How far to look for one.
+  KERB_REACH: 2.5,
+};
+
 // Two-tier food economy (gameplan): scraps scoop instantly on the move,
 // feasts are fat paydays you must stand still to chomp through — a deliberate
 // risk commitment at high heat.
@@ -393,6 +416,7 @@ export const COLORS = {
   AMBIENT: 0x8a7a9a,
   SUN: 0xffe3b3,
   GROUND: 0x5d8a4a,
+  SEA: 0x2f6f8f,
   WALL: 0x8d8578,
   SNACK: 0xff6f4f,
   FEAST: 0xffc24f,
@@ -452,8 +476,10 @@ export const VOXEL = {
   // A skinny raccoon is not a wrecking ball. Base radius barely scratches
   // paint — real demolition is earned by eating (FATNESS.BLAST_PER_FAT).
   BLAST_RADIUS: 0.75,
-  // Ground is a real voxel slab so craters are possible, not a flat plane.
-  // Two layers: diggable dirt over indestructible bedrock.
+  // Retired by milestone 17. Ground was two stored layers — diggable dirt over
+  // indestructible bedrock — which is a SURFACE, not a volume. It is now a
+  // height field with `TERRAIN.SKIN` stored layers over implicit rock, and
+  // bedrock sits `TERRAIN.DEPTH` below whatever the surface is here.
   GROUND_LAYERS: 2,
   // Material ids → colour. 0 is always air.
   MATERIALS: {
@@ -464,11 +490,100 @@ export const VOXEL = {
     5: { name: 'moss', color: 0x4f7a43 },
     6: { name: 'concrete', color: 0x9a9a94 },
     7: { name: 'bedrock', color: 0x6a6258 },
+    // Strata (milestone 17). A tunnel has to read as going SOMEWHERE, which it
+    // only does if the walls change on the way down.
+    8: { name: 'topsoil', color: 0x6b4b30 },
+    9: { name: 'clay', color: 0xa06a3c },
+    10: { name: 'rock', color: 0x7d7b76 },
+    11: { name: 'deeprock', color: 0x4c4a4f },
+    12: { name: 'sand', color: 0xc9b184 },
   },
   // Bedrock can't be destroyed. Without a floor, a roll digs straight through
   // every ground layer and leaves Jimothy stranded metres below grade in a
   // pit he can't climb (playtest 2026-07-23).
   BEDROCK: 7,
+  // "Explicitly empty", as distinct from a 0 that means "nothing stored here".
+  // Ground is IMPLICIT below the rendered skin (milestone 17): an unstored
+  // voxel defers to the height field, so a dug hole written as plain 0 would
+  // heal the instant anything queried it. 255 says the player took this one.
+  EMPTY: 255,
+};
+
+// The island's third dimension (milestone 17).
+//
+// THE decision in this milestone: ground is IMPLICIT.
+//
+//     solid(x, y, z)  =  y < surfaceHeight(x, z)   unless an edit says otherwise
+//
+// Only a constant-thickness skin at the surface is stored as real voxels — that
+// is what the mesher draws, and it costs exactly what the old two flat layers
+// cost. Everything below it is answered by the height field, and materialises
+// only where a blast exposes it. So DEPTH is free: 20 m and 200 m have the same
+// boot cost and the same memory, and memory tracks how much has been DUG rather
+// than how deep the world is. Built eagerly instead, 20 m at VOXEL.SIZE 0.55 is
+// ~36 layers — an 18x rise in ground voxels, which would undo milestone 12.
+export const TERRAIN = {
+  // Sea level, and the origin of every height in this file. Grade is no longer
+  // a constant: `y = 0` now means the WATERLINE, and the ground under any given
+  // spot is whatever the height field says.
+  SEA_LEVEL: 0,
+  // World units per height-field cell. Matches the masterplan's class grid, so
+  // the two agree cell-for-cell about where the coast is.
+  CELL: 2,
+  // How far the ground is diggable below its own surface before bedrock. The
+  // number milestone 17 exists to make free — nothing iterates it.
+  DEPTH: 30,
+  // Voxel layers of real, stored ground kept under the surface. This is the
+  // whole materialised cost of the terrain, and it does not move with DEPTH.
+  // Two is what the flat world had; four gives a crater walls to show.
+  SKIN: 4,
+  // Strata boundaries in metres below the surface. Absolute rather than a
+  // fraction of DEPTH, so what a shallow hole looks like never changes when
+  // DEPTH does — which is the whole point of the AC that measures both.
+  TOPSOIL_DEPTH: 1.1,
+  CLAY_DEPTH: 4.5,
+  ROCK_DEPTH: 12,
+  // Height of dry land at the waterline's inland end, before hills.
+  LAND_GRADE: 2.4,
+  // How deep the sea gets, and over what distance the beach reaches it. 30 m of
+  // run for a 10 m drop is about 18 degrees — a slope you can walk back up,
+  // which matters because the sea is not a place you can swim yet.
+  SEABED_DEPTH: 10,
+  SHORE_RUN: 34,
+  // How quickly a hill reaches full height as you move inland. Short on
+  // purpose: this exists only so a hill does not step discontinuously out of
+  // the beach ramp. Long values look like the safe choice and are not — at 150
+  // it flattened every summit the plan placed near water, taking Trash Panda
+  // Heights (the island's landmark climb) from 48 m to 8. The seaward face of a
+  // coastal hill is a BLUFF, which is both what Magnolia and Queen Anne
+  // actually are and fine for the player, because the landward approaches stay
+  // walkable — which is what the hill spec asserts.
+  HILL_COAST_RUN: 25,
+  // Districts built on fill are FLAT, exactly as the real downtown and port
+  // are. That gives the dense area a calm floor and puts the drama in the
+  // residential hills (Chris: hills tuned for fun, not realism).
+  FLAT_DISTRICTS: ['trashattan', 'sotrash'],
+  // …and the run over which a flat district relaxes back into the hills around
+  // it. Long, or downtown ends in a cliff instead of a climb.
+  FLATTEN_RUN: 120,
+  // A bridge deck is RAISED, so water still reads as water underneath it — two
+  // 70 m causeways at grade filled a third of Lake Onion. Raised means approach
+  // ramps: APPROACH is how far onto the land the corridor runs while it lerps
+  // down to meet the ground, and it has to be long enough that the grade stays
+  // under Jimothy's CLIMB_HEIGHT of 2.6.
+  BRIDGE_DECK: 7,
+  BRIDGE_APPROACH: 26,
+  // Deck WIDTH. The plan's per-bridge `span` is the crossing LENGTH, which is
+  // what the word means and what its numbers are (70 m at a canal that is 84 m
+  // wide) — read as a width it built 70 m ribbons that filled a third of Lake
+  // Onion. The length is measured off the land mask instead, which is the only
+  // way to be sure a deck actually reaches both shores.
+  BRIDGE_WIDTH: 16,
+  // A crossing longer than this is not a bridge, it is a mistake in the plan.
+  BRIDGE_MAX: 280,
+  // Ground must be at least this far above the waterline to carry a road or a
+  // building. Keeps the city off its own tideline without a second mask.
+  BUILD_MIN_HEIGHT: 1.2,
 };
 
 // Chunk streaming (milestone 12, JIM-01). The world is generated around the
@@ -482,6 +597,18 @@ export const STREAM = {
   // Strictly greater than LOAD_RADIUS: without hysteresis, standing on a
   // boundary thrashes the same column in and out every frame.
   UNLOAD_RADIUS: 5,
+  // The fly camera loads a wider disc, because 3 columns is 105 m and the
+  // island is 2 km — "fly over it and recognise it as a city with a coast and
+  // hills" is not a thing you can do through a 210 m porthole.
+  //
+  // 5 is 385 m across: 184 resident columns and ~840 MB of heap, measured
+  // headless (output/iterate/fly-radius.mjs). 6 reaches 233 columns and gets no
+  // cheaper per column. What actually caps this is that a flat chunk of ground
+  // emits 4096 separate quads where one would do — there is no greedy meshing,
+  // so a ground chunk costs ~1 MB of geometry. Fix that and this can double.
+  // Tunable in DevTools, because how much of the island you want in frame is a
+  // judgement, not a constant.
+  FLY_LOAD_RADIUS: 5,
   // Generating several columns in one frame hitches. A visible pop at the
   // horizon is a better trade than a stutter under the player's feet.
   COLUMNS_PER_FRAME: 1,
@@ -489,11 +616,11 @@ export const STREAM = {
   // a second — and a hitch while inspecting the map costs nothing, because
   // nobody is trying to land a hop.
   FLY_COLUMNS_PER_FRAME: 6,
-  // Vertical extent generated per column. Ground strata sit at voxel y -1 and
-  // -2; a craftsman's roof ridge reaches roughly y 41 (its peak is half the
-  // footprint width, and footprints are ~40 voxels across). CHUNK_Y is 12.
-  CY_MIN: -1,
-  CY_MAX: 4,
+  // The fixed vertical band CY_MIN/CY_MAX is gone (milestone 17). It was right
+  // for a flat world and wrong the moment the ground ran from a seabed at -10 m
+  // to a hilltop at 50 m, or the player dug 20 m down. VoxelWorld tracks which
+  // chunks a column ACTUALLY has instead, which is both correct and cheaper
+  // than widening the band would have been.
 };
 
 export const DEBRIS = {

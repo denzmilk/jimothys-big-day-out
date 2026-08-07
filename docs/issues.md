@@ -10,6 +10,35 @@
 
 ## Open
 
+### JIM-33 — The WORLD.BOUNDS slider still had the 250-unit map's range
+
+**Status:** fixed 2026-08-07 (milestone 17) · **Severity:** high (silent, and it would shrink the whole world) · **Found:** while adding a TERRAIN group to the tune panel
+
+`Tunables.js` declared `WORLD: { BOUNDS: [10, 38] }`. `BOUNDS` has been **1000** since milestone 12. `DevOverrides.apply()` clamps every stored override to its declared range, so anyone who ever touched that slider — or had a stale value in `localStorage` — would have booted into a **76 m square** island with no warning and no error. Nothing in the suite would have caught it either: every spec boots without overrides.
+
+Fourth member of the family in `docs/STATE.md` ("constants that secretly meant the middle of the old map"), and the first one to live in a *range* rather than a value. **When `WORLD.BOUNDS` moves, check the tunable range too** — the value and its slider are two places, and only one of them gets updated by habit.
+
+Fixed to `[100, 2000]`.
+
+### JIM-34 — A flat chunk of ground emits 4096 quads where one would do
+
+**Status:** open · **Severity:** medium (caps the fly camera; invisible in normal play) · **Found:** 2026-08-07, measuring `STREAM.FLY_LOAD_RADIUS`
+
+`VoxelWorld._buildChunk` culls hidden faces but does no **greedy meshing** — every exposed voxel face is its own quad. A 64×64 chunk of flat ground is 4096 top faces: 24,576 vertices, ~880 KB of geometry, for a surface a single quad could describe.
+
+Measured while choosing how wide the fly camera should stream (`output/iterate/fly-radius.mjs`):
+
+| fly load radius | view | columns | chunks | heap |
+|---|---|---|---|---|
+| 3 (gameplay) | 210 m | 49 | 191 | 286 MB |
+| 4 | 315 m | 142 | 456 | 793 MB |
+| 5 (shipped) | 385 m | 184 | 596 | 842 MB |
+| 6 | 455 m | 233 | 759 | 842 MB |
+
+Merging co-planar faces of the same material is the standard fix and would cut ground geometry by orders of magnitude, since ground is overwhelmingly flat and single-material. That is what would let the fly camera show the island rather than a district — and it also lifts the ceiling on `VOXEL.SIZE` getting finer (backlog).
+
+Not urgent: normal play streams a 210 m disc and sits at ~110 draw calls.
+
 ### JIM-10 — Jimothy's mesh is full of holes; you can see his interior
 
 **Status:** fixed 2026-08-07 (milestone 09) · **Severity:** high (it's the character, on screen at all times) · **Reported:** 2026-08-06 (Chris, with screenshot)

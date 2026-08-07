@@ -16,6 +16,7 @@
 import { test, expect } from '@playwright/test';
 import * as Layout from '../src/level/Layout.js';
 import * as Masterplan from '../src/level/CityPlanner.js';
+import { STREAM, VOXEL } from '../src/core/Constants.js';
 
 test('the road network comes from the plan, not from arithmetic', () => {
   Masterplan.bake();
@@ -44,7 +45,7 @@ test('blocks vary in size — a lattice has zero variance', () => {
 test('several grids meet at different angles', () => {
   // The mechanism behind the variance above, asserted directly so a future
   // change that flattens the plan back to one grid fails loudly.
-  const angles = new Set(Masterplan.plan.regions.map((r) => r.angle));
+  const angles = new Set(Masterplan.regions.map((r) => r.angle));
   expect(angles.size).toBeGreaterThanOrEqual(4);
   expect(Masterplan.regionCount()).toBeGreaterThanOrEqual(5);
 });
@@ -123,11 +124,27 @@ test('bins are placed for a reason — many of them are in alleys', () => {
   expect(inAlley / props.length).toBeGreaterThan(0.25);
 });
 
-test('containers exist in residential districts too, which have no alleys', () => {
-  // The regression this guards: moving bins into alleys emptied every
-  // residential street, since only downtown and industry have alleys.
-  const props = Layout.propsIn(-900, 300, -300, 900);
-  expect(props.length).toBeGreaterThan(20);
+test('EVERY district is furnished, not just the ones with alleys', () => {
+  // The regression this guards: moving bins into alleys emptied every street of
+  // every district that has none, and only downtown and industry have them.
+  //
+  // Measured as DENSITY IN A STREAMING DISC at each district's own centre —
+  // what a player standing there actually sees — for every district, not the
+  // best one. Both weakenings shipped at some point and both hid this:
+  //   - a hardcoded window, which after milestone 17 pointed at open sea;
+  //   - `Math.max` over districts, which passes on one good district while
+  //     eleven others are bare. Measured that way it read 20+; the emptiest
+  //     district had five bins in a 105 m disc.
+  const R = STREAM.LOAD_RADIUS * VOXEL.CHUNK_XZ * VOXEL.SIZE;
+  const counts = Masterplan.regions.map((r) => {
+    const xs = r.polygon.map(([x]) => x);
+    const zs = r.polygon.map(([, z]) => z);
+    const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
+    const cz = zs.reduce((a, b) => a + b, 0) / zs.length;
+    return { id: r.id, n: Layout.propsIn(cx - R, cz - R, cx + R, cz + R).length };
+  });
+  const bare = counts.filter((c) => c.n < 20);
+  expect(bare, `containers per streaming disc: ${JSON.stringify(counts)}`).toEqual([]);
 });
 
 test('every query is O(1) against the bake', () => {

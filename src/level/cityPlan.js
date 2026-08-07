@@ -1,3 +1,16 @@
+// SUPERSEDED by `islandPlan.js` (milestone 17). Nothing imports this file.
+//
+// The masterplan engine (`CityPlanner.js`) now reads the island: a coastline,
+// twelve named districts, hills, water and bridges. The six regions below were
+// drawn against a flat square and are kept only because they carry three things
+// the island plan does not — **parks, plazas and landmarks**, including the
+// Space Noodle. Porting them onto the coast is in `docs/backlog.md`; they are
+// not a straight copy, because their polygons assume a world with no sea in it.
+//
+// Delete this file once that port lands.
+//
+// ---- original header ----
+//
 // The city's design, authored rather than generated (milestone 16).
 //
 // Regions carry INTENT — a polygon, a grid angle, a block size, a character —

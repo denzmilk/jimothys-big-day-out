@@ -1,6 +1,6 @@
 import {
   PLAYER_CONFIG, CAMERA, TRASH_CAN, SCORE, WORLD,
-  HEAT, PAPARAZZI, ANIMAL_CONTROL, FATNESS, RIG, LEGS,
+  HEAT, PAPARAZZI, ANIMAL_CONTROL, FATNESS, RIG, LEGS, TERRAIN, FLY, STREAM,
 } from './Constants.js';
 
 // Registry of what the DevTools Tune tab exposes: group → {field: [min, max]}.
@@ -8,7 +8,7 @@ import {
 // same objects gameplay reads every frame.
 export const GROUPS = {
   PLAYER_CONFIG, CAMERA, TRASH_CAN, SCORE, WORLD,
-  HEAT, PAPARAZZI, ANIMAL_CONTROL, FATNESS, RIG, LEGS,
+  HEAT, PAPARAZZI, ANIMAL_CONTROL, FATNESS, RIG, LEGS, TERRAIN, FLY, STREAM,
 };
 
 export const TUNABLES = [
@@ -56,7 +56,37 @@ export const TUNABLES = [
   {
     group: 'WORLD',
     label: 'World',
-    fields: { BOUNDS: [10, 38], GRAVITY: [2, 30] },
+    // The range used to be [10, 38] — the old 250-unit map's slider, left
+    // behind when BOUNDS became 1000 (milestone 12). Any stored override was
+    // being CLAMPED to 38 on load, which would have collapsed the island to a
+    // 76 m square with no warning: the same family of bug as the pursuer
+    // spawns and the hide-spot grid. JIM-33.
+    fields: { BOUNDS: [100, 2000], GRAVITY: [2, 30] },
+  },
+  {
+    group: 'TERRAIN',
+    label: 'Terrain',
+    // DEPTH's range goes to 250 deliberately: milestone 17's central claim is
+    // that boot cost and memory do not move with it, and the spec that asserts
+    // that needs a supported way to boot the game at 200 m.
+    fields: {
+      DEPTH: [5, 250], LAND_GRADE: [0.5, 12], SEABED_DEPTH: [2, 40],
+      SHORE_RUN: [8, 120], FLATTEN_RUN: [20, 300], SKIN: [2, 10],
+    },
+  },
+  {
+    group: 'FLY',
+    label: 'Fly camera',
+    fields: { SPEED: [5, 200], BOOST: [1, 20], MOUSE_SENS: [0.0005, 0.01] },
+  },
+  {
+    group: 'STREAM',
+    label: 'Streaming',
+    // How much of the island is in frame while flying is a judgement, not a
+    // constant — and it is the one dial that decides whether the map can be
+    // inspected at all. LOAD_RADIUS stays out: raising it changes gameplay
+    // memory, which is milestone 12's guarantee and not a slider.
+    fields: { FLY_LOAD_RADIUS: [3, 10], FLY_COLUMNS_PER_FRAME: [1, 16] },
   },
   {
     group: 'HEAT',

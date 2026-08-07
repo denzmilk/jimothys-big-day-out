@@ -39,6 +39,20 @@ Merging co-planar faces of the same material is the standard fix and would cut g
 
 Not urgent: normal play streams a 210 m disc and sits at ~110 draw calls.
 
+### JIM-36 — Fog tuned for a 250 m world, on a 2 km island
+
+**Status:** fixed 2026-08-07 · **Severity:** high (it was most of what you could see) · **Reported:** Chris, playtest — *"the fog makes it hard to see much."*
+
+`scene.fog` was `Fog(COLORS.FOG, 40, 200)`, and `CAMERA.FAR` was 500. Both are from the 250 m block. Milestone 12 raised `WORLD.BOUNDS` to 1000 and milestone 17 made the island 2 km across; nobody revisited either. Measured: **at the edge of the loaded voxel world (106 m) the fog was already 41% opaque**, so the only thing it was fogging was the part you could actually see.
+
+**The fog was not the root cause — it was covering for one.** The voxel world stops at `STREAM.LOAD_RADIUS`, about 106 m, and fog at 40 m was hiding that it simply ends. Pushing the fog out without giving it something to draw would have replaced grey with void.
+
+**My own oversight, from earlier the same session.** Milestone 17's fly camera streams a 176 m radius, and I measured that in columns and heap and never once checked whether you could *see* it. Fog was 85% opaque at that distance: the entire extra load radius was invisible. **Measuring the cost of something is not the same as checking it works.**
+
+Fixed with a **horizon mesh** (`LevelBuilder.buildHorizon`): the whole island, once, at 12 m resolution, built from the same baked height field the voxels come from, so it cannot disagree with them about where a hill is. 55k triangles in **one draw call**, sitting `HORIZON.DROP` below the true surface so the real voxel ground always wins the depth test where it exists. Fog then goes to 220–1500 m and the far plane to 2400.
+
+Adding one more ring of voxel columns to see 35 m further costs far more than this does to see all of it — see JIM-34.
+
 ### JIM-35 — One headbutt is a five-star wanted level
 
 **Status:** open (balance — needs Chris's judgement, not a fix) · **Severity:** low · **Found:** 2026-08-07, milestone 19

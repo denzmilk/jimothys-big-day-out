@@ -157,7 +157,10 @@ class Game {
   setupScene() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(COLORS.SKY);
-    this.scene.fog = new THREE.Fog(COLORS.FOG, 40, 200);
+    // Pushed out to where the island actually ends. It used to be 40–200 m on a
+    // world that only extends 106 m, so the ONLY thing it fogged was the part
+    // you could see; the horizon mesh is what makes reaching further worth it.
+    this.scene.fog = new THREE.Fog(COLORS.FOG, COLORS.FOG_NEAR, COLORS.FOG_FAR);
 
     this.ambient = new THREE.AmbientLight(COLORS.AMBIENT, 0.6);
     this.scene.add(this.ambient);
@@ -185,8 +188,11 @@ class Game {
     this.ambient.intensity = on ? 0.12 : 0.6;
     this.scene.background.set(on ? SEWER.FOG_COLOR : COLORS.SKY);
     this.scene.fog.color.set(on ? SEWER.FOG_COLOR : COLORS.FOG);
-    this.scene.fog.near = on ? SEWER.FOG_NEAR : 40;
-    this.scene.fog.far = on ? SEWER.FOG_FAR : 200;
+    this.scene.fog.near = on ? SEWER.FOG_NEAR : COLORS.FOG_NEAR;
+    this.scene.fog.far = on ? SEWER.FOG_FAR : COLORS.FOG_FAR;
+    // Nothing to see out there when you are under it, and lighting a 2 km mesh
+    // off a head torch just makes a grey plane.
+    if (this.level?.horizon) this.level.horizon.visible = !on;
   }
 
   setupCamera() {

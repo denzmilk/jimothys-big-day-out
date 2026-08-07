@@ -445,8 +445,11 @@ export const PEDESTRIANS = {
 
 export const CAMERA = {
   FOV: 60,
-  NEAR: 0.1,
-  FAR: 500,
+  // 0.5, not 0.1: the far plane has to reach the far side of a 2 km island, and
+  // a 0.1–2400 depth range is where z-fighting starts. The camera never gets
+  // closer than a couple of metres to anything.
+  NEAR: 0.5,
+  FAR: 2400,
   FOLLOW_DISTANCE: 7,
   FOLLOW_HEIGHT: 3.5,
   LOOK_HEIGHT: 0.8,
@@ -479,9 +482,43 @@ export const FLY = {
   PITCH_LIMIT: 1.5,
 };
 
+// The island you can see but have not walked into yet.
+//
+// The voxel world only extends `STREAM.LOAD_RADIUS` — about 106 m — and fog at
+// 40–200 m was there to hide the fact that it simply stops. Which it did, by
+// greying out everything you COULD see as well: at the edge of the loaded world
+// the fog was already 41% opaque, so the answer to "why can't I see anything"
+// was "because there is nothing out there, and the fog is apologising for it".
+//
+// So there is something out there now: one mesh, built once from the same baked
+// height field the voxels come from, covering the whole island at HORIZON.STEP
+// resolution. It costs one draw call and no streaming, and it is what makes the
+// fly camera worth having — flying up used to reveal a 200 m disc of fog.
+export const HORIZON = {
+  // Metres per quad. 12 over a 2 km island is ~28k quads in one buffer: far
+  // cheaper than one more ring of voxel columns, and it covers everything
+  // rather than one more 35 m step.
+  STEP: 12,
+  // Dropped slightly, so wherever the real voxel ground exists it wins the
+  // depth test rather than fighting with it. Half a metre at 100 m is invisible.
+  DROP: 0.55,
+  // Colours. Deliberately a shade duller than the voxel materials: distance
+  // reads as distance, and it stops the seam at the streaming boundary being a
+  // brightness step.
+  LAND: 0x54764a,
+  ROAD: 0x7d7c76,
+  SAND: 0xa89272,
+  DEEP: 0x2c4a5c,
+};
+
 export const COLORS = {
   SKY: 0xffd9a0,          // golden hour
   FOG: 0xf2c98c,
+  // Far enough to see the next district. The old 40–200 was tuned for a 250 m
+  // world and never revisited when the map became 2 km (milestone 12 raised
+  // BOUNDS; nobody raised this).
+  FOG_NEAR: 220,
+  FOG_FAR: 1500,
   AMBIENT: 0x8a7a9a,
   SUN: 0xffe3b3,
   GROUND: 0x5d8a4a,

@@ -4,7 +4,7 @@
 
 ## Last updated
 
-2026-08-07 by Claude — **milestone 10 (skinned rig) is implemented and pushed.** The skinned model is now what ships.
+2026-08-07 by Claude — **milestones 10 (skinned rig) and 12 (streaming ground) both landed.** Milestone 10 is signed off; 12 awaits playtest.
 
 ## Current phase
 
@@ -12,16 +12,27 @@ development
 
 ## Current milestone
 
-**Milestone 12 — streaming ground** (`docs/milestones/12-streaming-ground.md`, JIM-01). Planned and confirmed 2026-08-07, **not yet started**.
+**Milestone 12 — streaming ground** (`docs/milestones/12-streaming-ground.md`, JIM-01): **implemented, every AC ticked, awaiting Chris's playtest.**
 
-Chris chose **"much bigger map"** over a same-size perf fix, and **damage persists** across a chunk unload. The milestone doc has the full design; the two things to know before touching it:
+Boot cost is now **flat in map size** — 1654 / 1652 / 1640 ms at `BOUNDS` 250 / 1000 / 4000, a 256× range in area inside measurement noise, against JIM-01's baseline of 19 s / 1007 draw calls / 3.5 GB. Shipped at `BOUNDS 1000` (16× the old area). 4000 is free at boot but the game has never been *played* that big.
 
-1. **The layout / voxelize split is the central decision.** Generation splits into a pure, cheap, seeded *layout* layer ("what is at (x, z)?" — no voxels) and an expensive *voxelize* layer that runs near the player only. Milestone 13's minimap and waypoints read layout, never loaded chunks — otherwise a minimap under streaming shows a small disc around the player and nothing else.
-2. **Buildings straddle chunk seams.** `buildCraftsman` writes a 14×12×9 footprint; `CHUNK_XZ` is 64. Generating "the buildings in this chunk" by origin alone leaves sliced houses at every seam. A chunk must ask layout for every footprint that *intersects* it and voxelize each one clipped.
+**Milestone 10 — skinned rig: COMPLETE**, signed off by Chris (*"Looking much better now"*). Milestones 13 (navigation), 14 (island + water) and 11 (scamper gait) are written and unstarted.
 
-**Milestone 10 — skinned rig: COMPLETE**, playtested and signed off by Chris (*"Looking much better now"*). Milestone 13 — navigation is written and depends on 12. Milestone 11 — scamper gait is unblocked and unstarted.
+## What this session did — part 2: milestone 12, streaming ground
 
-## What this session did
+`WORLD.BOUNDS` 250 → 1000 (16× the area) with boot **flat in map size**: 1654 / 1652 / 1640 ms at 250 / 1000 / 4000. The work is bounded by `STREAM.LOAD_RADIUS`, not by `BOUNDS`, so map size is now a design dial rather than a performance one.
+
+**The layout / voxelize split is the thing to understand.** `src/level/Layout.js` answers "what is at (x, z)?" for the whole city as a pure seeded function — no voxels, no browser. `VoxelCity` only turns a footprint into voxels. Milestone 13's minimap and waypoints read layout, and milestone 14's coastline is one more layout function.
+
+**Three things it turned up, all of which cost real time:**
+
+1. **The old PRNG made the city order-dependent.** `buildDistrict` drew every block from one sequential stream in loop order, so a block depended on how many were built before it — under streaming the city would rearrange itself as you explored. Found by *writing the order-independence spec*, not by reading the code.
+2. **Entities were regenerating the world behind the streamer's back.** Every gameplay query generates on demand (that is what stops JIM-19-shaped fall-throughs), but 26 pedestrians each sample the ground under themselves every frame from wherever they are. The resident set climbed 57 → 83 and kept going. On-demand generation is now bounded to `LOAD_RADIUS` of the streaming centre; outside it, `groundHeightAt` reports grade.
+3. **The contents did not scale with the world**, and two of three had to be fixed here — see Blockers and JIM-32.
+
+**Measured traversal** (40 s sim runs through the real city): **3m 19s** to scurry one side, 5m 31s walking, 7m 19s / 12m 12s while huge. Chris: *"It's meant to be explored."*
+
+## What this session did — part 1: milestone 10, the skinned rig
 
 Steps 4 and 5 of the animation port. Step 4 was one line. **Step 5 was the whole session**, and it found two real bugs.
 
@@ -44,9 +55,14 @@ The mesh is one continuous surface and is topologically incapable of tearing. "S
 
 ## Next step
 
-**Implement milestone 12 — streaming ground.** Start by extracting `src/level/Layout.js` from `buildDistrict`'s existing block-grid logic: it is a pure refactor with unit-testable output and everything else hangs off it. Then chunk-clipped voxelization, then the load/unload lifecycle, then the edit store for damage persistence.
+**Chris playtests milestone 12** — walk a long way, smash something, walk back, check it is still smashed. Watch for: whether the map feels explorable or empty (JIM-32 says it will feel empty away from the centre), and whether the pursuit still has teeth now pursuers spawn on a ring around him.
 
-**Sequence after that:** milestone 13 navigation (needs 12's layout layer) and milestone 11 scamper gait (`docs/milestones/11-scamper-gait.md`, JIM-22) are both unblocked and independent — pick by appetite. Milestone 11's prerequisite is done: `tools/rig_jimothy.py` generates TWO-segment legs (`leg_*` hip→knee, `shin_*` knee→foot), because a single hip-to-foot bone cannot plant a foot on uneven ground.
+**Then pick from four written, unstarted milestones.** My recommendation is **JIM-32 (density) before any of them** — the map is now big and its contents are not, which is the one failure mode Chris and the gameplan both single out (*"like yakuza!"*; an empty big map is worse than the full small one it replaced).
+
+- **JIM-32 / density** — stream props per column from the seed, as buildings now are. Unblocks the easter-egg world tour, which needs somewhere to put the eggs.
+- **Milestone 13 — navigation** (minimap, map screen, waypoints). Needs 12's layout layer; the coastline draws for free once 14 lands.
+- **Milestone 14 — island + water.** Coastline instead of a walled edge, water deliberately too good, and the fairy godmother who bubbles Jimothy back ashore.
+- **Milestone 11 — scamper gait** (JIM-22). Independent of all the above. Milestone 11's prerequisite is done: `tools/rig_jimothy.py` generates TWO-segment legs (`leg_*` hip→knee, `shin_*` knee→foot), because a single hip-to-foot bone cannot plant a foot on uneven ground.
 
 **Fast travel was cut**, by Chris, after being asked how it should interact with the chase: *"nvm skip fast travel, waypoints only."* The reasoning is in milestone 13 — do not re-propose it without a deliberate decision about the pursuit structure.
 
@@ -54,11 +70,12 @@ The mesh is one continuous surface and is topologically incapable of tearing. "S
 
 ## Blockers
 
-- **⚠️ Milestone 10's exit condition needs Chris's eyes.** "Implemented, awaiting playtest" is the ceiling (house rule 4). Same for milestones 08 and 09, whose sign-offs are still open.
+- **⚠️ Milestone 12 awaits playtest.** "Implemented, all AC ticked" is the ceiling (house rule 4). Milestones 08 and 09 sign-offs are also still open; milestone 10 is signed off.
 - **⚠️ JIM-11 (legs read as detached) needs re-judging, not more code.** The skinned rig should have retired it outright — the legs are now part of the same surface. Confirm at the same playtest before touching anything.
-- **⚠️ 4 specs failing, confirmed PRE-EXISTING** (JIM-03) — `score and combo`, `heat rises with chaos`, `tier-2 camera flash`, `interrupted feast`. Feast eating is still unverified end-to-end. `animal control nets jimothy` is a **parallel-worker flake** — re-run any heat/fatness failure serially before blaming a code change; the four genuine ones reproduce serially.
-  - **Full suite this session, serial: 53 passed / 4 failed of 57** (`npx playwright test --workers=1`, 37 min). Exactly the four above — **no regressions from the skinned flip**, and `animal control nets jimothy` passed serially, confirming the flake diagnosis. Suite grew 55 → 57: `rig.spec.js` went from 9 specs to 11.
-- Map size is still capped by eager ground allocation (JIM-01).
+- **⚠️ 3 specs failing, all PRE-EXISTING** (JIM-03) — `score and combo`, `heat rises with chaos`, `interrupted feast`. Feast eating is still unverified end-to-end. Down from four: **`tier-2 camera flash` now passes**, fixed as a side effect of making pursuers spawn relative to the player. Re-run any heat/fatness failure serially before blaming a code change; `animal control nets jimothy` is a known parallel-worker flake.
+  - Suite grew 55 → 71 this session (rig 9 → 11, plus 8 layout and 6 streaming specs). Every spec file was run after the final change; only the three above fail.
+- **⚠️ JIM-32: the map is 16× bigger and its contents are not.** Beyond the central district there are no cans and no snacks — ground and buildings only. This is the "empty big map" failure the gameplan explicitly warns about. Probably the next thing to do.
+- ~~Map size is still capped by eager ground allocation (JIM-01)~~ — **fixed**, milestone 12.
 
 ## Newest asks (2026-08-07, logged not lost)
 

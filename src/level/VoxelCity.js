@@ -1,21 +1,17 @@
-import { VOXEL, CITY, WORLD } from '../core/Constants.js';
+import { VOXEL, STREAM } from '../core/Constants.js';
+import * as Layout from './Layout.js';
 
 // Authored voxel content. Buildings are written as footprints + rules rather
 // than baked voxel data, so the city stays diffable, seed-reproducible, and
 // hand-editable — a district this size can't be placed by hand.
 //
+// WHERE things go is Layout's job; this file only turns a footprint into
+// voxels. The split is what lets the city be generated a column at a time as
+// the player walks into it, and what lets a minimap draw places that have
+// never been generated (milestone 12).
+//
 // Material ids come from VOXEL.MATERIALS.
 const CLAPBOARD = 1, SHINGLE = 2, BRICK = 3, GLASS = 4, MOSS = 5, CONCRETE = 6;
-
-/** Deterministic PRNG — the city must rebuild identically on restart and in
- *  tests, so Math.random() is not an option. */
-function makeRng(seed) {
-  let s = seed >>> 0;
-  return () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 0x100000000;
-  };
-}
 
 /** A Ballard craftsman: brick footing, clapboard walls, punched windows, a
  *  peaked shingle roof, and a door gap Jimothy can waddle through. */
@@ -84,17 +80,20 @@ export function buildTrashCanDen(world, ox, oy, oz, length = 9, radius = 4) {
   }
 }
 
-/** Deformable ground: real voxel strata under the whole city, so blasts leave
- *  craters you can walk into rather than scorch marks. */
-export function buildGround(world, bounds) {
-  const half = Math.ceil(bounds / VOXEL.SIZE);
-  const road = Math.round(CITY.ROAD / VOXEL.SIZE);
-  const block = Math.round(CITY.BLOCK / VOXEL.SIZE);
-  for (let x = -half; x <= half; x++) {
-    for (let z = -half; z <= half; z++) {
-      // Roads run on the block grid; everything else is grass.
-      const onRoad = ((x % block) + block) % block < road
-        || ((z % block) + block) % block < road;
+/** Deformable ground for ONE chunk column: real voxel strata, so blasts leave
+ *  craters you can walk into rather than scorch marks.
+ *
+ *  Was a single eager pass over the entire map — roughly 910 × 910 × 2 voxels
+ *  at BOUNDS 250, which forced every chunk into existence before the first
+ *  frame and is what JIM-01 measured at 19 s / 3.5 GB. */
+function buildGroundColumn(world, cx, cz) {
+  const C = VOXEL.CHUNK_XZ;
+  const x0 = cx * C;
+  const z0 = cz * C;
+  for (let x = x0; x < x0 + C; x++) {
+    for (let z = z0; z < z0 + C; z++) {
+      if (!Layout.isInsideBounds(x * VOXEL.SIZE, z * VOXEL.SIZE)) continue;
+      const onRoad = Layout.roadAtVoxel(x, z);
       for (let layer = 1; layer <= VOXEL.GROUND_LAYERS; layer++) {
         // Bottom layer is bedrock — diggable ground above it, hard floor
         // below, so craters are deep enough to matter but never a trap.
@@ -106,37 +105,53 @@ export function buildGround(world, bounds) {
   }
 }
 
-/** Generate the district: a street grid of residential blocks with a taller
- *  downtown core. Returns spawn-friendly open positions for props. */
-export function buildDistrict(world, bounds = WORLD.BOUNDS) {
-  const rng = makeRng(CITY.SEED);
-  const v = (u) => Math.round(u / VOXEL.SIZE);
-  buildGround(world, bounds);
+/** Generate one chunk column: ground, every building that overlaps it, and
+ *  the den if it falls inside.
+ *
+ *  Each builder is handed its building's FULL origin and extent and writes the
+ *  whole thing; the world drops whatever lands outside the column being
+ *  generated. That is what keeps the builders chunk-unaware, and it is why a
+ *  house on a seam comes out whole instead of sliced — every column it touches
+ *  writes its own share of the same deterministic footprint. */
+export function generateColumn(world, cx, cz) {
+  buildGroundColumn(world, cx, cz);
 
-  const step = CITY.BLOCK;
-  const limit = bounds - CITY.BLOCK;
-  for (let bx = -limit; bx <= limit; bx += step) {
-    for (let bz = -limit; bz <= limit; bz += step) {
-      // Keep spawn clear so Jimothy never wakes up inside a wall.
-      if (Math.hypot(bx, bz) < CITY.BLOCK * 0.8) continue;
-      const pad = CITY.ROAD + CITY.BUILDING_MARGIN;
-      const wUnits = step - pad - rng() * 6;
-      const dUnits = step - pad - rng() * 6;
-      const downtown = Math.hypot(bx, bz) < CITY.DOWNTOWN_RADIUS;
-      const h = Math.round(
-        CITY.MIN_HEIGHT + rng() * (CITY.MAX_HEIGHT - CITY.MIN_HEIGHT) * (downtown ? 1 : 0.45),
-      );
-      const ox = v(bx + pad);
-      const oz = v(bz + pad);
-      if (downtown && rng() > 0.35) {
-        buildTower(world, ox, 0, oz, v(wUnits), v(dUnits), h + 4);
-      } else {
-        buildCraftsman(world, ox, 0, oz, v(wUnits), v(dUnits), Math.max(5, h));
-      }
-    }
+  const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
+  for (const b of Layout.buildingsIntersecting(cx * C, cz * C, (cx + 1) * C, (cz + 1) * C)) {
+    if (b.type === 'tower') buildTower(world, b.vx, 0, b.vz, b.vw, b.vd, b.vh);
+    else buildCraftsman(world, b.vx, 0, b.vz, b.vw, b.vd, b.vh);
   }
 
-  // Jimothy's den sits just off spawn, in the open.
-  buildTrashCanDen(world, v(-10), 0, v(9), 8, 4);
+  // Jimothy's den sits just off spawn, in the open. Written by whichever
+  // column contains it; the write filter discards it everywhere else.
+  buildTrashCanDen(world, DEN.vx, 0, DEN.vz, DEN.length, DEN.radius);
+}
+
+const DEN = {
+  vx: Math.round(-10 / VOXEL.SIZE),
+  vz: Math.round(9 / VOXEL.SIZE),
+  length: 8,
+  radius: 4,
+};
+
+/** Install the streaming generator and build the columns around spawn, so the
+ *  first frame has ground under Jimothy's feet.
+ *
+ *  Replaces the old eager `buildDistrict`, which walked the whole map before
+ *  the first frame (JIM-01). Nothing outside the spawn radius is built here;
+ *  the rest arrives as he walks into it. */
+export function installCity(world, spawnX = 0, spawnZ = 0) {
+  world.generator = generateColumn;
+  world.streamAround(spawnX, spawnZ);
+  // Boot has no frame budget to protect, so fill the load radius immediately
+  // rather than popping it in over the first few seconds.
+  const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
+  const px = Math.floor(spawnX / C);
+  const pz = Math.floor(spawnZ / C);
+  for (let dx = -STREAM.LOAD_RADIUS; dx <= STREAM.LOAD_RADIUS; dx++) {
+    for (let dz = -STREAM.LOAD_RADIUS; dz <= STREAM.LOAD_RADIUS; dz++) {
+      world.ensureColumn(px + dx, pz + dz);
+    }
+  }
   world.remeshDirty();
 }

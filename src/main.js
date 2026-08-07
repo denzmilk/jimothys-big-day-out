@@ -22,6 +22,9 @@ window.faceJimothy = (yaw) => { game.jimothy.yaw = yaw; game.jimothy.postUpdate(
 // here IS a hole in the terrain.
 window.groundHeightAtWorld = (x, z) => game.voxels.groundHeightAt(x, z, 3);
 window.findWallTarget = () => game.findWallTarget();
+// Raw voxel probe. "Is this building whole?" cannot be answered by counts —
+// a sliced house and an intact one have the same chunk count (milestone 12).
+window.voxelSolidAt = (x, y, z) => game.voxels.solidAtWorld(x, y, z);
 // Drop him from a height so specs can exercise landing, which is where the
 // ground resolution actually goes wrong (JIM-19).
 window.dropJimothy = (x, z, height) => {

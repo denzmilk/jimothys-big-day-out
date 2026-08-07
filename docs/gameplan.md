@@ -8,12 +8,12 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
 
 1. **Waddle** around the block (third-person follow cam, camera-relative controls, arcade-floaty momentum).
 2. **Bonk** trash cans to tip them, then **raid** the spilled garbage for snacks.
-3. **Eat to get FAT** — every snack visibly grows Jimothy. Fat is the score; chaining pickups quickly builds a combo multiplier.
+3. **Eat to get FAT** — every snack visibly grows Jimothy. Fat is the score; chaining pickups quickly builds a combo multiplier. Eating is an explicit **button press with its own animation**, not auto-pickup *(revised 2026-08-07, JIM-30: eating is the scoring verb, and it was the one thing the player never actually did)*.
 4. **Climb** trees to loot weird finds (bird nests, eggs, pants) and catch a breather — ground pursuers can't climb.
 5. Chaos raises **HEAT** — tipping cans, making a mess, scaring (slapstick-hurting) locals. Paparazzi → animal control → police cordon → the ARMY, with tanks that blast Jimothy across the map.
 6. **Grab silly powerups** (bubble blower, dance ray, food magnet…) to cause chaos and escape trouble.
 7. **Scurry and hide** (bushes, under porches) to slowly drain heat — or keep rampaging and ride the multiplier.
-8. Get **netted** → day over → final fatness vs. personal best. Immediately restart.
+8. Get **netted** → day over → a **holiday photo book of "Jimothy's Big Day"**, assembled from shots the paparazzi took during the run, with final fatness vs. personal best. Immediately restart *(2026-08-07, JIM-31)*.
 
 ## Game rules
 
@@ -34,6 +34,20 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
 - **Trees:** Jimothy can climb; paparazzi and animal control cannot. Trees hold weird loot (bird nests, eggs, pants, other finds — "JIMOTHY ACQUIRES PANTS"). Pursuers wait below, so heat does not drain in a tree — and at tier 5, tank shells can dislodge him.
 - Combo multiplier resets if no pickup for a few seconds (or when a shell sends him flying).
 - Best score persists in localStorage.
+
+## Scale and shape
+
+> Chris, 2026-08-07: *"This isn't a crazy huge game, just a bit of fun for longer than the steam refund window."*
+
+**The target is roughly two hours of play** — the Steam refund threshold — and that number is a ceiling as much as a floor. It is the yardstick for scoping anything expensive: a feature earns its place if it adds to those two hours, and content that would only matter in a forty-hour game does not.
+
+**The world is an island, not a walled box.** Chris, 2026-08-07: *"a walled edge doesn't work — let's pop it on an island — imaginary Seattle island."* An invisible wall at the map edge announces the edge of the game; a coastline is a reason for the world to stop. Deliberately *imaginary* Seattle, not a reproduction — which also sidesteps the landmark trademark exposure recorded in `docs/backlog.md`.
+
+**The water is the one thing allowed to be too good.** Chris: *"some stupidly impressive water physics — like so good they're out of place for the game."* This inverts the art direction on purpose rather than breaking it: everything else is demi-real photo-texture jank, and the sea is inexplicably gorgeous. The joke only works if the rest stays janky, so this is a licence for exactly one thing, not a general raising of fidelity.
+
+**Explorable, not merely large.** `WORLD.BOUNDS` is 1000 (2000 units per side). Measured traversal: **3m 19s** scurrying edge to edge, 5m 31s walking, and 7–17 minutes while huge. That is a map you journey across, which is the intent — and it is why the minimap and waypoints (milestone 13) are not optional polish.
+
+**Density is the whole bet — the model is Yakuza.** Chris, 2026-08-07: *"like yakuza!"* A small map crammed with things to find beats a large empty one, and the map is now large, so the density has to be built rather than assumed. This is the standing argument for the world-tour easter-egg pass (`docs/backlog.md`) being load-bearing content rather than decoration: **an empty big map is worse than the small one it replaced.** It is also the reason the two-hour target is a ceiling — those hours should come from density, not from distance.
 
 ## Win / lose conditions
 
@@ -57,7 +71,7 @@ Procedural Web Audio, zero dependencies. Full meme slop: honks/squeaks for Jimot
 ## Anti-goals
 
 - Not a stealth sim — hiding is a pressure valve, not the game.
-- Not open world — **one dense, destructible Seattle district**, bounded and hand-authored, not a streaming city *(revised 2026-07-23, ADR-0003: the block becomes voxel-based and fully breakable; "hand-placed models" gave way to authored voxel level data)*.
+- ~~Not open world — **one dense, destructible Seattle district**, bounded and hand-authored, not a streaming city~~ *(revised 2026-07-23, ADR-0003: the block becomes voxel-based and fully breakable; "hand-placed models" gave way to authored voxel level data)* — **REVERSED 2026-08-07.** It is now a streaming, explorable island (milestone 12 shipped the streaming; see "Scale and shape" above). Chris: *"It's meant to be explored."* The anti-goal is kept struck through rather than deleted because the reasoning behind it still holds as a warning: the game earns its value from *density* — things to smash, loot and trip over — and a big map is only an improvement if it is full. An empty big map is worse than the small one this replaced.
 - No story, campaign, levels, or unlocks in v1.
 - No multiplayer in v1 (keep game state centralized so it stays possible later).
 - No mobile touch controls in v1 (desktop keyboard/mouse + gamepad only).
@@ -78,3 +92,5 @@ Procedural Web Audio, zero dependencies. Full meme slop: honks/squeaks for Jimot
 - Exact tree loot table and whether pants are cosmetic (Jimothy wears them) or score-only. Defer to the tree milestone.
 - Is the score literally displayed as weight ("14.2 kg")? Cute, on-theme; decide at the fatness milestone.
 - Powerup delivery: found on the block? dropped from tipped cans? tree loot? Decide at the powerups milestone.
+- ~~**Fat is both the goal and a movement penalty, and the bigger map has made that collision much worse.**~~ **RESOLVED 2026-08-07 → JIM-29 (katamari roll).** Chris: *"let's do something with the roll katamari style… Jimothy becomes a giant wrecking ball."* Rather than softening the penalty, the roll scales *with* girth: on foot a fat Jimothy gets slower, but rolling he becomes unstoppable. Fat stops being a tax and becomes a change of mode. Kept below for the measurements, which still bound the problem.
+- **The measurements behind it.** `FATNESS.SPEED_PENALTY_MAX` was raised 0.45 → 0.7 to make the lasso land (JIM-23), which was right on a 500-unit map. On a 2000-unit one it means a *successful* run — a fat Jimothy — ends with him barely able to cross a world built for exploring: **12m 12s** to walk one side, versus 5m 31s lean. It also runs straight into JIM-24 ("as big as a house"), where the fantasy arguably wants a house-sized animal *covering ground*, not struggling. Candidate resolutions, none chosen: decouple size from speed above a threshold; make the penalty about agility (turning, acceleration) rather than top speed; or lean in and make traversal itself the fat trade-off, with the island's water as an alternative route. **Raised 2026-08-07 with measurements; needs a decision before JIM-24.**

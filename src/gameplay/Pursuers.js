@@ -27,10 +27,31 @@ export class Pursuers {
     this.netMat = new THREE.MeshStandardMaterial({ color: COLORS.NET });
   }
 
+  /** Where a new pursuer appears: on a ring around JIMOTHY, not at a fixed
+   *  point on the map.
+   *
+   *  These used to be absolute coordinates at ±25, which worked only because
+   *  the whole world was 500 units across and the player was never far from
+   *  the middle of it. On the streamed 2000-unit map (milestone 12) a pursuer
+   *  spawning at the origin had to jog up to 1400 units at 5 u/s to reach a
+   *  player who had wandered — nearly five minutes — so heat escalated and
+   *  nothing ever arrived. Four heat specs caught it, including
+   *  `animal control nets jimothy`: the run had no lose condition at all
+   *  away from spawn.
+   *
+   *  A ring keeps the pressure identical wherever he is, which is the point of
+   *  a wanted system, and it means map size can grow without touching this
+   *  again. The offsets are still fixed and cycled rather than random, so the
+   *  approach stays deterministic under advanceTime. */
   _spawnPoint() {
     const p = PURSUER_SPAWN_POINTS[this.spawnIndex % PURSUER_SPAWN_POINTS.length];
     this.spawnIndex += 1;
-    return p;
+    const jp = this.jimothy.group.position;
+    const B = WORLD.BOUNDS;
+    return [
+      THREE.MathUtils.clamp(jp.x + p[0], -B, B),
+      THREE.MathUtils.clamp(jp.z + p[1], -B, B),
+    ];
   }
 
   _makePerson(mat, withNet) {

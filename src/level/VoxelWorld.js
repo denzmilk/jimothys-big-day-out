@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { VOXEL } from '../core/Constants.js';
+import { VOXEL, STREAM } from '../core/Constants.js';
 
 // Chunked destructible voxel grid (ADR-0003).
 //
@@ -18,9 +18,131 @@ export class VoxelWorld {
     this._colors = new Map(
       Object.entries(VOXEL.MATERIALS).map(([id, m]) => [Number(id), new THREE.Color(m.color)]),
     );
+
+    // --- streaming (milestone 12) ---
+    // Columns, not chunks, are the unit of generation: ground strata and a
+    // building's full height belong together, and splitting them vertically
+    // would mean generating the same building several times over.
+    this.generator = null;     // (world, cx, cz) => void, set by the caller
+    this.generated = new Set(); // "cx,cz" of columns already built
+    // Player damage, kept SEPARATELY from chunk data so it survives an unload.
+    // A regenerated chunk comes back pristine otherwise, healing every hole
+    // Jimothy made — unacceptable in a game about destruction (Chris,
+    // 2026-08-07). Stores EDITS, not chunks, so memory scales with how much
+    // has been wrecked rather than with world size.
+    this.edits = new Map();    // "cx,cy,cz" -> Map(localIndex -> material)
+    // While generating a column, writes outside it are dropped. This is what
+    // lets the building writers stay completely unaware of chunks: a house
+    // straddling a seam is written in full by every column it touches, and
+    // each keeps only its own share.
+    this._writeColumn = null;
+    // Last streamAround position, in columns. Bounds where an on-demand query
+    // is allowed to build the world — see _ensureAtWorld.
+    this._center = null;
   }
 
   _key(cx, cy, cz) { return `${cx},${cy},${cz}`; }
+
+  _colKey(cx, cz) { return `${cx},${cz}`; }
+
+  columnOf(vx, vz) {
+    const C = VOXEL.CHUNK_XZ;
+    return { cx: Math.floor(vx / C), cz: Math.floor(vz / C) };
+  }
+
+  /** Build a column if it has not been built yet, then re-apply any damage
+   *  done to it before it was unloaded. */
+  ensureColumn(cx, cz) {
+    const key = this._colKey(cx, cz);
+    if (this.generated.has(key) || !this.generator) return false;
+    // Marked BEFORE generating: the generator queries the world as it writes,
+    // and re-entering here would recurse forever.
+    this.generated.add(key);
+    this._writeColumn = { cx, cz };
+    try {
+      this.generator(this, cx, cz);
+    } finally {
+      this._writeColumn = null;
+    }
+    this._replayEdits(cx, cz);
+    // A neighbour's seam faces were culled against air that is now solid (or
+    // exposed against solid that is now gone), so its mesh is stale.
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      for (let cy = STREAM.CY_MIN; cy <= STREAM.CY_MAX; cy++) {
+        const n = this.chunks.get(this._key(cx + dx, cy, cz + dz));
+        if (n) n.dirty = true;
+      }
+    }
+    return true;
+  }
+
+  _replayEdits(cx, cz) {
+    for (let cy = STREAM.CY_MIN; cy <= STREAM.CY_MAX; cy++) {
+      const edits = this.edits.get(this._key(cx, cy, cz));
+      if (!edits) continue;
+      const chunk = this.chunks.get(this._key(cx, cy, cz))
+        || this._createChunk(cx, cy, cz);
+      for (const [idx, mat] of edits) chunk.data[idx] = mat;
+      chunk.dirty = true;
+    }
+  }
+
+  /** Drop a column's geometry and data. Its edits are deliberately kept. */
+  unloadColumn(cx, cz) {
+    if (!this.generated.delete(this._colKey(cx, cz))) return false;
+    for (let cy = STREAM.CY_MIN; cy <= STREAM.CY_MAX; cy++) {
+      const key = this._key(cx, cy, cz);
+      const chunk = this.chunks.get(key);
+      if (!chunk) continue;
+      if (chunk.mesh) {
+        this.scene.remove(chunk.mesh);
+        chunk.mesh.geometry.dispose();
+      }
+      this.chunks.delete(key);
+    }
+    return true;
+  }
+
+  /** Load what is near the player and drop what is not. Budgeted, because
+   *  generating several columns in one frame is a visible hitch. */
+  streamAround(worldX, worldZ) {
+    const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
+    const px = Math.floor(worldX / C);
+    const pz = Math.floor(worldZ / C);
+    this._center = { cx: px, cz: pz };
+
+    let budget = STREAM.COLUMNS_PER_FRAME;
+    // Nearest-first, so the ground under the player's feet is never the thing
+    // still waiting on the budget.
+    const wanted = [];
+    const R = STREAM.LOAD_RADIUS;
+    for (let dx = -R; dx <= R; dx++) {
+      for (let dz = -R; dz <= R; dz++) {
+        if (this.generated.has(this._colKey(px + dx, pz + dz))) continue;
+        wanted.push([dx * dx + dz * dz, px + dx, pz + dz]);
+      }
+    }
+    wanted.sort((a, b) => a[0] - b[0]);
+    for (const [, cx, cz] of wanted) {
+      if (budget-- <= 0) break;
+      this.ensureColumn(cx, cz);
+    }
+
+    const U = STREAM.UNLOAD_RADIUS;
+    for (const key of [...this.generated]) {
+      const [cx, cz] = key.split(',').map(Number);
+      if (Math.abs(cx - px) > U || Math.abs(cz - pz) > U) this.unloadColumn(cx, cz);
+    }
+  }
+
+  _createChunk(cx, cy, cz) {
+    const CX = VOXEL.CHUNK_XZ;
+    const chunk = {
+      cx, cy, cz, data: new Uint8Array(CX * VOXEL.CHUNK_Y * CX), mesh: null, dirty: true,
+    };
+    this.chunks.set(this._key(cx, cy, cz), chunk);
+    return chunk;
+  }
 
   _chunkFor(vx, vy, vz, create = false) {
     const CX = VOXEL.CHUNK_XZ;
@@ -28,14 +150,14 @@ export class VoxelWorld {
     const cx = Math.floor(vx / CX);
     const cy = Math.floor(vy / CY);
     const cz = Math.floor(vz / CX);
+    // Column filter: while a column is generating, a building that straddles
+    // the seam writes far outside it. Dropping those writes here is what keeps
+    // the builders chunk-unaware.
+    if (create && this._writeColumn
+      && (cx !== this._writeColumn.cx || cz !== this._writeColumn.cz)) return null;
     const key = this._key(cx, cy, cz);
     let chunk = this.chunks.get(key);
-    if (!chunk && create) {
-      chunk = {
-        cx, cy, cz, data: new Uint8Array(CX * CY * CX), mesh: null, dirty: true,
-      };
-      this.chunks.set(key, chunk);
-    }
+    if (!chunk && create) chunk = this._createChunk(cx, cy, cz);
     return chunk;
   }
 
@@ -50,8 +172,22 @@ export class VoxelWorld {
 
   set(vx, vy, vz, mat) {
     const chunk = this._chunkFor(vx, vy, vz, true);
+    if (!chunk) return; // outside the column currently being generated
     chunk.data[this._localIndex(vx, vy, vz)] = mat;
     chunk.dirty = true;
+  }
+
+  /** A player-made change: written to the world AND recorded, so it survives
+   *  the column being unloaded and regenerated. */
+  setEdit(vx, vy, vz, mat) {
+    this.set(vx, vy, vz, mat);
+    const CX = VOXEL.CHUNK_XZ;
+    const key = this._key(
+      Math.floor(vx / CX), Math.floor(vy / VOXEL.CHUNK_Y), Math.floor(vz / CX),
+    );
+    let edits = this.edits.get(key);
+    if (!edits) this.edits.set(key, edits = new Map());
+    edits.set(this._localIndex(vx, vy, vz), mat);
   }
 
   get(vx, vy, vz) {
@@ -66,7 +202,40 @@ export class VoxelWorld {
     return [Math.floor(x / s), Math.floor(y / s), Math.floor(z / s)];
   }
 
+  /** Generate the column under a world position if it does not exist yet.
+   *
+   *  Every gameplay query goes through this, which makes streaming a
+   *  performance concern and never a correctness one. Without it an
+   *  ungenerated column reads as empty, `groundHeightAt` returns bedrock
+   *  depth, and the player falls through the world — the exact shape of
+   *  JIM-19. The streamer normally gets there first, so this is a safety net
+   *  that rarely fires rather than the hot path. */
+  _ensureAtWorld(x, z) {
+    const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
+    const cx = Math.floor(x / C);
+    const cz = Math.floor(z / C);
+    // Only near the streaming centre. Without this bound, ANY query anywhere
+    // builds the world there — and the 26 pedestrians each sample the ground
+    // under themselves every frame, from wherever they happen to be. Measured:
+    // the loaded set climbed 57 → 83 and kept going on a straight walk,
+    // because the entities were re-generating the map faster than the unloader
+    // could drop it. Distant queries fall back to grade instead (below), which
+    // is right for a background prop and wrong only for the player — and the
+    // player is always at the centre by construction.
+    if (this._center
+      && (Math.abs(cx - this._center.cx) > STREAM.LOAD_RADIUS
+        || Math.abs(cz - this._center.cz) > STREAM.LOAD_RADIUS)) return false;
+    return this.ensureColumn(cx, cz);
+  }
+
+  /** Has the column covering this world position been built? */
+  isLoadedAtWorld(x, z) {
+    const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
+    return this.generated.has(this._colKey(Math.floor(x / C), Math.floor(z / C)));
+  }
+
   solidAtWorld(x, y, z) {
+    this._ensureAtWorld(x, z);
     const [vx, vy, vz] = this.worldToVoxel(x, y, z);
     return this.get(vx, vy, vz) !== 0;
   }
@@ -78,6 +247,11 @@ export class VoxelWorld {
    *  a house snaps the player onto its roof (and re-hopping off that climbs
    *  him into the sky). `stepUp` is the small lip he's allowed to mount. */
   groundHeightAt(x, z, fromY = 0, stepUp = VOXEL.SIZE * 0.75) {
+    this._ensureAtWorld(x, z);
+    // Too far out to be worth building: report grade rather than the
+    // dug-through-to-bedrock answer the scan below would give for empty
+    // space. A pedestrian out there would otherwise sink through the floor.
+    if (!this.isLoadedAtWorld(x, z)) return 0;
     const s = VOXEL.SIZE;
     const [vx, , vz] = this.worldToVoxel(x, 0, z);
     const top = Math.floor((fromY + stepUp) / s);
@@ -98,6 +272,11 @@ export class VoxelWorld {
   damageSphere(cx, cy, cz, radius, minVoxelY = -Infinity) {
     const s = VOXEL.SIZE;
     const r = Math.ceil(radius / s);
+    // A blast can straddle a seam into a column that has not been built yet;
+    // without this the far half of the crater silently does nothing.
+    for (const dx of [-radius, radius]) {
+      for (const dz of [-radius, radius]) this._ensureAtWorld(cx + dx, cz + dz);
+    }
     const [bx, by, bz] = this.worldToVoxel(cx, cy, cz);
     const removed = [];
     for (let x = bx - r; x <= bx + r; x++) {
@@ -110,7 +289,9 @@ export class VoxelWorld {
           const wz = (z + 0.5) * s;
           if (Math.hypot(wx - cx, wy - cy, wz - cz) > radius) continue;
           const mat = this.get(x, y, z);
-          this.set(x, y, z, 0);
+          // Recorded, not just written: this hole has to still be here when
+          // the player walks away and comes back.
+          this.setEdit(x, y, z, 0);
           removed.push({ x: wx, y: wy, z: wz, mat });
         }
       }
@@ -199,12 +380,23 @@ export class VoxelWorld {
       }
     }
     this.chunks.clear();
+    this.generated.clear();
+    // A new run gets a pristine city — damage is per-run, not persistent.
+    this.edits.clear();
     this.removedCount = 0;
   }
 
   stats() {
     let meshes = 0;
     for (const c of this.chunks.values()) if (c.mesh) meshes++;
-    return { chunks: this.chunks.size, meshes, removed: this.removedCount };
+    let edits = 0;
+    for (const m of this.edits.values()) edits += m.size;
+    return {
+      chunks: this.chunks.size,
+      meshes,
+      removed: this.removedCount,
+      columns: this.generated.size,
+      edits,
+    };
   }
 }

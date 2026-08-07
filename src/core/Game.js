@@ -15,7 +15,7 @@ import { TrashCans } from '../gameplay/TrashCans.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
 import { LevelBuilder } from '../level/LevelBuilder.js';
 import { VoxelWorld } from '../level/VoxelWorld.js';
-import { buildDistrict } from '../level/VoxelCity.js';
+import { installCity } from '../level/VoxelCity.js';
 import { Debris } from '../gameplay/Debris.js';
 import { Pedestrians } from '../gameplay/Pedestrians.js';
 import { HUD } from '../ui/HUD.js';
@@ -51,7 +51,7 @@ class Game {
     this.physics = new PhysicsSystem();
     this.level = new LevelBuilder(this.scene);
     this.voxels = new VoxelWorld(this.scene);
-    buildDistrict(this.voxels, WORLD.BOUNDS);
+    installCity(this.voxels);
     this.debris = new Debris(this.scene, this.physics);
     this.jimothy = new JimothyController(this.scene, this.physics, this.input, this.voxels);
     // Moves land their damage ahead of him (headbutt/roll), never underfoot.
@@ -108,7 +108,7 @@ class Game {
       this.pedestrians.reset();
       this.debris.reset();
       this.voxels.clear();
-      buildDistrict(this.voxels, WORLD.BOUNDS);
+      installCity(this.voxels);
       gameState.game.started = true;
       gameState.game.isPlaying = true;
     });
@@ -163,6 +163,13 @@ class Game {
 
   update(delta) {
     this.input.update();
+    // Before he moves, not after: the ground he is about to walk onto has to
+    // exist by the time the controller queries it. The queries generate on
+    // demand anyway, but arriving first is what keeps that a safety net rather
+    // than the hot path.
+    const jp = this.jimothy.group.position;
+    this.voxels.streamAround(jp.x, jp.z);
+    this.voxels.remeshDirty();
     this.jimothy.update(delta, this.cameraSystem.yaw);
     this.physics.update(delta);
     this.jimothy.postUpdate(delta);

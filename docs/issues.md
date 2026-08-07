@@ -221,6 +221,103 @@ Open, and worth deciding before generating a library:
 
 ---
 
+### JIM-32 — The map got 16× bigger and the contents did not: density collapse
+
+**Status:** open · **Severity:** high (it is the difference between "explorable" and "empty") · **Found:** 2026-08-07 (milestone 12)
+
+Raising `WORLD.BOUNDS` 250 → 1000 multiplied the world's area by 16 and left every piece of content at its old count. **This is the exact failure Chris and the gameplan both name as the thing to avoid** — an empty big map is worse than the full small one it replaced (*"like yakuza!"*, 2026-08-07).
+
+Three systems were anchored to the old map. Two were fixed in milestone 12 because the game does not function without them; the third is this issue.
+
+| system | anchoring | status |
+|---|---|---|
+| `PURSUER_SPAWN_POINTS` | absolute ±25 coordinates | **fixed** — now offsets from Jimothy, so pressure is the same wherever he is |
+| `HIDE_SPOTS.POSITIONS` | hardcoded grid to ±220 | **fixed** — derived from `WORLD.BOUNDS`, constant density |
+| `TRASH_CAN.COUNT` (70) | fixed count over `BOUNDS - 6` | **open — this issue** |
+
+**Why the cans were not simply scaled up with the rest.** 70 cans across the old map becomes ~1120 to hold density on the new one, and each is a live `cannon-es` rigid body. That is a physics budget question, not a constant change, and the right answer is almost certainly to **stream props with the world** — spawn them per loaded column from the seed, exactly as buildings now are, so the count tracks the load radius instead of the map.
+
+`Layout` already makes this straightforward: a `propsIn(box)` query alongside `buildingsIntersecting`, and `TrashCans` spawns and despawns against the streamer. Trees, hide spots and pedestrians all want the same treatment, which is why this is worth doing once, properly, rather than three times.
+
+**Until it lands, the map beyond the central district is effectively empty** — ground and buildings, no cans, no snacks, nothing to do. Streaming made the world big; this is what makes it worth crossing, and it should probably come before the world-tour easter-egg pass in `docs/backlog.md` (which needs somewhere to put the eggs).
+
+**Where:** `src/gameplay/TrashCans.js` (`defaultLayout`), `src/level/Layout.js`, `src/gameplay/Pedestrians.js`, `src/core/Constants.js` (`TRASH_CAN.COUNT`, `HIDE_SPOTS`)
+
+---
+
+### JIM-29 — Katamari roll: fat should make the roll a wrecking ball, not a penalty
+
+**Status:** open · **Severity:** high (it resolves the fat-slowness tension the bigger map created) · **Reported:** 2026-08-07 (Chris)
+
+> "For the Fat slowness - let's do something with the roll katamari style, make it turn into more of an actual 'roll' instead of a set animation where Jimothy becomes a giant wrecking ball."
+
+**This is the answer to an open question, not just a feature.** The gameplan records the collision: fat is the goal *and* a movement penalty, and a 2000-unit map made that much worse — a successful run ends with Jimothy taking **12m 12s** to walk one side versus 5m 31s lean (measured 2026-08-07). Making the roll scale *with* fatness converts the penalty into a mechanic: on foot you get slower, but rolling you become unstoppable. Fat stops being purely a tax.
+
+**⚠️ It reverses two decisions taken deliberately at playtest. Do not treat them as bugs.** From `MOVES.ROLL`, with the reasoning in the code:
+
+- `SPEED: 5` — *slower than a WALK (6) on purpose. At 13 it outran the scurry and read as a dodge; the joke is a heavy raccoon heaving himself over.*
+- `FAT_BLAST_SHARE: 0.3` — *it only inherits a slice of the fatness bonus, so getting fat makes you a better demolisher without making the flop a bulldozer.*
+- `RADIUS_SCALE: 0.55`, `SPINS: 1`, `DURATION: 0.9` — one deliberate flop, not a gymnastics routine.
+
+**The reconciliation, and it needs Chris's confirmation:** those decisions were all made and signed off at *lean* fatness. Read them as describing the lean roll, and let the move's character **change with girth** — a skinny raccoon still does the wonky flop Chris approved, and a gorged one becomes a katamari. That keeps both playtest verdicts intact instead of overwriting one with the other. If instead the roll should be a wrecking ball at every size, say so, because that does discard the flop.
+
+**What "an actual roll" implies technically** — this is the substantial part:
+
+- **Continuous, not a fixed-duration animation.** The current roll is a scripted 0.9 s clip with a scripted single rotation. Katamari means holding the button and *keeping* rolling, with rotation derived from distance travelled rather than from a timer, so the spin always matches the ground speed instead of drifting against it.
+- **Speed, radius and blast all scale with fatness**, inverting `FAT_BLAST_SHARE` from a damper into a multiplier.
+- **Momentum.** A wrecking ball has to take time to get going and be reluctant to stop or turn — otherwise it is just a fast walk with a spin. This is where the feel lives.
+- **The collision shape.** `JimothyController` is a kinematic sphere, which is already the right shape for this and wrong for almost everything else — the one place the existing physics is a gift rather than a constraint.
+- **Does it pick things up?** Actual Katamari accretes. That is a much bigger feature and probably not what is being asked for, but the word invites it: **confirm before building.**
+
+**Depends on / relates to:** JIM-24 (as big as a house) — these two are really the same rebalance seen from two sides, and should probably be one milestone. Also interacts with the island (milestone 14): a fat rolling Jimothy hitting water is a comedy set-piece.
+
+**Where:** `src/core/Constants.js` (`MOVES.ROLL`, `FATNESS`), `src/gameplay/JimothyController.js`
+
+---
+
+### JIM-30 — An eat button, with its own animation, instead of auto-pickup
+
+**Status:** open · **Severity:** medium (it changes the core loop) · **Reported:** 2026-08-07 (Chris)
+
+> "let's make an 'eat' button instead of auto pickup with it's own animation."
+
+Snacks are currently vacuumed up on contact. An explicit button makes eating an **act** rather than a side effect of walking, which is worth doing in a game where eating *is* the scoring verb — right now the central mechanic is the one thing the player never actually does.
+
+Note this partly restores an intent from the very first scoping session that never got built: *"some you gotta stop to eat vs. just kind of scooping as you go"* (2026-07-23). The two-tier food economy already exists — feasts need a stand-still channel, scraps are instant — so **the interesting question is what the button does to that split.** Options: the button replaces instant scraps entirely (every calorie is chosen), or scraps stay automatic and the button is only for feasts (preserving flow while making the big ones deliberate).
+
+**Design consequences worth thinking about before building:**
+
+- **It adds friction to the scoring verb.** That is the point, but it is also a risk: a combo system (`SCORE.COMBO_WINDOW_SECONDS`) rewards fast chaining, and a per-snack button press may fight it. Pressing to eat while being chased is a real decision; pressing to eat forty times in a quiet street is admin.
+- **The animation is the payoff** and is what justifies the friction — a proper chomp on the skinned rig (milestone 10 makes this possible; the head is on a bone now, and the jaw is not a separate bone, so it will be a head/neck performance rather than a mouth one).
+- Needs a keybind in `KEYBINDS` and to work on gamepad.
+
+**Where:** `src/gameplay/TrashCans.js` (pickup), `src/gameplay/JimothyController.js` (the animation), `src/core/Constants.js` (`KEYBINDS`, `FOODS`)
+
+---
+
+### JIM-31 — Game over as a holiday photo book of Jimothy's big day
+
+**Status:** open · **Severity:** medium (it is the game's signature screen) · **Reported:** 2026-08-07 (Chris)
+
+> "when you die, get a 'selection' of photos taken by people or paparazzi of 'jimothy's big day' like a holiday book style game over screen"
+
+The current game-over screen is a number. This turns it into the thing people screenshot and post — which, for a game whose whole identity is meme slop, is arguably the most valuable screen in it.
+
+**The mechanical tie-in is already built and unused.** Paparazzi exist as heat tier 1 and their camera flash already fires as a gameplay event (it stuns — JIM-18's era, `tier-2 camera flash stuns jimothy`). **Every flash is a photo being taken.** So the photo book does not need a new system so much as a hook on an existing one: when a flash fires, capture the moment.
+
+**How to capture is the real decision, and it should be made by measurement:**
+
+1. **Render-to-texture at flash time** — a genuine snapshot from the photographer's position, which is exactly what a paparazzo would get. Costs a render pass per photo and some VRAM for the set, and needs a cap on how many are kept. Most authentic, and the framing is automatically comedic because it is from *their* angle, not the player's.
+2. **Record the pose and re-stage it at game over** — store position/pose/heat, then rebuild a handful of shots on the end screen. Cheaper at runtime, more work to build, and lets shots be chosen *after* the run.
+
+**What makes it funny is the selection and the captions, not the fidelity.** A holiday-album layout with over-familiar captions ("Jimothy, day 1 — settling in"), a few deliberately terrible shots (blurred, half out of frame, a thumb over the lens), and one genuinely great one. Worth picking photos from *different* heat tiers so the book tells the run's escalation as a story.
+
+**Interacts with:** the "real raccoon facts" credits panel in `docs/backlog.md` — both are end-of-run screens and should be designed together rather than competing.
+
+**Where:** `src/ui/GameOverScreen.js`, `src/gameplay/Pursuers.js` (the flash hook), `src/systems/HeatSystem.js`
+
+---
+
 ### JIM-22 — Legs should scamper: sprawled, low, with physics-aware footing
 
 **Status:** open · **Severity:** medium (it's the character's whole read) · **Reported:** 2026-08-07 (Chris)

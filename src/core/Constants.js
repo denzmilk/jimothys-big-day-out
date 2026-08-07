@@ -244,28 +244,21 @@ export const ANIMAL_CONTROL = {
 };
 
 // Shared by all pursuer types, round-robin — deterministic for tests.
+// OFFSETS FROM JIMOTHY, not map coordinates (changed 2026-08-07, milestone
+// 12). Read as absolute positions these were fine on a 500-unit world and
+// meaningless on a 2000-unit one — a pursuer spawning at the origin could not
+// reach a player who had walked away, so the run had no lose condition. A ring
+// around him keeps the pressure the same wherever he goes, and lets the map
+// grow again without revisiting this.
+//
+// ~25 units is close enough to arrive and far enough to be a chase rather than
+// an ambush. Cycled in order rather than chosen at random: pursuer approach has
+// to be deterministic under advanceTime.
 export const PURSUER_SPAWN_POINTS = [
   [-25, -25], [25, -25], [25, 25], [-25, 25],
   [0, -25], [25, 0], [0, 25], [-25, 0],
 ];
 
-// Hiding is the only pressure valve, so bushes have to be reachable from
-// anywhere. Four of them clustered near spawn was fine on a 50 m block and
-// useless once the city grew to 500 m — spread across the district on the
-// block grid, with a couple kept close to spawn and the den.
-export const HIDE_SPOTS = {
-  RADIUS: 2,
-  POSITIONS: (() => {
-    const spots = [[-20, -20], [18, 8], [-6, 18], [22, -18]];
-    for (let x = -220; x <= 220; x += 68) {
-      for (let z = -220; z <= 220; z += 68) {
-        if (Math.hypot(x, z) < 40) continue; // spawn area already covered
-        spots.push([x + 4, z - 4]);
-      }
-    }
-    return spots;
-  })(),
-};
 
 export const SCORE = {
   // Per-food points live on FOODS; combo behavior lives here.
@@ -277,13 +270,40 @@ export const SCORE = {
 export const WORLD = {
   BLOCK_SIZE: 1200,
   // Playable square: Jimothy is clamped here; physics walls sit just outside.
-  // 250 = ~5× the AREA of the previous district (110 → 250 is 2.3× per side).
-  // 5× per SIDE was measured and rejected for now: 19 s boot, 1007 draw calls,
-  // 3.5 GB heap, because undamaged ground voxels are allocated up front for
-  // the whole map. Streaming/virtual ground (see docs/roadmap.md) is the
-  // prerequisite for going bigger; this is the largest size that boots fast.
-  BOUNDS: 250,
+  //
+  // 1000 is 4× per side / 16× the area of the old 250, which itself could not
+  // grow because the ground was allocated up front for the whole map (JIM-01:
+  // 19 s boot, 1007 draw calls, 3.5 GB heap at 5× per side). Milestone 12
+  // removed that ceiling — boot and memory now track the STREAM radii, not
+  // this number, so raising it further costs nothing at boot. What it does
+  // cost is travel time and pursuer pacing, which is what should decide it.
+  BOUNDS: 1000,
   GRAVITY: 9.8,
+};
+
+// Hiding is the only pressure valve, so bushes have to be reachable from
+// anywhere. Four of them clustered near spawn was fine on a 50 m block and
+// useless once the city grew to 500 m — spread across the district on the
+// block grid, with a couple kept close to spawn and the den.
+export const HIDE_SPOTS = {
+  RADIUS: 2,
+  // Spacing, not extent. The grid used to be written out to a hardcoded ±220 —
+  // the old map's edge — so raising WORLD.BOUNDS left bushes covering about 5%
+  // of the world and the pressure valve unreachable everywhere else. Derived
+  // from BOUNDS, the density stays constant however big the island gets.
+  SPACING: 68,
+  POSITIONS: (() => {
+    const spots = [[-20, -20], [18, 8], [-6, 18], [22, -18]];
+    const step = 68;
+    const edge = Math.floor(WORLD.BOUNDS / step) * step;
+    for (let x = -edge; x <= edge; x += step) {
+      for (let z = -edge; z <= edge; z += step) {
+        if (Math.hypot(x, z) < 40) continue; // spawn area already covered
+        spots.push([x + 4, z - 4]);
+      }
+    }
+    return spots;
+  })(),
 };
 
 // Procedural Ballard-ish street grid. Blocks of buildings separated by roads;
@@ -407,6 +427,27 @@ export const VOXEL = {
   // every ground layer and leaves Jimothy stranded metres below grade in a
   // pit he can't climb (playtest 2026-07-23).
   BEDROCK: 7,
+};
+
+// Chunk streaming (milestone 12, JIM-01). The world is generated around the
+// player and unloaded behind him, so boot cost and memory stop scaling with
+// map size.
+export const STREAM = {
+  // Radii in CHUNK COLUMNS, not metres. A column is CHUNK_XZ voxels square.
+  // Load must be comfortably beyond the camera's far view or buildings pop in
+  // where the player can see them.
+  LOAD_RADIUS: 3,
+  // Strictly greater than LOAD_RADIUS: without hysteresis, standing on a
+  // boundary thrashes the same column in and out every frame.
+  UNLOAD_RADIUS: 5,
+  // Generating several columns in one frame hitches. A visible pop at the
+  // horizon is a better trade than a stutter under the player's feet.
+  COLUMNS_PER_FRAME: 1,
+  // Vertical extent generated per column. Ground strata sit at voxel y -1 and
+  // -2; a craftsman's roof ridge reaches roughly y 41 (its peak is half the
+  // footprint width, and footprints are ~40 voxels across). CHUNK_Y is 12.
+  CY_MIN: -1,
+  CY_MAX: 4,
 };
 
 export const DEBRIS = {

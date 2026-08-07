@@ -131,18 +131,14 @@ test('a building on a chunk seam is generated whole, not sliced', async ({ page 
   const MIN_OVERHANG = 2;
   let target = null;
   let best = 0;
-  for (let i = -16; i <= 16; i++) {
-    for (let j = -16; j <= 16; j++) {
-      for (const b of Layout.buildingsAt(i, j)) {
-        for (const axis of ['x', 'z']) {
-          const lo = b[axis];
-          const hi = b[axis] + (axis === 'x' ? b.w : b.d);
-          if (seamOf(lo) === seamOf(hi)) continue;
-          const seam = seamOf(hi) * COL;
-          const overhang = Math.min(seam - lo, hi - seam);
-          if (overhang > best) { best = overhang; target = { ...b, axis, seam }; }
-        }
-      }
+  for (const b of Layout.buildingsIntersecting(-500, -500, 500, 500)) {
+    for (const axis of ['x', 'z']) {
+      const lo = b[axis];
+      const hi = b[axis] + (axis === 'x' ? b.w : b.d);
+      if (seamOf(lo) === seamOf(hi)) continue;
+      const seam = seamOf(hi) * COL;
+      const overhang = Math.min(seam - lo, hi - seam);
+      if (overhang > best) { best = overhang; target = { ...b, axis, seam }; }
     }
   }
   expect(target && best, `no building straddles a seam by ${MIN_OVERHANG}m`).toBeGreaterThan(MIN_OVERHANG);

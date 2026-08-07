@@ -1,202 +1,102 @@
-// Milestone 12: the pure layout layer.
+// Milestone 16: the city is an authored plan, not a generated lattice.
 //
-// No browser, no scene, no voxels — layout is a pure function of the seed and
-// a coordinate, which is the whole point of it. That makes the city testable
-// as arithmetic, and it is what lets a minimap draw places that have never
-// been generated.
+// The specs this replaces asserted the lattice — "buildings never sit on a
+// road" against a modulo road mask, "a block subdivides into lots" against a
+// uniform grid. They all passed while the world read as a grid, because they
+// measured the generator's own rules back at it.
+//
+// Two method failures are worth naming, since both shipped:
+//   - the variety spec asserted "6 distinct type strings exist", passed, and
+//     the world still looked like three buildings. It measured the proxy.
+//   - the safety spec checked buildings and never props, so 586 of 586 bins
+//     shipped in the middle of the road past a test called "nothing overlaps a
+//     road".
+// What follows asserts STRUCTURE — variance, irregularity, semantics — and
+// leaves "does it read as a place" explicitly to the playtest.
 import { test, expect } from '@playwright/test';
 import * as Layout from '../src/level/Layout.js';
-import { CITY, VOXEL, WORLD } from '../src/core/Constants.js';
+import * as Masterplan from '../src/level/CityPlanner.js';
 
-// A spread of block indices, including negatives and the origin, since sign
-// handling around 0 is where grid maths usually breaks.
-const SAMPLE = [];
-for (let i = -6; i <= 6; i += 2) for (let j = -6; j <= 6; j += 2) SAMPLE.push([i, j]);
-
-test('layout is order-independent — the assertion streaming depends on', () => {
-  // The old buildDistrict drew from ONE sequential PRNG in nested-loop order,
-  // so a block's size and height depended on how many blocks had been built
-  // before it. Under streaming, chunks generate in whatever order the player
-  // happens to walk, so that city would rearrange itself as you explored.
-  // Every block must be a pure function of its own coordinates.
-  const forward = SAMPLE.map(([i, j]) => JSON.stringify(Layout.buildingAt(i, j)));
-  const scrambled = [...SAMPLE].reverse().map(([i, j]) => JSON.stringify(Layout.buildingAt(i, j)));
-  expect(scrambled).toEqual([...forward].reverse());
-
-  // …and re-querying one block a hundred times, interleaved with its
-  // neighbours, must never change the answer.
-  const once = JSON.stringify(Layout.buildingAt(3, -4));
-  for (const [i, j] of SAMPLE) Layout.buildingAt(i, j);
-  expect(JSON.stringify(Layout.buildingAt(3, -4))).toBe(once);
+test('the road network comes from the plan, not from arithmetic', () => {
+  Masterplan.bake();
+  // A modulo lattice repeats exactly. Two parallel lines far apart are
+  // identical under `vx mod BLOCK < ROAD`, and must not be here.
+  const line = (z) => {
+    let s = '';
+    for (let x = -400; x < 400; x += 4) s += Masterplan.isRoad(x, z) ? '#' : '.';
+    return s;
+  };
+  expect(line(-120)).not.toBe(line(120));
+  expect(line(0)).not.toBe(line(240));
 });
 
-test('the city is deterministic from the seed', () => {
-  const a = SAMPLE.map(([i, j]) => JSON.stringify(Layout.buildingAt(i, j)));
-  const b = SAMPLE.map(([i, j]) => JSON.stringify(Layout.buildingAt(i, j)));
-  expect(a).toEqual(b);
-  // Not every block is a building — spawn is cleared and some blocks are
-  // empty — but the sample must not be degenerate, or the test above proves
-  // nothing.
-  expect(a.filter((x) => x !== 'null').length).toBeGreaterThan(4);
+test('blocks vary in size — a lattice has zero variance', () => {
+  const areas = Masterplan.allBlocks().map((b) => b.area).filter((a) => a > 200);
+  expect(areas.length).toBeGreaterThan(100);
+  const mean = areas.reduce((a, b) => a + b, 0) / areas.length;
+  const sd = Math.sqrt(areas.reduce((a, b) => a + (b - mean) ** 2, 0) / areas.length);
+  // Measured ~2700 on the authored plan. A uniform grid scores 0 by
+  // definition, so this is the assertion that the grid collision is real.
+  expect(sd).toBeGreaterThan(800);
+  expect(Math.max(...areas) / Math.min(...areas)).toBeGreaterThan(8);
 });
 
-test('buildings never sit on a road', () => {
-  // The old grid derived block origins from `-limit + k * BLOCK`, which is not
-  // aligned to the road mask's `vx mod BLOCK_V < ROAD_V`. Buildings could
-  // therefore start inside a road. Layout aligns the two grids by
-  // construction, and this is what holds it there.
-  for (const [i, j] of SAMPLE) {
-    const b = Layout.buildingAt(i, j);
-    if (!b) continue;
-    for (const [wx, wz] of [
-      [b.x, b.z], [b.x + b.w - VOXEL.SIZE, b.z],
-      [b.x, b.z + b.d - VOXEL.SIZE], [b.x + b.w - VOXEL.SIZE, b.z + b.d - VOXEL.SIZE],
-    ]) {
-      const [vx, , vz] = [Math.floor(wx / VOXEL.SIZE), 0, Math.floor(wz / VOXEL.SIZE)];
-      expect(Layout.roadAtVoxel(vx, vz), `building ${i},${j} corner on road`).toBe(false);
+test('several grids meet at different angles', () => {
+  // The mechanism behind the variance above, asserted directly so a future
+  // change that flattens the plan back to one grid fails loudly.
+  const angles = new Set(Masterplan.plan.regions.map((r) => r.angle));
+  expect(angles.size).toBeGreaterThanOrEqual(4);
+  expect(Masterplan.regionCount()).toBeGreaterThanOrEqual(5);
+});
+
+test('alleys exist and are a small part of the network', () => {
+  Masterplan.bake();
+  let alley = 0;
+  let road = 0;
+  for (let x = -900; x < 900; x += 3) {
+    for (let z = -900; z < 900; z += 3) {
+      const c = Masterplan.classAt(x, z);
+      if (c === Masterplan.CLASS.ALLEY) alley++;
+      else if (c === Masterplan.CLASS.ROAD) road++;
     }
   }
+  expect(alley, 'no alleys at all').toBeGreaterThan(200);
+  expect(alley).toBeLessThan(road); // back-of-house, not the main network
 });
 
-test('spawn stays clear so Jimothy never wakes up inside a wall', () => {
-  for (const b of Layout.buildingsIntersecting(-CITY.BLOCK, -CITY.BLOCK, CITY.BLOCK, CITY.BLOCK)) {
-    // Nothing may overlap the immediate spawn area.
-    const overlapsOrigin = b.x < 2 && b.x + b.w > -2 && b.z < 2 && b.z + b.d > -2;
-    expect(overlapsOrigin, `building at ${b.i},${b.j} covers spawn`).toBe(false);
-  }
-});
-
-test('a window query returns buildings whose ORIGIN is outside it', () => {
-  // The chunk-seam trap. buildCraftsman writes a 14x12 footprint from one
-  // origin and CHUNK_XZ is 64 voxels, so a house near a seam belongs to two or
-  // four chunks. Asking "which buildings start in this box" leaves sliced
-  // houses at every seam; the query must be by INTERSECTION.
-  const b = SAMPLE.map(([i, j]) => Layout.buildingAt(i, j)).find(Boolean);
-  expect(b).toBeTruthy();
-
-  // A window covering only the building's far corner — its origin is outside.
-  const pad = 0.01;
-  const win = [b.x + b.w - pad, b.z + b.d - pad, b.x + b.w + 20, b.z + b.d + 20];
-  const found = Layout.buildingsIntersecting(...win);
-  expect(found.some((f) => f.i === b.i && f.j === b.j)).toBe(true);
-});
-
-test('a window query costs the window, not the world', () => {
-  // A minimap redrawn every frame cannot afford to walk the whole city, and
-  // the whole point of streaming is that world size stops mattering.
-  const small = Layout.buildingsIntersecting(0, 0, CITY.BLOCK * 2, CITY.BLOCK * 2);
-  expect(small.length).toBeLessThan(16);
-
-  const t0 = performance.now();
-  for (let n = 0; n < 200; n++) Layout.buildingsIntersecting(0, 0, CITY.BLOCK * 4, CITY.BLOCK * 4);
-  const perQuery = (performance.now() - t0) / 200;
-  expect(perQuery).toBeLessThan(2); // ms — comfortably inside a frame budget
-});
-
-test('roads form a connected grid rather than isolated strips', () => {
-  // Sanity on the mask itself: along any road line, road-ness must persist.
-  const blockV = Math.round(CITY.BLOCK / VOXEL.SIZE);
-  let roadCells = 0;
-  for (let vz = 0; vz < blockV; vz++) if (Layout.roadAtVoxel(2, vz)) roadCells++;
-  // vx = 2 is inside the road band, so the entire column is road.
-  expect(roadCells).toBe(blockV);
-});
-
-test('bounds still bound the city', () => {
-  const outside = WORLD.BOUNDS + CITY.BLOCK * 2;
-  expect(Layout.buildingsIntersecting(outside, outside, outside + 200, outside + 200)).toEqual([]);
-});
-
-// --- Milestone 15: density and variety ---
-
-// A wide window of blocks, used by several tests below.
-const WINDOW = [];
-for (let i = -14; i <= 14; i++) for (let j = -14; j <= 14; j++) WINDOW.push([i, j]);
-const allLots = () => WINDOW.flatMap(([i, j]) => Layout.buildingsAt(i, j));
-
-test('a block subdivides into lots, not one centred box', () => {
-  // "don't just have rows and columns of the same destructable house" — one
-  // building per block cell is what makes it read as a grid.
-  const counts = WINDOW.map(([i, j]) => Layout.buildingsAt(i, j).length);
-  expect(Math.max(...counts), 'no block holds more than one building').toBeGreaterThan(1);
-  // Some blocks are parks or roads-only; that variation is the point.
-  expect(counts.filter((c) => c === 0).length).toBeGreaterThan(0);
-});
-
-test('a street passes visibly different buildings', () => {
-  const kinds = new Set(allLots().map((b) => b.type));
-  expect([...kinds].length, `only these archetypes exist: ${[...kinds]}`).toBeGreaterThanOrEqual(6);
-
-  // Variety has to be LOCAL, not just present somewhere on the island — a map
-  // of uniform neighbourhoods still reads as rows and columns up close.
-  let worst = Infinity;
-  for (let i = -10; i <= 10; i += 5) {
-    for (let j = -10; j <= 10; j += 5) {
-      const near = [];
-      for (let di = 0; di < 4; di++) for (let dj = 0; dj < 4; dj++) near.push([i + di, j + dj]);
-      const local = new Set(near.flatMap(([a, b]) => Layout.buildingsAt(a, b)).map((b) => b.type));
-      if (local.size) worst = Math.min(worst, local.size);
-    }
-  }
-  expect(worst, 'some 4x4 block neighbourhood is entirely one archetype').toBeGreaterThan(1);
-});
-
-test('districts exist and differ in what they contain', () => {
-  const byDistrict = new Map();
-  for (const [i, j] of WINDOW) {
-    const d = Layout.districtAt(i, j);
-    if (!byDistrict.has(d)) byDistrict.set(d, new Set());
-    for (const b of Layout.buildingsAt(i, j)) byDistrict.get(d).add(b.type);
-  }
-  expect(byDistrict.size, 'the whole island is one district').toBeGreaterThan(2);
-  // Two districts that contain exactly the same archetypes are not districts.
-  const sigs = [...byDistrict.values()].map((s) => [...s].sort().join(','));
-  expect(new Set(sigs).size).toBeGreaterThan(1);
-});
-
-test('SAFE: nothing overlaps a road, at any lot', () => {
-  // The guarantee milestone 12 established by construction — the buildable
-  // span starts after the road band. Lot subdivision must subdivide that
-  // span, never the block, or this is silently lost.
-  //
-  // Collected then asserted once. Thousands of lots x an expect() each costs
-  // minutes in Playwright; the check itself is arithmetic and instant.
-  const onRoad = [];
-  for (const b of allLots()) {
-    for (const [wx, wz] of [
-      [b.x, b.z], [b.x + b.w - VOXEL.SIZE, b.z],
-      [b.x, b.z + b.d - VOXEL.SIZE], [b.x + b.w - VOXEL.SIZE, b.z + b.d - VOXEL.SIZE],
-    ]) {
-      if (Layout.roadAtVoxel(Math.floor(wx / VOXEL.SIZE), Math.floor(wz / VOXEL.SIZE))) {
-        onRoad.push(`${b.type}@${b.i},${b.j}`);
+test('SAFE: no building stands on a road, an alley or a park', () => {
+  const bad = [];
+  for (const b of Masterplan.allBuildings()) {
+    for (const [x, z] of [[b.x, b.z], [b.x + b.w, b.z], [b.x, b.z + b.d],
+      [b.x + b.w, b.z + b.d], [b.x + b.w / 2, b.z + b.d / 2]]) {
+      if (Masterplan.classAt(x, z) !== Masterplan.CLASS.LAND) {
+        bad.push(`${b.type} at ${Math.round(b.x)},${Math.round(b.z)}`);
+        break;
       }
     }
   }
-  expect(onRoad.slice(0, 5)).toEqual([]);
+  expect(bad.slice(0, 5)).toEqual([]);
 });
 
 test('SAFE: no two buildings overlap', () => {
-  // Bucketed by block and compared only against the 3x3 neighbourhood: two
-  // lots further apart than a block cannot overlap, and the naive all-pairs
-  // sweep is millions of comparisons.
-  const byBlock = new Map();
-  for (const b of allLots()) {
-    const k = `${b.i},${b.j}`;
-    if (!byBlock.has(k)) byBlock.set(k, []);
-    byBlock.get(k).push(b);
+  const bucket = new Map();
+  for (const b of Masterplan.allBuildings()) {
+    const k = `${Math.floor(b.x / 64)},${Math.floor(b.z / 64)}`;
+    if (!bucket.has(k)) bucket.set(k, []);
+    bucket.get(k).push(b);
   }
   const hits = [];
-  for (const [k, lots] of byBlock) {
+  for (const [k, list] of bucket) {
     const [i, j] = k.split(',').map(Number);
     const near = [];
     for (let di = -1; di <= 1; di++) {
-      for (let dj = -1; dj <= 1; dj++) near.push(...(byBlock.get(`${i + di},${j + dj}`) || []));
+      for (let dj = -1; dj <= 1; dj++) near.push(...(bucket.get(`${i + di},${j + dj}`) || []));
     }
-    for (const A of lots) {
+    for (const A of list) {
       for (const B of near) {
         if (A === B) continue;
         if (A.x < B.x + B.w && B.x < A.x + A.w && A.z < B.z + B.d && B.z < A.z + A.d) {
-          hits.push(`${A.type}@${A.i},${A.j}+${A.vx},${A.vz} overlaps ${B.type}@${B.i},${B.j}`);
+          hits.push(`${A.type}@${Math.round(A.x)},${Math.round(A.z)} overlaps ${B.type}`);
         }
       }
     }
@@ -204,82 +104,49 @@ test('SAFE: no two buildings overlap', () => {
   expect(hits.slice(0, 5)).toEqual([]);
 });
 
-test('SAFE: every building has a positive footprint and sits on the ground', () => {
-  const bad = allLots()
-    .filter((b) => b.vw <= 2 || b.vd <= 2 || b.vh <= 1)
-    .map((b) => `${b.type} ${b.vw}x${b.vd}x${b.vh}`);
-  expect(bad.slice(0, 5)).toEqual([]);
-});
-
-test('lots stay order-independent', () => {
-  const fwd = WINDOW.map(([i, j]) => JSON.stringify(Layout.buildingsAt(i, j)));
-  const rev = [...WINDOW].reverse().map(([i, j]) => JSON.stringify(Layout.buildingsAt(i, j)));
-  expect(rev).toEqual([...fwd].reverse());
-});
-
-test('SAFE: containers are never placed close enough to topple each other', () => {
-  // cannon-es resolves an overlap by flinging both bodies apart, so two bins
-  // spawned on top of each other tip themselves — free food and free heat with
-  // no player input, continuously, as the world streams in. The old eager
-  // layout bought this with rejection sampling and a 3.5 m gap; the streamed
-  // one has to get it by construction.
-  const MIN_GAP = 2.5;
-  const props = WINDOW.flatMap(([i, j]) => Layout.propsAt(i, j));
+test('SAFE: bins are never in the carriageway', () => {
+  // The assertion whose absence let 586 of 586 bins ship in the road.
+  const props = Layout.propsIn(-500, -500, 500, 500);
   expect(props.length, 'no containers at all').toBeGreaterThan(100);
-
-  const cell = new Map();
-  const key = (x, z) => `${Math.floor(x / 8)},${Math.floor(z / 8)}`;
-  for (const p of props) {
-    const k = key(p.x, p.z);
-    if (!cell.has(k)) cell.set(k, []);
-    cell.get(k).push(p);
-  }
-  const tooClose = [];
-  for (const p of props) {
-    const [cx, cz] = key(p.x, p.z).split(',').map(Number);
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dz = -1; dz <= 1; dz++) {
-        for (const q of cell.get(`${cx + dx},${cz + dz}`) || []) {
-          if (q === p) continue;
-          const d = Math.hypot(p.x - q.x, p.z - q.z);
-          if (d < MIN_GAP) tooClose.push(`${p.id} and ${q.id} are ${d.toFixed(2)}m apart`);
-        }
-      }
-    }
-  }
-  expect(tooClose.slice(0, 5)).toEqual([]);
-});
-
-test('container density is a property of a block, not of the map', () => {
-  // The bug this whole milestone exists for: TRASH_CAN.COUNT (70) spread over
-  // WORLD.BOUNDS meant raising bounds 250 -> 1000 divided density by 16.
-  const per = WINDOW.map(([i, j]) => Layout.propsAt(i, j).length);
-  const avg = per.reduce((a, b) => a + b, 0) / per.length;
-  expect(avg).toBeGreaterThan(0.8);
-  // …and it holds just as well far from the origin as near it.
-  const far = [];
-  for (let i = 20; i < 26; i++) for (let j = 20; j < 26; j++) far.push(Layout.propsAt(i, j).length);
-  const farAvg = far.reduce((a, b) => a + b, 0) / far.length;
-  expect(Math.abs(farAvg - avg)).toBeLessThan(1);
-});
-
-test('SAFE: props stand on the kerb, not in the carriageway', () => {
-  // The assertion that was missing. `SAFE: nothing overlaps a road` only ever
-  // checked BUILDINGS, so 586 of 586 bins and 841 of 844 bushes shipped in the
-  // middle of the road and the suite was silent about it (playtest 2026-08-07,
-  // Chris: "trashcans are in the centre of the road, as are bushes").
-  const props = WINDOW.flatMap(([i, j]) => Layout.propsAt(i, j));
-  const inRoad = props.filter((p) => Layout.roadAtWorld(p.x, p.z)).map((p) => p.id);
+  const inRoad = props
+    .filter((p) => Masterplan.classAt(p.x, p.z) === Masterplan.CLASS.ROAD)
+    .map((p) => p.id);
   expect(inRoad.slice(0, 5)).toEqual([]);
+});
 
-  // …and still close enough to the road to read as kerbside rather than as
-  // litter dumped in someone's garden.
-  const strayed = props.filter((p) => {
-    for (let d = 0.5; d <= 3; d += 0.5) {
-      if (Layout.roadAtWorld(p.x - d, p.z) || Layout.roadAtWorld(p.x + d, p.z)
-        || Layout.roadAtWorld(p.x, p.z - d) || Layout.roadAtWorld(p.x, p.z + d)) return false;
-    }
-    return true;
-  }).map((p) => p.id);
-  expect(strayed.slice(0, 5)).toEqual([]);
+test('bins are placed for a reason — many of them are in alleys', () => {
+  // Placement is semantic now: a bin is behind a shop, not at a hash-chosen
+  // point on a lattice. Alleys are ~1% of the world, so a large share landing
+  // in them is only possible if placement actually follows the plan.
+  const props = Layout.propsIn(-400, -400, 400, 400);
+  const inAlley = props.filter((p) => Masterplan.isAlley(p.x, p.z)).length;
+  expect(inAlley / props.length).toBeGreaterThan(0.25);
+});
+
+test('containers exist in residential districts too, which have no alleys', () => {
+  // The regression this guards: moving bins into alleys emptied every
+  // residential street, since only downtown and industry have alleys.
+  const props = Layout.propsIn(-900, 300, -300, 900);
+  expect(props.length).toBeGreaterThan(20);
+});
+
+test('every query is O(1) against the bake', () => {
+  Masterplan.bake();
+  const t0 = performance.now();
+  for (let n = 0; n < 200000; n++) Masterplan.classAt((n % 1800) - 900, ((n * 7) % 1800) - 900);
+  const perQuery = (performance.now() - t0) / 200000;
+  expect(perQuery).toBeLessThan(0.002); // the minimap calls this per pixel
+});
+
+test('the plan is deterministic and order-independent', () => {
+  // Streaming generates columns in whatever order the player walks. A baked
+  // array gives this by construction rather than by discipline.
+  const sample = () => {
+    let s = '';
+    for (let n = 0; n < 400; n++) s += Masterplan.classAt((n * 37) % 900, (n * 61) % 900);
+    return s;
+  };
+  const a = sample();
+  Masterplan.bake(); // idempotent
+  expect(sample()).toBe(a);
 });

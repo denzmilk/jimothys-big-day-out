@@ -181,13 +181,21 @@ function buildGroundColumn(world, cx, cz) {
   const z0 = cz * C;
   for (let x = x0; x < x0 + C; x++) {
     for (let z = z0; z < z0 + C; z++) {
-      if (!Layout.isInsideBounds(x * VOXEL.SIZE, z * VOXEL.SIZE)) continue;
-      const onRoad = Layout.roadAtVoxel(x, z);
+      const wx = x * VOXEL.SIZE;
+      const wz = z * VOXEL.SIZE;
+      if (!Layout.isInsideBounds(wx, wz)) continue;
+      // Surface follows the masterplan's classes, so a park is grass, an alley
+      // is scruffier than a street, and the road network you see is the one
+      // the city was designed with.
+      const cls = Layout.Masterplan.classAt(wx, wz);
+      const C = Layout.Masterplan.CLASS;
+      const surface = cls === C.ROAD ? CONCRETE
+        : cls === C.ALLEY ? BRICK
+          : cls === C.PLAZA ? CONCRETE
+            : MOSS;
       for (let layer = 1; layer <= VOXEL.GROUND_LAYERS; layer++) {
-        // Bottom layer is bedrock — diggable ground above it, hard floor
-        // below, so craters are deep enough to matter but never a trap.
         const mat = layer === VOXEL.GROUND_LAYERS ? VOXEL.BEDROCK
-          : layer === 1 ? (onRoad ? CONCRETE : MOSS) : CONCRETE;
+          : layer === 1 ? surface : CONCRETE;
         world.set(x, -layer, z, mat);
       }
     }

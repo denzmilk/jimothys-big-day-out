@@ -245,33 +245,64 @@ Three systems were anchored to the old map. Two were fixed in milestone 12 becau
 
 ---
 
-### JIM-29 — Katamari roll: fat should make the roll a wrecking ball, not a penalty
+### JIM-29 — Katamari roll: fat Jimothy becomes a hoarding marble
 
-**Status:** open · **Severity:** high (it resolves the fat-slowness tension the bigger map created) · **Reported:** 2026-08-07 (Chris)
+**Status:** open, design substantially settled by Chris · **Severity:** high (it resolves the fat-slowness tension AND adds a loop) · **Reported:** 2026-08-07 (Chris)
 
-> "For the Fat slowness - let's do something with the roll katamari style, make it turn into more of an actual 'roll' instead of a set animation where Jimothy becomes a giant wrecking ball."
+> "let's do something with the roll katamari style, make it turn into more of an actual 'roll' instead of a set animation where Jimothy becomes a giant wrecking ball."
+>
+> "Yes on picking things up, make it maybe a little less destructive to buildings, but think of it as a mass food and item hoarding strategy when jimothy is fat, you get into katamari mode to move quick enough to collect things like a marble - then when you stop everything unloads and you can sift through what you picked up - people included. So if you get some paparrazi or animal control, or military in the roll - you'll need to get away from them to do anything with the stash."
 
-**This is the answer to an open question, not just a feature.** The gameplan records the collision: fat is the goal *and* a movement penalty, and a 2000-unit map made that much worse — a successful run ends with Jimothy taking **12m 12s** to walk one side versus 5m 31s lean (measured 2026-08-07). Making the roll scale *with* fatness converts the penalty into a mechanic: on foot you get slower, but rolling you become unstoppable. Fat stops being purely a tax.
+**This is a whole loop, not a move.** It resolves the fat-slowness problem the bigger map created (a successful run ends taking **12m 12s** to cross a world built for exploring) by converting the penalty into a *mode*: on foot fat is slow, but rolling it is fast, and rolling is also how you harvest. Fat stops being a tax and becomes a change of gear.
 
-**⚠️ It reverses two decisions taken deliberately at playtest. Do not treat them as bugs.** From `MOVES.ROLL`, with the reasoning in the code:
+### The loop
 
-- `SPEED: 5` — *slower than a WALK (6) on purpose. At 13 it outran the scurry and read as a dodge; the joke is a heavy raccoon heaving himself over.*
-- `FAT_BLAST_SHARE: 0.3` — *it only inherits a slice of the fatness bonus, so getting fat makes you a better demolisher without making the flop a bulldozer.*
-- `RADIUS_SCALE: 0.55`, `SPINS: 1`, `DURATION: 0.9` — one deliberate flop, not a gymnastics routine.
+1. **Get fat.** On foot you slow down — unchanged, and now it has a purpose.
+2. **Enter katamari mode.** The roll becomes continuous and quick — the only way a gorged Jimothy covers ground.
+3. **Collect by rolling over things.** Food, props, and **people** — paparazzi, animal control, military.
+4. **Stop to cash in.** The ball unloads and you sift the stash.
+5. **But you collected your pursuers too.** Anything alive in the stash comes back out where you dump it, so you must **break line of sight and get clear before you can cash in**. Rolling through a crowd is both the best harvest and the worst idea.
 
-**The reconciliation, and it needs Chris's confirmation:** those decisions were all made and signed off at *lean* fatness. Read them as describing the lean roll, and let the move's character **change with girth** — a skinny raccoon still does the wonky flop Chris approved, and a gorged one becomes a katamari. That keeps both playtest verdicts intact instead of overwriting one with the other. If instead the roll should be a wrecking ball at every size, say so, because that does discard the flop.
+Step 5 is what makes it a game rather than a vacuum cleaner. The roll doubles as an escape — scooping up the officer chasing you genuinely removes him from the chase — but you are now *carrying* him, and the reward is gated behind losing him. A free "delete the threat" button would break the pursuit; this makes threat-removal a debt.
 
-**What "an actual roll" implies technically** — this is the substantial part:
+### Confirmed: the move's character changes with girth
 
-- **Continuous, not a fixed-duration animation.** The current roll is a scripted 0.9 s clip with a scripted single rotation. Katamari means holding the button and *keeping* rolling, with rotation derived from distance travelled rather than from a timer, so the spin always matches the ground speed instead of drifting against it.
-- **Speed, radius and blast all scale with fatness**, inverting `FAT_BLAST_SHARE` from a damper into a multiplier.
-- **Momentum.** A wrecking ball has to take time to get going and be reluctant to stop or turn — otherwise it is just a fast walk with a spin. This is where the feel lives.
-- **The collision shape.** `JimothyController` is a kinematic sphere, which is already the right shape for this and wrong for almost everything else — the one place the existing physics is a gift rather than a constraint.
-- **Does it pick things up?** Actual Katamari accretes. That is a much bigger feature and probably not what is being asked for, but the word invites it: **confirm before building.**
+Chris, 2026-08-07: *"Correct read on skinny vs. big fatty."*
 
-**Depends on / relates to:** JIM-24 (as big as a house) — these two are really the same rebalance seen from two sides, and should probably be one milestone. Also interacts with the island (milestone 14): a fat rolling Jimothy hitting water is a comedy set-piece.
+**Both playtest verdicts stand.** The `MOVES.ROLL` decisions were taken at *lean* fatness and continue to describe the lean roll:
 
-**Where:** `src/core/Constants.js` (`MOVES.ROLL`, `FATNESS`), `src/gameplay/JimothyController.js`
+- `SPEED: 5` — *slower than a WALK (6) on purpose… the joke is a heavy raccoon heaving himself over.* A skinny Jimothy still does the wonky flop Chris signed off.
+- `DURATION: 0.9`, `SPINS: 1` — one deliberate flop, not a gymnastics routine.
+
+**Only `SPEED` inverts with fatness.** The demolition split is *reinforced*, not reversed:
+
+- `FAT_BLAST_SHARE: 0.3` and `RADIUS_SCALE: 0.55` should go **lower, or stay**, per *"a little less destructive to buildings"*. The headbutt remains the demolition tool; the roll becomes the **harvesting** tool. That is a cleaner three-way split than before — headbutt destroys, roll collects, walking is for precision.
+
+### What it needs building
+
+- **A continuous roll**, not a fixed-duration clip. Hold to keep rolling, with rotation derived from **distance travelled** so the spin always matches ground speed instead of drifting against it.
+- **Momentum.** A marble takes time to get going and resists turning. This is where the feel lives, and it is what stops katamari mode being a strictly better walk.
+- **A carried stash** — a real inventory with mass. Probably the first genuinely new system here.
+- **Accreted mass should be visible.** A ball of junk, bins and flailing paparazzi is the single best screenshot this game could produce, and it is the whole reason to do it rather than an invisible pickup radius.
+- **Live cargo.** Captured pursuers must be *suspended*, not deleted, and restored on unload — position, type, and their place in the heat system. This is the fiddly part.
+- The **kinematic sphere** Jimothy already uses is, for once, exactly the right collision shape.
+
+### Open questions
+
+- **Does collected food count when picked up, or only when sifted?** "Sift through what you picked up" implies the payoff lands at unload — which makes the stash a *deferred* reward and creates the real tension: **what happens to the stash if the net catches you while you are still carrying it?** Losing it is the obvious answer and the one that gives the loop teeth.
+- **Does the ball grow the collision radius?** It should visually; if it does so physically, a big stash makes you a bigger target, which rhymes with the existing fat trade-off (JIM-24).
+- **Is there a capacity limit,** or does mass itself become the limiter (a huge ball is unwieldy)? The latter is more interesting and needs no UI.
+- **What does sifting look like?** It is bulk eating, so it may share the eat animation from JIM-30 — worth designing the two together.
+
+### Relationships
+
+- **JIM-24 (as big as a house)** — the same rebalance from the other side. Should probably be one milestone.
+- **JIM-30 (eat button)** — sifting is bulk eating; shared animation and shared verb.
+- **JIM-23 (lasso)** — the roll now counters the lasso by scooping the catcher. Check that does not defeat it: the exhaustion stat and the carry-your-captor debt should both be pulling the other way.
+- **Milestone 14 (island)** — a fat Jimothy rolling into the sea at speed is both the funniest arrival and the one most likely to break a naive shore-return.
+- **JIM-32 (density)** — a harvesting mechanic is worthless on an empty map. **This needs density to land first.**
+
+**Where:** `src/core/Constants.js` (`MOVES.ROLL`, `FATNESS`), `src/gameplay/JimothyController.js`, `src/gameplay/TrashCans.js`, `src/gameplay/Pursuers.js`, `src/core/GameState.js` (the stash)
 
 ---
 

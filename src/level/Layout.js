@@ -22,6 +22,9 @@ import { CITY, VOXEL, WORLD } from '../core/Constants.js';
 const BLOCK_V = Math.round(CITY.BLOCK / VOXEL.SIZE);
 const ROAD_V = Math.round(CITY.ROAD / VOXEL.SIZE);
 const MARGIN_V = Math.round(CITY.BUILDING_MARGIN / VOXEL.SIZE);
+// How far past the road band a kerbside prop stands. Small: it should hug the
+// road, just not be in it.
+const KERB_OFFSET = 0.8;
 
 /** Positional hash. The old buildDistrict drew from one sequential PRNG in
  *  nested-loop order, so a block's properties depended on how many blocks had
@@ -261,13 +264,19 @@ export function propsAt(i, j) {
   const horizontal = rng() > 0.5;
   const runStart = roadW;
   const runLength = span - roadW;
+  // Bins stand ON THE KERB — just past the road band, on the block side.
+  // At `roadW * 0.6` they sat 60% of the way across the carriageway, i.e. in
+  // the middle of the road, which is where 586 of 586 of them were (playtest,
+  // Chris: "trashcans are in the centre of the road"). The road band runs
+  // [base, base + roadW), so anything inside it is tarmac.
+  const kerb = roadW + KERB_OFFSET;
   for (let n = 0; n < count; n++) {
     const kind = Math.floor(rng() * 4);
     // One bin per segment, jittered inside the middle half of it, so the
     // spacing can never fall below a quarter of a segment.
     const along = runStart + runLength * ((n + 0.25 + rng() * 0.5) / count);
-    const x = horizontal ? baseX + along : baseX + roadW * 0.6;
-    const z = horizontal ? baseZ + roadW * 0.6 : baseZ + along;
+    const x = horizontal ? baseX + along : baseX + kerb;
+    const z = horizontal ? baseZ + kerb : baseZ + along;
     if (Math.hypot(x, z) < 6) continue; // keep spawn clear
     if (!isInsideBounds(x, z)) continue;
     out.push({ id: `${i},${j},${n}`, x: +x.toFixed(2), z: +z.toFixed(2), kind });

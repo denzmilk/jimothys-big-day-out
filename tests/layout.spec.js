@@ -262,3 +262,24 @@ test('container density is a property of a block, not of the map', () => {
   const farAvg = far.reduce((a, b) => a + b, 0) / far.length;
   expect(Math.abs(farAvg - avg)).toBeLessThan(1);
 });
+
+test('SAFE: props stand on the kerb, not in the carriageway', () => {
+  // The assertion that was missing. `SAFE: nothing overlaps a road` only ever
+  // checked BUILDINGS, so 586 of 586 bins and 841 of 844 bushes shipped in the
+  // middle of the road and the suite was silent about it (playtest 2026-08-07,
+  // Chris: "trashcans are in the centre of the road, as are bushes").
+  const props = WINDOW.flatMap(([i, j]) => Layout.propsAt(i, j));
+  const inRoad = props.filter((p) => Layout.roadAtWorld(p.x, p.z)).map((p) => p.id);
+  expect(inRoad.slice(0, 5)).toEqual([]);
+
+  // …and still close enough to the road to read as kerbside rather than as
+  // litter dumped in someone's garden.
+  const strayed = props.filter((p) => {
+    for (let d = 0.5; d <= 3; d += 0.5) {
+      if (Layout.roadAtWorld(p.x - d, p.z) || Layout.roadAtWorld(p.x + d, p.z)
+        || Layout.roadAtWorld(p.x, p.z - d) || Layout.roadAtWorld(p.x, p.z + d)) return false;
+    }
+    return true;
+  }).map((p) => p.id);
+  expect(strayed.slice(0, 5)).toEqual([]);
+});

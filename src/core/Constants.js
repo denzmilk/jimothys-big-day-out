@@ -296,10 +296,15 @@ export const HIDE_SPOTS = {
     const spots = [[-20, -20], [18, 8], [-6, 18], [22, -18]];
     const step = 68;
     const edge = Math.floor(WORLD.BOUNDS / step) * step;
+    // Push into the BLOCK INTERIOR, past the road band and the building
+    // setback. The old `+4, -4` nudge landed 841 of 844 bushes in the middle
+    // of the carriageway (measured 2026-08-07; Chris: "as are bushes"), which
+    // is both nonsensical and the worst possible place to hide.
+    const inset = 9 + 2.5 + 3;
     for (let x = -edge; x <= edge; x += step) {
       for (let z = -edge; z <= edge; z += step) {
         if (Math.hypot(x, z) < 40) continue; // spawn area already covered
-        spots.push([x + 4, z - 4]);
+        spots.push([x + inset, z + inset]);
       }
     }
     return spots;

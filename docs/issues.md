@@ -243,13 +243,13 @@ Two separate things:
 
 ### JIM-21 — Seams: the rig separates instead of stretching
 
-**Status:** implemented 2026-08-07 (milestone 10), **awaiting Chris's playtest** — the skinned model is now what ships (`RIG.SKINNED` defaults true) · **Severity:** high (it caps how far any animation can go) · **Reported:** 2026-08-07 (Chris)
+**Status:** **fixed** 2026-08-07 (milestone 10), playtested and signed off by Chris — *"Looking much better now"*. The skinned model is what ships (`RIG.SKINNED` defaults true) · **Severity:** high (it caps how far any animation can go) · **Reported:** 2026-08-07 (Chris)
 
 > "We do need to fix the seams — have the mesh stretch instead of just separate/break."
 
-**Why this stays open until Chris plays it.** There is no automated seam check and there cannot be a useful one: the mesh is one continuous surface, topologically incapable of tearing, and an attempt to measure gaps between adjacent bones' vertex sets reported 0.077 world units at the hip of a fat mid-roll Jimothy whose mesh was provably intact — because triangles straddle the boundary, so a joint that *stretches* separates them exactly as a torn one would. "Seam" is a rendering judgement. `rig.parts` in `render_game_to_text()` reports every part's position if one does show up.
+**There is no automated seam check and there cannot be a useful one**, which is why this needed a playtest to close: the mesh is one continuous surface, topologically incapable of tearing, and an attempt to measure gaps between adjacent bones' vertex sets reported 0.077 world units at the hip of a fat mid-roll Jimothy whose mesh was provably intact — because triangles straddle the boundary, so a joint that *stretches* separates them exactly as a torn one would. "Seam" is a rendering judgement. `rig.parts` in `render_game_to_text()` reports every part's position if one ever does show up.
 
-Jimothy is **seven rigid solids** parented into slots (milestone 06). Any animation that moves a piece slides it past its neighbour, because there is no geometry spanning the joint. Milestone 09 capped the sockets so you no longer see *through* him, but a capped socket sliding past a capped stump is still a visible seam — and it is why the headbutt's head thrust had to be cut to 0.12 (JIM-18) and why the legs still read as detached (JIM-11).
+**Original diagnosis, kept:** Jimothy was **seven rigid solids** parented into slots (milestone 06). Any animation that moves a piece slides it past its neighbour, because there is no geometry spanning the joint. Milestone 09 capped the sockets so you no longer see *through* him, but a capped socket sliding past a capped stump is still a visible seam — and it is why the headbutt's head thrust had to be cut to 0.12 (JIM-18) and why the legs still read as detached (JIM-11).
 
 **No amount of work on the split approach fixes this.** Separate solids cannot deform across a joint; that is what skinning is for.
 
@@ -265,7 +265,9 @@ Retires: the socket-capping half of JIM-10, JIM-11, and the JIM-18 thrust cap. A
 
 ### JIM-11 — Legs still read as detached from the body
 
-**Status:** open · **Severity:** medium · **Reported:** 2026-08-06 (Chris, with screenshot)
+**Status:** **cause retired** 2026-08-07 (milestone 10) — needs one look to confirm, not more code · **Severity:** medium · **Reported:** 2026-08-06 (Chris, with screenshot)
+
+**Both suspected causes below are gone by construction on the skinned path.** There is no socket and no separate leg piece to rotate out of one: the legs are part of the same continuous surface, and a hip is now a bone the skin stretches across. Chris's milestone-10 sign-off (*"Looking much better now"*) was a verdict on the rig as a whole and did not call this out specifically, so it is parked rather than closed — **look at a walking Jimothy's hips once and close it**, rather than writing any code against it.
 
 Distinct from the fatness-scaling drift fixed in milestone 08 (that one was about the gap *growing* as he ate; this is a gap present at baseline). Two suspected contributors, neither confirmed:
 

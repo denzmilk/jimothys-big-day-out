@@ -2,8 +2,8 @@
 
 ## Status
 
-implemented — awaiting Chris's playtest (house rule 4). Every measurable AC
-passes; the seam AC is playtest-only by nature and is the exit condition.
+**complete** — playtested and signed off by Chris, 2026-08-07: *"Looking much
+better now."*
 
 ## Objective
 
@@ -41,7 +41,7 @@ This is the fourth time the split has produced the same defect (JIM-10, JIM-11, 
 - [x] Head bob, tail wiggle, leg swing, roll tuck and headbutt pitch all still animate — `every animated bone actually moves` samples each part's travel in Jimothy's own frame; roll tuck and headbutt pitch keep their existing specs
 - [x] Fatness deforms the belly *and* carries head, tail and legs with it, with the anchoring code deleted — head rides forward, legs splay sideways only, tail stays on the rump (see "Legs rode out of the world", below)
 - [x] `RIG.SKINNED` defaults to true and `__FORCE_SKINNED__` is gone — the skinned model is what ships
-- [ ] No seam is visible at the neck, hips or tail in any pose, including mid-roll and mid-headbutt — **verified by user playtest**, and it has to be: see "Why there is no automated seam check"
+- [x] No seam is visible at the neck, hips or tail in any pose, including mid-roll and mid-headbutt — **verified by user playtest** (Chris, 2026-08-07: *"Looking much better now"*), and it had to be: see "Why there is no automated seam check"
 
 ## Exit condition
 

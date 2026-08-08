@@ -4,7 +4,9 @@
 
 ## Last updated
 
-2026-08-08 by Claude — **milestone 21: the aimable headbutt now actually aims, and the underground is somewhere you can dig through and see.** Chris played milestone 20 and reported two things; they turned out to be four defects (JIM-38 to JIM-41), each measured before a line was written. All four fixed, all four with specs. Then a **fatness dial in the dev panel** (milestone 04, appended), because judging any of it at full fatness meant eating dozens of snacks first.
+2026-08-08 by Claude — **milestone 22: everything in the game had been falling through the island since milestone 17.** Chris's *"digging underground just felt like blocks disappearing"* turned out to be JIM-42: the only floor in the physics world was a plane at y = 0, and y = 0 has meant the waterline since the ground moved to y ≈ 35–75. Blast debris and **every trash can** fell 26–46 m through the terrain and slept at sea level. Fixed; things land now.
+
+Earlier the same session — **milestone 21: the aimable headbutt now actually aims, and the underground is somewhere you can dig through and see.** Chris played milestone 20 and reported two things; they turned out to be four defects (JIM-38 to JIM-41), each measured before a line was written. All four fixed, all four with specs. Then a **fatness dial in the dev panel** (milestone 04, appended), because judging any of it at full fatness meant eating dozens of snacks first.
 
 ## Current phase
 
@@ -21,8 +23,9 @@ development
 | 18 — underground | implemented, awaiting playtest | `underground.spec.js` (11) |
 | 20 — aimable headbutt | implemented, awaiting playtest | `aim.spec.js` (9) |
 | 21 — aim/dig/see underground | implemented, awaiting playtest | the 7 new specs in the two files above |
+| 22 — things land on the ground | implemented, awaiting playtest | `physics.spec.js` (6) |
 
-**Suite: 119 passed / 1 failed.** The failure is the pre-existing JIM-03 `interrupted feast`, and feast eating is still unverified end to end.
+**Suite: 125 passed / 1 failed.** The failure is the pre-existing JIM-03 `interrupted feast`, and feast eating is still unverified end to end.
 
 ## Play it — everything below is a claim a test makes, not one Chris has made
 
@@ -56,7 +59,7 @@ Byte-identical. `tests/terrain.spec.js` asserts the equality exactly. That is wh
 
 ## ⚠️ The recurring bug of this project: a constant tuned for a world that no longer exists
 
-**Thirteen found so far, across five milestones.** Every one silent — nothing errors, the game just quietly does the wrong thing. When any world dimension changes, **grep every constant expressed in world units and ask what it meant when it was written.**
+**Fourteen found so far, across six milestones.** Every one silent — nothing errors, the game just quietly does the wrong thing. When any world dimension changes, **grep every constant expressed in world units and ask what it meant when it was written.**
 
 | constant | meant | broke |
 |---|---|---|
@@ -73,6 +76,9 @@ Byte-identical. `tests/terrain.spec.js` asserts the equality exactly. That is wh
 | headbutt aim = camera pitch | the horizon | the resting camera looks 26.6° down, so every swing aimed at the pavement |
 | `digsTerrain` = `aim >= DIG_ANGLE` | the only dig was DOWN | a flat swing underground removed 0 voxels; you could only go deeper (JIM-40) |
 | `impactPoint` drops the standoff when digging | ” | no downward carry to replace it sideways, so the sphere stopped 5 mm short of every tunnel wall |
+| **`CANNON.Plane()` at the origin — the only floor in the game** | grade | **every dynamic body fell 26–46 m through the island and slept at sea level (JIM-42)** |
+
+**The last one is the biggest yet, and it hid for four milestones behind two things that were individually reasonable.** Jimothy is kinematic and clamps himself, so the player never fell; cans stream in around him, so the ones you walk up to spawned seconds ago and have not sunk far. A bug that is invisible near the player and obvious 100 m away is one a playtest cannot find — Chris only saw it underground, where rubble has nine metres of open tunnel to visibly drop out of.
 
 **The last two are one bug wearing two coats, and the second only appeared after the first was fixed.** Opening the gate made `digsTerrain` true and the swing still removed nothing — the blast fired, the flag was right, and `damageSphere` called by hand with the same arguments removed a voxel. **When a fix does not take, re-measure rather than re-reason:** calling the layer below by hand is what separated "the gate is shut" from "the gate is open and the sphere is 5 mm short".
 
@@ -83,6 +89,10 @@ Byte-identical. `tests/terrain.spec.js` asserts the equality exactly. That is wh
 - **Measuring the cost of something is not the same as checking it works.** Milestone 17's fly camera streams a 176 m radius; I measured that in columns and heap and never checked you could *see* it. Fog was 85% opaque out there — the whole extra load radius was invisible until Chris said "the fog makes it hard to see much".
 - **"Did it move?" cannot detect pacing.** The pursuer avoidance had a four-frame limit cycle — step left, which unblocks the right and blocks the left, step back, forever. It moved its full 8 cm every frame and travelled 5 cm a second. The first stuck-detector missed it completely. Net displacement over a window is the only thing that tells walking from pacing.
 - **When adding a modifier to an existing verb, the modifier's neutral value must reproduce the old behaviour exactly.** The aim is `pitch - neutralPitch`, so "nobody is aiming" is 0. Milestone 21 is what happens when you only do this for *half* the modifier: the pitch was neutral-correct and the yaw was never wired at all, so the aimable headbutt shipped aiming on one axis.
+- **A rule that moves a body toward clear space must REACH clear space in one move, or it is a ratchet.** Four separate bugs in milestone 22 were this one shape. Lifting a buried body to the top of the voxel it is *in* puts its centre in the next voxel up, so it lifts again — one voxel per step, 33 m/s, and the debris pool reached **13 km**. A *bounded* lift is the same ratchet, slower. The same sentence describes JimothyController's levitation loop (playtest 2026-08-06).
+- **"Not steering it" is not the same as "stopping it".** The buried case first skipped the body without touching its velocity, and one can that spawned inside a kerb still reached the waterline 46 m down while all 29 others rested correctly. Declining to act on a body under gravity is a decision to let it accelerate through the planet.
+- **Pooled objects remember their previous life.** Debris slots are recycled by index, so a slot's "previous position" is wherever it was used last — and a clamp that reverts into that position teleports the chunk across the district. Anything that TELEPORTS a body must clear its sweep history (`PhysicsSystem.resetSweep`), the same discipline `teleportJimothy` already follows.
+- **A bug that is invisible near the player cannot be found by playing.** JIM-42 survived four milestones because cans stream in around Jimothy: the ones you can see spawned seconds ago and have not sunk far yet. It hid behind its own streaming, and was only visible underground where the rubble has open tunnel to fall through.
 - **A test hook that fakes half a system will hide the other half.** `faceJimothy` turned his body without the camera, which was fine until the camera became half the aim — then two streaming specs failed because they had him facing a wall and swinging elsewhere, *a state no player can reach*. Fix the hook, not the game: the hook's job is to reproduce a real situation.
 - **A reticle's promise has to be the thing a player reads it for.** Milestone 20 asserted the marker and the blast were the same point, which was true and became meaningless the moment the marker moved onto the contact surface while the sphere kept burying itself past it. The promise that survives both is *same bearing, and the blast contains the marker*.
 - **Two consumers of one formula must share the function, not the formula.** The reticle and the blast both call `impactPoint`; the way a reticle comes to lie is a second copy.
@@ -101,7 +111,7 @@ The mesh is one continuous surface and is topologically incapable of tearing. "S
 
 ## Blockers
 
-- **⚠️ Five milestones await playtest** (17, 18, 19, 20, 21), plus 08, 09, 12 and 15 from before. "Implemented, all AC ticked" is the ceiling (house rule 4). Milestone 10 is the only one signed off.
+- **⚠️ Six milestones await playtest** (17, 18, 19, 20, 21, 22), plus 08, 09, 12 and 15 from before. "Implemented, all AC ticked" is the ceiling (house rule 4). Milestone 10 is the only one signed off.
 - **⚠️ JIM-11 (legs read as detached) needs re-judging, not more code.** The skinned rig should have retired it. Confirm at the same playtest.
 - **JIM-37 — buildings pop in at 106 m**, now that fog no longer hides the streaming boundary. Chris asked for this to be logged. The cheapest real fix is a **building LOD ring**: `Layout.buildingsIntersecting` answers "what buildings are in this box" from the baked plan *without generating a voxel*, anywhere on the island, so everything from 106 m to the horizon can be one `InstancedMesh` of boxes. One draw call, no streaming.
 - **JIM-34 — no greedy meshing.** A flat ground chunk emits 4096 quads where one would do (~1 MB per chunk). Invisible in normal play; it is what caps the fly camera at 385 m and makes `LOAD_RADIUS` expensive.
@@ -125,6 +135,7 @@ The mesh is one continuous surface and is topologically incapable of tearing. "S
 ## Notes for next session
 
 - **Grade is not a constant.** Ask `voxels.terrainHeightAt(x, z)`.
+- **The voxel world has NO colliders (ADR-0003), and never will.** Dynamic bodies are clamped against the grid after each substep by `PhysicsSystem._groundBodies`; Jimothy clamps himself and is deliberately excluded (he is KINEMATIC). Anything new with a mass gets the clamp for free by being handed to `physics.add`.
 - **`fatFactor(fatness)` in `MathUtils`** is the one asymptotic curve everything fatness drives rides on — width, blast radius, speed penalty, hide squeeze. It was written longhand in four places; the dev readout would have been the fifth, and a readout that has drifted looks exactly like one that has not.
 - **`voxels.raycast(ox,oy,oz, dx,dy,dz, maxDist)`** is the way to ask "what is along this line" — returns the hit point, the voxel, and the face normal, and skips the origin's own voxel. Same DDA as `hasLineOfSight`. The reticle and the camera boom both use it; anything else that needs to probe the world should too, rather than sampling in a loop.
 - **The aim is TWO values.** `cameraSystem.aimPitch` (from the resting pitch) and `cameraSystem.yaw`. A move locks both at the moment it starts. `window.lookJimothy(yaw)` in specs; it forces `input.forcePointerLock`, because aiming only happens while locked and follow mode overwrites the yaw every tick.

@@ -10,6 +10,61 @@
 
 ## Open
 
+### JIM-42 — ⚠️ The physics floor is a plane at sea level, so everything dynamic falls through the island
+
+**Status:** fixed 2026-08-08 (milestone 22) · **Tests:** `tests/physics.spec.js`, 6 specs · **Severity:** critical (every dynamic body in the game is affected) · **Found:** 2026-08-08, while investigating Chris's *"digging underground just felt like blocks disappearing"*
+
+`PhysicsSystem` builds its entire static collision world in the constructor:
+
+```js
+const ground = new CANNON.Body({ type: STATIC, shape: new CANNON.Plane() });
+ground.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+```
+
+A horizontal plane **at y = 0**, plus four 2 m-tall perimeter walls at y = 2. That is the flat 250 m block the game was built on before milestone 17. The voxel world deliberately has no collision bodies at all (ADR-0003 — Jimothy is kinematic and collides by grid lookup), and **nothing ever replaced the plane when the island arrived.** `y = 0` now means the waterline.
+
+So every dynamic body falls straight through the terrain and lands on an invisible plane at sea level, 35–75 m below the ground you can see.
+
+**Trash cans**, measured at spawn and then over 8 s (height relative to the terrain surface under them):
+
+| t | median | worst | asleep |
+|---|---|---|---|
+| 0 s | −0.10 m | −0.30 m | 0 / 30 |
+| 1 s | −7.99 m | −8.19 m | 0 / 30 |
+| 2 s | −22.39 m | −22.64 m | 5 / 30 |
+| 4 s | −26.14 m | −46.05 m | 25 / 30 |
+| 8 s | −26.14 m | −46.05 m | **30 / 30** |
+
+They spawn in exactly the right place — `_spawnCan` was fixed for hills in milestone 17 — and then sink out of the world and go to sleep at the waterline.
+
+**Blast debris**, the thing Chris actually noticed. On the surface it sprays from y ≈ 41.8 and is at **9.3 m and still falling** two seconds later; in a sewer it is already at **0.3 m** by the first sample. It never lands on anything. You headbutt, fourteen chunks puff out, and they sink through the floor — which underground, with no skyline to give the fall away, reads exactly as *"blocks disappearing"*.
+
+**Why the game still seemed to work.** Jimothy is kinematic and hand-clamped against the grid, so he was never affected. Cans are streamed in around the player, so the ones you walk up to spawned seconds ago and have not sunk far yet — the bug hides behind its own streaming. It is *most* visible underground, where debris has nine metres of open tunnel to fall out of before it clears the floor.
+
+**Fixed** by clamping dynamic bodies against the grid after each physics substep (`PhysicsSystem._groundBodies`). Everything now settles at exactly half a voxel above its floor within ~2 s, above ground and in a sewer, for 0.11 ms per step across 190 bodies. **Four ratchet-shaped bugs and two adjacent ones came out of it — see `docs/milestones/22-things-land-on-the-ground.md`, they are the useful part.**
+
+**Fix direction was:** dynamic bodies need the same treatment Jimothy has — a per-step ground clamp against `voxels.groundHeightAt`, not real chunk collision bodies (ADR-0003 exists because a body per chunk is what made voxel destruction unaffordable). ~180 bodies at the cap, one height query each, and the same query already runs for every pedestrian every frame. The perimeter walls at y = 2 want the same look: they are the old block's edge, and the island's coast is not a square.
+
+**Fourteenth member of the family in `docs/STATE.md`** — and the largest. `CANNON.Plane()` at the origin meant "grade" and now means "the waterline", which is the exact sentence written about `damageSphere(minVoxelY: 0)` a session ago.
+
+### JIM-43 — Dug surfaces render as hard cubes; only undisturbed ground is smoothed
+
+**Status:** open · **Severity:** medium (cosmetic, but it is most of what you look at underground) · **Reported:** Chris, 2026-08-08 — *"there was no smoothing still on the cubes."*
+
+Working as currently designed, and the design is what he is objecting to. `VoxelWorld._buildChunk` smooths by displacing the top face of an **undisturbed terrain voxel** onto the continuous height field. The rule is documented as *"smooth is what you found, voxel is what you did to it"*, and it has two hard limits:
+
+1. **Top faces only.** A vertical face is never displaced, so a wall of rock is always a grid of squares however it was made.
+2. **Undisturbed only.** A crater floor is not the terrain's top voxel any more, so it drops out of the rule entirely.
+
+Underground, *everything* you can see fails both tests — tunnel walls, a dug shaft, a side passage — so the smoothing that makes the hills work is switched off exactly where Chris was looking.
+
+The height-field trick cannot be extended to cover it: it works because the surface is a **function of (x, z)**, and a tunnel is not — a column underground has a floor *and* a ceiling. Smoothing arbitrary voxel topology is a different algorithm (marching cubes, or surface nets / dual contouring on the same grid), which replaces the face-culled quad mesher rather than extending it.
+
+**Wants its own milestone**, and it interacts with three things already on the register:
+- **JIM-34 (no greedy meshing)** — surface nets would replace that mesher, so doing greedy meshing first would be wasted work. These two must be decided together.
+- The **debris colours and materials** come off per-voxel material ids, which a smoothed surface still has to carry.
+- Whether the *city* should stay hard-edged. Buildings are voxels too, and a smoothed skyscraper would be wrong — so the mesher needs to know which materials smooth and which do not.
+
 ### JIM-38 — The headbutt's horizontal aim is his facing, never the camera's
 
 **Status:** fixed 2026-08-08 (milestone 21) · **Test:** `tests/aim.spec.js::looking left and right moves the aim`, `::the headbutt lands where you looked` · **Severity:** high (the aimable headbutt only aims on one axis) · **Reported:** Chris, 2026-08-08 — *"the headbutt 'aim' doesn't really line up with anything."*
@@ -286,11 +341,27 @@ Still open:
 
 ---
 
-### JIM-24 — Jimothy should be able to get as big as a house
+### JIM-24 — Jimothy should be able to get as big as a house — no, bigger than that
 
-**Status:** open · **Severity:** high (it is the core fantasy) · **Reported:** 2026-08-07 (Chris)
+**Status:** open · **Severity:** high (it is the core fantasy) · **Reported:** 2026-08-07 (Chris), **escalated 2026-08-08**
 
 > "Speed slow down can be more aggressive, the idea is that Jimothy can get as big as a house if he keeps eating."
+
+> **Chris, 2026-08-08, on seeing the dev panel's fatness dial top out at 200:** *"That upper limit is way too small for ultimate fatness — that's gotta be an issue to change and increase to an actual massive size. Like consume the world size."*
+
+**So the target moved, and it moved past "a house".** The dial made the ceiling legible for the first time and the answer was that the ceiling itself is wrong, not the slider: `DEV.FATNESS_MAX` was picked as "the range where moving the slider still changes something", and that range is small **because the curve flattens**, which is the defect. Measured across the whole dial:
+
+| fatness | factor | body width | blast radius |
+|---|---|---|---|
+| 0 | 0.000 | ×1.00 | 0.75 m |
+| 25 | 0.500 | ×1.45 | 3.50 m |
+| 90 | 0.783 | ×1.70 | 5.05 m |
+| 200 | 0.889 | ×1.80 | 5.64 m |
+| **600** | 0.960 | **×1.86** | 6.03 m |
+
+Eating twenty-four times as much between 25 and 600 buys **28 % more width**. `f = fat/(fat + SOFTCAP)` cannot exceed 1, so width cannot exceed `1 + MAX_WIDTH_GAIN` — **×1.9, ever, for any input.** That is the wall, and it is arithmetic rather than tuning: no value of `SOFTCAP` moves it.
+
+"World size" is roughly **×2000**, against a hard ceiling of ×1.9. The bullet list below was written for "a house" and every item on it gets harder by three orders of magnitude — in particular the city stops being furniture and becomes *terrain texture*, and a blast radius that scales with him would remove a district per swing.
 
 Fatness currently asymptotes at roughly **1.9× body width** (`SOFTCAP 25`, `MAX_WIDTH_GAIN 0.9`). That is "chunky raccoon", not "the size of a house". The ceiling is the whole point of the game — *fat is the score* — and it is currently set about an order of magnitude too low.
 

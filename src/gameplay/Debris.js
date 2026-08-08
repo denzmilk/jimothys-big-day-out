@@ -37,6 +37,12 @@ export class Debris {
         angularDamping: 0.2,
       });
       body.sleepSpeedLimit = 0.4;
+      // Parked, not merely hidden. Every slot starts dead, and `update` only
+      // sleeps a slot it has just killed — so the pool used to ship 150 awake
+      // dynamic bodies falling out of the world from frame zero, for the whole
+      // run. Invisible before milestone 22 and expensive after it, since the
+      // ground clamp walks every dynamic body the physics system holds.
+      body.sleep();
       physics.add(body);
       this.slots.push({ body, alive: false, ttl: 0, color: new THREE.Color() });
     }
@@ -55,6 +61,11 @@ export class Debris {
       slot.color.set(VOXEL.MATERIALS[cell.mat]?.color ?? 0x888888);
       slot.body.wakeUp(); // pooled bodies may have fallen asleep (ADR-0002)
       slot.body.position.set(cell.x, cell.y, cell.z);
+      // A recycled slot still remembers where it was in its LAST life, which is
+      // a spot by whatever wall was smashed three seconds ago. The ground clamp
+      // reverts into that position when a step ends inside solid, so a stale one
+      // teleports the chunk across the district (milestone 22).
+      this.physics.resetSweep(slot.body);
       slot.body.quaternion.set(0, 0, 0, 1);
       const a = i * 2.399; // golden-angle spray, no RNG so tests stay stable
       slot.body.velocity.set(

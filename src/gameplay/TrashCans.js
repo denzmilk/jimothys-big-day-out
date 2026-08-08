@@ -113,6 +113,7 @@ export class TrashCans {
       live.add(p.id);
       if (this.emptied.has(p.id) || this._byId?.has(p.id)) continue;
       const can = this.addCan(p.x, p.z, p.kind);
+      if (!can) continue; // that spot turned out to be inside a building
       can.id = p.id;
       (this._byId ??= new Map()).set(p.id, can);
     }
@@ -144,7 +145,26 @@ export class TrashCans {
     // On the ground it is actually standing on. `kind.height / 2` alone meant
     // "resting on grade", which is only true on a flat world — on a 45 m hill
     // it spawned the bin 45 m underground, where it stayed (milestone 17).
-    const ground = this.voxels ? this.voxels.terrainHeightAt(x, z) : 0;
+    //
+    // …and the TERRAIN height is not the same as the surface you can stand on:
+    // roads, pavements and foundations sit on top of it. A bin whose centre
+    // landed inside one of those was embedded in solid from birth, which is
+    // survivable only while nothing checks — with the ground clamp (milestone
+    // 22) an embedded body is entombed, and one bin per run was spawning that
+    // way and freezing inside a kerb. Scan down from clear air above.
+    const ground = this.voxels
+      ? this.voxels.groundHeightAt(x, z, this.voxels.terrainHeightAt(x, z) + 3)
+      : 0;
+    // …and if the spot is inside a building anyway, do not put a bin there.
+    // `Layout.propsIn` occasionally hands back a position under a footprint,
+    // which used to be survivable-ish because the bin simply fell through the
+    // world. With the ground clamp (milestone 22) an embedded body is entombed,
+    // so it would sit frozen inside a wall forever — measured at one bin per
+    // run, 4.5 m up inside a house. No bin is better than a bin in a wall.
+    if (this.voxels?.solidAtWorld(x, ground + kind.height / 2 + 0.05, z)) {
+      this.scene.remove(mesh);
+      return null;
+    }
     const body = new CANNON.Body({
       mass: kind.mass,
       shape: new CANNON.Box(new CANNON.Vec3(kind.radius, kind.height / 2, kind.radius)),

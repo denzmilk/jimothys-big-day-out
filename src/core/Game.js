@@ -65,6 +65,10 @@ class Game {
     this.physics = new PhysicsSystem();
     this.voxels = new VoxelWorld(this.scene);
     installCity(this.voxels);
+    // Before anything with a mass exists (milestone 22). The voxel city has no
+    // colliders by design (ADR-0003), so this is the only thing standing
+    // between a dynamic body and a 40 m fall to sea level — JIM-42.
+    this.physics.attachWorld(this.voxels);
     // After the world: the bushes and the sea have to sit on ground that
     // already knows how high it is.
     this.level = new LevelBuilder(this.scene, this.voxels);

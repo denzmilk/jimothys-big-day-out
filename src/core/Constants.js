@@ -239,6 +239,39 @@ export const FATNESS = {
   HIDE_SQUEEZE: 2.5,
 };
 
+// How dynamic bodies meet the voxel world (milestone 22 / JIM-42).
+//
+// There is nothing for them to collide WITH: static structure gets no physics
+// bodies at all (ADR-0003), because a collider per voxel is what makes a
+// destructible city unaffordable. So they are clamped against the grid after
+// each step, exactly as Jimothy already is — and these are the numbers that
+// decide whether that reads as landing or as sticking.
+export const PHYSICS = {
+  // Fraction of downward speed returned as bounce. Rubble is not a ball: high
+  // enough that a chunk hops off the floor once or twice, low enough that a
+  // blast does not turn into popcorn.
+  GROUND_RESTITUTION: 0.28,
+  // Horizontal and spin bleed applied on each contact, so debris skids to a
+  // stop instead of sliding across the district forever. Nothing else damps
+  // it — a grid clamp has no friction of its own.
+  GROUND_FRICTION: 0.72,
+  // Below this bounce speed, stop bouncing. Without it a chunk chatters against
+  // the floor at ever-smaller amplitudes and never satisfies cannon's sleep
+  // test, so 150 pieces of gravel stay awake for their whole lifetime.
+  SETTLE_SPEED: 0.55,
+  // A SLEEPING body whose floor has dropped further than this has had the
+  // ground blasted out from under it and must fall. Nothing else can notice:
+  // there are no collision events to lose, because there is no collider. Wide
+  // enough to ignore float drift in a resting contact.
+  WAKE_GAP: 0.12,
+  // Above this much clear air over the terrain, skip the body entirely: it is
+  // still falling and there is nothing under it yet. Doubles as a cost cap,
+  // because the ground scan is O(height) — a body that gets a long way up would
+  // otherwise walk its whole column every step. Generous enough to clear the
+  // tallest tower downtown; it is a runaway guard, not a gameplay rule.
+  MAX_LAND_HEIGHT: 120,
+};
+
 // Dev-panel-only values. Not gameplay — nothing outside `DevTools` reads them,
 // and none of it is persisted: fatness is live run state, so a slider that
 // survived a reload would be a save file nobody asked for.

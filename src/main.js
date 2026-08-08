@@ -16,7 +16,19 @@ window.restartGame = () => game.restart();
 window.setFatness = (fat) => { gameState.player.fatness = fat; };
 // Heading matters for the move specs: bugs that hide when he faces world +z
 // (the spawn heading) are exactly the ones that shipped.
-window.faceJimothy = (yaw) => { game.jimothy.yaw = yaw; game.jimothy.postUpdate(0); };
+//
+// Turns the CAMERA with him (milestone 21). Since JIM-38 the aim's yaw comes
+// from the camera, not from his body, so a hook that turned only the body left
+// him facing a wall and swinging somewhere else — which is not a state a player
+// can reach, because the follow camera trails whatever he walks into. Snapped
+// rather than lerped, for the same reason teleportJimothy snaps it.
+window.faceJimothy = (yaw) => {
+  game.jimothy.yaw = yaw;
+  game.jimothy.aimYaw = yaw;
+  game.cameraSystem.yaw = yaw;
+  game.cameraSystem.snapToTarget();
+  game.jimothy.postUpdate(0);
+};
 // "Did that move dig the road?" can't be answered by voxel counts, which can't
 // tell a wall from a pavement. Compare against terrainSurfaceAt: the scan
 // starts above THIS column's own surface, because the literal 3 that used to be
@@ -80,6 +92,19 @@ window.pursuerSightRange = (type, tier) => game.pursuers.sightRange(type, tier);
 // drives while the pointer is locked — and pointer lock is not reliably
 // available headless, so the specs set the same value the mouse would.
 window.aimJimothy = (down) => { game.cameraSystem.pitch = down; };
+// …and the other axis (milestone 21 / JIM-38), which milestone 20 never wired.
+// Forces the pointer-lock flag as well, because aiming only happens while
+// locked and follow mode overwrites the yaw from the camera's own trailing
+// position every frame — so without the lock a spec's yaw would survive
+// exactly until the next tick. `jimothy.aimYaw` is set directly too, so a
+// spec may read the reticle without first stepping the sim.
+window.lookJimothy = (yaw) => {
+  game.input.forcePointerLock = true;
+  game.cameraSystem.mode = 'orbit';
+  game.cameraSystem.yaw = yaw;
+  game.jimothy.aimYaw = yaw;
+  game.updateReticle();
+};
 
 // --- Milestone 18: the underground ---
 // Every stairwell on the island. "Enterable from street level" is a claim about

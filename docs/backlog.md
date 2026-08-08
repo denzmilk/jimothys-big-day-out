@@ -110,6 +110,16 @@
 
 ## Polish & juice
 
+- [ ] **Flatten the camera's pitch in a tight space, so the boom can sit back along the tunnel.** Milestone 21 gave the boom collision (JIM-41), and in a sewer that pins it at `COLLIDE_MIN` — 1.0 m, measured — because the follow boom rises 3.5 m over 7 m and a tunnel is 2.9 m tall. It stops the camera being inside the rock, which was the bug, but near-first-person is a big feel change for the underground. A boom that lowers its pitch as it gets squeezed would find the 5–6 m of clear tunnel that is genuinely there behind him.
+  - Source: 2026-08-08, milestone 21 (measured while fixing JIM-41)
+  - Rough size: S · Rough value: M
+  - Notes: **wait for Chris's playtest before building it** — near-first-person in a pipe may simply be the right answer, and this is only worth doing if it reads badly. Related: milestone 20's known rough edge, that follow mode never places its camera from `pitch` at all.
+
+- [ ] **A lean Jimothy can barely tunnel.** 10 flat swings at a sewer wall removed 7 voxels at fatness 0, against ~2 400 at fatness 40 — the blast radius is 0.75 m before any fatness bonus, so a thin raccoon just taps the rock. Arguably correct (`FAT_BLAST_SHARE: 1.0` is commented "this is the move eating is meant to buy") but it is close to the mechanic doing nothing at the low end, and digging is now how you get around down there.
+  - Source: 2026-08-08, milestone 21 (measured during live-iterate)
+  - Rough size: S · Rough value: S
+  - Notes: a balance call for Chris, like JIM-35, which this shares a cause with. Fixing it by raising `VOXEL.BLAST_RADIUS` would make every *surface* headbutt bigger too — a dig-specific radius multiplier is the narrower lever.
+
 - [ ] Trump sun / Trump moon — the sun is a Donald Trump face with the makeup on (orange, bright, beaming); the moon is the same face with it off (pale, grey, unlit). The joke lands entirely on the day/night transition, so build it with that item, not before.
   - Source: 2026-08-06 Chris ("make the sun donald trump with his makeup on and the moon donald trump with his makeup off")
   - Rough size: S · Rough value: M · Roadmap: Phase 3, rides on the day/night cycle

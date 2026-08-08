@@ -23,6 +23,8 @@ export class InputSystem {
     // roof. Raw key state (`held`) is deliberately still readable, since that
     // is what the fly camera steers by.
     this.suppressed = false;
+    // Test seam — see the `pointerLocked` getter. Production never writes it.
+    this.forcePointerLock = false;
     this._hopQueued = false;
     this._gpHopHeld = false;
     this._flyQueued = false;
@@ -78,7 +80,12 @@ export class InputSystem {
   }
 
   get pointerLocked() {
-    return !!document.pointerLockElement;
+    // The override exists for the specs (milestone 21). Pointer lock is not
+    // reliably grantable headless, and aiming only happens while locked — so
+    // without it every aim spec would have to drive a parallel code path
+    // instead of the one the player uses, which is how a mechanic ships broken
+    // with a green suite. Nothing in the game ever sets it.
+    return this.forcePointerLock || !!document.pointerLockElement;
   }
 
   togglePointerLock() {

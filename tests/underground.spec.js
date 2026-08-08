@@ -12,7 +12,7 @@
 // proxy this repo has shipped twice.
 import { test, expect } from '@playwright/test';
 import { state, adv, boot } from './helpers.mjs';
-import { SEWER, TREASURE, VISION, STREAM } from '../src/core/Constants.js';
+import { SEWER, TREASURE, VISION, STREAM, CAMERA } from '../src/core/Constants.js';
 import * as Masterplan from '../src/level/CityPlanner.js';
 import * as Terrain from '../src/level/Terrain.js';
 
@@ -223,4 +223,129 @@ test('the underground costs memory only where it has been visited', async ({ pag
   // Bounded by the same disc every other resident set is: the underground does
   // not get its own streaming budget, because it is the same columns.
   expect(s.voxels.columns).toBeLessThanOrEqual((STREAM.UNLOAD_RADIUS * 2 + 1) ** 2);
+});
+
+// --- Milestone 21: you can dig sideways down here, and you can see it ---
+
+test('a flat headbutt digs sideways underground, and still spares the road above (JIM-40)', async ({ page }) => {
+  // The pair, and both halves are needed. `digsTerrain` gated on aim alone, and
+  // `damageSphere` then floors removal at the column's own surface — so
+  // underground a flat swing removed 0 voxels where an aimed-down one removed
+  // 11, from the same spot. "You can't dig in a direction, all you can do is go
+  // deeper" (Chris, 2026-08-08).
+  //
+  // Loosening the gate everywhere would bring back the 2026-07-23 playtest bug
+  // it was written for, so the second half of this spec is the guard.
+  await boot(page);
+  const entrances = await page.evaluate(() => window.sewerEntrances());
+  const e = nearestTo(entrances, 0, 0);
+  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await adv(page, 1.5);
+  expect((await state(page)).underground.below, 'never got underground').toBe(true);
+
+  // Point him at a tunnel wall — flat, which is the swing that used to do
+  // nothing — and check the rock in front of him actually goes away.
+  const dig = await page.evaluate(() => {
+    const g = window.__game;
+    const p = g.jimothy.body.position;
+    // Whichever horizontal heading has solid rock 2 m out: in a tunnel that is
+    // across the bore, and the spec must not assume which way the pipe runs.
+    let yaw = null;
+    for (let a = 0; a < 16; a++) {
+      const th = (a / 16) * Math.PI * 2;
+      if (g.voxels.solidAtWorld(p.x + Math.sin(th) * 2, p.y, p.z + Math.cos(th) * 2)) {
+        yaw = th;
+        break;
+      }
+    }
+    if (yaw === null) return null;
+    window.lookJimothy(yaw);
+    window.aimJimothy(g.cameraSystem.neutralPitch); // dead flat: aimPitch 0
+    return { yaw, x: p.x, y: p.y, z: p.z, removed: g.voxels.removedCount };
+  });
+  expect(dig, 'no tunnel wall within 2 m to dig at').toBeTruthy();
+
+  await page.keyboard.press('e');
+  await adv(page, 1.2);
+  const after = await page.evaluate(() => window.__game.voxels.removedCount);
+  expect(after - dig.removed, 'a flat headbutt underground removed nothing').toBeGreaterThan(0);
+  // …and specifically the wall he was pointing at, not rubble somewhere else.
+  const gone = await page.evaluate((d) => !window.voxelSolidAt(
+    d.x + Math.sin(d.yaw) * 1.2, d.y, d.z + Math.cos(d.yaw) * 1.2,
+  ), dig);
+  expect(gone, 'the rock he pointed at is still there').toBe(true);
+});
+
+test('the follow camera never sits inside the rock (JIM-41)', async ({ page }) => {
+  // A 7 m boom cannot fit in a 3.6 x 2.9 m pipe under any heading. Measured
+  // before the fix: the camera inside solid rock with 40% of the boom buried,
+  // so back-face culling deleted the tunnel and left unrelated chunk faces —
+  // Chris, 2026-08-08: "once you're underground it turns into blocks."
+  await boot(page);
+  const entrances = await page.evaluate(() => window.sewerEntrances());
+  const e = nearestTo(entrances, 0, 0);
+  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await adv(page, 1.5);
+  expect((await state(page)).underground.below, 'never got underground').toBe(true);
+
+  // Sampled along the whole boom, not just at the camera: an eye that has
+  // squeezed through a wall into open air on the far side reads as fine at the
+  // endpoint and is exactly the failure this is looking for.
+  const boom = () => page.evaluate(() => {
+    const g = window.__game;
+    const jp = g.jimothy.group.position;
+    const cp = g.camera.position;
+    let solid = 0;
+    const N = 24;
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      if (g.voxels.solidAtWorld(
+        jp.x + (cp.x - jp.x) * t,
+        jp.y + 0.8 + (cp.y - (jp.y + 0.8)) * t,
+        jp.z + (cp.z - jp.z) * t,
+      )) solid++;
+    }
+    return { fraction: solid / (N + 1), dist: Math.hypot(cp.x - jp.x, cp.y - jp.y, cp.z - jp.z) };
+  });
+
+  // Walk him along the tunnel — a camera that happens to be clear at the
+  // stairwell proves nothing about the pipe.
+  let worst = 0;
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.down('w');
+    await adv(page, 0.4);
+    await page.keyboard.up('w');
+    const b = await boom();
+    worst = Math.max(worst, b.fraction);
+  }
+  expect(worst, 'the camera boom is buried in rock').toBe(0);
+
+  // …and it comes back out on the surface, or the fix has just permanently
+  // welded the camera to the back of his head.
+  await page.evaluate(() => window.teleportJimothy(0, 0));
+  await adv(page, 1.5);
+  expect((await boom()).dist, 'the camera never pulled back above ground')
+    .toBeGreaterThan(CAMERA.FOLLOW_DISTANCE * 0.6);
+});
+
+test('he fades when the camera is forced in close, so you can see past him (JIM-41)', async ({ page }) => {
+  // A boom that collides means near-first-person in a pipe, and near-first-
+  // person means looking at the inside of his skull unless he gets out of the
+  // way. Reuses the hide-spot fade rather than a second mechanism.
+  await boot(page, { withRig: true });
+  const entrances = await page.evaluate(() => window.sewerEntrances());
+  const e = nearestTo(entrances, 0, 0);
+
+  await page.evaluate(() => window.teleportJimothy(0, 0));
+  await adv(page, 0.6);
+  const surface = await state(page);
+  expect(surface.rig.materials.every((m) => m.opacity === 1), 'he is see-through on the street')
+    .toBe(true);
+
+  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await adv(page, 1.5);
+  const down = await state(page);
+  expect(down.underground.below).toBe(true);
+  expect(down.rig.materials.some((m) => m.opacity < 1), 'solid raccoon filling a first-person view')
+    .toBe(true);
 });

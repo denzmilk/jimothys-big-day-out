@@ -455,6 +455,75 @@ export class VoxelWorld {
     return true;
   }
 
+  /** The first solid cell a ray enters, with the face normal of the side it
+   *  came in through — or null if it reaches `maxDist` through open air.
+   *
+   *  Same Amanatides & Woo traversal as `hasLineOfSight`, and for the same
+   *  reason: the world has no collision bodies at all (ADR-0003), so there is
+   *  nothing for a physics raycast to hit. Marching the grid also gets implicit
+   *  ground, buildings, tunnel walls and the rubble he made a second ago for
+   *  free, because they are all just `get`.
+   *
+   *  Two callers, both from milestone 21: the aiming reticle, which has to land
+   *  ON what you point at rather than hang at a fixed range (JIM-39), and the
+   *  camera boom, which has to stop before it ends up inside the rock (JIM-41).
+   *
+   *  The ORIGIN's own voxel is skipped, exactly as in `hasLineOfSight`. An eye
+   *  clipped a few centimetres into a wall is a state the game can be in, and
+   *  reporting a hit at zero distance there pins the camera to his nose.
+   *
+   *  No `_ensureAtWorld` in the loop: both callers march tens of metres, well
+   *  inside the streamed disc, and generating a column mid-march would turn a
+   *  per-frame query into a frame hitch. Unstored cells still answer correctly
+   *  for ground, because that is what implicit ground means. */
+  raycast(ox, oy, oz, dx, dy, dz, maxDist) {
+    const len = Math.hypot(dx, dy, dz);
+    if (!len || !(maxDist > 0)) return null;
+    const s = VOXEL.SIZE;
+    const ux = dx / len;
+    const uy = dy / len;
+    const uz = dz / len;
+    let [x, y, z] = this.worldToVoxel(ox, oy, oz);
+    const stepX = Math.sign(ux);
+    const stepY = Math.sign(uy);
+    const stepZ = Math.sign(uz);
+    const boundary = (v, step) => (step > 0 ? (v + 1) * s : v * s);
+    // Distance (in world units, since the direction is unit-length) to the next
+    // grid plane on each axis, and what one whole voxel costs.
+    let tMaxX = ux === 0 ? Infinity : (boundary(x, stepX) - ox) / ux;
+    let tMaxY = uy === 0 ? Infinity : (boundary(y, stepY) - oy) / uy;
+    let tMaxZ = uz === 0 ? Infinity : (boundary(z, stepZ) - oz) / uz;
+    const tDeltaX = ux === 0 ? Infinity : Math.abs(s / ux);
+    const tDeltaY = uy === 0 ? Infinity : Math.abs(s / uy);
+    const tDeltaZ = uz === 0 ? Infinity : Math.abs(s / uz);
+    // A hard cap rather than trusting termination: this runs per frame, and a
+    // degenerate ray must cost a bounded amount rather than freezing the game.
+    // Three axes can each be crossed once per voxel of travel.
+    const maxSteps = Math.ceil((maxDist / s) * 3) + 3;
+    let nx = 0;
+    let ny = 0;
+    let nz = 0;
+    for (let n = 0; n < maxSteps; n++) {
+      let t;
+      // The normal is the face just crossed, which is the axis that advanced,
+      // pointing back the way the ray came.
+      if (tMaxX < tMaxY && tMaxX < tMaxZ) {
+        t = tMaxX; x += stepX; tMaxX += tDeltaX; nx = -stepX; ny = 0; nz = 0;
+      } else if (tMaxY < tMaxZ) {
+        t = tMaxY; y += stepY; tMaxY += tDeltaY; nx = 0; ny = -stepY; nz = 0;
+      } else {
+        t = tMaxZ; z += stepZ; tMaxZ += tDeltaZ; nx = 0; ny = 0; nz = -stepZ;
+      }
+      if (t > maxDist) return null;
+      if (this.get(x, y, z) === 0) continue;
+      return {
+        t, nx, ny, nz, vx: x, vy: y, vz: z,
+        x: ox + ux * t, y: oy + uy * t, z: oz + uz * t,
+      };
+    }
+    return null;
+  }
+
   /** Clear voxels in a sphere. Returns the world-space centers removed so the
    *  caller can spawn debris where the wall actually was.
    *

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL,
+  PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -109,9 +109,17 @@ export class JimothyController {
     // Damped jiggle spring: every bite kicks it, big bites kick it harder.
     this.jiggleAmp = 0;
     this.widthScale = 1;
-    // Move state: { kind: 'headbutt'|'roll', t, fired } — see MOVES.
+    // Move state: { kind: 'headbutt'|'roll', t, fired, aim, yaw } — see MOVES.
     this.move = null;
     this.moveCooldown = 0;
+    // Where the player is pointing, both axes (milestone 21). Fed by the
+    // orchestrator from the camera each frame; the defaults mean "nobody is
+    // aiming", which must reproduce the pre-aim behaviour exactly.
+    this.aimPitch = 0;
+    this.aimYaw = null;
+    // How far the eye ended up from him, written by the orchestrator after the
+    // camera runs. Infinity until then, so nothing fades on frame zero.
+    this.cameraDist = Infinity;
     // Scratch for the tumble-pivot compensation in postUpdate; allocating
     // these per frame would churn the GC on the hot path.
     this._pivot = new THREE.Vector3();
@@ -277,6 +285,13 @@ export class JimothyController {
     // than threaded through `_updateMoves`, because the head has to be posed to
     // it in postUpdate too.
     this.aimPitch = aimPitch;
+    // The aim's OTHER axis (JIM-38). Milestone 20 wired the pitch and left the
+    // yaw on `this.yaw`, which only tracks anything while he is WALKING
+    // (postUpdate gates it on speed > 0.3) — so standing still and looking left
+    // did nothing at all, measured 90 degrees adrift. Neutral by the same rule
+    // the pitch follows: in follow mode the camera already trails his heading,
+    // so nobody aiming means this is where he was pointed anyway.
+    this.aimYaw = cameraYaw;
     this.elapsed += delta;
     if (this.stunTimer > 0) {
       this.stunTimer -= delta;
@@ -324,7 +339,15 @@ export class JimothyController {
       // headbutt commits to where it was pointed, not to where the mouse
       // drifted during the windup.
       if (this.input.consumeHeadbutt()) {
-        this.move = { kind: 'headbutt', t: 0, fired: false, aim: this.aimPitch || 0 };
+        const yaw = this.aimYaw ?? this.yaw;
+        this.move = { kind: 'headbutt', t: 0, fired: false, aim: this.aimPitch || 0, yaw };
+        // He commits his BODY to the aim as the windup begins (Chris,
+        // 2026-08-08: snap on the swing, rather than turning to the camera
+        // while merely looking around — that would rewrite a walk feel he has
+        // already signed off). Facing is frozen for the rest of the move, so
+        // this is the only moment it can happen, and the 0.12 s of rearing
+        // back covers the turn.
+        this.yaw = yaw;
       } else if (this.input.consumeRoll()) this.move = { kind: 'roll', t: 0, ticks: 0 };
     }
     // Queued presses are deliberately NOT drained while busy — a press during
@@ -464,15 +487,21 @@ export class JimothyController {
       if (Math.hypot(p.x - hx, p.z - hz) < hideRadius) { hidden = true; break; }
     }
     gameState.player.hidden = hidden;
+    // …and the second reason to go see-through (JIM-41): the boom collides now,
+    // so a sewer puts the eye a metre off his back and he is between you and
+    // everything you are trying to look at. One frame stale — the camera runs
+    // after him in the loop — which at 60 Hz is nothing.
+    const crowded = this.cameraDist < CAMERA.FADE_DISTANCE;
+    const fade = hidden || crowded;
     // Transparency is a STATE, not a permanent property. Leaving `transparent`
     // on parks every piece in the sorted transparent queue for the whole run
     // to buy nothing, and invites the pieces to mis-sort against each other.
     // Flipping it costs a shader recompile, so only do it on the transition.
-    if (hidden !== this._faded) {
-      this._faded = hidden;
+    if (fade !== this._faded) {
+      this._faded = fade;
       for (const m of this.materials) {
-        m.transparent = hidden;
-        m.opacity = hidden ? 0.5 : 1;
+        m.transparent = fade;
+        m.opacity = fade ? 0.5 : 1;
         m.needsUpdate = true;
       }
     }

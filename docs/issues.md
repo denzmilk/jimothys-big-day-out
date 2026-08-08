@@ -10,6 +10,77 @@
 
 ## Open
 
+### JIM-38 — The headbutt's horizontal aim is his facing, never the camera's
+
+**Status:** fixed 2026-08-08 (milestone 21) · **Test:** `tests/aim.spec.js::looking left and right moves the aim`, `::the headbutt lands where you looked` · **Severity:** high (the aimable headbutt only aims on one axis) · **Reported:** Chris, 2026-08-08 — *"the headbutt 'aim' doesn't really line up with anything."*
+
+Milestone 20 made the aim `CameraSystem.aimPitch` and stopped there. The *yaw* was never wired: `JimothyController._updateMoves` builds its forward vector from `this.yaw`, and `Game.updateReticle` does the same. `this.yaw` only tracks the camera indirectly, and only **while he is walking** — `postUpdate` gates it on `moving = this.speed > 0.3`.
+
+So standing still with the pointer locked, looking left does nothing at all. Measured at spawn after swinging the camera 90°:
+
+| | value |
+|---|---|
+| `cameraSystem.yaw` | 4.712 |
+| `jimothy.yaw` | 3.142 |
+| reticle bearing | **followed Jimothy** |
+
+Half the aim is missing, which is most of why it "doesn't line up". **Decision (Chris, 2026-08-08): snap on the swing** — the reticle tracks the camera continuously, and his body whips round to face it at the moment the lunge starts. The walk-around facing feel is untouched.
+
+### JIM-39 — The reticle floats in mid-air; it never touches what you point at
+
+**Status:** fixed 2026-08-08 (milestone 21) · **Test:** `tests/aim.spec.js::the reticle lands ON the wall you point at`, `::the reticle marks a miss` · **Severity:** high (the reticle is the whole aiming UI) · **Reported:** Chris, 2026-08-08 — *"we need the reticle to dynamically move to highlight any item/surface it's on — currently it just changes for the ground but not really in front of you."*
+
+`Game.impactPoint` is a pure projection: `from + dir * dist`, where `dist` is the blast standoff. **It never asks the world what is there.** The reticle is parked at that point, so it hangs in the air at a fixed range whatever you are pointing at.
+
+It appears to work when you aim *down* only because the projection happens to end up near the ground — which is exactly the "it just changes for the ground" symptom. The mesh compounds it: the torus is pinned to `rotation.x = -Math.PI / 2`, so it lies flat regardless of what it is on, and reads as a floating ring rather than a decal on a wall.
+
+Measured at spawn: reticle at `(0, 42.27, -2.31)`, `solidAtWorld` at that point `true` — buried inside geometry, not resting on it.
+
+Fix is a DDA march along the aim (`VoxelWorld.hasLineOfSight` already has the traversal; it needs a sibling that returns the hit and its face normal), plus a `THREE.Raycaster` pass over the container meshes so a bin highlights too. Trees and buildings are voxels, so the march covers them.
+
+### JIM-40 — Underground, a flat headbutt removes nothing: you can only go deeper
+
+**Status:** fixed 2026-08-08 (milestone 21) · **Test:** `tests/underground.spec.js::a flat headbutt digs sideways underground` · **Severity:** high (the underground is unnavigable by digging) · **Reported:** Chris, 2026-08-08 — *"you can't dig in a direction once a hole is made, all you can do is go deeper."*
+
+Two gates compose into a dead end:
+
+1. `Game.digsTerrain` returns `aim >= DIG_ANGLE` — a swing that is not pointed steeply down is not allowed to touch terrain.
+2. `VoxelWorld.damageSphere` with `digsTerrain: false` sets the removal floor to that column's `topSolidVoxelY`, then loops `y` from `floor + 1` upward.
+
+Underground every voxel around you is below that floor, so the loop body never runs. Measured standing in a sewer 8.96 m below grade, from the same spot:
+
+| swing | voxels removed |
+|---|---|
+| flat (aim 0) | **0** |
+| aimed down (aim 0.9) | 11 |
+
+The `DIG_ANGLE` gate is right on the surface — it is what keeps a flat swing from cratering the street (playtest 2026-07-23, and `aim.spec.js` guards it). It is simply wrong once he is under the street: there is no road to protect down there. **Terrain becomes a target unconditionally once he is more than `DIG_BELOW` under his own column's surface.**
+
+**And there was a third gate underneath those two, found only after the first fix landed.** With the gate open, a flat swing in a sewer *still* removed nothing — the blast was firing, `digsTerrain` was true, and `damageSphere` called with the same arguments by hand removed a voxel. The difference was 5 mm.
+
+`impactPoint` drops the radius-sized standoff entirely for a digging swing, because milestone 20 measured that at full fatness it buried the sphere and left a lid over the cavern. That reasoning is about pointing **down**: the downward carry is what takes the blast clear of his body. A **horizontal** dig gets no such carry, and without the standoff the sphere centre sat 0.745 m from a tunnel wall it could reach 0.750 m into — every swing a knife-edge miss.
+
+So the standoff now shrinks with the downward carry (`hypot(dir.x, dir.z)`, 1 flat and 0 straight down) instead of switching off with the dig flag. Both cases come out right from one rule, and the measured shaft depths milestone 20 signed off are preserved. **The same family as the eleven constants in `docs/STATE.md`** — a value that was correct for the only direction that existed when it was written.
+
+### JIM-41 — The follow camera has no collision and sits inside the rock underground
+
+**Status:** fixed 2026-08-08 (milestone 21) · **Test:** `tests/underground.spec.js::the follow camera never sits inside the rock`, `::he fades when the camera is forced in close` · **Severity:** high (the underground is barely viewable) · **Found:** 2026-08-08, while diagnosing JIM-40 · **Chris's words:** *"once you're underground the smoothness we had on the outer world goes away and it turns into blocks."*
+
+`CameraSystem` does no occlusion test of any kind. It places the camera `CAMERA.FOLLOW_DISTANCE` (7 m) behind and `FOLLOW_HEIGHT` (3.5 m) above Jimothy and lerps to it. Sewer tunnels are `SEWER.WIDTH` 3.6 m by `SEWER.HEIGHT` 2.9 m — **a 7 m boom cannot fit in one under any heading.**
+
+Measured in a sewer under the middle of the island:
+
+| | |
+|---|---|
+| Jimothy | `(69, 35.75, -3)`, 8.96 m below grade |
+| camera | `(69, 39.25, 4)` |
+| `solidAtWorld(camera)` | **true** |
+| fraction of the boom inside rock | **40 %** |
+
+So you are viewing the world from inside the geometry. Back faces are culled, so the tunnel you are standing in disappears and what is left is the disconnected far side of other chunks — which is precisely "it turns into blocks". The blocky *shading* of dug rock is by design (`docs/STATE.md`: "smooth is what you found, voxel is what you did to it"); this is not that, and it is what makes the underground read as broken.
+
+Fix: march the boom from the look target outward and stop at the first solid, with a floor on how close it may come. A 7 m boom in a 2.9 m pipe means the underground camera is near-first-person, which is correct — and he has to fade out at that range or you are inside his skull. The material-fade transition already exists for hide spots (`JimothyController.postUpdate`).
+
 ### JIM-33 — The WORLD.BOUNDS slider still had the 250-unit map's range
 
 **Status:** fixed 2026-08-07 (milestone 17) · **Severity:** high (silent, and it would shrink the whole world) · **Found:** while adding a TERRAIN group to the tune panel

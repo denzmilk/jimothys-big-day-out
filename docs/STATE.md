@@ -4,7 +4,7 @@
 
 ## Last updated
 
-2026-08-08 by Claude — **milestones 17, 19, 18 and 20 landed, plus two playtest fixes.** The island has a coast, hills and free depth; the pursuit has eyes and a memory; there is a sewer network with crab people in it; and the headbutt can be aimed, which is how you dig. Chris played it mid-session and the last three commits are his feedback.
+2026-08-08 by Claude — **milestone 21: the aimable headbutt now actually aims, and the underground is somewhere you can dig through and see.** Chris played milestone 20 and reported two things; they turned out to be four defects (JIM-38 to JIM-41), each measured before a line was written. All four fixed, all four with specs.
 
 ## Current phase
 
@@ -12,30 +12,34 @@ development
 
 ## Current milestone
 
-**Nothing in flight. Four milestones are implemented and unplayed — that is the next thing.**
+**Nothing in flight. Five milestones are implemented and unplayed — that is the next thing.**
 
 | milestone | state | tests |
 |---|---|---|
 | 17 — island and terrain | implemented, awaiting playtest | `terrain.spec.js` (10), `flycam.spec.js` (5) |
 | 19 — pursuer AI | implemented, awaiting playtest | `pursuers.spec.js` (8) |
-| 18 — underground | implemented, awaiting playtest | `underground.spec.js` (7) |
-| 20 — aimable headbutt | implemented, awaiting playtest | `aim.spec.js` (5) |
+| 18 — underground | implemented, awaiting playtest | `underground.spec.js` (11) |
+| 20 — aimable headbutt | implemented, awaiting playtest | `aim.spec.js` (9) |
+| 21 — aim/dig/see underground | implemented, awaiting playtest | the 7 new specs in the two files above |
 
-**Suite: 109 passed / 1 failed.** The failure is the pre-existing JIM-03 `interrupted feast`, and feast eating is still unverified end to end. `score and combo` and `heat rises with chaos` now pass. `animal control nets jimothy`, historically the flakiest spec, ran 7/7 three times.
+**Suite: 116 passed / 1 failed.** The failure is the pre-existing JIM-03 `interrupted feast`, and feast eating is still unverified end to end.
 
 ## Play it — everything below is a claim a test makes, not one Chris has made
 
 1. **F** to fly. WASD in the camera frame, Space/Z up and down, shift boosts ×5, ctrl creeps, **−/=** step the multiplier ×2 per press (0.25×–32×). Mouse look while pointer-locked.
 2. **Climb Trash Panda Heights.** It rises 40 m from its foot, and the hillsides are smooth now rather than terraced.
-3. **L**, then look down past halfway — the reticle turns **orange** when the swing will dig. Headbutt a ramp into the ground. Ten swings gets 3 m lean, 20 m fat.
-4. **Get chased into an alley**, break line of sight, watch them search the wrong end. Then blast a wall elsewhere and see them turn toward the noise.
-5. **Go underground** — stairwells are in the middle of arterial roads, or **DevTools → Level → "Drop into the nearest sewer"**. It should be dark and unpleasant, there should be crab people, and animal control should follow you in.
+3. **L**, then *look around*. The reticle should now sit **on** whatever you point at — a wall, a bin, the road — oriented to that surface, and it tracks left/right as well as up/down (that was the whole of JIM-38/39). Three colours: **cream** in reach, **orange** the swing will dig, **grey** too far to hit.
+4. **Headbutt something off to your side.** He whips round to face it as he swings — that is the "snap on the swing" call.
+5. **Get chased into an alley**, break line of sight, watch them search the wrong end. Then blast a wall elsewhere and see them turn toward the noise.
+6. **Go underground** — stairwells are in the middle of arterial roads, or **DevTools → Level → "Drop into the nearest sewer"**. You should be able to *see* it now (JIM-41), and **point at a tunnel wall and headbutt a side passage through it** (JIM-40). Get fat first: a lean raccoon barely scratches the rock.
 
 **Open judgement calls the tests deliberately do not make:**
 
-- **Sewer fog is 3–30 m**, much tighter than the surface, on purpose. Chris has not been down yet. If it is too tight, ~6–60 m keeps the enclosure and lets you navigate.
+- **The underground camera goes near-first-person.** Measured at 1.0 m in a sewer, because a 7 m boom does not fit in a 2.9 m pipe. He fades so you can see past him. If it reads badly, the fix is in the backlog: flatten the boom's pitch when squeezed, and it can sit 5–6 m back along the tunnel instead.
+- **Sewer fog is 3–30 m**, much tighter than the surface, on purpose. Chris has still not been down. If it is too tight, ~6–60 m keeps the enclosure and lets you navigate.
 - **Container density** was rebalanced and now reads 22–52 per streaming disc in every district. Furnished, or cluttered?
-- **JIM-35** — one fat headbutt is 430 heat points against a tier-5 threshold of 100. Possibly intended; wants a decision.
+- **JIM-35** — one fat headbutt is 430 heat points against a tier-5 threshold of 100, and **milestone 21 made this much easier to hit**: ten swings at a tunnel wall reach tier 5. Wants a decision.
+- **A lean Jimothy cannot really tunnel** — 7 voxels in 10 swings at fatness 0, against ~2 400 at fatness 40. Backlog; may well be intended.
 
 ## The engineering result that matters
 
@@ -51,7 +55,7 @@ Byte-identical. `tests/terrain.spec.js` asserts the equality exactly. That is wh
 
 ## ⚠️ The recurring bug of this project: a constant tuned for a world that no longer exists
 
-**Eleven found so far, across four milestones.** Every one silent — nothing errors, the game just quietly does the wrong thing. When any world dimension changes, **grep every constant expressed in world units and ask what it meant when it was written.**
+**Thirteen found so far, across five milestones.** Every one silent — nothing errors, the game just quietly does the wrong thing. When any world dimension changes, **grep every constant expressed in world units and ask what it meant when it was written.**
 
 | constant | meant | broke |
 |---|---|---|
@@ -66,6 +70,10 @@ Byte-identical. `tests/terrain.spec.js` asserts the equality exactly. That is wh
 | bins `height / 2`, snacks `0.18` | ” | spawned 45 m under a hill |
 | `voxel.spec` `sparedGround >= 0` | ” | passes however deep the crater, if the hill is taller |
 | headbutt aim = camera pitch | the horizon | the resting camera looks 26.6° down, so every swing aimed at the pavement |
+| `digsTerrain` = `aim >= DIG_ANGLE` | the only dig was DOWN | a flat swing underground removed 0 voxels; you could only go deeper (JIM-40) |
+| `impactPoint` drops the standoff when digging | ” | no downward carry to replace it sideways, so the sphere stopped 5 mm short of every tunnel wall |
+
+**The last two are one bug wearing two coats, and the second only appeared after the first was fixed.** Opening the gate made `digsTerrain` true and the swing still removed nothing — the blast fired, the flag was right, and `damageSphere` called by hand with the same arguments removed a voxel. **When a fix does not take, re-measure rather than re-reason:** calling the layer below by hand is what separated "the gate is shut" from "the gate is open and the sphere is 5 mm short".
 
 **`voxels.terrainHeightAt(x, z)` is the answer to the "grade" half.** `y = 0` now means the waterline and nothing else.
 
@@ -73,7 +81,9 @@ Byte-identical. `tests/terrain.spec.js` asserts the equality exactly. That is wh
 
 - **Measuring the cost of something is not the same as checking it works.** Milestone 17's fly camera streams a 176 m radius; I measured that in columns and heap and never checked you could *see* it. Fog was 85% opaque out there — the whole extra load radius was invisible until Chris said "the fog makes it hard to see much".
 - **"Did it move?" cannot detect pacing.** The pursuer avoidance had a four-frame limit cycle — step left, which unblocks the right and blocks the left, step back, forever. It moved its full 8 cm every frame and travelled 5 cm a second. The first stuck-detector missed it completely. Net displacement over a window is the only thing that tells walking from pacing.
-- **When adding a modifier to an existing verb, the modifier's neutral value must reproduce the old behaviour exactly.** The aim is `pitch - neutralPitch`, so "nobody is aiming" is 0.
+- **When adding a modifier to an existing verb, the modifier's neutral value must reproduce the old behaviour exactly.** The aim is `pitch - neutralPitch`, so "nobody is aiming" is 0. Milestone 21 is what happens when you only do this for *half* the modifier: the pitch was neutral-correct and the yaw was never wired at all, so the aimable headbutt shipped aiming on one axis.
+- **A test hook that fakes half a system will hide the other half.** `faceJimothy` turned his body without the camera, which was fine until the camera became half the aim — then two streaming specs failed because they had him facing a wall and swinging elsewhere, *a state no player can reach*. Fix the hook, not the game: the hook's job is to reproduce a real situation.
+- **A reticle's promise has to be the thing a player reads it for.** Milestone 20 asserted the marker and the blast were the same point, which was true and became meaningless the moment the marker moved onto the contact surface while the sphere kept burying itself past it. The promise that survives both is *same bearing, and the blast contains the marker*.
 - **Two consumers of one formula must share the function, not the formula.** The reticle and the blast both call `impactPoint`; the way a reticle comes to lie is a second copy.
 - **Sample the same point.** The mesher and the generator both read the height field at the **voxel centre**; deriving the same value from a caller's exact `(x, z)` disagreed by a whole voxel near a voxel edge and silently disabled the smoothing there (0.30 m of drift).
 - **Snapshot ORDER is not identity.** A blast raises heat, heat spawns paparazzi, and `pursuers[0]` becomes somebody else mid-spec. Pursuers carry a stable `id`.
@@ -90,11 +100,11 @@ The mesh is one continuous surface and is topologically incapable of tearing. "S
 
 ## Blockers
 
-- **⚠️ Four milestones await playtest** (17, 18, 19, 20), plus 08, 09, 12 and 15 from before. "Implemented, all AC ticked" is the ceiling (house rule 4). Milestone 10 is the only one signed off.
+- **⚠️ Five milestones await playtest** (17, 18, 19, 20, 21), plus 08, 09, 12 and 15 from before. "Implemented, all AC ticked" is the ceiling (house rule 4). Milestone 10 is the only one signed off.
 - **⚠️ JIM-11 (legs read as detached) needs re-judging, not more code.** The skinned rig should have retired it. Confirm at the same playtest.
 - **JIM-37 — buildings pop in at 106 m**, now that fog no longer hides the streaming boundary. Chris asked for this to be logged. The cheapest real fix is a **building LOD ring**: `Layout.buildingsIntersecting` answers "what buildings are in this box" from the baked plan *without generating a voxel*, anywhere on the island, so everything from 106 m to the horizon can be one `InstancedMesh` of boxes. One draw call, no streaming.
 - **JIM-34 — no greedy meshing.** A flat ground chunk emits 4096 quads where one would do (~1 MB per chunk). Invisible in normal play; it is what caps the fly camera at 385 m and makes `LOAD_RADIUS` expensive.
-- **JIM-35 — one headbutt is a five-star wanted level.** Balance; wants Chris's judgement.
+- **JIM-35 — one headbutt is a five-star wanted level.** Balance; wants Chris's judgement, and milestone 21 sharpened it — digging sideways for ten swings reaches tier 5.
 - **⚠️ 1 spec failing, PRE-EXISTING** (JIM-03) — `interrupted feast`.
 
 ## Newest asks (logged, not lost)
@@ -114,6 +124,8 @@ The mesh is one continuous surface and is topologically incapable of tearing. "S
 ## Notes for next session
 
 - **Grade is not a constant.** Ask `voxels.terrainHeightAt(x, z)`.
+- **`voxels.raycast(ox,oy,oz, dx,dy,dz, maxDist)`** is the way to ask "what is along this line" — returns the hit point, the voxel, and the face normal, and skips the origin's own voxel. Same DDA as `hasLineOfSight`. The reticle and the camera boom both use it; anything else that needs to probe the world should too, rather than sampling in a loop.
+- **The aim is TWO values.** `cameraSystem.aimPitch` (from the resting pitch) and `cameraSystem.yaw`. A move locks both at the moment it starts. `window.lookJimothy(yaw)` in specs; it forces `input.forcePointerLock`, because aiming only happens while locked and follow mode overwrites the yaw every tick.
 - **`VOXEL.EMPTY` (255), not 0, for anything removed or carved.** Below the stored skin a 0 means "nothing stored, ask the height field", so a hole written as 0 heals itself instantly.
 - **The level pipeline, in order:** `islandPlan.js` (data) → `Terrain.js` (height field + implicit ground) → `CityPlanner.js` (class grid, blocks, buildings, sewers) → `Layout.js` (adapter) → `VoxelCity.js` (footprint → voxels) → `VoxelWorld.js` (voxel engine, knows nothing about islands). The one-way dependency lets `CityPlanner` ask `Terrain` where the water is without a cycle.
 - **Smoothing is mesh-time only.** Undisturbed ground has its top face displaced onto the height field; anything dug drops out and renders blocky. Smooth is what you found, voxel is what you did to it.

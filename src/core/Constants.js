@@ -89,6 +89,13 @@ export const MOVES = {
     // Measured from the RESTING camera pitch, not from the horizon. Roughly
     // half the available downward travel: past halfway is the dig.
     DIG_ANGLE: 0.5,
+    // …and once he is THIS far under his own column's surface, terrain is a
+    // target whatever the aim (JIM-40). DIG_ANGLE exists to stop a flat swing
+    // cratering the street; there is no street down a tunnel, and the gate made
+    // digging sideways impossible — measured at 0 voxels removed for a flat
+    // swing against 11 for an aimed-down one, from the same spot in a sewer.
+    // Deep enough that standing in a puddle of a crater does not count.
+    DIG_BELOW: 1.5,
     // Anticipation is sold by PITCH, barely by sliding the head. The model's
     // pieces have open seams (JIM-10), so a big head translation drags the
     // neck hole into view — which is exactly what a headbutt was doing
@@ -471,6 +478,34 @@ export const CAMERA = {
   // pitch of 0.47, so 1.5 leaves about 59 degrees of downward travel — enough
   // that "tilt down past halfway" is the dig, with room either side.
   PITCH_MAX: 1.5,
+  // --- boom collision (JIM-41) ---
+  // The camera had none at all, and a 7 m boom does not fit in a 3.6 x 2.9 m
+  // sewer under any heading: measured with the eye INSIDE solid rock and 40% of
+  // the boom buried, which culls the tunnel away and leaves unrelated chunk
+  // faces — Chris's "underground it turns into blocks".
+  //
+  // How far short of the surface the eye stops. Comfortably over NEAR (0.5), or
+  // the wall it stopped at clips open again.
+  COLLIDE_MARGIN: 0.7,
+  // …and how close it may ever get. A pipe this tight means near-first-person,
+  // which is correct; it must not end up inside his head, so he fades instead.
+  COLLIDE_MIN: 1.0,
+  // Under this, he is between you and everything you are trying to see.
+  FADE_DISTANCE: 3.2,
+};
+
+// The aiming marker (milestone 20, rebuilt by milestone 21/JIM-39).
+export const RETICLE = {
+  // How far the marker LOOKS, which is deliberately much further than a
+  // headbutt REACHES. Chris asked for it to highlight whatever it is on, and a
+  // marker that vanishes past 3 m highlights nothing; the colour carries
+  // whether the swing can actually get there.
+  LOOK_RANGE: 40,
+  // Lifted off the surface it landed on, or it z-fights with the face it marks.
+  SURFACE_OFFSET: 0.05,
+  OPACITY: 0.85,
+  // Out of reach: still legible, obviously not a promise.
+  MISS_OPACITY: 0.4,
 };
 
 // Free camera (milestone 17). The island is 2 km across and, until this
@@ -541,6 +576,10 @@ export const COLORS = {
   // this dig?" is the one thing the player cannot infer from the aim alone.
   RETICLE: 0xffe9a8,
   RETICLE_DIG: 0xff7a3c,
+  // …and a third, because the marker now lands on whatever you are LOOKING at
+  // (JIM-39), which is often further than a headbutt can reach. Highlighting a
+  // wall across the street is useful; implying you can hit it is a lie.
+  RETICLE_MISS: 0x7d8794,
   SNACK: 0xff6f4f,
   FEAST: 0xffc24f,
   BUSH: 0x2e5d34,

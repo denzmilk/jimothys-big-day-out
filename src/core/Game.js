@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
-  MOVES,
+  MOVES, RETICLE,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { eventBus, Events } from './EventBus.js';
@@ -76,7 +76,7 @@ class Game {
     // The move hands over its own config, so its demolition policy travels
     // with it instead of being re-derived here from positional arguments.
     this.jimothy.onImpact = (x, y, z, dir, cfg, reach, aim = 0) => {
-      const digs = this.digsTerrain(cfg, aim);
+      const digs = this.digsTerrain(cfg, aim, x, y, z);
       const at = this.impactPoint({ x, y, z }, dir, cfg, reach, {}, digs);
       this.blastAt(at, cfg.RADIUS_SCALE, { fatShare: cfg.FAT_BLAST_SHARE, digsTerrain: digs });
       this.onBlast?.(at);
@@ -88,7 +88,7 @@ class Game {
     this.crabs = new CrabPeople(this.scene, this.jimothy, this.voxels);
     this.score = new ScoreSystem();
     this.heat = new HeatSystem();
-    this.cameraSystem = new CameraSystem(this.camera, this.jimothy, this.input);
+    this.cameraSystem = new CameraSystem(this.camera, this.jimothy, this.input, this.voxels);
     this.flyCamera = new FlyCamera(this.camera, this.input);
     this.hud = new HUD();
     this.gameOverScreen = new GameOverScreen();
@@ -190,15 +190,33 @@ class Game {
     // aimable headbutt named this as a requirement rather than a nicety: you
     // cannot aim at what you cannot see. Colour carries the one thing the aim
     // alone does not tell you — whether this swing will dig.
+    //
+    // Milestone 21 (JIM-39): it now LANDS on what you point at instead of
+    // hanging at a fixed range. A torus's hole axis is its local +Z, so
+    // `lookAt(point + normal)` lays the ring flat on whatever it hit — which is
+    // why the old fixed `rotation.x` is gone. It read as a floating ring
+    // because it was one.
     this.reticle = new THREE.Mesh(
       new THREE.TorusGeometry(0.42, 0.055, 6, 16),
-      new THREE.MeshBasicMaterial({ color: COLORS.RETICLE, transparent: true, opacity: 0.85 }),
+      new THREE.MeshBasicMaterial({
+        color: COLORS.RETICLE, transparent: true, opacity: RETICLE.OPACITY,
+      }),
     );
-    this.reticle.rotation.x = -Math.PI / 2;
     this.reticle.visible = false;
     this.scene.add(this.reticle);
+    // What the marker is currently sitting on. `onSurface` — it found anything
+    // at all within LOOK_RANGE; `inReach` — a swing would actually touch it.
+    // The two differ because it deliberately looks much further than a headbutt
+    // reaches, and the difference is the whole of what the colour carries.
+    this.reticleHit = { onSurface: false, inReach: false, digs: false };
+    // Scratch for the per-frame aim march. Allocating any of this inside the
+    // frame would churn the GC on the hot path, which is the same reason the
+    // controller pools its pivot vectors.
     this._aimDir = new THREE.Vector3();
-    this._camDir = new THREE.Vector3();
+    this._aimOrigin = new THREE.Vector3();
+    this._raycaster = new THREE.Raycaster();
+    this._propHits = [];
+    this._propMeshes = [];
   }
 
   /** Cross between daylight and the sewer. Called on the transition only. */
@@ -285,6 +303,10 @@ class Game {
     this.updateReticle();
     if (this.flyCamera.active) this.flyCamera.update(delta);
     else if (!this.freeCamera) this.cameraSystem.update(delta);
+    // After the camera, read next frame: the boom collides now (JIM-41), and a
+    // sewer cuts it to a metre, at which point he is between the player and
+    // everything worth looking at. He fades himself; this is the measurement.
+    this.jimothy.cameraDist = this.flyCamera.active ? Infinity : this.cameraSystem.distance;
     this.devTools.update(delta);
   }
 
@@ -326,27 +348,122 @@ class Game {
     );
   }
 
-  /** Park the reticle on the predicted impact. Shown while the pointer is
-   *  locked — that is when the player is aiming — and while a headbutt is in
-   *  flight, so you can see it arrive where it was promised. */
+  /** Lay the reticle on the first thing the aim meets. Shown while the pointer
+   *  is locked — that is when the player is aiming — and while a headbutt is in
+   *  flight, so you can see it arrive where it was promised.
+   *
+   *  It used to be `impactPoint` and nothing else: a pure projection along the
+   *  aim at the blast standoff, which never asked the world what was there. It
+   *  only looked right pointing DOWN, because the ground happens to be about
+   *  that far away — Chris, 2026-08-08: "it just changes for the ground but not
+   *  really in front of you."
+   *
+   *  Milestone 20's rule still holds and is the reason this is careful: the
+   *  marker must not become a second copy of the blast arithmetic. It is not —
+   *  it marches the SAME ray, and asks `impactPoint` itself for the range that
+   *  counts as reachable. What it promises is therefore restated as something
+   *  stronger and more useful than "two points coincide": **in reach means this
+   *  swing connects.** */
   updateReticle() {
     const H = MOVES.HEADBUTT;
+    const p = this.jimothy.body.position;
     const aim = this.jimothy.move?.aim ?? this.jimothy.aimPitch ?? 0;
-    const digs = this.digsTerrain(H, aim);
+    // Both axes now (JIM-38). A move locks its yaw at the start exactly as it
+    // locks its aim, so a swing in flight keeps showing where it committed.
+    const yaw = this.jimothy.move?.yaw ?? this.jimothy.aimYaw ?? this.jimothy.yaw;
+    const digs = this.digsTerrain(H, aim, p.x, p.y, p.z);
     // While aiming (pointer locked), while a swing is in flight, and ALWAYS when
     // the aim would dig — that last one is the case where the player most needs
     // to know, and it is also the one where the camera is least informative.
     const aiming = this.input.pointerLocked || digs
       || this.jimothy.move?.kind === 'headbutt';
     this.reticle.visible = aiming && gameState.game.isPlaying && !this.flyCamera.active;
-    if (!this.reticle.visible) return;
+    if (!this.reticle.visible) {
+      // Cleared rather than left behind: a hidden marker still reporting the
+      // last wall it touched would have the snapshot claiming a hit the player
+      // cannot see and the swing will not make.
+      this.reticleHit.onSurface = false;
+      this.reticleHit.inReach = false;
+      this.reticleHit.digs = digs;
+      return;
+    }
+
     const flat = Math.cos(aim);
-    this._aimDir.set(
-      Math.sin(this.jimothy.yaw) * flat, -Math.sin(aim), Math.cos(this.jimothy.yaw) * flat,
+    this._aimDir.set(Math.sin(yaw) * flat, -Math.sin(aim), Math.cos(yaw) * flat);
+    // Eye height matches `impactPoint`'s, so the marker and the blast are the
+    // same ray and not merely parallel ones.
+    const ox = p.x;
+    const oy = p.y + 0.35;
+    const oz = p.z;
+    // The furthest a swing can touch: where the blast CENTRE goes, plus the
+    // sphere's own radius. Taken from impactPoint rather than restated, so the
+    // digging branch's different standoff cannot drift out of agreement.
+    const r = this.blastRadius(H.FAT_BLAST_SHARE) * H.RADIUS_SCALE;
+    const centre = this.impactPoint(p, this._aimDir, H, H.REACH, {}, digs);
+    const reach = Math.hypot(centre.x - ox, centre.y - oy, centre.z - oz) + r;
+
+    const hit = this._aimHit(ox, oy, oz, this._aimDir);
+    const inReach = !!hit && hit.t <= reach;
+    if (hit) {
+      // Lifted off the face, or it z-fights with the very surface it marks.
+      this.reticle.position.set(
+        hit.x + hit.nx * RETICLE.SURFACE_OFFSET,
+        hit.y + hit.ny * RETICLE.SURFACE_OFFSET,
+        hit.z + hit.nz * RETICLE.SURFACE_OFFSET,
+      );
+      this.reticle.lookAt(
+        this.reticle.position.x + hit.nx,
+        this.reticle.position.y + hit.ny,
+        this.reticle.position.z + hit.nz,
+      );
+    } else {
+      // Nothing out there. Park it at the edge of the swing's reach, facing
+      // back at the player, so "you will hit air" still reads as a place.
+      this.reticle.position.set(
+        ox + this._aimDir.x * reach, oy + this._aimDir.y * reach, oz + this._aimDir.z * reach,
+      );
+      this.reticle.lookAt(ox, oy, oz);
+    }
+    this.reticle.material.color.set(
+      !inReach ? COLORS.RETICLE_MISS : (digs ? COLORS.RETICLE_DIG : COLORS.RETICLE),
     );
-    const p = this.jimothy.body.position;
-    this.impactPoint(p, this._aimDir, H, H.REACH, this.reticle.position, digs);
-    this.reticle.material.color.set(digs ? COLORS.RETICLE_DIG : COLORS.RETICLE);
+    this.reticle.material.opacity = inReach ? RETICLE.OPACITY : RETICLE.MISS_OPACITY;
+    this.reticleHit.onSurface = !!hit;
+    this.reticleHit.inReach = inReach;
+    this.reticleHit.digs = digs;
+  }
+
+  /** First thing the aim meets: the voxel world, or a container standing in
+   *  front of it, whichever is nearer.
+   *
+   *  Trees and buildings are voxels, so the march covers them; bins are loose
+   *  meshes with physics bodies and are the one thing a headbutt targets that
+   *  the grid knows nothing about. Chris asked for "any item/surface", and a
+   *  reticle that slides straight through a wheelie bin onto the wall behind it
+   *  is exactly the tell that it is not really looking. */
+  _aimHit(ox, oy, oz, dir) {
+    const hit = this.voxels.raycast(ox, oy, oz, dir.x, dir.y, dir.z, RETICLE.LOOK_RANGE);
+    this._raycaster.set(this._aimOrigin.set(ox, oy, oz), dir);
+    // Capped at the wall behind them, so a bin on the far side of a building
+    // cannot win against the building.
+    this._raycaster.far = hit ? hit.t : RETICLE.LOOK_RANGE;
+    this._propHits.length = 0;
+    this._propMeshes.length = 0;
+    for (const can of this.trashCans.cans) this._propMeshes.push(can.mesh);
+    this._raycaster.intersectObjects(this._propMeshes, false, this._propHits);
+    const prop = this._propHits[0];
+    if (!prop) return hit;
+    // The face normal comes back in the mesh's own frame; a tipped can is
+    // rotated, so it has to be taken to world space or the marker lies flat on
+    // a bin lying on its side.
+    const n = prop.normal
+      ? prop.normal.clone().transformDirection(prop.object.matrixWorld)
+      : { x: -dir.x, y: -dir.y, z: -dir.z };
+    return {
+      t: prop.distance,
+      x: prop.point.x, y: prop.point.y, z: prop.point.z,
+      nx: n.x, ny: n.y, nz: n.z,
+    };
   }
 
   /** Where a move's blast will land (milestone 20).
@@ -369,7 +486,19 @@ class Game {
     // Measured as 0 m of shaft for a swing that removed a thousand voxels.
     // Pointing down already carries the blast off his body, so reach alone is
     // the right standoff there.
-    const dist = digging ? reach : r * 0.95 + reach;
+    //
+    // …which was written when the only way to dig was to point DOWN (milestone
+    // 20). Milestone 21 lets him dig sideways once he is underground, and a
+    // horizontal swing gets no such free carry: dropping the standoff left the
+    // sphere 0.745 m from a tunnel wall it could reach 0.75 m into, so a flat
+    // headbutt in a sewer removed exactly nothing (JIM-40).
+    //
+    // So the standoff shrinks with the DOWNWARD carry rather than switching off
+    // with the dig flag: `horizontal` is 1 for a flat swing and 0 for a
+    // straight-down one, which is precisely how much of the sphere the aim
+    // fails to move off his body.
+    const horizontal = digging ? Math.hypot(dir.x, dir.z) : 1;
+    const dist = r * 0.95 * horizontal + reach;
     out.x = from.x + dir.x * dist;
     // Chest height, so a flat swing's crater stays shallow and walkable — and
     // the aim carries it down from there when he points at the ground.
@@ -378,10 +507,26 @@ class Game {
     return out;
   }
 
-  /** Is terrain a target for this swing? For an AIMABLE move, only when it is
-   *  pointed deliberately downward — which is the whole of milestone 20. */
-  digsTerrain(cfg, aim) {
-    return cfg.AIMABLE ? aim >= cfg.DIG_ANGLE : cfg.DIGS_TERRAIN;
+  /** Is terrain a target for this swing? For an AIMABLE move, when it is
+   *  pointed deliberately downward — milestone 20 — **or when he is already
+   *  under the ground**, which is milestone 21 (JIM-40).
+   *
+   *  `DIG_ANGLE` exists to stop a flat headbutt cratering the street it lunges
+   *  over (playtest 2026-07-23), and above ground it is exactly right. Below it
+   *  there is no street to protect, and the gate made digging sideways
+   *  impossible: measured at 0 voxels removed for a flat swing in a sewer,
+   *  against 11 for an aimed-down one from the same spot. Chris, 2026-08-08:
+   *  "you can't dig in a direction once a hole is made, all you can do is go
+   *  deeper."
+   *
+   *  Depth is against THIS COLUMN's own surface, never a fixed y — grade
+   *  stopped being a constant when the island got hills (milestone 17), and
+   *  that mistake has now been made eleven times in this repo. */
+  digsTerrain(cfg, aim, x, y, z) {
+    if (!cfg.AIMABLE) return cfg.DIGS_TERRAIN;
+    if (aim >= cfg.DIG_ANGLE) return true;
+    if (cfg.DIG_BELOW === undefined) return false;
+    return this.voxels.terrainHeightAt(x, z) - y > cfg.DIG_BELOW;
   }
 
   // Blow a hole in the world: clear voxels, re-mesh only the chunks that
@@ -607,7 +752,13 @@ class Game {
         move: this.jimothy.move?.kind ?? null,
         // Radians below horizontal, and whether a swing at that aim would dig.
         aim: +(this.jimothy.aimPitch || 0).toFixed(3),
-        digs: this.digsTerrain(MOVES.HEADBUTT, this.jimothy.aimPitch || 0),
+        // Both axes since JIM-38 — the yaw was the missing half of the aim.
+        aimYaw: +(this.jimothy.aimYaw ?? this.jimothy.yaw).toFixed(3),
+        digs: this.digsTerrain(
+          MOVES.HEADBUTT, this.jimothy.aimPitch || 0,
+          this.jimothy.body.position.x, this.jimothy.body.position.y,
+          this.jimothy.body.position.z,
+        ),
         moveCooldown: +this.jimothy.moveCooldown.toFixed(2),
         tuck: +(this.jimothy.rollTuck || 0).toFixed(3),
         ...(() => {
@@ -624,8 +775,22 @@ class Game {
           };
         })(),
       },
+      // Where the aim marker ended up (milestone 21). `onSurface` — it found
+      // something within LOOK_RANGE; `inReach` — a swing would actually connect
+      // with it. The pair is the promise the marker makes, and it is asserted
+      // rather than implied, because a marker that lies is worse than none.
+      reticle: {
+        visible: this.reticle.visible,
+        onSurface: this.reticleHit.onSurface,
+        inReach: this.reticleHit.inReach,
+        digs: this.reticleHit.digs,
+        x: +this.reticle.position.x.toFixed(2),
+        y: +this.reticle.position.y.toFixed(2),
+        z: +this.reticle.position.z.toFixed(2),
+      },
       camera: { x: +cp.x.toFixed(2), y: +cp.y.toFixed(2), z: +cp.z.toFixed(2) },
       cameraMode: this.flyCamera.active ? 'fly' : this.cameraSystem.mode,
+      cameraDistance: +this.cameraSystem.distance.toFixed(2),
       fly: this.flyCamera.snapshot(),
       cans: this.trashCans.cans.map((c) => ({
         x: +c.body.position.x.toFixed(1),

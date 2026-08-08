@@ -94,7 +94,7 @@
   - Source: 2026-08-06 Chris ("more 'depth' with some hidden underground areas")
   - Rough size: L · Rough value: L · Roadmap: Phase 1/4
   - Notes: needs `VOXEL.GROUND_LAYERS` (currently 2 over bedrock) to grow a lot, which is another multiplier on the allocation problem — so it also wants streaming first. Interacts with hide spots (a sewer is the ultimate bush) and with `groundHeightAt`, which currently assumes one surface per column and would snap Jimothy to the roof of a tunnel.
-- [ ] Aimable headbutt — let the player pitch the headbutt up/down (and hold to charge?) so it can be aimed at a wall's base, a first-floor window, or deliberately at the ground. Currently it always fires flat at chest height.
+- [x] Aimable headbutt — let the player pitch the headbutt up/down (and hold to charge?) so it can be aimed at a wall's base, a first-floor window, or deliberately at the ground. Currently it always fires flat at chest height. → promoted to `docs/milestones/20-aimable-headbutt.md` (2026-08-08). The input decision this entry flagged was resolved as **the aim is the camera** (mouse pitch while pointer-locked), and the reticle it insisted on is fed by the same `impactPoint` the blast uses. **Hold-to-charge was deliberately left here** — it is a separate feel decision and wants its own playtest.
   - Source: 2026-08-06 Chris ("aimable headbutt")
   - Rough size: M · Rough value: M
   - Notes: the "stop it breaking ground by default" half is a separate, much smaller fix — see the bug list. Aiming needs an input decision (mouse pitch vs. modifier keys vs. auto-target the nearest surface) plus a reticle or the player can't tell where it will land.

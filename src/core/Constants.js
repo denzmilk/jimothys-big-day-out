@@ -75,10 +75,20 @@ export const MOVES = {
     RADIUS_SCALE: 1.0,
     // Full fatness payoff: this is the move eating is meant to buy.
     FAT_BLAST_SHARE: 1.0,
-    // Terrain is not a target. A flat headbutt cratering the road turned every
-    // swing into a hole he then had to climb out of; digging becomes something
-    // you deliberately AIM at once the aimable headbutt lands (backlog).
+    // Terrain is not a target — unless you point at it (milestone 20). A flat
+    // headbutt cratering the road turned every swing into a hole he then had to
+    // climb out of (playtest 2026-07-23), and this flag was the fix. It was
+    // never "Jimothy cannot dig", it was "an unaimed dig is an accident".
+    //
+    // AIMABLE hands the decision to `DIG_ANGLE` instead: terrain is a target
+    // only when the camera is looking more than this far below horizontal. The
+    // default follow pitch is 0.47 rad, comfortably under it, so an ordinary
+    // swing behaves exactly as it did.
     DIGS_TERRAIN: false,
+    AIMABLE: true,
+    // Measured from the RESTING camera pitch, not from the horizon. Roughly
+    // half the available downward travel: past halfway is the dig.
+    DIG_ANGLE: 0.5,
     // Anticipation is sold by PITCH, barely by sliding the head. The model's
     // pieces have open seams (JIM-10), so a big head translation drags the
     // neck hole into view — which is exactly what a headbutt was doing
@@ -457,7 +467,10 @@ export const CAMERA = {
   // Orbit mode (pointer locked): mouse-driven yaw/pitch around Jimothy.
   MOUSE_SENS: 0.0025,
   PITCH_MIN: 0.05,
-  PITCH_MAX: 1.35,
+  // Raised for aiming (milestone 20). The aim is measured from the resting
+  // pitch of 0.47, so 1.5 leaves about 59 degrees of downward travel — enough
+  // that "tilt down past halfway" is the dig, with room either side.
+  PITCH_MAX: 1.5,
 };
 
 // Free camera (milestone 17). The island is 2 km across and, until this
@@ -524,6 +537,10 @@ export const COLORS = {
   GROUND: 0x5d8a4a,
   SEA: 0x2f6f8f,
   WALL: 0x8d8578,
+  // Where the headbutt will land (milestone 20). Two colours, because "will
+  // this dig?" is the one thing the player cannot infer from the aim alone.
+  RETICLE: 0xffe9a8,
+  RETICLE_DIG: 0xff7a3c,
   SNACK: 0xff6f4f,
   FEAST: 0xffc24f,
   BUSH: 0x2e5d34,

@@ -39,6 +39,21 @@ Merging co-planar faces of the same material is the standard fix and would cut g
 
 Not urgent: normal play streams a 210 m disc and sits at ~110 draw calls.
 
+### JIM-37 — Draw distance: buildings pop in at 106 m now that the fog is gone
+
+**Status:** open · **Severity:** medium (visible constantly, not game-breaking) · **Reported:** Chris, playtest 2026-08-07 — *"might need to work out draw distance to prevent popin."*
+
+Direct consequence of fixing JIM-36, and expected. Fog used to be 41% opaque at the edge of the loaded voxel world; now it starts at 220 m, so **the streaming boundary is naked**. Voxel columns load at `STREAM.LOAD_RADIUS` (106 m) and unload at 176 m, and the horizon mesh beyond it carries terrain and roads but **no buildings** — so the city's silhouette stops dead at 106 m and whole blocks appear as you walk.
+
+Four ways out, roughly in order of value for effort:
+
+1. **A building LOD ring — the obvious one.** `Layout.buildingsIntersecting` answers "what buildings are in this box" from the baked plan *without generating a single voxel*, anywhere on the island, including places never visited. So the buildings between 106 m and (say) 700 m can be drawn as one `InstancedMesh` of boxes at their real footprint and height. One draw call, no streaming, no memory that scales with distance. The silhouette then continues to the horizon and the pop is reduced to detail appearing on an already-present shape.
+2. **Greedy meshing (JIM-34), then a bigger `LOAD_RADIUS`.** A flat ground chunk currently emits 4096 quads where one would do, so radius is far more expensive than it should be. Fixing that makes 176 m or 210 m affordable and pushes the boundary out rather than disguising it.
+3. **Fade the boundary.** A short fog band, or per-chunk alpha over the last ring, so columns arrive instead of appearing. Cheapest, and it treats the symptom.
+4. **Generate further than you mesh.** Decouple "column exists" from "column is drawn" so distant columns can be meshed at lower detail. Biggest change; only worth it with (2) done.
+
+(1) and (2) are complementary and neither blocks the other. (1) is the one that would be felt immediately.
+
 ### JIM-36 — Fog tuned for a 250 m world, on a 2 km island
 
 **Status:** fixed 2026-08-07 · **Severity:** high (it was most of what you could see) · **Reported:** Chris, playtest — *"the fog makes it hard to see much."*

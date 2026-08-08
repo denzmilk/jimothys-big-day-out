@@ -75,6 +75,12 @@ window.voxelLineOfSight = (ax, ay, az, bx, by, bz) =>
 // measurable without staging five separate chases.
 window.pursuerSightRange = (type, tier) => game.pursuers.sightRange(type, tier);
 
+// --- Milestone 20: aiming ---
+// Point him down by `radians`. The aim IS the camera pitch, which the mouse
+// drives while the pointer is locked — and pointer lock is not reliably
+// available headless, so the specs set the same value the mouse would.
+window.aimJimothy = (down) => { game.cameraSystem.pitch = down; };
+
 // --- Milestone 18: the underground ---
 // Every stairwell on the island. "Enterable from street level" is a claim about
 // these coordinates, so the specs need them rather than a search of the map.

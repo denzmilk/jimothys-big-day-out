@@ -13,15 +13,28 @@ export class CameraSystem {
     this.input = input;
     this.mode = 'follow';
     this.yaw = jimothy.yaw;
-    this.pitch = Math.asin(
+    // The pitch the follow camera sits at when nobody has touched the mouse.
+    // It is also the ZERO of the aim (milestone 20): the shoulder view looks
+    // 26.6 degrees down at him, and treating that as the aim tilted every
+    // ordinary headbutt at the pavement — which is not a directional attack,
+    // it is a regression. Aim is measured FROM here.
+    this.neutralPitch = Math.asin(
       CAMERA.FOLLOW_HEIGHT /
         Math.hypot(CAMERA.FOLLOW_DISTANCE, CAMERA.FOLLOW_HEIGHT),
     );
+    this.pitch = this.neutralPitch;
     this._desired = new THREE.Vector3();
     this._look = new THREE.Vector3();
     this._computeFollowDesired();
     this.camera.position.copy(this._desired);
     this.camera.lookAt(this._lookTarget());
+  }
+
+  /** Radians the player has deliberately tilted BELOW the resting view.
+   *  Positive is down, negative is up, and neutral is exactly zero — so a
+   *  headbutt with nobody aiming behaves as it always has. */
+  get aimPitch() {
+    return this.pitch - this.neutralPitch;
   }
 
   _computeFollowDesired() {

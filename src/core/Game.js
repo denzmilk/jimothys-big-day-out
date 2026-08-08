@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
+  MOVES,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { eventBus, Events } from './EventBus.js';
@@ -74,14 +75,11 @@ class Game {
     // beneath (playtest 2026-07-23: "he gets stuck in a hole").
     // The move hands over its own config, so its demolition policy travels
     // with it instead of being re-derived here from positional arguments.
-    this.jimothy.onImpact = (x, y, z, dirX, dirZ, cfg, reach) => {
-      const opts = { fatShare: cfg.FAT_BLAST_SHARE, digsTerrain: cfg.DIGS_TERRAIN };
-      const r = this.blastRadius(opts.fatShare) * cfg.RADIUS_SCALE;
-      const dist = r * 0.95 + reach;
-      // Aimed at chest height so ground craters stay shallow and walkable.
-      this.blastAt(
-        { x: x + dirX * dist, y: y + 0.35, z: z + dirZ * dist }, cfg.RADIUS_SCALE, opts,
-      );
+    this.jimothy.onImpact = (x, y, z, dir, cfg, reach, aim = 0) => {
+      const digs = this.digsTerrain(cfg, aim);
+      const at = this.impactPoint({ x, y, z }, dir, cfg, reach, {}, digs);
+      this.blastAt(at, cfg.RADIUS_SCALE, { fatShare: cfg.FAT_BLAST_SHARE, digsTerrain: digs });
+      this.onBlast?.(at);
     };
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
@@ -101,6 +99,16 @@ class Game {
         this.camera.fov = CAMERA.FOV;
         this.camera.updateProjectionMatrix();
       }
+    });
+
+    // Straight to the nearest stairwell (milestone 20). Inspecting the
+    // underground should not require digging to it.
+    eventBus.on(Events.DEV_GOTO_SEWER, () => {
+      const jp = this.jimothy.group.position;
+      const near = this.sewerEntrances().reduce(
+        (a, c) => (Math.hypot(c.x - jp.x, c.z - jp.z) < Math.hypot(a.x - jp.x, a.z - jp.z) ? c : a),
+      );
+      this.teleportJimothy(near.x, near.z);
     });
 
     eventBus.on(Events.PLAYER_NETTED, () => {
@@ -177,6 +185,20 @@ class Game {
     this.lamp = new THREE.PointLight(SEWER.LIGHT_COLOR, 0, SEWER.LIGHT_RANGE, 1.4);
     this.scene.add(this.lamp);
     this.underground = false;
+
+    // Where the headbutt will land (milestone 20). The backlog entry for the
+    // aimable headbutt named this as a requirement rather than a nicety: you
+    // cannot aim at what you cannot see. Colour carries the one thing the aim
+    // alone does not tell you — whether this swing will dig.
+    this.reticle = new THREE.Mesh(
+      new THREE.TorusGeometry(0.42, 0.055, 6, 16),
+      new THREE.MeshBasicMaterial({ color: COLORS.RETICLE, transparent: true, opacity: 0.85 }),
+    );
+    this.reticle.rotation.x = -Math.PI / 2;
+    this.reticle.visible = false;
+    this.scene.add(this.reticle);
+    this._aimDir = new THREE.Vector3();
+    this._camDir = new THREE.Vector3();
   }
 
   /** Cross between daylight and the sewer. Called on the transition only. */
@@ -241,7 +263,11 @@ class Game {
     // free-flying viewpoint would despawn and respawn the cans he is standing
     // next to, losing which ones he had already tipped.
     this.trashCans.streamAround(jp.x, jp.z);
-    this.jimothy.update(delta, this.cameraSystem.yaw);
+    // Aiming IS looking (milestone 20): the aim is how far below horizontal the
+    // camera is pointed, which the mouse already drives whenever the pointer is
+    // locked. One frame stale, because the camera updates after him — which at
+    // 60 Hz is nothing, and keeps the order of the loop unchanged.
+    this.jimothy.update(delta, this.cameraSystem.yaw, this.cameraSystem.aimPitch);
     this.physics.update(delta);
     this.jimothy.postUpdate(delta);
     this.trashCans.update(delta);
@@ -256,6 +282,7 @@ class Game {
     // grade stopped being a constant when the island got hills (milestone 17).
     this._setUnderground(this.voxels.terrainHeightAt(jp.x, jp.z) - jp.y > SEWER.BELOW);
     this.lamp.position.set(jp.x, jp.y + 1.6, jp.z);
+    this.updateReticle();
     if (this.flyCamera.active) this.flyCamera.update(delta);
     else if (!this.freeCamera) this.cameraSystem.update(delta);
     this.devTools.update(delta);
@@ -297,6 +324,64 @@ class Game {
       'hidden',
       this.input.everKeydown || !this.input.everPointer,
     );
+  }
+
+  /** Park the reticle on the predicted impact. Shown while the pointer is
+   *  locked — that is when the player is aiming — and while a headbutt is in
+   *  flight, so you can see it arrive where it was promised. */
+  updateReticle() {
+    const H = MOVES.HEADBUTT;
+    const aim = this.jimothy.move?.aim ?? this.jimothy.aimPitch ?? 0;
+    const digs = this.digsTerrain(H, aim);
+    // While aiming (pointer locked), while a swing is in flight, and ALWAYS when
+    // the aim would dig — that last one is the case where the player most needs
+    // to know, and it is also the one where the camera is least informative.
+    const aiming = this.input.pointerLocked || digs
+      || this.jimothy.move?.kind === 'headbutt';
+    this.reticle.visible = aiming && gameState.game.isPlaying && !this.flyCamera.active;
+    if (!this.reticle.visible) return;
+    const flat = Math.cos(aim);
+    this._aimDir.set(
+      Math.sin(this.jimothy.yaw) * flat, -Math.sin(aim), Math.cos(this.jimothy.yaw) * flat,
+    );
+    const p = this.jimothy.body.position;
+    this.impactPoint(p, this._aimDir, H, H.REACH, this.reticle.position, digs);
+    this.reticle.material.color.set(digs ? COLORS.RETICLE_DIG : COLORS.RETICLE);
+  }
+
+  /** Where a move's blast will land (milestone 20).
+   *
+   *  ONE function, used by the blast and by the reticle. A reticle that lies is
+   *  worse than no reticle, and the way a reticle comes to lie is two copies of
+   *  the same arithmetic drifting apart.
+   *
+   *  Offset ahead by the blast's own radius plus the move's reach, so a
+   *  wrecking-ball Jimothy carves what he is pointing at rather than the floor
+   *  beneath him (playtest 2026-07-23: "he gets stuck in a hole"). */
+  impactPoint(from, dir, cfg, reach, out = {}, digging = false) {
+    const r = this.blastRadius(cfg.FAT_BLAST_SHARE) * cfg.RADIUS_SCALE;
+    // The radius-sized standoff exists to keep a fat Jimothy from cratering the
+    // pit he is standing in and dropping into it (playtest 2026-07-23).
+    //
+    // A DIGGING swing wants exactly that, and the standoff actively prevents it:
+    // at full fatness it is 4.8 m, which pushed the whole sphere below the
+    // surface and left an intact 0.85 m lid over a cavern he could not reach.
+    // Measured as 0 m of shaft for a swing that removed a thousand voxels.
+    // Pointing down already carries the blast off his body, so reach alone is
+    // the right standoff there.
+    const dist = digging ? reach : r * 0.95 + reach;
+    out.x = from.x + dir.x * dist;
+    // Chest height, so a flat swing's crater stays shallow and walkable — and
+    // the aim carries it down from there when he points at the ground.
+    out.y = from.y + 0.35 + dir.y * dist;
+    out.z = from.z + dir.z * dist;
+    return out;
+  }
+
+  /** Is terrain a target for this swing? For an AIMABLE move, only when it is
+   *  pointed deliberately downward — which is the whole of milestone 20. */
+  digsTerrain(cfg, aim) {
+    return cfg.AIMABLE ? aim >= cfg.DIG_ANGLE : cfg.DIGS_TERRAIN;
   }
 
   // Blow a hole in the world: clear voxels, re-mesh only the chunks that
@@ -520,6 +605,9 @@ class Game {
         speed: +this.jimothy.speed.toFixed(2),
         widthScale: +(this.jimothy.widthScale || 1).toFixed(3),
         move: this.jimothy.move?.kind ?? null,
+        // Radians below horizontal, and whether a swing at that aim would dig.
+        aim: +(this.jimothy.aimPitch || 0).toFixed(3),
+        digs: this.digsTerrain(MOVES.HEADBUTT, this.jimothy.aimPitch || 0),
         moveCooldown: +this.jimothy.moveCooldown.toFixed(2),
         tuck: +(this.jimothy.rollTuck || 0).toFixed(3),
         ...(() => {

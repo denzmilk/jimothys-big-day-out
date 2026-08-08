@@ -202,6 +202,11 @@ export class DevTools {
     mk('dt-spawn-can', 'Spawn can ahead', () => eventBus.emit(Events.DEV_SPAWN_CAN));
     mk('dt-remove-can', 'Remove nearest can', () => eventBus.emit(Events.DEV_REMOVE_CAN));
     mk('dt-reset-cans', 'Reset can layout', () => eventBus.emit(Events.DEV_RESET_CANS));
+    // The other half of what Chris asked for (milestone 20): a way to go and
+    // look at the underground without digging down to it first. The headbutt is
+    // the GAME's answer; this is the inspection one.
+    mk('dt-goto-sewer', 'Drop into the nearest sewer', () =>
+      eventBus.emit(Events.DEV_GOTO_SEWER));
     mk('dt-export-layout', 'Copy layout JSON', () => {
       const snapshot = JSON.parse(window.render_game_to_text());
       const layout = snapshot.cans.map((c) => [c.x, c.z]);

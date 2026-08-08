@@ -271,7 +271,12 @@ export class JimothyController {
     this._prevZ = p.z;
   }
 
-  update(delta, cameraYaw) {
+  update(delta, cameraYaw, aimPitch = 0) {
+    // Radians below horizontal, straight off the camera (milestone 20). Aiming
+    // IS looking: no aim mode, no modifier key. Held on the controller rather
+    // than threaded through `_updateMoves`, because the head has to be posed to
+    // it in postUpdate too.
+    this.aimPitch = aimPitch;
     this.elapsed += delta;
     if (this.stunTimer > 0) {
       this.stunTimer -= delta;
@@ -315,8 +320,12 @@ export class JimothyController {
     if (this.moveCooldown > 0) this.moveCooldown -= delta;
 
     if (controllable && !this.move && this.moveCooldown <= 0) {
-      if (this.input.consumeHeadbutt()) this.move = { kind: 'headbutt', t: 0, fired: false };
-      else if (this.input.consumeRoll()) this.move = { kind: 'roll', t: 0, ticks: 0 };
+      // The aim is LOCKED when the move starts, exactly as the facing is: a
+      // headbutt commits to where it was pointed, not to where the mouse
+      // drifted during the windup.
+      if (this.input.consumeHeadbutt()) {
+        this.move = { kind: 'headbutt', t: 0, fired: false, aim: this.aimPitch || 0 };
+      } else if (this.input.consumeRoll()) this.move = { kind: 'roll', t: 0, ticks: 0 };
     }
     // Queued presses are deliberately NOT drained while busy — a press during
     // a cooldown fires the moment it lifts, which feels responsive instead of
@@ -331,20 +340,29 @@ export class JimothyController {
     if (m.kind === 'headbutt') {
       const H = MOVES.HEADBUTT;
       const total = H.WINDUP + H.LUNGE + H.RECOVER;
+      // The blast travels along the AIM, not along the floor. Its horizontal
+      // part shrinks as he points down, so a straight-down swing drives him
+      // into the ground rather than across it.
+      const aim = m.aim || 0;
+      const flat = Math.cos(aim);
       if (m.t < H.WINDUP) {
         // Rear back: a beat of anticipation sells the hit.
-        this.vel.x = -fwdX * 1.5;
-        this.vel.z = -fwdZ * 1.5;
+        this.vel.x = -fwdX * 1.5 * flat;
+        this.vel.z = -fwdZ * 1.5 * flat;
       } else if (m.t < H.WINDUP + H.LUNGE) {
-        this.vel.x = fwdX * H.LUNGE_SPEED;
-        this.vel.z = fwdZ * H.LUNGE_SPEED;
+        this.vel.x = fwdX * H.LUNGE_SPEED * flat;
+        this.vel.z = fwdZ * H.LUNGE_SPEED * flat;
         if (!m.fired) {
           m.fired = true;
           const p = this.body.position;
           // Game offsets the impact by its own blast radius so the sphere
           // lands clear of his feet — otherwise a fat Jimothy digs the pit
           // he's standing in and drops into it.
-          this.onImpact?.(p.x, p.y, p.z, fwdX, fwdZ, H, H.REACH);
+          this.onImpact?.(
+            p.x, p.y, p.z,
+            { x: fwdX * flat, y: -Math.sin(aim), z: fwdZ * flat },
+            H, H.REACH, aim,
+          );
           this.jiggleAmp += 0.25;
         }
       } else {
@@ -361,7 +379,10 @@ export class JimothyController {
       while (m.ticks < wantTicks && m.ticks < R.TICKS) {
         m.ticks++;
         const p = this.body.position;
-        this.onImpact?.(p.x, p.y, p.z, fwdX, fwdZ, R, P.RADIUS);
+        // Flat, always. The roll is the comedy tool and commits to a flop —
+        // pointing it is not obviously an improvement, and it must not become a
+        // drill just because the headbutt learned to aim.
+        this.onImpact?.(p.x, p.y, p.z, { x: fwdX, y: 0, z: fwdZ }, R, P.RADIUS, 0);
       }
       if (m.t >= R.DURATION) { this.move = null; this.moveCooldown = R.COOLDOWN; }
     }

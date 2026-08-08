@@ -59,8 +59,8 @@ The boom marches out from the look target and stops short of the first solid. In
 - `src/level/VoxelWorld.js` — `raycast()`, returning the hit and its face normal.
 - `src/systems/CameraSystem.js` — `aimYaw`; the boom collides.
 - `src/gameplay/JimothyController.js` — the aim yaw drives the move; the facing snaps on fire; fade at close camera range.
-- `src/core/Game.js` — the reticle marches, orients and reports a miss; `digsTerrain` takes depth.
-- `src/core/Constants.js` — `DIG_BELOW`, camera collision values, reticle miss colour.
+- `src/core/Game.js` — one `aimHit` march feeds the reticle, the dig test and the blast; `blastReach`; `impactPoint` lands on what it strikes.
+- `src/core/Constants.js` — `DIG_BELOW`, `BLAST_BITE`, camera collision values, reticle miss colour. `DIG_ANGLE` deleted.
 - `src/systems/InputSystem.js` — a pointer-lock override, so specs can drive the real aiming path headless.
 - `src/main.js` — a look hook.
 
@@ -73,7 +73,7 @@ The boom marches out from the look target and stops short of the first solid. In
 
 ## What shipped
 
-`tests/aim.spec.js` grew to 9 specs, `tests/underground.spec.js` to 11. **Suite: 116 passed / 1 failed**, the failure being the pre-existing JIM-03 `interrupted feast`.
+`tests/aim.spec.js` grew to 11 specs, `tests/underground.spec.js` to 11. **Suite: 127 passed / 1 failed**, the failure being the pre-existing JIM-03 `interrupted feast`.
 
 Measured on the production path, dev console clean:
 
@@ -89,6 +89,42 @@ Measured on the production path, dev console clean:
 - **A lean Jimothy barely scratches a tunnel wall** — 10 flat swings at fatness 0 removed 7 voxels, against ~2 400 at fatness 40. That is `FAT_BLAST_SHARE: 1.0` doing exactly what it says ("this is the move eating is meant to buy"), and tunnelling being a fat-raccoon activity seems right. But it is close to "the mechanic does nothing" at the low end.
 - **Digging sideways reaches heat tier 5 in ten swings.** That is JIM-35 again, and JIM-40 makes it much easier to trigger: the underground is now a place you can spend a long time destroying.
 
+## Appended after Chris's playtest, 2026-08-08
+
+> *"The headbutt into the ground feels a bit off, it's like it only works if you hard lock into the ground and only works direct in front of you?"*
+
+Two complaints, one cause: **the reticle and the swing were computed separately and disagreed.** The marker had been rebuilt to ask the world; the blast had not.
+
+Measured before the fix, sweeping the pitch at fatness 0:
+
+| aim below neutral | marker | swing |
+|---|---|---|
+| 0.04 | reachable ground, 2.15 m ahead | refuses to dig |
+| 0.44 | reachable ground, 1.02 m ahead | refuses to dig |
+| 0.54 | reachable ground, 0.80 m ahead | digs |
+
+`DIG_ANGLE` was 0.5 of an available 1.04, so **more than half the downward travel bought nothing** while the reticle said the ground was right there — that is "hard lock into the ground", and it is a disagreement rather than a tuning problem.
+
+And the crater never moved. Across a sweep where the marker travelled from 1.07 m to 0.49 m ahead, the blast landed at **1.87 m every single time**, because `impactPoint` was still a fixed standoff that never asked what was in front — "only works direct in front of you". Left/right aiming was fine (measured at 0.00 rad of error), so JIM-38 was not the problem.
+
+**Both are fixed by deleting `DIG_ANGLE` and making one march answer everything.** `Game.aimHit` is called once per swing and once per frame; from it come *what the swing strikes*, *whether that is ground*, *whether it is in reach*, and *where the sphere goes*. They can no longer differ, because there is nothing left to differ.
+
+- **It digs when it will actually strike ground** — geometry, not an angle. Stricter where it matters: a flat swing across a street still cannot crater the road, because a horizontal ray from chest height does not reach the ground inside a headbutt's reach. That is the 2026-07-23 fix restated as a fact rather than a threshold, and `voxel.spec.js::headbutt spares the ground` still passes.
+- **The blast lands on what the marker is on**, buried by `VOXEL.BLAST_BITE` of its own radius so it takes a bite rather than grazing.
+
+**Measured after**, at the same spots:
+
+| | before | after |
+|---|---|---|
+| shallowest digging aim | 0.54 | **0.04** — set by where the ground is |
+| crater across a pitch sweep | pinned at 1.87 m | tracks the marker, 1.58 → 6.72 m |
+| ten downward swings, fatness 0 | 3.0 m (milestone 20) | **4.4 m** |
+| ten downward swings, fatness 40 | 19.7 m (milestone 20) | **28.7 m** |
+
+Depth went *up* rather than down, which was the risk: at a steep aim with a big blast the bite reproduces the old standoff to within 2 %, so nothing milestone 20 measured was traded away.
+
+**Worth Chris's eye at the next playtest:** on a hillside, a swing at the *resting* aim now digs, because the hill genuinely is in front of you at chest height. On the flat it does not. That is the intended reading of "digs when it will strike ground", and the reticle turns orange to say so — but it is a real behaviour change on sloped ground.
+
 ## Acceptance criteria
 
 - [x] Looking left and right moves the reticle — the aim ray is the camera's bearing, not his facing
@@ -98,7 +134,9 @@ Measured on the production path, dev console clean:
 - [x] Underground, a flat headbutt digs sideways; above ground a flat headbutt still spares the road — asserted as a pair for the same reason
 - [x] The camera never sits inside solid rock, in a sewer or in a dug shaft
 - [x] Reticle state is in `render_game_to_text()`
-- [ ] It feels like aiming, and the underground is legible — **verified by user playtest**
+- [x] Looking down does not require hard-locking: no aim exists where the marker says reachable ground and the swing refuses — asserted as the property, since the honest answer is geometry and a magic angle would assert something the game should not promise
+- [x] The crater lands where the marker is rather than at a fixed distance — asserted as a relationship across three aims, because any single one can agree by coincidence
+- [ ] It feels like aiming, and the underground is legible — **verified by user playtest** *(round 1 done 2026-08-08; the two findings above are fixed and want re-checking)*
 
 ## Exit condition
 

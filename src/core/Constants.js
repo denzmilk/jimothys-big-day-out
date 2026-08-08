@@ -75,26 +75,36 @@ export const MOVES = {
     RADIUS_SCALE: 1.0,
     // Full fatness payoff: this is the move eating is meant to buy.
     FAT_BLAST_SHARE: 1.0,
-    // Terrain is not a target — unless you point at it (milestone 20). A flat
+    // `DIGS_TERRAIN: false` is the un-aimed answer, kept for the roll. A flat
     // headbutt cratering the road turned every swing into a hole he then had to
     // climb out of (playtest 2026-07-23), and this flag was the fix. It was
     // never "Jimothy cannot dig", it was "an unaimed dig is an accident".
     //
-    // AIMABLE hands the decision to `DIG_ANGLE` instead: terrain is a target
-    // only when the camera is looking more than this far below horizontal. The
-    // default follow pitch is 0.47 rad, comfortably under it, so an ordinary
-    // swing behaves exactly as it did.
+    // AIMABLE hands the decision to `Game.digsTerrain` instead, which asks the
+    // WORLD rather than a number: **the swing digs when it will actually strike
+    // ground.**
+    //
+    // There used to be a `DIG_ANGLE: 0.5` here — terrain became a target only
+    // past 0.5 rad below the resting camera, more than half the available
+    // downward travel. It is gone (playtest 2026-08-08, Chris: *"it's like it
+    // only works if you hard lock into the ground"*), and what condemned it is
+    // that it disagreed with the reticle: measured, the marker reported
+    // reachable ground from 0.04 rad while the swing refused to dig until 0.54.
+    //
+    // Geometry is stricter than the angle where it matters — a flat swing
+    // across a street still cannot crater the road, because a horizontal ray
+    // from chest height never reaches the ground inside a headbutt's reach,
+    // which is the 2026-07-23 fix restated as a fact rather than a threshold —
+    // and looser everywhere else, which is what Chris asked for. It also makes
+    // the reticle authoritative: orange means this swing digs.
     DIGS_TERRAIN: false,
     AIMABLE: true,
-    // Measured from the RESTING camera pitch, not from the horizon. Roughly
-    // half the available downward travel: past halfway is the dig.
-    DIG_ANGLE: 0.5,
     // …and once he is THIS far under his own column's surface, terrain is a
-    // target whatever the aim (JIM-40). DIG_ANGLE exists to stop a flat swing
-    // cratering the street; there is no street down a tunnel, and the gate made
-    // digging sideways impossible — measured at 0 voxels removed for a flat
-    // swing against 11 for an aimed-down one, from the same spot in a sewer.
-    // Deep enough that standing in a puddle of a crater does not count.
+    // target whatever the swing meets, including nothing at all (JIM-40). There
+    // is no street to protect down a tunnel, and the old gate made digging
+    // sideways impossible — measured at 0 voxels removed for a flat swing
+    // against 11 for an aimed-down one, from the same spot in a sewer. Deep
+    // enough that standing in a puddle of a crater does not count.
     DIG_BELOW: 1.5,
     // Anticipation is sold by PITCH, barely by sliding the head. The model's
     // pieces have open seams (JIM-10), so a big head translation drags the
@@ -688,6 +698,15 @@ export const VOXEL = {
   // A skinny raccoon is not a wrecking ball. Base radius barely scratches
   // paint — real demolition is earned by eating (FATNESS.BLAST_PER_FAT).
   BLAST_RADIUS: 0.75,
+  // How far PAST the surface it hits the blast centre sits, as a fraction of
+  // its own radius (playtest 2026-08-08). The sphere used to be parked at a
+  // fixed standoff and never asked what was there, so the crater landed 1.87 m
+  // ahead however close the thing you were aiming at — Chris: "it only works
+  // direct in front of you". Now it lands ON what the reticle is on, and this
+  // is how deep a bite it takes: 0.5 buries half the sphere, which is a crater
+  // rather than a graze. At a steep aim with a big blast it reproduces the old
+  // standoff to within 2 %, so milestone 20's measured shaft depths survive.
+  BLAST_BITE: 0.5,
   // Retired by milestone 17. Ground was two stored layers — diggable dirt over
   // indestructible bedrock — which is a SURFACE, not a volume. It is now a
   // height field with `TERRAIN.SKIN` stored layers over implicit rock, and

@@ -28,17 +28,25 @@ const shaftDepth = (page) => page.evaluate(
   SPOT,
 );
 
-test('the aim is reported, and it follows the camera', async ({ page }) => {
+test('the aim is reported, and looking down turns the swing into a dig', async ({ page }) => {
+  // `digs` used to be a threshold on this number and is now a question about
+  // the world (playtest 2026-08-08), so the assertion moved with it: the aim is
+  // still reported, but what matters is that the resting view does not dig and
+  // a downward one does. Asserting `aim < DIG_ANGLE` only ever tested a
+  // comparison against a constant that no longer exists.
   await standing(page);
-  const flat = (await state(page)).jimothy.aim;
-  expect(flat, 'no aim in the snapshot').toBeDefined();
-  // The default follow camera looks slightly down at him, and that has to stay
-  // under the dig threshold or every ordinary swing becomes a hole.
-  expect(flat).toBeLessThan(MOVES.HEADBUTT.DIG_ANGLE);
+  await page.evaluate(() => window.lookJimothy(0.7));
+  await adv(page, 0.1);
+  const rest = await state(page);
+  expect(rest.jimothy.aim, 'no aim in the snapshot').toBeDefined();
+  expect(rest.jimothy.aim).toBeCloseTo(0, 1); // neutral is exactly zero
+  expect(rest.jimothy.digs, 'the resting view digs — every swing is a hole').toBe(false);
 
   await page.evaluate((d) => window.aimJimothy(d), CAMERA.PITCH_MAX);
   await adv(page, 0.1);
-  expect((await state(page)).jimothy.aim).toBeGreaterThan(MOVES.HEADBUTT.DIG_ANGLE);
+  const down = await state(page);
+  expect(down.jimothy.aim).toBeGreaterThan(rest.jimothy.aim);
+  expect(down.jimothy.digs, 'looking at the ground does not dig').toBe(true);
 });
 
 test('aiming down digs; aiming flat still spares the road', async ({ page }) => {
@@ -250,6 +258,98 @@ test('the reticle marks a miss when there is nothing in range (JIM-39)', async (
   await adv(page, 1.0);
   const after = await page.evaluate(() => window.__game.voxels.removedCount);
   expect(after - before, 'a swing the reticle called a miss still destroyed something').toBe(0);
+});
+
+test('the crater lands where the marker is, not at a fixed distance ahead', async ({ page }) => {
+  // Chris, playtest 2026-08-08: *"it only works direct in front of you."* The
+  // blast used to sit at a fixed standoff and never ask what was there, so
+  // measured across a pitch sweep the marker moved between 0.49 m and 1.07 m
+  // ahead while the crater stayed pinned at 1.87 m every single time.
+  await standing(page, { fat: 60 });
+  await page.evaluate(() => window.lookJimothy(0.7));
+
+  const seen = [];
+  for (const pitch of [CAMERA.PITCH_MAX, CAMERA.PITCH_MAX - 0.25, CAMERA.PITCH_MAX - 0.5]) {
+    await page.evaluate((p) => window.teleportJimothy(p.x, p.z), SPOT);
+    await page.evaluate(() => window.lookJimothy(0.7));
+    await page.evaluate((d) => window.aimJimothy(d), pitch);
+    await adv(page, 0.3);
+    const marker = await page.evaluate(() => {
+      const g = window.__game;
+      const p = g.jimothy.body.position;
+      return {
+        d: Math.hypot(g.reticle.position.x - p.x, g.reticle.position.z - p.z),
+        inReach: g.reticleHit.inReach,
+      };
+    });
+    expect(marker.inReach, `nothing in reach at pitch ${pitch}`).toBe(true);
+
+    await page.evaluate(() => {
+      window.__b = null;
+      window.__game.onBlast = (q) => { window.__b = { x: q.x, y: q.y, z: q.z }; };
+    });
+    const from = (await state(page)).jimothy;
+    await page.keyboard.press('e');
+    await adv(page, 1.0);
+    const b = await page.evaluate(() => window.__b);
+    expect(b, 'the headbutt never fired').toBeTruthy();
+    seen.push({ marker: marker.d, blast: Math.hypot(b.x - from.x, b.z - from.z) });
+  }
+
+  // The crater tracks the marker instead of standing still. Asserted as a
+  // RELATIONSHIP across three aims, because any single one can agree by
+  // coincidence — the old fixed 1.87 m happened to be about right at one pitch.
+  const markerSpread = Math.max(...seen.map((s) => s.marker)) - Math.min(...seen.map((s) => s.marker));
+  const blastSpread = Math.max(...seen.map((s) => s.blast)) - Math.min(...seen.map((s) => s.blast));
+  expect(markerSpread, 'the test never moved the marker, so it proves nothing')
+    .toBeGreaterThan(0.3);
+  expect(blastSpread, `marker moved ${markerSpread.toFixed(2)} m and the crater moved ${blastSpread.toFixed(2)} m`)
+    .toBeGreaterThan(markerSpread * 0.5);
+});
+
+test('no hard lock: the marker and the swing never disagree about digging', async ({ page }) => {
+  // The other half of the same playtest — *"it only works if you hard lock into
+  // the ground."* The old gate needed 0.5 rad of an available 1.04 before
+  // terrain became a target, while the marker was already reporting reachable
+  // ground from 0.04. That gap IS the complaint, so the assertion is the gap
+  // rather than a magic angle: **there must be no aim at which the reticle says
+  // you can reach ground and the swing refuses to dig it.**
+  //
+  // Stated as a property because the honest answer is geometry, not a number.
+  // Measured at this spot the ground slopes away, so a gentle tilt genuinely
+  // does not reach it for 12 m — correctly no dig, and a spec asserting "0.25
+  // rad must dig" would be asserting something the game should not promise.
+  await standing(page, { fat: 60 });
+
+  const samples = [];
+  for (let pitch = CAMERA.PITCH_MIN; pitch <= CAMERA.PITCH_MAX + 1e-6; pitch += 0.08) {
+    await page.evaluate(() => window.lookJimothy(0.7));
+    await page.evaluate((d) => window.aimJimothy(d), pitch);
+    await adv(page, 0.1);
+    const s = await state(page);
+    const onGround = await page.evaluate(() => {
+      const g = window.__game;
+      if (!g.reticleHit.onSurface) return false;
+      const r = g.reticle.position;
+      return r.y <= g.voxels.terrainHeightAt(r.x, r.z) + 0.6;
+    });
+    samples.push({ aim: s.jimothy.aim, inReach: s.reticle.inReach, onGround, digs: s.jimothy.digs });
+  }
+
+  const refused = samples.filter((s) => s.inReach && s.onGround && !s.digs);
+  expect(refused.map((s) => s.aim), 'reachable ground the swing refuses to dig').toEqual([]);
+  // Non-vacuous in both directions, or "never disagrees" passes on a game where
+  // nothing ever digs and on one where everything always does.
+  expect(samples.some((s) => s.digs), 'nothing dug anywhere in the sweep').toBe(true);
+  expect(samples.some((s) => !s.digs), 'every aim digs — the road is not safe').toBe(true);
+
+  // …and the shallowest digging aim is set by where the ground is, not by a
+  // threshold: it must be the first aim that can reach ground at all.
+  const firstReachable = samples.findIndex((s) => s.inReach && s.onGround);
+  const firstDig = samples.findIndex((s) => s.digs);
+  expect(firstReachable, 'the sweep never found reachable ground').toBeGreaterThanOrEqual(0);
+  expect(firstDig, `ground reachable at aim ${samples[firstReachable]?.aim}, `
+    + `first dig at ${samples[firstDig]?.aim}`).toBe(firstReachable);
 });
 
 test('the roll is unaffected — it is not an aimed move', async ({ page }) => {

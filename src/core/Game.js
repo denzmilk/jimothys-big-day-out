@@ -81,8 +81,13 @@ class Game {
     // The move hands over its own config, so its demolition policy travels
     // with it instead of being re-derived here from positional arguments.
     this.jimothy.onImpact = (x, y, z, dir, cfg, reach, aim = 0) => {
-      const digs = this.digsTerrain(cfg, aim, x, y, z);
-      const at = this.impactPoint({ x, y, z }, dir, cfg, reach, {}, digs);
+      const from = { x, y, z };
+      // ONE march, feeding all three answers: what the swing strikes, whether
+      // that counts as ground, and where the sphere goes. They used to be
+      // computed independently and disagreed by 1.4 m (playtest 2026-08-08).
+      const hit = this.aimHit(from, dir, this.blastReach(cfg, reach));
+      const digs = this.digsTerrain(cfg, aim, from, hit);
+      const at = this.impactPoint(from, dir, cfg, reach, {}, digs, hit);
       this.blastAt(at, cfg.RADIUS_SCALE, { fatShare: cfg.FAT_BLAST_SHARE, digsTerrain: digs });
       this.onBlast?.(at);
     };
@@ -387,7 +392,16 @@ class Game {
     // Both axes now (JIM-38). A move locks its yaw at the start exactly as it
     // locks its aim, so a swing in flight keeps showing where it committed.
     const yaw = this.jimothy.move?.yaw ?? this.jimothy.aimYaw ?? this.jimothy.yaw;
-    const digs = this.digsTerrain(H, aim, p.x, p.y, p.z);
+    const flat = Math.cos(aim);
+    this._aimDir.set(Math.sin(yaw) * flat, -Math.sin(aim), Math.cos(yaw) * flat);
+    const reach = this.blastReach(H, H.REACH);
+    // ONE march, at the marker's much longer range, answering everything: what
+    // the swing meets, whether that is ground, whether it is close enough to
+    // hit, and where the sphere goes. The three used to be derived separately
+    // and disagreed by 1.4 m (playtest 2026-08-08).
+    const hit = this.aimHit(p, this._aimDir);
+    const inReach = !!hit && hit.t <= reach;
+    const digs = this.digsTerrain(H, aim, p, inReach ? hit : null);
     // While aiming (pointer locked), while a swing is in flight, and ALWAYS when
     // the aim would dig — that last one is the case where the player most needs
     // to know, and it is also the one where the camera is least informative.
@@ -404,22 +418,6 @@ class Game {
       return;
     }
 
-    const flat = Math.cos(aim);
-    this._aimDir.set(Math.sin(yaw) * flat, -Math.sin(aim), Math.cos(yaw) * flat);
-    // Eye height matches `impactPoint`'s, so the marker and the blast are the
-    // same ray and not merely parallel ones.
-    const ox = p.x;
-    const oy = p.y + 0.35;
-    const oz = p.z;
-    // The furthest a swing can touch: where the blast CENTRE goes, plus the
-    // sphere's own radius. Taken from impactPoint rather than restated, so the
-    // digging branch's different standoff cannot drift out of agreement.
-    const r = this.blastRadius(H.FAT_BLAST_SHARE) * H.RADIUS_SCALE;
-    const centre = this.impactPoint(p, this._aimDir, H, H.REACH, {}, digs);
-    const reach = Math.hypot(centre.x - ox, centre.y - oy, centre.z - oz) + r;
-
-    const hit = this._aimHit(ox, oy, oz, this._aimDir);
-    const inReach = !!hit && hit.t <= reach;
     if (hit) {
       // Lifted off the face, or it z-fights with the very surface it marks.
       this.reticle.position.set(
@@ -435,10 +433,11 @@ class Game {
     } else {
       // Nothing out there. Park it at the edge of the swing's reach, facing
       // back at the player, so "you will hit air" still reads as a place.
+      const oy = p.y + 0.35;
       this.reticle.position.set(
-        ox + this._aimDir.x * reach, oy + this._aimDir.y * reach, oz + this._aimDir.z * reach,
+        p.x + this._aimDir.x * reach, oy + this._aimDir.y * reach, p.z + this._aimDir.z * reach,
       );
-      this.reticle.lookAt(ox, oy, oz);
+      this.reticle.lookAt(p.x, oy, p.z);
     }
     this.reticle.material.color.set(
       !inReach ? COLORS.RETICLE_MISS : (digs ? COLORS.RETICLE_DIG : COLORS.RETICLE),
@@ -457,12 +456,17 @@ class Game {
    *  the grid knows nothing about. Chris asked for "any item/surface", and a
    *  reticle that slides straight through a wheelie bin onto the wall behind it
    *  is exactly the tell that it is not really looking. */
-  _aimHit(ox, oy, oz, dir) {
-    const hit = this.voxels.raycast(ox, oy, oz, dir.x, dir.y, dir.z, RETICLE.LOOK_RANGE);
+  aimHit(from, dir, maxDist = RETICLE.LOOK_RANGE) {
+    // Same eye height as `impactPoint`, so the marker and the blast march the
+    // same ray rather than two parallel ones.
+    const ox = from.x;
+    const oy = from.y + 0.35;
+    const oz = from.z;
+    const hit = this.voxels.raycast(ox, oy, oz, dir.x, dir.y, dir.z, maxDist);
     this._raycaster.set(this._aimOrigin.set(ox, oy, oz), dir);
     // Capped at the wall behind them, so a bin on the far side of a building
     // cannot win against the building.
-    this._raycaster.far = hit ? hit.t : RETICLE.LOOK_RANGE;
+    this._raycaster.far = hit ? hit.t : maxDist;
     this._propHits.length = 0;
     this._propMeshes.length = 0;
     for (const can of this.trashCans.cans) this._propMeshes.push(can.mesh);
@@ -491,8 +495,31 @@ class Game {
    *  Offset ahead by the blast's own radius plus the move's reach, so a
    *  wrecking-ball Jimothy carves what he is pointing at rather than the floor
    *  beneath him (playtest 2026-07-23: "he gets stuck in a hole"). */
-  impactPoint(from, dir, cfg, reach, out = {}, digging = false) {
+  impactPoint(from, dir, cfg, reach, out = {}, digging = false, hit = undefined) {
     const r = this.blastRadius(cfg.FAT_BLAST_SHARE) * cfg.RADIUS_SCALE;
+    const maxDist = this.blastReach(cfg, reach);
+    const oy = from.y + 0.35;
+    // `undefined` means nobody has marched it yet; `null` means marched and
+    // nothing there. The reticle already has an answer from a much longer ray,
+    // so it passes one in rather than paying for a second march that could
+    // disagree with the first.
+    const found = hit === undefined
+      ? this.voxels.raycast(from.x, oy, from.z, dir.x, dir.y, dir.z, maxDist)
+      : hit;
+
+    // It lands ON what the swing meets, buried by a fraction of its own radius
+    // so it takes a bite rather than grazing (playtest 2026-08-08). Before
+    // this the sphere sat at a fixed standoff and never asked what was there,
+    // so the crater appeared 1.87 m ahead whether the thing you were pointing
+    // at was 0.49 m away or 1.07 m — Chris: "it only works direct in front of
+    // you". Capped at `maxDist`, because a bite is not extra range.
+    if (found && found.t <= maxDist) {
+      const dist = Math.min(found.t + r * VOXEL.BLAST_BITE, maxDist);
+      out.x = from.x + dir.x * dist;
+      out.y = oy + dir.y * dist;
+      out.z = from.z + dir.z * dist;
+      return out;
+    }
     // The radius-sized standoff exists to keep a fat Jimothy from cratering the
     // pit he is standing in and dropping into it (playtest 2026-07-23).
     //
@@ -523,26 +550,48 @@ class Game {
     return out;
   }
 
-  /** Is terrain a target for this swing? For an AIMABLE move, when it is
-   *  pointed deliberately downward — milestone 20 — **or when he is already
-   *  under the ground**, which is milestone 21 (JIM-40).
+  /** How far along the aim a swing can touch anything: where the blast centre
+   *  can go, plus the sphere's own radius. Shared by the dig test, the blast
+   *  and the reticle's "in reach", so none of them can hold a different opinion
+   *  about what this swing can and cannot get to. */
+  blastReach(cfg, reach) {
+    const r = this.blastRadius(cfg.FAT_BLAST_SHARE) * cfg.RADIUS_SCALE;
+    return r * 0.95 + reach + r;
+  }
+
+  /** Is terrain a target for this swing?
    *
-   *  `DIG_ANGLE` exists to stop a flat headbutt cratering the street it lunges
-   *  over (playtest 2026-07-23), and above ground it is exactly right. Below it
-   *  there is no street to protect, and the gate made digging sideways
-   *  impossible: measured at 0 voxels removed for a flat swing in a sewer,
-   *  against 11 for an aimed-down one from the same spot. Chris, 2026-08-08:
-   *  "you can't dig in a direction once a hole is made, all you can do is go
-   *  deeper."
+   *  **It digs when it will actually strike ground** (playtest 2026-08-08).
+   *  This replaced a `DIG_ANGLE` threshold, which asked about the aim's angle
+   *  instead of about the world and therefore disagreed with the reticle:
+   *  measured, the marker reported reachable ground from 0.04 rad below neutral
+   *  while the swing refused to dig until 0.54 of an available 1.04 — Chris:
+   *  *"it's like it only works if you hard lock into the ground."*
    *
-   *  Depth is against THIS COLUMN's own surface, never a fixed y — grade
-   *  stopped being a constant when the island got hills (milestone 17), and
-   *  that mistake has now been made eleven times in this repo. */
-  digsTerrain(cfg, aim, x, y, z) {
+   *  The 2026-07-23 protection survives, and is stronger for being a fact
+   *  rather than a threshold: a flat swing across a street still cannot crater
+   *  the road, because a horizontal ray from chest height does not reach the
+   *  ground inside a headbutt's reach. It stops being about how far down you
+   *  are looking and starts being about whether there is ground in front of the
+   *  hit — so pointing into a hillside digs, and lunging over a pavement does
+   *  not, which is what the angle was always trying to approximate.
+   *
+   *  Ground is anything at or below the terrain's own surface, within a voxel:
+   *  the grid is quantised and the visible hillside is smoothed onto the height
+   *  field, so the two disagree by up to half a cell on a slope. A building is
+   *  metres clear of it and never confused for ground; a bin standing on the
+   *  road is half a metre up and is not ground either, so headbutting the bins
+   *  cannot crater the street they stand on. */
+  digsTerrain(cfg, aim, from, hit) {
     if (!cfg.AIMABLE) return cfg.DIGS_TERRAIN;
-    if (aim >= cfg.DIG_ANGLE) return true;
-    if (cfg.DIG_BELOW === undefined) return false;
-    return this.voxels.terrainHeightAt(x, z) - y > cfg.DIG_BELOW;
+    // Under the street there is no street to protect, and this holds even when
+    // the swing meets nothing at all (JIM-40). Depth against THIS COLUMN's own
+    // surface, never a fixed y — grade stopped being a constant when the island
+    // got hills, and that mistake has now been made fourteen times here.
+    if (cfg.DIG_BELOW !== undefined
+      && this.voxels.terrainHeightAt(from.x, from.z) - from.y > cfg.DIG_BELOW) return true;
+    if (!hit) return false;
+    return hit.y <= this.voxels.terrainHeightAt(hit.x, hit.z) + VOXEL.SIZE;
   }
 
   // Blow a hole in the world: clear voxels, re-mesh only the chunks that
@@ -770,11 +819,10 @@ class Game {
         aim: +(this.jimothy.aimPitch || 0).toFixed(3),
         // Both axes since JIM-38 — the yaw was the missing half of the aim.
         aimYaw: +(this.jimothy.aimYaw ?? this.jimothy.yaw).toFixed(3),
-        digs: this.digsTerrain(
-          MOVES.HEADBUTT, this.jimothy.aimPitch || 0,
-          this.jimothy.body.position.x, this.jimothy.body.position.y,
-          this.jimothy.body.position.z,
-        ),
+        // Off the reticle's own answer, not recomputed. The marker and the
+        // swing agreeing is the whole promise (milestone 21), and a snapshot
+        // that derives it a second way is how they come to differ.
+        digs: this.reticleHit.digs,
         moveCooldown: +this.jimothy.moveCooldown.toFixed(2),
         tuck: +(this.jimothy.rollTuck || 0).toFixed(3),
         ...(() => {

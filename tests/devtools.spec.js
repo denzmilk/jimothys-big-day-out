@@ -148,3 +148,68 @@ test('input debug', async ({ page }) => {
   await expect(page.locator('#dt-input-debug')).toContainText('KeyW');
   await page.keyboard.up('w');
 });
+
+// --- Fatness on a dial (Chris, 2026-08-08) ---
+
+const jimothyTab = async (page) => {
+  await openPanel(page);
+  await page.locator('#devtools .dt-tabs button[data-tab="jimothy"]').click();
+};
+
+test('the fatness slider makes him fatter, and it is real fatness', async ({ page }) => {
+  // Not "a number moved": the point of the dial is to reach the power curve
+  // without eating eighty snacks, so what it has to change is the things
+  // fatness changes — bulk and blast radius.
+  await boot(page);
+  const lean = await state(page);
+  expect(lean.fatness).toBe(0);
+
+  await jimothyTab(page);
+  await page.locator('#dt-fatness input[type="number"]').fill('90');
+  await adv(page, 0.3);
+
+  const fat = await state(page);
+  expect(fat.fatness).toBe(90);
+  expect(fat.jimothy.widthScale, 'he did not actually get wider')
+    .toBeGreaterThan(lean.jimothy.widthScale);
+  const radius = await page.evaluate(() => window.__game.blastRadius(1));
+  expect(radius, 'fatness did not buy any power').toBeGreaterThan(2);
+});
+
+test('the presets set named stops, and the readout follows the game', async ({ page }) => {
+  await boot(page);
+  await jimothyTab(page);
+
+  await page.locator('#dt-fatness-presets button[data-fatness="200"]').click();
+  await adv(page, 0.2);
+  expect((await state(page)).fatness).toBe(200);
+  // Too fat to hide is a real consequence at the top of the range, and it is
+  // the one a bare number cannot tell you.
+  await expect(page.locator('#dt-fatness-power')).toContainText('too fat to hide');
+
+  await page.locator('#dt-fatness-presets button[data-fatness="0"]').click();
+  await adv(page, 0.2);
+  expect((await state(page)).fatness).toBe(0);
+
+  // …and the control follows the GAME, not just its own last click: eating
+  // must move it, or it sits there misreporting what Jimothy is.
+  await page.evaluate(() => window.setFatness(42));
+  await adv(page, 0.3);
+  await expect(page.locator('#dt-fatness input[type="number"]')).toHaveValue('42');
+});
+
+test('fatness is run state, not a persisted override', async ({ page }) => {
+  // The Tune tab's rows write to localStorage on purpose. This one must not:
+  // a fatness that survived a reload would be a save file nobody asked for,
+  // and every spec that boots lean would start failing on this machine only.
+  await boot(page);
+  await jimothyTab(page);
+  await page.locator('#dt-fatness-presets button[data-fatness="90"]').click();
+  await adv(page, 0.2);
+  expect((await state(page)).fatness).toBe(90);
+
+  await page.reload();
+  await page.waitForFunction(() => typeof window.render_game_to_text === 'function');
+  await adv(page, 0.1);
+  expect((await state(page)).fatness, 'the dev slider persisted into a new run').toBe(0);
+});

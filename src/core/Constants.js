@@ -239,6 +239,23 @@ export const FATNESS = {
   HIDE_SQUEEZE: 2.5,
 };
 
+// Dev-panel-only values. Not gameplay — nothing outside `DevTools` reads them,
+// and none of it is persisted: fatness is live run state, so a slider that
+// survived a reload would be a save file nobody asked for.
+export const DEV = {
+  // Top of the fatness slider. Fatness itself has no ceiling — it is a running
+  // total of everything he has eaten — but `fatFactor` is asymptotic, so past
+  // here the curve is visually flat: 200 gives 0.89 against 100's 0.80, and
+  // 1000 would give 0.98. Chris asked for a way to add "power/fattness"; this
+  // is the range where moving the slider still changes something.
+  FATNESS_MAX: 200,
+  // Named stops, so "how fat is fat" is one click rather than a guess. The
+  // numbers are the curve's own landmarks: SOFTCAP is where bulk reaches half
+  // its maximum, and 90 is the fatness milestone 20 measured its 19.7 m shaft
+  // at, so it is the one everything else in the docs is comparable to.
+  FATNESS_PRESETS: [['Lean', 0], ['Chunky', 25], ['Gorged', 90], ['Absolute unit', 200]],
+};
+
 export const SNACKS = {
   SCRAPS_PER_CAN: 4,
   FEASTS_PER_CAN: 1,

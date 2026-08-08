@@ -3,7 +3,7 @@ import * as CANNON from 'cannon-es';
 import {
   PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
-import { dampAngle } from '../core/MathUtils.js';
+import { dampAngle, fatFactor } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import { JimothyRig } from './JimothyRig.js';
@@ -174,7 +174,7 @@ export class JimothyController {
    *  speed and hiding: a bigger Jimothy is a bigger target to catch, which is
    *  what makes the lasso (JIM-23) get easier the greedier you've been. */
   get radius() {
-    const f = gameState.player.fatness / (gameState.player.fatness + FATNESS.SOFTCAP);
+    const f = fatFactor(gameState.player.fatness);
     return P.RADIUS * (1 + f * FATNESS.MAX_WIDTH_GAIN);
   }
 
@@ -301,7 +301,7 @@ export class JimothyController {
     const controllable = gameState.game.isPlaying && !gameState.player.stunned;
     // Fat trade-off #1: the blob waddles slower (same asymptotic factor as
     // the body visuals, so what you see is what you pay).
-    const f = gameState.player.fatness / (gameState.player.fatness + FATNESS.SOFTCAP);
+    const f = fatFactor(gameState.player.fatness);
     const speed =
       (this.input.scurry ? P.SCURRY_SPEED : P.SPEED) * (1 - f * FATNESS.SPEED_PENALTY_MAX);
     const dvMax = P.ACCEL * delta;
@@ -471,7 +471,7 @@ export class JimothyController {
     // player can read the state at a glance. Fat trade-off #2: the wider he
     // is, the deeper into the bush he must squeeze — past a point the blob
     // simply doesn't fit and bushes stop working entirely.
-    const fat = gameState.player.fatness / (gameState.player.fatness + FATNESS.SOFTCAP);
+    const fat = fatFactor(gameState.player.fatness);
     const width = 1 + fat * FATNESS.MAX_WIDTH_GAIN;
     const hideRadius = Math.max(0, HIDE_SPOTS.RADIUS - (width - 1) * FATNESS.HIDE_SQUEEZE);
     // Anti-stuck: if he's ended up buried inside solid voxels (blasted a

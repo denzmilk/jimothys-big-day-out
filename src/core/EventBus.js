@@ -74,4 +74,5 @@ export const Events = {
   DEV_RESET_CANS: 'dev:reset-cans',
   DEV_CANS_CHANGED: 'dev:cans-changed',
   DEV_GOTO_SEWER: 'dev:goto-sewer',
+  DEV_SET_FATNESS: 'dev:set-fatness',
 };

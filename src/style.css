@@ -259,7 +259,8 @@ body {
   font: inherit;
 }
 
-#dt-input-debug {
+#dt-input-debug,
+#dt-fatness-power {
   background: #1c1c22;
   border: 1px solid #333;
   border-radius: 4px;
@@ -267,6 +268,20 @@ body {
   min-height: 64px;
   white-space: pre-wrap;
   margin: 0 0 10px;
+}
+
+/* The presets sit on a .dt-row, which reserves 130px for a label this one
+   doesn't have — so the chips need to claim the whole width themselves. */
+#dt-fatness-presets {
+  flex-wrap: wrap;
+}
+
+/* The Tune tab's rows reserve 130px for names like COMBO_MAX_MULTIPLIER. This
+   row's label is "FAT", and the 120px it was wasting pushed the number box
+   past the panel edge. Scoped through #devtools to outrank `#devtools
+   .dt-row label` — an id alone loses to id-class-element. */
+#devtools #dt-fatness label {
+  flex: 0 0 32px;
 }
 
 #dt-layout-json {

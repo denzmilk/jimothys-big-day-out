@@ -1,10 +1,14 @@
-import { KEYBINDS } from '../core/Constants.js';
+import { KEYBINDS, DEV, FATNESS, VOXEL, HIDE_SPOTS, PLAYER_CONFIG } from '../core/Constants.js';
 import { GROUPS, TUNABLES } from '../core/Tunables.js';
 import { DevOverrides } from '../core/DevOverrides.js';
 import { eventBus, Events } from '../core/EventBus.js';
+import { gameState } from '../core/GameState.js';
+import { fatFactor } from '../core/MathUtils.js';
 
 // In-game tuning/debug panel. Talks to gameplay only via dev:* EventBus
-// events; reads world state only through the render_game_to_text snapshot.
+// events — it never writes to GameState or to a system directly. It READS
+// live player state off `gameState`, the same way the HUD does; the snapshot
+// is for anything that would mean walking the world (the can layout export).
 export class DevTools {
   constructor(input) {
     this.input = input;
@@ -49,7 +53,9 @@ export class DevTools {
     const tabs = document.createElement('div');
     tabs.className = 'dt-tabs';
     this.sections = {};
-    for (const [id, label] of [['tune', 'Tune'], ['keys', 'Keys'], ['level', 'Level']]) {
+    for (const [id, label] of [
+      ['tune', 'Tune'], ['jimothy', 'Jimothy'], ['keys', 'Keys'], ['level', 'Level'],
+    ]) {
       const btn = document.createElement('button');
       btn.dataset.tab = id;
       btn.textContent = label;
@@ -64,6 +70,7 @@ export class DevTools {
     for (const s of Object.values(this.sections)) this.panel.appendChild(s);
 
     this._buildTuneTab();
+    this._buildJimothyTab();
     this._buildKeysTab();
     this._buildLevelTab();
     this._showTab('tune');
@@ -142,6 +149,105 @@ export class DevTools {
     number.addEventListener('input', () => apply(parseFloat(number.value)));
     row.append(label, range, number);
     return row;
+  }
+
+  // --- Jimothy ---
+  //
+  // Live RUN state, which is why it is not in the Tune tab: those rows mutate
+  // Constants and persist to localStorage, and a fatness that survived a reload
+  // would be a save file nobody asked for. Chris, 2026-08-08: "add a fatness
+  // scale so I can add power/fatness to Jimothy from the dev menu."
+
+  _buildJimothyTab() {
+    const root = this.sections.jimothy;
+
+    const fs = document.createElement('fieldset');
+    const legend = document.createElement('legend');
+    legend.textContent = 'Fatness';
+    fs.appendChild(legend);
+
+    const row = document.createElement('div');
+    row.className = 'dt-row';
+    row.id = 'dt-fatness';
+    const label = document.createElement('label');
+    label.textContent = 'FAT';
+    this.fatRange = document.createElement('input');
+    this.fatRange.type = 'range';
+    this.fatNumber = document.createElement('input');
+    this.fatNumber.type = 'number';
+    for (const input of [this.fatRange, this.fatNumber]) {
+      input.min = 0;
+      input.max = DEV.FATNESS_MAX;
+      input.step = 1;
+      input.value = gameState.player.fatness;
+      input.addEventListener('input', () => this._setFatness(parseFloat(input.value)));
+    }
+    // Typing past the slider's max is allowed and deliberate: fatness has no
+    // real ceiling, and JIM-24 ("as big as a house") is a live question about
+    // what happens out there. The slider covers the range that still changes
+    // something; the box does not stop you looking further.
+    this.fatNumber.max = '';
+    row.append(label, this.fatRange, this.fatNumber);
+    fs.appendChild(row);
+
+    const presets = document.createElement('div');
+    presets.className = 'dt-row';
+    presets.id = 'dt-fatness-presets';
+    for (const [name, value] of DEV.FATNESS_PRESETS) {
+      const btn = document.createElement('button');
+      btn.className = 'dt-chip';
+      btn.dataset.fatness = String(value);
+      btn.textContent = name;
+      btn.addEventListener('click', () => this._setFatness(value));
+      presets.appendChild(btn);
+    }
+    fs.appendChild(presets);
+    root.appendChild(fs);
+
+    // What the number BUYS. Fatness is the game's whole power curve, and every
+    // consequence is a different asymptote of the same factor — so a bare
+    // "FAT 90" tells you nothing about whether 90 is a lot. Derived through
+    // `fatFactor` rather than re-typed here, or this readout would be the fifth
+    // copy of that formula and the one place a drift would be invisible.
+    this.powerEl = document.createElement('pre');
+    this.powerEl.id = 'dt-fatness-power';
+    root.appendChild(this.powerEl);
+    this._refreshFatness();
+  }
+
+  _setFatness(raw) {
+    if (!Number.isFinite(raw)) return;
+    eventBus.emit(Events.DEV_SET_FATNESS, { value: Math.max(0, raw) });
+    this._refreshFatness();
+  }
+
+  /** Pull the controls back onto the real value. Called per frame while the tab
+   *  is open, so eating a feast moves the slider instead of leaving it lying
+   *  about what Jimothy currently is. */
+  _refreshFatness() {
+    const fat = gameState.player.fatness;
+    // Skip while the box is focused, or reformatting mid-keystroke fights the
+    // typist — "1" becomes "1" again the instant they reach for the 0.
+    if (document.activeElement !== this.fatNumber) this.fatNumber.value = +fat.toFixed(1);
+    if (document.activeElement !== this.fatRange) this.fatRange.value = fat;
+
+    const f = fatFactor(fat);
+    const width = 1 + f * FATNESS.MAX_WIDTH_GAIN;
+    // Deliberately the UNCLAMPED squeeze. The controller clamps this at 0, and
+    // at the top of the range the squeeze consumes the radius exactly — which
+    // leaves a positive float crumb, so `> 0` reported "0.00 m radius" for a
+    // bush that mathematically cannot hold him. The raw value is the one that
+    // knows the difference between just fitting and not fitting at all.
+    const hide = HIDE_SPOTS.RADIUS - (width - 1) * FATNESS.HIDE_SQUEEZE;
+    this.powerEl.textContent = [
+      `factor  ${f.toFixed(3)}  softcap ${FATNESS.SOFTCAP}`,
+      `blast   ${(VOXEL.BLAST_RADIUS + f * FATNESS.BLAST_PER_FAT).toFixed(2)} m` +
+        `  (lean ${VOXEL.BLAST_RADIUS})`,
+      `width   x${width.toFixed(2)}`,
+      `speed   ${(PLAYER_CONFIG.SPEED * (1 - f * FATNESS.SPEED_PENALTY_MAX)).toFixed(2)}` +
+        `  (lean ${PLAYER_CONFIG.SPEED})`,
+      `bush    ${hide > 0.01 ? `fits, ${hide.toFixed(2)} m radius` : 'NO — too fat to hide'}`,
+    ].join('\n');
   }
 
   // --- Keys ---
@@ -224,10 +330,15 @@ export class DevTools {
   // --- per-frame ---
 
   update(delta) {
-    if (this.panel.classList.contains('hidden') || this.activeTab !== 'keys') return;
+    if (this.panel.classList.contains('hidden')) return;
     this.debugTimer -= delta;
     if (this.debugTimer > 0) return;
     this.debugTimer = 0.1;
+    // Eating moves fatness, so the slider has to follow the game rather than
+    // only ever push at it — otherwise it sits at whatever was last dialled in
+    // and quietly misreports what Jimothy is.
+    if (this.activeTab === 'jimothy') this._refreshFatness();
+    if (this.activeTab !== 'keys') return;
     const gp = this.input.gamepadInfo;
     this.debugEl.textContent = [
       `keys: ${[...this.input.codes].join(' ') || '—'}`,

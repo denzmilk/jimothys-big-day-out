@@ -4,6 +4,7 @@ import {
   MOVES, RETICLE,
 } from './Constants.js';
 import { gameState } from './GameState.js';
+import { fatFactor } from './MathUtils.js';
 import { eventBus, Events } from './EventBus.js';
 import { DevOverrides } from './DevOverrides.js';
 import { InputSystem } from '../systems/InputSystem.js';
@@ -99,6 +100,17 @@ class Game {
         this.camera.fov = CAMERA.FOV;
         this.camera.updateProjectionMatrix();
       }
+    });
+
+    // Fatness on a dial (Chris, 2026-08-08: "add power/fattness to jimothy from
+    // the dev menu"). It is the game's whole power curve — blast radius, bulk,
+    // speed penalty, whether bushes still fit — and reaching any of it meant
+    // eating dozens of snacks, so every judgement about a fat Jimothy was
+    // expensive to form. Through the bus rather than by reaching into
+    // GameState, so the panel keeps its one-way relationship with gameplay.
+    eventBus.on(Events.DEV_SET_FATNESS, ({ value }) => {
+      if (!Number.isFinite(value)) return;
+      gameState.player.fatness = Math.max(0, value);
     });
 
     // Straight to the nearest stairwell (milestone 20). Inspecting the
@@ -554,7 +566,7 @@ class Game {
   // slice, which is what makes them different tools rather than two buttons
   // for the same wrecking ball (MOVES).
   blastRadius(fatShare = 1) {
-    const f = gameState.player.fatness / (gameState.player.fatness + FATNESS.SOFTCAP);
+    const f = fatFactor(gameState.player.fatness);
     return VOXEL.BLAST_RADIUS + f * FATNESS.BLAST_PER_FAT * fatShare;
   }
 

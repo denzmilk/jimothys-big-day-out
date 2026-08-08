@@ -1,3 +1,20 @@
+import { FATNESS } from './Constants.js';
+
+/** The asymptotic fatness factor: 0 when lean, approaching 1 and never
+ *  reaching it. Every consequence of eating rides this one curve — body width
+ *  and height, blast radius, the speed penalty, how badly bushes stop fitting —
+ *  which is what makes "what you see is what you wreck" true rather than a
+ *  coincidence of four separately tuned numbers.
+ *
+ *  It was written out longhand in four places. That is three more than this
+ *  repo's own rule allows (docs/STATE.md: two consumers of one formula must
+ *  share the function, not the formula), and the dev panel's power readout
+ *  would have been the fifth — the one place a divergence would be invisible,
+ *  since a readout that lies looks exactly like a readout that does not. */
+export function fatFactor(fatness) {
+  return fatness / (fatness + FATNESS.SOFTCAP);
+}
+
 // Shortest-path angle damp: frame-rate independent enough at our lerp rates,
 // avoids the 2π wrap snap a naive lerp produces when crossing ±π.
 export function dampAngle(current, target, lambda, delta) {

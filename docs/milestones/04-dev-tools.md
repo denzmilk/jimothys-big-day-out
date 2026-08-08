@@ -14,7 +14,8 @@ Unblock hands-on tuning: an in-game dev panel that exposes live sliders for ever
 - DevTools panel (`src/ui/DevTools.js`, plain DOM): toggled with Backquote or the ⚙ button.
   - **Tune tab**: slider + number input for tunable constants (player, camera, trash cans, scoring, world), mutating the Constants objects live; overrides persist to localStorage; copyable; reset button.
   - **Keys tab**: live input debug (pressed codes, move vector, gamepad, pointer-lock state) + click-a-chip-then-press-a-key rebinding, persisted.
-  - **Level tab**: spawn can ahead of Jimothy, remove nearest can, reset layout, export current layout as `POSITIONS`-style JSON (clipboard + textarea); block-bounds slider rebuilds walls live.
+  - **Level tab**: spawn can ahead of Jimothy, remove nearest can, reset layout, export current layout as `POSITIONS`-style JSON (clipboard + textarea); block-bounds slider rebuilds walls live; drop into the nearest sewer (milestone 20).
+  - **Jimothy tab** *(2026-08-08)*: a live fatness dial with named stops, plus a readout of what that fatness buys — blast radius, body width, waddle speed, whether a bush still fits. Deliberately NOT a Tune-tab row: those mutate Constants and persist to localStorage, and fatness is run state, so a slider that survived a reload would be a save file nobody asked for and would quietly break every spec that boots lean.
 - Pointer lock: KeyL (rebindable) toggles; while locked the camera switches to mouse-orbit around Jimothy (yaw + clamped pitch, tunable sensitivity); unlocking hands back to the trailing follow cam without a snap.
 - Live-apply hooks for constants that are baked at construction: camera FOV, world gravity, can mass, block bounds.
 
@@ -43,6 +44,7 @@ Unblock hands-on tuning: an in-game dev panel that exposes live sliders for ever
 - [x] A zeroed/out-of-range tuning override in storage self-heals on load (clamped to the tunable's range) instead of freezing movement — test: `tests/diag.spec.js::movement survives a zeroed speed override in storage` *(appended 2026-07-23: root-cause fix for Chris's mv-ok/vel-0 report)*
 - [x] Typed tuning values clamp to the tunable's [min, max] — test: `tests/diag.spec.js::typing an out-of-range tuning value clamps instead of breaking movement`
 - [x] Diag strip includes per-frame delta (`dt:`) and live speed constant (`spd:`) — test: `tests/diag.spec.js::diag shows nonzero frame delta and current speed constant`
+- [x] A Jimothy tab dials fatness live, with named stops and a readout of what it buys, and does NOT persist across a reload — tests: `tests/devtools.spec.js::the fatness slider makes him fatter`, `::the presets set named stops`, `::fatness is run state, not a persisted override` *(appended 2026-08-08: Chris asked for "a fatness scale so I can add power/fattness to jimothy from the dev menu" — reaching the power curve meant eating dozens of snacks, so every judgement about a fat Jimothy was expensive to form)*
 - [ ] Bounds slider visibly resizes the block walls — verified by user playtest
 - [ ] Orbit camera feel + whether W/Space now register on Chris's machine — verified by user playtest
 

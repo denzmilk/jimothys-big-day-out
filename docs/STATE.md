@@ -4,7 +4,7 @@
 
 ## Last updated
 
-2026-08-08 by Claude — **milestone 21: the aimable headbutt now actually aims, and the underground is somewhere you can dig through and see.** Chris played milestone 20 and reported two things; they turned out to be four defects (JIM-38 to JIM-41), each measured before a line was written. All four fixed, all four with specs.
+2026-08-08 by Claude — **milestone 21: the aimable headbutt now actually aims, and the underground is somewhere you can dig through and see.** Chris played milestone 20 and reported two things; they turned out to be four defects (JIM-38 to JIM-41), each measured before a line was written. All four fixed, all four with specs. Then a **fatness dial in the dev panel** (milestone 04, appended), because judging any of it at full fatness meant eating dozens of snacks first.
 
 ## Current phase
 
@@ -22,16 +22,17 @@ development
 | 20 — aimable headbutt | implemented, awaiting playtest | `aim.spec.js` (9) |
 | 21 — aim/dig/see underground | implemented, awaiting playtest | the 7 new specs in the two files above |
 
-**Suite: 116 passed / 1 failed.** The failure is the pre-existing JIM-03 `interrupted feast`, and feast eating is still unverified end to end.
+**Suite: 119 passed / 1 failed.** The failure is the pre-existing JIM-03 `interrupted feast`, and feast eating is still unverified end to end.
 
 ## Play it — everything below is a claim a test makes, not one Chris has made
 
-1. **F** to fly. WASD in the camera frame, Space/Z up and down, shift boosts ×5, ctrl creeps, **−/=** step the multiplier ×2 per press (0.25×–32×). Mouse look while pointer-locked.
-2. **Climb Trash Panda Heights.** It rises 40 m from its foot, and the hillsides are smooth now rather than terraced.
-3. **L**, then *look around*. The reticle should now sit **on** whatever you point at — a wall, a bin, the road — oriented to that surface, and it tracks left/right as well as up/down (that was the whole of JIM-38/39). Three colours: **cream** in reach, **orange** the swing will dig, **grey** too far to hit.
-4. **Headbutt something off to your side.** He whips round to face it as he swings — that is the "snap on the swing" call.
-5. **Get chased into an alley**, break line of sight, watch them search the wrong end. Then blast a wall elsewhere and see them turn toward the noise.
-6. **Go underground** — stairwells are in the middle of arterial roads, or **DevTools → Level → "Drop into the nearest sewer"**. You should be able to *see* it now (JIM-41), and **point at a tunnel wall and headbutt a side passage through it** (JIM-40). Get fat first: a lean raccoon barely scratches the rock.
+1. **`** for the dev panel → **Jimothy** tab. Drag fatness, or hit **Gorged**. The readout says what the number buys — blast radius, width, waddle speed, whether a bush still fits. **Everything below is worth trying at two fatnesses**, because fatness is the game's whole power curve: 0 is 0.75 m of blast, 90 is 5.05 m.
+2. **F** to fly. WASD in the camera frame, Space/Z up and down, shift boosts ×5, ctrl creeps, **−/=** step the multiplier ×2 per press (0.25×–32×). Mouse look while pointer-locked.
+3. **Climb Trash Panda Heights.** It rises 40 m from its foot, and the hillsides are smooth now rather than terraced.
+4. **L**, then *look around*. The reticle should now sit **on** whatever you point at — a wall, a bin, the road — oriented to that surface, and it tracks left/right as well as up/down (that was the whole of JIM-38/39). Three colours: **cream** in reach, **orange** the swing will dig, **grey** too far to hit.
+5. **Headbutt something off to your side.** He whips round to face it as he swings — that is the "snap on the swing" call.
+6. **Get chased into an alley**, break line of sight, watch them search the wrong end. Then blast a wall elsewhere and see them turn toward the noise.
+7. **Go underground** — stairwells are in the middle of arterial roads, or **DevTools → Level → "Drop into the nearest sewer"**. You should be able to *see* it now (JIM-41), and **point at a tunnel wall and headbutt a side passage through it** (JIM-40). Get fat first: a lean raccoon barely scratches the rock.
 
 **Open judgement calls the tests deliberately do not make:**
 
@@ -124,6 +125,7 @@ The mesh is one continuous surface and is topologically incapable of tearing. "S
 ## Notes for next session
 
 - **Grade is not a constant.** Ask `voxels.terrainHeightAt(x, z)`.
+- **`fatFactor(fatness)` in `MathUtils`** is the one asymptotic curve everything fatness drives rides on — width, blast radius, speed penalty, hide squeeze. It was written longhand in four places; the dev readout would have been the fifth, and a readout that has drifted looks exactly like one that has not.
 - **`voxels.raycast(ox,oy,oz, dx,dy,dz, maxDist)`** is the way to ask "what is along this line" — returns the hit point, the voxel, and the face normal, and skips the origin's own voxel. Same DDA as `hasLineOfSight`. The reticle and the camera boom both use it; anything else that needs to probe the world should too, rather than sampling in a loop.
 - **The aim is TWO values.** `cameraSystem.aimPitch` (from the resting pitch) and `cameraSystem.yaw`. A move locks both at the moment it starts. `window.lookJimothy(yaw)` in specs; it forces `input.forcePointerLock`, because aiming only happens while locked and follow mode overwrites the yaw every tick.
 - **`VOXEL.EMPTY` (255), not 0, for anything removed or carved.** Below the stored skin a 0 means "nothing stored, ask the height field", so a hole written as 0 heals itself instantly.

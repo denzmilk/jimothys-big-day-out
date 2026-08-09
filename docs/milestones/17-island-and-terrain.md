@@ -2,7 +2,7 @@
 
 ## Status
 
-scoped, not started — **kick off in a fresh thread**
+**implemented 2026-08-07, awaiting playtest.** (Status corrected 2026-08-09 — it shipped that day and this line was never updated; `docs/STATE.md` has carried the truth since.)
 
 ## Objective
 

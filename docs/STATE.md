@@ -14,7 +14,9 @@ development
 
 ## Current milestone
 
-**Nothing in flight. Five milestones are implemented and unplayed — that is the next thing.**
+**Milestone 23 — break the fatness ceiling.** Planned 2026-08-09, not started. Both of its open questions were decided by Chris the same day (block-sized ×30–50; the roll is how a giant moves), so it is ready to pick up. Milestone 24 (katamari roll) follows it and is the collecting half of the same idea.
+
+Five earlier milestones are implemented and unplayed; Chris played round 1 of 21 on 2026-08-08 and its findings are fixed.
 
 | milestone | state | tests |
 |---|---|---|
@@ -128,6 +130,14 @@ The mesh is one continuous surface and is topologically incapable of tearing. "S
 - **JIM-23 lasso** — design SETTLED: a landed lasso starts a struggle (mash roll), breaking free flings the catcher, a background **exhaustion** stat makes escaping twice unlikely, and a thrown lasso can tangle pedestrians/bins. Only the rope *implementation* (real cannon-es chain vs. convincing fake) is open — decide with a measurement.
 - **JIM-24 "as big as a house"** — the fatness ceiling is ~1.9× width, an order of magnitude short of the fantasy. `SPEED_PENALTY_MAX` is already 0.7 as step one. The rest is a rebalance: the camera must pull back with girth, the kinematic sphere stops being a sane shape, the city becomes furniture, and `fat/(fat+SOFTCAP)` mathematically cannot exceed `MAX_WIDTH_GAIN`. Wants its own milestone, and **JIM-25 is the first thing it will meet**.
 - **Hold-to-charge on the headbutt** — deliberately left in the backlog by milestone 20. Separate feel decision, wants its own playtest.
+
+## What was proposed and NOT chosen (2026-08-09), so it does not have to be rediscovered
+
+The gameplan delta, measured against the code rather than against the milestone list:
+
+- **Heat tiers 4 and 5 do nothing.** `HEAT.MAX_TIER` is 5 and only two pursuer types exist. The constant's own comment says tiers 4–5 "stay unreachable until milestone 03" — which stopped being true when destruction heat landed, since one fat headbutt is 430 points against a tier-5 threshold of 100. **So the pitch's headline — escalation "up to army tanks" — currently ends in silence.** Milestone 03 covers it and is still `planned`; it bundles trees with the army and should be split when it comes up.
+- **There are no trees, at all.** Core loop step 4 is "climb trees to loot weird finds" and `HEAT.PER_TREE_LOOT` is a constant nothing produces. Also milestone 03.
+- Navigation (milestone 13), which the gameplan calls not-optional on a 2 km map; JIM-43 smoothing dug surfaces (must be decided together with JIM-34 greedy meshing); JIM-30 the eat button; JIM-31 the photo book; audio; the "stupidly impressive water".
 
 ## What is left, and what it now unblocks
 

@@ -10,6 +10,30 @@
 
 ## Open
 
+### JIM-44 — Bad food: something that gives Jimothy the runs and makes him skinnier
+
+**Status:** open (feature) · **Severity:** medium (it is the first thing that can take fatness *away*) · **Reported:** Chris, 2026-08-09
+
+> *"Can maybe add an issue for 'bad' food that gives Jimothy the runs and makes him skinnier."*
+
+Raised while settling milestone 23's growth curve, and it is the natural counterweight to it: once eating grows him without limit, **nothing in the game currently subtracts.** Fatness is a monotonically rising number, so every food decision is "eat it" and there is no such thing as a bad grab.
+
+Bad food makes the trash worth *reading*. It also cuts both ways at scale, which is what makes it interesting rather than merely annoying:
+
+- **Shrinking is a punishment when you are hoarding** — you lose blast radius, and past milestone 23 you lose the roll's traversal speed with it.
+- **…and a tool when you are trapped.** A Jimothy too fat for any bush (`HIDE_SQUEEZE` already guarantees that) has no pressure valve left. Deliberately eating something rotten to fit back into a hedge with animal control on him is a genuinely good decision to offer, and it gives the hide mechanic a second life at high fatness.
+
+**Open questions, none of them decided:**
+
+- **Is it obvious before you eat it?** A visible mouldy sheen makes it a choice; an identical-looking pizza makes it a hazard. The two produce very different games — the first is a resource decision, the second is slapstick.
+- **Does it cost score, or only size?** Fatness is the headline number on the capture screen, so losing it is losing score. Losing *size* while keeping the score would be a purely mechanical shrink.
+- **The runs.** Chris named the symptom, and it is clearly a comedy set-piece rather than just a stat change — a trail, a noise, probably a heat contribution, and the tone guardrail in `docs/gameplan.md` (cartoon slapstick, never gore) applies.
+- **Interaction with JIM-30 (the eat button).** If eating becomes a deliberate press with an animation, spitting something out mid-chomp is a natural companion mechanic.
+
+**Where:** `src/core/Constants.js` (`FOODS`), `src/gameplay/TrashCans.js` (what spills), `src/systems/ScoreSystem.js` (fat is added there, so it is where fat would come off).
+
+**Depends on:** nothing hard. Cheapest *after* milestone 23, because the growth curve decides what "skinnier" is worth.
+
 ### JIM-42 — ⚠️ The physics floor is a plane at sea level, so everything dynamic falls through the island
 
 **Status:** fixed 2026-08-08 (milestone 22) · **Tests:** `tests/physics.spec.js`, 6 specs · **Severity:** critical (every dynamic body in the game is affected) · **Found:** 2026-08-08, while investigating Chris's *"digging underground just felt like blocks disappearing"*
@@ -377,6 +401,10 @@ Raising the ceiling properly touches more than one constant, and each of these i
 - The **asymptotic** curve (`f = fat / (fat + SOFTCAP)`) can never exceed `MAX_WIDTH_GAIN` no matter how much he eats. House scale needs either a much larger gain or a different curve — a soft cap that keeps *rewarding* eating rather than flattening.
 
 Wants its own milestone; it is a rebalance of the whole game around a much larger dynamic range, not a constant change.
+
+**→ Promoted 2026-08-09 to `docs/milestones/23-break-the-fatness-ceiling.md`**, with both open questions decided by Chris:
+- **How big: block-sized, ×30–50** — bigger than any building, about one `CITY.BLOCK` across. Island-scale (×100+) was rejected for now, because at 110 m he is wider than the entire loaded world and that is a rendering-strategy change rather than a tuning one.
+- **Speed at scale: the roll.** The on-foot penalty stays exactly as signed off; the roll becomes a sustained, size-scaled traversal mode. Chris: *"The roll is supposed to turn into a katamari style roll and collect at this fatness scale — so that's how you move about."* That is JIM-29, split across milestones 23 (it moves you) and 24 (it collects).
 
 **Where:** `src/core/Constants.js` (`FATNESS`, `CAMERA`), `src/systems/CameraSystem.js`, `src/gameplay/JimothyController.js`
 

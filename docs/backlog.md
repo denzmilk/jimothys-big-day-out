@@ -163,5 +163,7 @@
 
 ## Open questions
 
+- **JIM-44 bad food** — logged 2026-08-09 in `docs/issues.md`. Four open questions on it, the sharpest being whether bad food is obvious before you eat it: visible mould makes it a resource decision, an identical-looking pizza makes it slapstick, and those are different games.
+
 - Pants: cosmetic (Jimothy wears them) or score-only? Decide before milestone 03's loot table is finalized.
 - Mobile touch support and multiplayer are v1 anti-goals (gameplan) — revisit only after the loop ships.

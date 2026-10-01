@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import * as THREE from 'three';
 import { VOXEL } from '../src/core/Constants.js';
 import * as Layout from '../src/level/Layout.js';
+import { buildTrashCanDen } from '../src/level/VoxelCity.js';
 import { VoxelWorld } from '../src/level/VoxelWorld.js';
 import { boot, adv, state } from './helpers.mjs';
 
@@ -39,4 +40,16 @@ test('atmosphere advances and world still resets', async ({ page }) => {
   const c = await state(page);
   expect(c.voxels.removed).toBe(0);
   expect(c.cans.length).toBeGreaterThan(0);
+});
+
+test('the barrel den rests on the slope along its length', () => {
+  const cells=[];
+  const terrain={topSolidVoxelY:(x)=>Math.floor(x/VOXEL.SIZE)};
+  buildTrashCanDen({terrain,set:(x,y,z)=>cells.push({x,y,z})},0,100,0,20,10);
+  // The torn-open mouth has no lower wall; check the supported tube behind it.
+  for(let x=1;x<20;x++){
+    const bottom=Math.min(...cells.filter(c=>c.x===x).map(c=>c.y));
+    expect(bottom-x).toBeGreaterThanOrEqual(0);
+    expect(bottom-x).toBeLessThanOrEqual(1);
+  }
 });

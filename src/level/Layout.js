@@ -1,4 +1,4 @@
-import { VOXEL, CONTAINERS, BUILDINGS } from '../core/Constants.js';
+import { VOXEL, CONTAINERS, BUILDINGS, HIDE_SPOTS } from '../core/Constants.js';
 import * as Masterplan from './CityPlanner.js';
 import * as TerrainField from './Terrain.js';
 
@@ -123,7 +123,11 @@ export const terrain = {
 let _hideSpots = null;
 export function hideSpots(all) {
   if (!_hideSpots) {
-    _hideSpots = all.filter(([x, z]) => TerrainField.isBuildableGround(x, z));
+    _hideSpots = all.filter(([x, z]) => {
+      const r=HIDE_SPOTS.RADIUS;
+      return TerrainField.isBuildableGround(x,z)&&!Masterplan.buildingsIn(x-r,z-r,x+r,z+r)
+        .some(b=>x+r>b.x&&x-r<b.x+b.w&&z+r>b.z&&z-r<b.z+b.d);
+    });
   }
   return _hideSpots;
 }

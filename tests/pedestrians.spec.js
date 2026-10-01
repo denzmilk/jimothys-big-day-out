@@ -40,7 +40,8 @@ test('a close encounter emits one scare per person and clothes write depth', asy
   const id = await page.evaluate(async () => {
     const {eventBus,Events}=await import('/src/core/EventBus.js');
     window.__scares=[];eventBus.on(Events.LOCAL_SCARED,e=>window.__scares.push(e.id));
-    const p=window.__game.pedestrians.people[0];
+    const {HIDE_SPOTS}=await import('/src/core/Constants.js');
+    const p=window.__game.pedestrians.people.find(p=>HIDE_SPOTS.POSITIONS.every(([x,z])=>Math.hypot(p.x+1-x,p.z-z)>HIDE_SPOTS.RADIUS+1));
     window.teleportJimothy(p.x+1,p.z);return p.id;
   });
   await adv(page,.3);

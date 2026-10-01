@@ -52,6 +52,18 @@ export const Events = {
   // local:*
   LOCAL_SCARED: 'local:scared',
   // world:*
+  WORLD_IMPACT: 'world:impact',
+  ENTITY_LIST: 'entity:list',
+  ENTITY_REGISTER: 'entity:register',
+  ENTITY_UNREGISTER: 'entity:unregister',
+  ENTITY_ATTACH: 'entity:attach',
+  ENTITY_RELEASE: 'entity:release',
+  PROP_CREATE: 'prop:create',
+  PROP_REMOVE: 'prop:remove',
+  PROP_POSE: 'prop:pose',
+  PROP_IMPULSE: 'prop:impulse',
+  PROP_SUSPEND: 'prop:suspend',
+  PROP_RELEASE: 'prop:release',
   WORLD_DEMOLISHED: 'world:demolished',
   // underground:* (milestone 18)
   TREASURE_FOUND: 'treasure:found',
@@ -62,6 +74,7 @@ export const Events = {
   SCORE_CHANGED: 'score:changed',
   COMBO_CHANGED: 'combo:changed',
   // rig:*
+  HUMAN_MODELS_READY: 'rig:humans-ready',
   RIG_LOADED: 'rig:loaded',
   // game:*
   GAME_START: 'game:start',

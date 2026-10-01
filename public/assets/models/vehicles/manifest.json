@@ -1,0 +1,38 @@
+[
+  {
+    "id": "sedan",
+    "author": "Kenney",
+    "license": "CC0 1.0",
+    "source": "https://kenney.nl/assets/car-kit"
+  },
+  {
+    "id": "hatchback-sports",
+    "author": "Kenney",
+    "license": "CC0 1.0",
+    "source": "https://kenney.nl/assets/car-kit"
+  },
+  {
+    "id": "suv",
+    "author": "Kenney",
+    "license": "CC0 1.0",
+    "source": "https://kenney.nl/assets/car-kit"
+  },
+  {
+    "id": "van",
+    "author": "Kenney",
+    "license": "CC0 1.0",
+    "source": "https://kenney.nl/assets/car-kit"
+  },
+  {
+    "id": "taxi",
+    "author": "Kenney",
+    "license": "CC0 1.0",
+    "source": "https://kenney.nl/assets/car-kit"
+  },
+  {
+    "id": "delivery",
+    "author": "Kenney",
+    "license": "CC0 1.0",
+    "source": "https://kenney.nl/assets/car-kit"
+  }
+]

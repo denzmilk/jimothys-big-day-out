@@ -95,6 +95,12 @@ export class JimothyRig {
     return out.copy(rest.box).applyMatrix4(this._skinMatrix(name));
   }
 
+  bellyLocalBox(space,out=new THREE.Box3()) {
+    const rest=this.restParts.body;if(!rest)return out.makeEmpty();
+    const transform=new THREE.Matrix4().copy(space.matrixWorld).invert().multiply(this._skinMatrix('body'));
+    return out.copy(rest.box).applyMatrix4(transform);
+  }
+
   bellyBox(out = new THREE.Box3()) {
     return this.partBox('body', out);
   }

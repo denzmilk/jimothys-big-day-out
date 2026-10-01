@@ -10,6 +10,7 @@ page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()
 page.on('pageerror', (err) => errors.push(String(err)));
 
 await page.goto(URL, { waitUntil: 'networkidle' });
+await page.waitForFunction(() => window.__game?.pedestrians.ready && window.__game?.streetLife.ready && window.__game?.jimothy.rig?.loaded);
 await page.waitForTimeout(1500);
 
 const state = await page.evaluate(() => window.render_game_to_text());
@@ -32,7 +33,11 @@ const pixels = await page.evaluate(() => {
 if (process.env.SMOKE_SCREENSHOT) await page.screenshot({ path: process.env.SMOKE_SCREENSHOT });
 await browser.close();
 
-const skyRendered = pixels && pixels.sky[0] > 150 && pixels.sky[3] === 255;
+// The sky can be blue or warm depending on camera/time. Verify a lit opaque
+// image distinct from ground, rather than requiring the old beige sky colour.
+const skyRendered = pixels && pixels.sky[3] === 255 && pixels.ground[3] === 255
+  && Math.max(...pixels.sky.slice(0,3)) > 80
+  && pixels.sky.slice(0,3).reduce((sum,v,i)=>sum+Math.abs(v-pixels.ground[i]),0) > 30;
 console.log('pixels:', JSON.stringify(pixels));
 console.log('state:', state);
 console.log('after advanceTime(2):', advanced);

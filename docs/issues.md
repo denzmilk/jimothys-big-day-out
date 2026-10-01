@@ -10,17 +10,23 @@
 
 ## Open
 
+### JIM-47 — Feet and wheels need contact with the visible ground
+
+**Status:** implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 27 refinement
+
+Chris asked for real glass and correct ground IK. Root-height placement alone left some planted pedestrian feet 18–30 cm above sloping pavement. Vehicle bodies needed separate wheel contact and suspension, not only a centre-height sample. `src/core/Grounding.js` supplies terrain-aware two-bone leg IK, pelvis adjustment, foot normals and per-wheel support. Building and imported vehicle glazing use transmission; glass voxels still break. Tests: `tests/grounding.spec.js`.
+
 ### JIM-45 — World reads as oversized blocks and blank building shells
 
 **Status:** implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 25
 
-Voxel edge is 0.55 m. Houses near spawn measure 14–26 m wide with 7–13 m roof rises above only 2.75–4.95 m walls. Windows and doors are counted in voxels, so reducing resolution alone shrinks usable openings. The mesher does not merge coplanar faces (JIM-34). See `src/level/VoxelCity.js`, `Layout.js`, `CityPlanner.js`, and `VOXEL` in Constants.
+Original report: voxel edge was 0.55 m. Houses near spawn measured 14–26 m wide with 7–13 m roof rises above only 2.75–4.95 m walls. Windows and doors are counted in voxels, so reducing resolution alone shrinks usable openings. Milestone 25 now uses 0.22 m cells, metre-scaled house details and greedy coplanar faces (JIM-34). See `src/level/VoxelCity.js`, `Layout.js`, `CityPlanner.js`, and `VOXEL` in Constants.
 
 ### JIM-46 — Island feels unpopulated
 
-**Status:** in progress · **Reported:** 2026-10-02 (Chris) · **Milestones:** 26–27
+**Status:** implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestones:** 26–27
 
-Live audit: 26 people across the whole island, zero within 60 m of spawn. Pedestrians move without street/building/water checks and use capsule placeholders (JIM-08). No traffic system exists. Add streamed MPFB people and physical street life; preserve slapstick reactions and giant-roll collection.
+Original audit: 26 people across the whole island, zero within 60 m of spawn. Pedestrians move without street/building/water checks and use capsule placeholders (JIM-08). No traffic system exists. Implemented six MPFB variants, 36 nearby civilians, MPFB pursuers, six Kenney CC0 vehicle models, moving/parked traffic and physical street furniture. Giant rolling collects and releases living people, food and props. See milestones 26–27 and their verification notes.
 
 ### JIM-44 — Bad food: something that gives Jimothy the runs and makes him skinnier
 
@@ -184,9 +190,11 @@ Fixed to `[100, 2000]`.
 
 ### JIM-34 — A flat chunk of ground emits 4096 quads where one would do
 
-**Status:** open · **Severity:** medium (caps the fly camera; invisible in normal play) · **Found:** 2026-08-07, measuring `STREAM.FLY_LOAD_RADIUS`
+**Status:** implemented, awaiting playtest (milestone 25, 2026-10-02) · **Severity:** medium (caps the fly camera; invisible in normal play) · **Found:** 2026-08-07, measuring `STREAM.FLY_LOAD_RADIUS`
 
-`VoxelWorld._buildChunk` culls hidden faces but does no **greedy meshing** — every exposed voxel face is its own quad. A 64×64 chunk of flat ground is 4096 top faces: 24,576 vertices, ~880 KB of geometry, for a surface a single quad could describe.
+Historical diagnosis below. Milestone 25 now greedily merges coplanar faces while preserving terrain samples on slopes.
+
+`VoxelWorld._buildChunk` previously culled hidden faces but did no **greedy meshing** — every exposed voxel face is its own quad. A 64×64 chunk of flat ground is 4096 top faces: 24,576 vertices, ~880 KB of geometry, for a surface a single quad could describe.
 
 Measured while choosing how wide the fly camera should stream (`output/iterate/fly-radius.mjs`):
 
@@ -379,7 +387,7 @@ Still open:
 
 ### JIM-24 — Jimothy should be able to get as big as a house — no, bigger than that
 
-**Status:** open · **Severity:** high (it is the core fantasy) · **Reported:** 2026-08-07 (Chris), **escalated 2026-08-08**
+**Status:** implemented, awaiting playtest (milestone 23, 2026-10-02) · **Severity:** high (it is the core fantasy) · **Reported:** 2026-08-07 (Chris), **escalated 2026-08-08**
 
 > "Speed slow down can be more aggressive, the idea is that Jimothy can get as big as a house if he keeps eating."
 
@@ -499,7 +507,7 @@ Three systems were anchored to the old map. Two were fixed in milestone 12 becau
 
 ### JIM-29 — Katamari roll: fat Jimothy becomes a hoarding marble
 
-**Status:** open, design substantially settled by Chris · **Severity:** high (it resolves the fat-slowness tension AND adds a loop) · **Reported:** 2026-08-07 (Chris)
+**Status:** collection/release implemented in milestone 27, awaiting playtest; final stash UI remains open · **Severity:** high (it resolves the fat-slowness tension AND adds a loop) · **Reported:** 2026-08-07 (Chris)
 
 > "let's do something with the roll katamari style, make it turn into more of an actual 'roll' instead of a set animation where Jimothy becomes a giant wrecking ball."
 >
@@ -757,7 +765,7 @@ Windows and doors are decorative; blocks "enter houses". Roadmap Phase 4.
 
 **Status:** open · **Severity:** medium · **Carried from:** roadmap ⚠️ #8
 
-No ragdoll, no injury states; blocks the goat-sim comedy register. Roadmap Phase 2.
+Milestones 26–27 replace capsules with animated MPFB people and terrain IK. Ragdolls and injury states remain open; collection releases people alive. Roadmap Phase 2.
 
 ---
 

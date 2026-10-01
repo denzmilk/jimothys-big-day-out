@@ -4,9 +4,29 @@
 
 ## Current world pass — 2026-10-02
 
-Chris approved milestones 25 → 26 → 27: finer world/buildings, MPFB pedestrians, traffic and physical street objects, plus sky/water. Street objects must be knockable and attach to giant Jimothy while rolling, then release (milestone 24). Milestones 25 and 26 are implemented and verified, awaiting playtest. Milestone 23's existing growth/camera/held-roll work has now passed its seven scale specs and adjacent aim/physics/dev-panel checks, plus camera bounds checks on the loaded rig. It is preserved in a separate dependency commit. Current step: final verification of milestone 27 (imported CC0 traffic, glass, ground IK, physical props and collection/release). Blender 5.2 and MPFB 2.0.17 are installed; batch Blender works, live MCP was disconnected. Baseline capture: `output/iterate/world-before.png`.
+**Milestones 23, 25, 26 and 27 are implemented, awaiting Chris's playtest.** The approved ordered world pass is integrated: 0.22 m destructible voxels, metre-scaled varied houses, sky/water, six Blender/MPFB pedestrians with animated street movement, six imported Kenney CC0 vehicle models, nearby traffic/parked cars, transmissive building/car glass, foot IK and wheel support, physical breakable street furniture, and giant-roll collection/release of objects, food, civilians and pursuers.
+
+Blender 5.2 and MPFB 2.0.17 were used in batch mode; live MCP was disconnected. Editable sources and rebuild scripts are preserved in `assets/blender/people/`, `assets/blender/vehicles/`, `assets/vehicles/README.md` and `tools/`. The existing milestone-23 work was preserved and committed separately as the growth/held-roll dependency. Milestone 24's final stash/sifting UI remains open.
+
+### Playtest now
+
+Production preview: **http://127.0.0.1:4174** (4173 belongs to another project). Use the dev panel's **House (90)** or **Block (250)** preset, hold **C** through a street, then release. People survive and resume movement; food remains available; released props have physics. The normal headbutt also breaks street objects. The user-facing feel is not signed off.
+
+### Verification and remaining limits
+
+- `world-pass-final-state.log`: 60/65 passed on the first broad state run; the five failures were investigated and corrected. `world-pass-clean.log`: all 16 grounding, street-life, pedestrian and heat checks then passed on a clean Vite server.
+- `world-pass-final-placement-green.log`: checks of the final den/nearby traffic placement, crowd movement, collection and glass; all four world-detail cases passed; the final wheel-contact refinement and all four street-life cases passed together (6/6) in `world-pass-wheel-final.log`.
+- `world-pass-build.log` and `world-pass-production-smoke.log`: production build and real rendered pixel readback, with no console errors. State suites opt out of repeated software rendering after their first frame; these are not performance or hands-on playability claims.
+- `actual-rig-camera-check.log`: actual posed model bounds remain within frame at fatness 0, 90 and 250. Final captures: `world-pass-final.png`, `car-glass-final.png`, `giant-collection-final.png`; feet close-up: `pedestrian-foot-ik.png`.
+- **JIM-03 remains open:** the pre-existing interrupted-feast test still fails (expected fatness 4, received 9). It was excluded from the 65-check world pass run and remains separate work. JIM-02 whole-building structural collapse, JIM-37 distant building pop-in, army escalation and final stash UI were outside this pass.
+- Restart Vite before direct-import tests after editing singleton modules: timestamped HMR imports can create a second EventBus/GameState in test code. The harness now waits for loaded people/cars, and Jimothy's rig when requested.
+
 
 ## Last updated
+
+2026-10-02 — world pass above. The following engineering history retains earlier evidence.
+
+## Earlier handoff — 2026-08-08
 
 2026-08-08 by Claude — **milestone 22: everything in the game had been falling through the island since milestone 17.** Chris's *"digging underground just felt like blocks disappearing"* turned out to be JIM-42: the only floor in the physics world was a plane at y = 0, and y = 0 has meant the waterline since the ground moved to y ≈ 35–75. Blast debris and **every trash can** fell 26–46 m through the terrain and slept at sea level. Fixed; things land now.
 
@@ -18,7 +38,7 @@ development
 
 ## Current milestone
 
-**Milestone 27 — traffic and physical street objects.** Milestones 23, 25 and 26 are implemented, awaiting playtest. Milestone 27 also implements the collection/release portion of milestone 24; final stash/sifting UI remains outside this pass.
+**Milestone 27 — implemented, awaiting playtest.** No additional milestone was started.
 
 Five earlier milestones are implemented and unplayed; Chris played round 1 of 21 on 2026-08-08 and its findings are fixed.
 
@@ -37,7 +57,7 @@ Five earlier milestones are implemented and unplayed; Chris played round 1 of 21
 
 ## Play it — everything below is a claim a test makes, not one Chris has made
 
-1. **`** for the dev panel → **Jimothy** tab. Drag fatness, or hit **Gorged**. The readout says what the number buys — blast radius, width, waddle speed, whether a bush still fits. **Everything below is worth trying at two fatnesses**, because fatness is the game's whole power curve: 0 is 0.75 m of blast, 90 is 5.05 m.
+1. **`** for the dev panel → **Jimothy** tab. Drag fatness, or hit **House**. The readout says what the number buys — blast radius, width, waddle speed, whether a bush still fits. **Everything below is worth trying at two fatnesses**, because fatness is the game's whole power curve: 0 is 0.75 m of blast, 90 is 5.05 m.
 2. **F** to fly. WASD in the camera frame, Space/Z up and down, shift boosts ×5, ctrl creeps, **−/=** step the multiplier ×2 per press (0.25×–32×). Mouse look while pointer-locked.
 3. **Climb Trash Panda Heights.** It rises 40 m from its foot, and the hillsides are smooth now rather than terraced.
 4. **L**, then *look around*. The reticle should now sit **on** whatever you point at — a wall, a bin, the road — oriented to that surface, and it tracks left/right as well as up/down. Three colours: **cream** in reach, **orange** the swing will dig, **grey** too far to hit. **The crater lands where the marker is**, and a gentle look down digs — no hard lock (both fixed after Chris's round-1 playtest).
@@ -125,7 +145,7 @@ The mesh is one continuous surface and is topologically incapable of tearing. "S
 - **⚠️ Six milestones await playtest** (17, 18, 19, 20, 21, 22), plus 08, 09, 12 and 15 from before. "Implemented, all AC ticked" is the ceiling (house rule 4). Milestone 10 is the only one signed off.
 - **⚠️ JIM-11 (legs read as detached) needs re-judging, not more code.** The skinned rig should have retired it. Confirm at the same playtest.
 - **JIM-37 — buildings pop in at 106 m**, now that fog no longer hides the streaming boundary. Chris asked for this to be logged. The cheapest real fix is a **building LOD ring**: `Layout.buildingsIntersecting` answers "what buildings are in this box" from the baked plan *without generating a voxel*, anywhere on the island, so everything from 106 m to the horizon can be one `InstancedMesh` of boxes. One draw call, no streaming.
-- **JIM-34 — no greedy meshing.** A flat ground chunk emits 4096 quads where one would do (~1 MB per chunk). Invisible in normal play; it is what caps the fly camera at 385 m and makes `LOAD_RADIUS` expensive.
+- **JIM-34 — greedy meshing implemented in milestone 25.** Sloped terrain retains its sampled shape.
 - **JIM-35 — one headbutt is a five-star wanted level.** Balance; wants Chris's judgement, and milestone 21 sharpened it — digging sideways for ten swings reaches tier 5.
 - **⚠️ 1 spec failing, PRE-EXISTING** (JIM-03) — `interrupted feast`.
 
@@ -155,7 +175,7 @@ The gameplan delta, measured against the code rather than against the milestone 
 
 - **Grade is not a constant.** Ask `voxels.terrainHeightAt(x, z)`.
 - **The voxel world has NO colliders (ADR-0003), and never will.** Dynamic bodies are clamped against the grid after each substep by `PhysicsSystem._groundBodies`; Jimothy clamps himself and is deliberately excluded (he is KINEMATIC). Anything new with a mass gets the clamp for free by being handed to `physics.add`.
-- **`fatFactor(fatness)` in `MathUtils`** is the one asymptotic curve everything fatness drives rides on — width, blast radius, speed penalty, hide squeeze. It was written longhand in four places; the dev readout would have been the fifth, and a readout that has drifted looks exactly like one that has not.
+- **`fatFactor(fatness)` in `MathUtils`** remains the saturating curve for penalties and blast balance; `fatWidth`, `fatHeight` and `fatGrowth` drive size without the old ceiling. It was written longhand in four places; the dev readout would have been the fifth, and a readout that has drifted looks exactly like one that has not.
 - **`voxels.raycast(ox,oy,oz, dx,dy,dz, maxDist)`** is the way to ask "what is along this line" — returns the hit point, the voxel, and the face normal, and skips the origin's own voxel. Same DDA as `hasLineOfSight`. The reticle and the camera boom both use it; anything else that needs to probe the world should too, rather than sampling in a loop.
 - **The aim is TWO values.** `cameraSystem.aimPitch` (from the resting pitch) and `cameraSystem.yaw`. A move locks both at the moment it starts. `window.lookJimothy(yaw)` in specs; it forces `input.forcePointerLock`, because aiming only happens while locked and follow mode overwrites the yaw every tick.
 - **`VOXEL.EMPTY` (255), not 0, for anything removed or carved.** Below the stored skin a 0 means "nothing stored, ask the height field", so a hole written as 0 heals itself instantly.

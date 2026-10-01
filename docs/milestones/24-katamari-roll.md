@@ -2,7 +2,7 @@
 
 ## Status
 
-**planned 2026-08-09.**
+**Partially implemented 2026-10-02, awaiting playtest.** Milestone 27 delivers size-gated collection, attachment to the rolling belly, and release of physical props, edible food and living civilians/pursuers. Final stash/sifting presentation remains open.
 
 Depends on: milestone 23 (break the fatness ceiling) — the roll is only a traversal mode once he is big enough to need one.
 

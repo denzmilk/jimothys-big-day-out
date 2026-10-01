@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
-  MOVES, RETICLE,
+  MOVES, RETICLE, GLAZING, ATMOSPHERE,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { fatFactor } from './MathUtils.js';
@@ -21,6 +21,8 @@ import { VoxelWorld } from '../level/VoxelWorld.js';
 import { installCity } from '../level/VoxelCity.js';
 import * as Layout from '../level/Layout.js';
 import { Debris } from '../gameplay/Debris.js';
+import { StreetLife } from '../gameplay/StreetLife.js';
+import { RollCollector } from '../gameplay/RollCollector.js';
 import { Pedestrians } from '../gameplay/Pedestrians.js';
 import { Treasures } from '../gameplay/Treasures.js';
 import { CrabPeople } from '../gameplay/CrabPeople.js';
@@ -72,6 +74,10 @@ class Game {
     // After the world: the bushes and the sea have to sit on ground that
     // already knows how high it is.
     this.level = new LevelBuilder(this.scene, this.voxels);
+    const environmentScene=new THREE.Scene();environmentScene.add(this.level.sky.clone());
+    const pmrem=new THREE.PMREMGenerator(this.renderer);
+    this.environment=pmrem.fromScene(environmentScene,0,CAMERA.NEAR,ATMOSPHERE.SKY_RADIUS*2,{size:GLAZING.ENV_SIZE});
+    this.scene.environment=this.environment.texture;pmrem.dispose();
     this.debris = new Debris(this.scene, this.physics);
     this.jimothy = new JimothyController(this.scene, this.physics, this.input, this.voxels);
     // Moves land their damage ahead of him (headbutt/roll), never underfoot.
@@ -91,6 +97,9 @@ class Game {
       this.blastAt(at, cfg.RADIUS_SCALE, { fatShare: cfg.FAT_BLAST_SHARE, digsTerrain: digs });
       this.onBlast?.(at);
     };
+    this.collector = new RollCollector(this.scene, this.jimothy, this.voxels);
+    this.level.registerEntities();
+    this.streetLife = new StreetLife(this.scene, this.jimothy, this.voxels);
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
@@ -147,18 +156,21 @@ class Game {
     // FIRST (listeners registered before other systems see the event would
     // race), so restart order lives here, not in subscribers.
     eventBus.on(Events.GAME_RESTART, () => {
+      this.collector.reset();
       gameState.reset();
       this.jimothy.reset();
       this.trashCans.reset();
       this.pursuers.reset();
-      this.pedestrians.reset();
       this.treasures.reset();
       this.crabs.reset();
       this.debris.reset();
       this.voxels.clear();
       installCity(this.voxels);
+      this.streetLife.reset();
+      this.level.resetObjects();
       gameState.game.started = true;
       gameState.game.isPlaying = true;
+      this.pedestrians.reset();
     });
 
     gameState.game.started = true;
@@ -307,9 +319,11 @@ class Game {
     // locked. One frame stale, because the camera updates after him — which at
     // 60 Hz is nothing, and keeps the order of the loop unchanged.
     this.jimothy.update(delta, this.cameraSystem.yaw, this.cameraSystem.aimPitch);
+    this.streetLife.update(delta);
     this.physics.update(delta);
     this.jimothy.postUpdate(delta);
     this.trashCans.update(delta);
+    this.collector.update(delta);
     this.pursuers.update(delta);
     this.pedestrians.update(delta);
     this.level.update(delta, this.camera);
@@ -472,8 +486,11 @@ class Game {
     this._raycaster.far = hit ? hit.t : maxDist;
     this._propHits.length = 0;
     this._propMeshes.length = 0;
-    for (const can of this.trashCans.cans) this._propMeshes.push(can.mesh);
-    this._raycaster.intersectObjects(this._propMeshes, false, this._propHits);
+    for (const entity of this.collector.entities.values()) {
+      if(entity.attached||entity.kind==='person')continue;
+      if(entity.mesh.position.distanceTo(this._aimOrigin)<=maxDist+entity.size)this._propMeshes.push(entity.mesh);
+    }
+    this._raycaster.intersectObjects(this._propMeshes, true, this._propHits);
     const prop = this._propHits[0];
     if (!prop) return hit;
     // The face normal comes back in the mesh's own frame; a tipped can is
@@ -603,6 +620,7 @@ class Game {
    *  this used to add its own vertical offset, which stacked with the move's
    *  aim and lifted the sphere clear of the ground it was meant to hit. */
   blastAt(pos, radiusScale = 1, { fatShare = 1, digsTerrain = true } = {}) {
+    eventBus.emit(Events.WORLD_IMPACT, {x:pos.x,y:pos.y,z:pos.z,radius:this.blastRadius(fatShare)*radiusScale});
     const removed = this.voxels.damageSphere(
       pos.x, pos.y, pos.z, this.blastRadius(fatShare) * radiusScale, { digsTerrain },
     );
@@ -780,6 +798,8 @@ class Game {
       },
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
       people: this.pedestrians.snapshot(),
+      streetLife: this.streetLife.snapshot(),
+      collection: this.collector.snapshot(),
       world: { voxelSize: VOXEL.SIZE, atmosphereTime: this.level.time },
       voxels: {
         ...this.voxels.stats(),
@@ -878,7 +898,10 @@ class Game {
     this.manualTime = true;
     const step = 1 / 60;
     for (let t = 0; t < seconds; t += step) this.update(step);
-    this.renderer.render(this.scene, this.camera);
+    // State suites opt out of repeated software rasterization after their
+    // first rendered frame. Smoke tests and normal debug calls still render.
+    if(window.__STATE_ONLY_TEST__)this.scene.updateMatrixWorld(true);
+    else this.renderer.render(this.scene, this.camera);
   }
 }
 

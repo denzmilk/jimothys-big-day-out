@@ -100,24 +100,31 @@ export const buildWarehouse=(world,x,y,z,w,d,h,b)=>building(world,x,y,z,w,d,h,b,
  *  Real raccoon dens are tree hollows and abandoned vehicles — a crushed
  *  "raccoon-resistant" bin is the joke (see docs/lore.md). */
 export function buildTrashCanDen(world, ox, oy, oz, length = 9, radius = 4) {
-  const squash = 0.62;
+  const squash = BUILDINGS.DEN_SQUASH;
+  // The squashed tube rests on its lower surface. Each axial slice follows
+  // the hillside; an unsquashed radius offset left the den hovering above it.
+  const centreY = a => (world.terrain
+    ? world.terrain.topSolidVoxelY((ox+a+.5)*VOXEL.SIZE,(oz+.5)*VOXEL.SIZE)+1
+    : oy) + Math.floor(radius*squash);
   for (let a = 0; a < length; a++) {
+    const cy=centreY(a);
     for (let y = -radius; y <= radius; y++) {
       for (let z = -radius; z <= radius; z++) {
         const dist = Math.hypot(y / (radius * squash), z / radius);
         if (dist > 1 || dist < 0.72) continue;
         if (a === 0 && z > -radius * 0.35) continue; // torn-open mouth
         const dented = a > length - 3 && y > radius * 0.3;
-        world.set(ox + a, oy + y + radius, oz + z, dented ? MOSS : CONCRETE);
+        world.set(ox + a, cy + y, oz + z, dented ? MOSS : CONCRETE);
       }
     }
   }
   for (const a of [2, Math.max(3, length - 3)]) {
+    const cy=centreY(a);
     for (let y = -radius; y <= radius; y++) {
       for (let z = -radius; z <= radius; z++) {
         const dist = Math.hypot(y / (radius * squash), z / radius);
         if (dist > 1.1 || dist < 0.88) continue;
-        world.set(ox + a, oy + y + radius, oz + z, BRICK);
+        world.set(ox + a, cy + y, oz + z, BRICK);
       }
     }
   }

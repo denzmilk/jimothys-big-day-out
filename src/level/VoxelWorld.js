@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { VOXEL, STREAM, TERRAIN } from '../core/Constants.js';
+import { VOXEL, STREAM, TERRAIN, GLAZING as G } from '../core/Constants.js';
 
 // Chunked destructible voxel grid (ADR-0003).
 //
@@ -23,6 +23,7 @@ export class VoxelWorld {
     this.scene = scene;
     this.chunks = new Map(); // key "cx,cy,cz" -> { mesh, dirty, data }
     this.material = new THREE.MeshStandardMaterial({ vertexColors: true });
+    this.glassMaterial = new THREE.MeshPhysicalMaterial({color:G.COLOR,roughness:G.ROUGHNESS,transmission:G.TRANSMISSION,thickness:G.THICKNESS,ior:G.IOR,side:THREE.DoubleSide});
     this.removedCount = 0;
     this._colors = new Map(
       Object.entries(VOXEL.MATERIALS).map(([id, m]) => [Number(id), new THREE.Color(m.color)]),
@@ -596,6 +597,7 @@ export class VoxelWorld {
     const CX = VOXEL.CHUNK_XZ;
     const CY = VOXEL.CHUNK_Y;
     const s = VOXEL.SIZE;
+    const glassPos=[],glassNorm=[],glassCol=[];
     const pos = [];
     const norm = [];
     const col = [];
@@ -688,11 +690,12 @@ export class VoxelWorld {
     const nrm = [0, 1, 0];
     /** Occupancy for a voxel given in LOCAL coordinates, where lx/lz may be -1
      *  or CX and ly may be -1 or CY (the one-voxel skirt the faces need). */
-    const occupied = (lx, ly, lz) => {
+    const occupied = (lx, ly, lz, current) => {
       const inside = lx >= 0 && lx < CX && ly >= 0 && ly < CY && lz >= 0 && lz < CX;
       const stored = inside
         ? chunk.data[lx + CX * (ly + CY * lz)]
         : this.storedAt(base[0] + lx, base[1] + ly, base[2] + lz);
+      if (stored === G.MATERIAL_ID && current !== G.MATERIAL_ID) return false;
       if (stored) return stored !== VOXEL.EMPTY;
       return base[1] + ly <= tops[(lz + 1) * P + (lx + 1)];
     };
@@ -732,7 +735,7 @@ export class VoxelWorld {
           const smooth = isTerrainTop(lx, ly, lz);
           for (let fi = 0; fi < FACES.length; fi++) {
             const f = FACES[fi];
-            if (occupied(lx + f.d[0], ly + f.d[1], lz + f.d[2])) continue;
+            if (occupied(lx + f.d[0], ly + f.d[1], lz + f.d[2], mat)) continue;
             // Undisturbed ground: every vertex on the voxel's TOP plane moves to
             // the real surface. That covers the top face and the upper edge of
             // any side wall in one rule, so the two always meet.
@@ -783,7 +786,8 @@ export class VoxelWorld {
         const color=this._colors.get(material)||this._colors.get(1);
         const quad=f.v.map(c=>c.map((n,i)=>(base[i]+origin[i]+n*size[i])*s));
         if(flatHeight!==null) for(const q of quad) q[1]=flatHeight;
-        for(const i of [0,1,2,0,2,3]) {pos.push(...quad[i]);norm.push(...f.d);col.push(color.r,color.g,color.b);}
+        const pp=material===G.MATERIAL_ID?glassPos:pos,nn=material===G.MATERIAL_ID?glassNorm:norm,cc=material===G.MATERIAL_ID?glassCol:col;
+        for(const i of [0,1,2,0,2,3]) {pp.push(...quad[i]);nn.push(...f.d);cc.push(color.r,color.g,color.b);}
         for(let j=0;j<rows;j++) mask.fill(0,(row+j)*width+colIdx,(row+j)*width+colIdx+run);
         colIdx+=run;
       }
@@ -794,13 +798,17 @@ export class VoxelWorld {
       chunk.mesh.geometry.dispose();
       chunk.mesh = null;
     }
+    const opaqueCount=pos.length/3;
+    for(const v of glassPos)pos.push(v);for(const v of glassNorm)norm.push(v);for(const v of glassCol)col.push(v);
     if (!pos.length) return;
     const geo = new THREE.BufferGeometry();
+    geo.addGroup(0,opaqueCount,0);
+    if(glassPos.length)geo.addGroup(opaqueCount,glassPos.length/3,1);
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     geo.computeBoundingSphere();
-    chunk.mesh = new THREE.Mesh(geo, this.material);
+    chunk.mesh = new THREE.Mesh(geo, [this.material,this.glassMaterial]);
     this.scene.add(chunk.mesh);
   }
 

@@ -1,5 +1,5 @@
 import * as CANNON from 'cannon-es';
-import { WORLD, PHYSICS, VOXEL } from '../core/Constants.js';
+import { WORLD, PHYSICS, VOXEL, STREET } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
 // Owns the cannon-es world (ADR-0002). Fixed-step accumulator keeps
@@ -35,6 +35,30 @@ export class PhysicsSystem {
     this.world.addBody(ground);
 
     this.buildWalls();
+    this.props = new Map();
+    eventBus.on(Events.PROP_CREATE, p => {
+      const body = new CANNON.Body({mass:p.mass,type:p.loose?CANNON.Body.DYNAMIC:CANNON.Body.KINEMATIC,
+        shape:new CANNON.Box(new CANNON.Vec3(...p.half)),linearDamping:STREET.DAMPING,angularDamping:STREET.DAMPING});
+      body.position.copy(p.mesh.position);body.quaternion.copy(p.mesh.quaternion);
+      body.sleepSpeedLimit=STREET.SLEEP_SPEED;body.sleepTimeLimit=STREET.SLEEP_TIME;
+      this.props.set(p.id,{body,mesh:p.mesh,active:true});this.add(body,p.mesh);
+    });
+    eventBus.on(Events.PROP_REMOVE, ({id}) => {const p=this.props.get(id);if(p){if(p.active)this.remove(p.body,p.mesh);this.props.delete(id);}});
+    eventBus.on(Events.PROP_POSE, ({id,position,quaternion}) => {const p=this.props.get(id);if(p?.active){p.body.position.copy(position);p.body.quaternion.copy(quaternion);p.body.aabbNeedsUpdate=true;this.resetSweep(p.body);}});
+    eventBus.on(Events.PROP_SUSPEND, ({id}) => {const p=this.props.get(id);if(p?.active){this.remove(p.body,p.mesh);p.active=false;}});
+    eventBus.on(Events.PROP_RELEASE, ({id,position}) => {
+      const p=this.props.get(id);if(!p)return;
+      p.body.type=CANNON.Body.DYNAMIC;p.body.updateMassProperties();p.body.position.copy(position);p.body.quaternion.copy(p.mesh.quaternion);
+      p.body.velocity.setZero();p.body.angularVelocity.setZero();this.resetSweep(p.body);
+      if(!p.active){this.add(p.body,p.mesh);p.active=true;}else if(!this.dynamic.includes(p.body))this.dynamic.push(p.body);
+      p.body.wakeUp();
+    });
+    eventBus.on(Events.PROP_IMPULSE, ({id,velocity,spin}) => {
+      const p=this.props.get(id);if(!p?.active)return;
+      p.body.type=CANNON.Body.DYNAMIC;p.body.updateMassProperties();if(!this.dynamic.includes(p.body))this.dynamic.push(p.body);
+      p.body.velocity.set(...velocity);p.body.angularVelocity.set(spin,0,-spin);p.body.wakeUp();
+    });
+
 
     eventBus.on(Events.DEV_TUNING_CHANGED, ({ group, key }) => {
       if (group === 'WORLD' && key === 'GRAVITY') this.world.gravity.y = -WORLD.GRAVITY;
@@ -125,13 +149,14 @@ export class PhysicsSystem {
    *  this game is a box or a sphere; anything else gets the sphere treatment,
    *  which is wrong but bounded rather than crashing. */
   _support(body) {
-    if (!body._support) {
-      const s = body.shapes[0];
-      body._support = s?.halfExtents
-        ? { y: s.halfExtents.y, r: Math.max(s.halfExtents.x, s.halfExtents.z) }
-        : { y: s?.radius ?? VOXEL.SIZE / 2, r: s?.radius ?? VOXEL.SIZE / 2 };
-    }
-    return body._support;
+    const s=body.shapes[0];
+    if(!s?.halfExtents)return {y:s?.radius??VOXEL.SIZE/2,r:s?.radius??VOXEL.SIZE/2};
+    // A knocked pole lies on its side. Keeping its upright half-height made
+    // it float several metres above the ground after the physics rotation.
+    const h=s.halfExtents,q=body.quaternion;
+    const axes=[new CANNON.Vec3(h.x,0,0),new CANNON.Vec3(0,h.y,0),new CANNON.Vec3(0,0,h.z)];
+    for(const v of axes)q.vmult(v,v);
+    return {y:axes.reduce((n,v)=>n+Math.abs(v.y),0),r:Math.max(axes.reduce((n,v)=>n+Math.abs(v.x),0),axes.reduce((n,v)=>n+Math.abs(v.z),0))};
   }
 
   /** Land every dynamic body on the voxel world, and stop it at walls.

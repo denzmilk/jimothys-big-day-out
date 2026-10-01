@@ -18,6 +18,7 @@ class GameState {
       // exists so the game-over photo book (JIM-31) has something to print.
       finds: [],
     };
+    this.world = { disabledHideSpots: new Set() };
     this.heat = {
       points: 0,
       tier: 0,

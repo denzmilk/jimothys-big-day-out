@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  TRASH_CAN as TC, SNACKS, FOODS, PLAYER_CONFIG, COLORS, WORLD, CITY, STREAM, VOXEL,
+  TRASH_CAN as TC, SNACKS, FOODS, PLAYER_CONFIG, COLORS, WORLD, CITY, STREAM, VOXEL, COLLECTION,
 } from '../core/Constants.js';
 import * as Layout from '../level/Layout.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -50,6 +50,17 @@ export class TrashCans {
     this.jimothy = jimothy;
     this.voxels = voxels;
     this.elapsed = 0;
+    this.entitySerial = 0;
+    eventBus.on(Events.ENTITY_ATTACH, ({id}) => {
+      const can=this.cans.find(c=>c.collectId===id),snack=this.snacks.find(s=>s.collectId===id);
+      if(can){can.attached=true;this.physics.remove(can.body,can.mesh);}
+      if(snack)snack.attached=true;
+    });
+    eventBus.on(Events.ENTITY_RELEASE, ({id,position,ground}) => {
+      const can=this.cans.find(c=>c.collectId===id),snack=this.snacks.find(s=>s.collectId===id);
+      if(can){can.attached=false;can.body.position.set(position.x,ground+can.kind.height/2,position.z);can.mesh.position.copy(can.body.position);can.body.quaternion.copy(can.mesh.quaternion);can.body.velocity.setZero();can.body.angularVelocity.setZero();this.physics.resetSweep(can.body);this.physics.add(can.body,can.mesh);can.body.wakeUp();}
+      if(snack){snack.attached=false;snack.baseY=this._restY(position.x,position.z);snack.mesh.position.set(position.x,snack.baseY,position.z);}
+    });
     this._up = new CANNON.Vec3();
 
     this.snackGeo = new THREE.SphereGeometry(FOODS.SCRAP.RADIUS, 10, 8);
@@ -121,7 +132,7 @@ export class TrashCans {
     // standing on the boundary thrashes bodies in and out every frame.
     const U = R * (STREAM.UNLOAD_RADIUS / STREAM.LOAD_RADIUS);
     for (const can of [...this.cans]) {
-      if (!can.id) continue;
+      if (!can.id || can.attached) continue;
       const d = Math.max(
         Math.abs(can.body.position.x - worldX), Math.abs(can.body.position.z - worldZ),
       );
@@ -175,7 +186,9 @@ export class TrashCans {
     body.sleepSpeedLimit = 0.3;
     body.sleepTimeLimit = 0.6;
     this.physics.add(body, mesh);
-    const can = { mesh, body, tipped: false, bonkCooldown: 0, kind };
+    mesh.position.copy(body.position);
+    const can = { mesh, body, tipped: false, bonkCooldown: 0, kind, attached:false, collectId:`bin-${this.entitySerial++}` };
+    eventBus.emit(Events.ENTITY_REGISTER,{id:can.collectId,mesh,kind:'bin',size:Math.max(kind.radius*2,kind.height)});
     this.cans.push(can);
     return can;
   }
@@ -199,8 +212,9 @@ export class TrashCans {
   }
 
   removeCan(can) {
+    eventBus.emit(Events.ENTITY_UNREGISTER,{id:can.collectId});
     this.physics.remove(can.body, can.mesh);
-    this.scene.remove(can.mesh); // geometry/material shared — no dispose
+    can.mesh.removeFromParent(); // geometry/material shared — no dispose
     this.cans.splice(this.cans.indexOf(can), 1);
     if (can.id) this._byId?.delete(can.id);
   }
@@ -230,7 +244,7 @@ export class TrashCans {
   }
 
   clearSnacks() {
-    for (const s of this.snacks) this.scene.remove(s.mesh);
+    for (const s of this.snacks) {eventBus.emit(Events.ENTITY_UNREGISTER,{id:s.collectId});s.mesh.removeFromParent();}
     this.snacks = [];
   }
 
@@ -264,6 +278,7 @@ export class TrashCans {
     const jspeed = this.jimothy.speed;
 
     for (const can of this.cans) {
+      if (can.attached) continue;
       if (can.bonkCooldown > 0) can.bonkCooldown -= delta;
       if (can.tipped) continue;
       const cp = can.body.position;
@@ -305,6 +320,7 @@ export class TrashCans {
 
     for (let i = this.snacks.length - 1; i >= 0; i--) {
       const s = this.snacks[i];
+      if(s.attached||(this.jimothy.move?.kind==='roll'&&this.jimothy.radius>=COLLECTION.MIN_RADIUS))continue;
       s.mesh.position.y = (s.baseY ?? 0.18)
         + Math.sin(this.elapsed * SNACKS.BOB_HZ + s.phase) * 0.05;
       const d = Math.hypot(s.mesh.position.x - jp.x, s.mesh.position.z - jp.z);
@@ -321,6 +337,7 @@ export class TrashCans {
           s.progress += delta;
           s.mesh.rotation.y += delta * 6; // spinning pizza = being devoured
           if (s.progress >= FOODS.FEAST.CHANNEL_SECONDS) {
+            eventBus.emit(Events.ENTITY_UNREGISTER,{id:s.collectId});
             this.scene.remove(s.mesh);
             this.snacks.splice(i, 1);
             const name = FOODS.FEAST.NAMES[Math.floor(Math.random() * FOODS.FEAST.NAMES.length)];
@@ -333,6 +350,7 @@ export class TrashCans {
         }
       } else if (d < PLAYER_CONFIG.PICKUP_RADIUS) {
         // Geometry/material are shared across all snacks — remove, don't dispose.
+        eventBus.emit(Events.ENTITY_UNREGISTER,{id:s.collectId});
         this.scene.remove(s.mesh);
         this.snacks.splice(i, 1);
         const name = SNACKS.NAMES[Math.floor(Math.random() * SNACKS.NAMES.length)];
@@ -349,6 +367,11 @@ export class TrashCans {
     return (this.voxels ? this.voxels.terrainHeightAt(x, z) : 0) + 0.18;
   }
 
+  _addSnack(s) {
+    s.collectId=`food-${this.entitySerial++}`;s.attached=false;this.snacks.push(s);
+    eventBus.emit(Events.ENTITY_REGISTER,{id:s.collectId,mesh:s.mesh,kind:'food',size:COLLECTION.FOOD_SIZE});
+  }
+
   spillFrom(can) {
     const cp = can.body.position;
     const scraps = can.kind?.scraps ?? SNACKS.SCRAPS_PER_CAN;
@@ -361,7 +384,7 @@ export class TrashCans {
       const baseY = this._restY(x, z);
       mesh.position.set(x, baseY, z);
       this.scene.add(mesh);
-      this.snacks.push({ mesh, phase: k, type: 'scrap', baseY });
+      this._addSnack({ mesh, phase: k, type: 'scrap', baseY });
     }
     for (let k = 0; k < feasts; k++) {
       const mesh = new THREE.Mesh(this.feastGeo, this.feastMat);
@@ -370,7 +393,7 @@ export class TrashCans {
       const baseY = this._restY(x, z);
       mesh.position.set(x, baseY, z);
       this.scene.add(mesh);
-      this.snacks.push({ mesh, phase: k, type: 'feast', progress: 0, baseY });
+      this._addSnack({ mesh, phase: k, type: 'feast', progress: 0, baseY });
     }
   }
 }

@@ -585,7 +585,7 @@ export const PEDESTRIANS = {
   RADIUS: 76, NEAR_DISTANCE: 60, NAV_STEP: 2,
   SPAWN_MIN: 12, SPAWN_GAP: 3.5, REFRESH_DISTANCE: 18,
   WALL_MARGIN: 0.5, BODY_PROBE: 0.9, GROUND_SCAN: 0.5, FOOT_CLEARANCE: 0.035,
-  MAX_STEP: 1.5, GIVE_WAY_RADIUS: 7,
+  MAX_STEP: 1.5, SLOPE_PROBE: .45, MAX_GRADE: .8, GIVE_WAY_RADIUS: 7, OBSTACLE_MARGIN: .2, OBSTACLE_RADIUS_MAX: 1.1,
   ALPHA_CUTOFF: 0.5,
   TURN_SPEED: 8, WALK_RATE: 1, RUN_RATE: 1.4, FADE_TIME: 0.2,
   PAUSE_EVERY: 7, PAUSE_SECONDS: 0.7,
@@ -1069,6 +1069,7 @@ export const LEGS = {
 
 // Dimensions in metres keep architecture independent of destruction resolution.
 export const BUILDINGS = {
+  DEN_SQUASH: .62,
   HEIGHTS: { craftsman: [2.9, 5.8], shed: [2.4, 3.1], apartment: [8.4, 16.8], shop: [3.6, 5.2], warehouse: [5.4, 8.0], tower: [22, 42] },
   LOT_WIDTH: { craftsman: 11.8, shed: 6.4, apartment: 22, shop: 16, warehouse: 32, tower: 23 },
   LOT_JITTER: [0.72, 1.22],
@@ -1087,4 +1088,56 @@ export const ATMOSPHERE = {
   WATER_DEEP: 0x164859, WATER_SHALLOW: 0x529d9e, WATER_HIGHLIGHT: 0xffdfb1,
   WAVE_SPEED: 0.7, WAVE_SCALE: 0.22, WAVE_HEIGHT: 0.14, WATER_ROUGHNESS: 0.27,
   HEMISPHERE: 0.7, GROUND_LIGHT: 0x786c52,
+};
+
+// Milestones 24/27: the same dimensions drive appearance, break pieces and
+// collection eligibility, so a five-metre pole cannot masquerade as a pebble.
+export const STREET = {
+  BUSH_MASS: 10, BUSH_HEIGHT: .7, BUSH_BURIED: .45,
+  VEHICLES: ['sedan','hatchback-sports','suv','van','taxi','delivery'],
+  ROUGHNESS: .8, LEAF_THRESHOLD: 1,
+  RADIUS: 100, REFRESH: 24, GRID: 4, ROAD_CLEARANCE: 1.3,
+  PROP_COUNT: 48, CAR_COUNT: 8, PARKED_COUNT: 10, PROP_GAP: 7, CAR_GAP: 12,
+  SPEED: 6, TURN_RATE: 4, ARRIVE: 0.15, STOP_GAP: 6,
+  SPAWN_MIN: 13, GROUND_SCAN: 2, CLEARANCE: 0.02, MAX_SLOPE: 1.5,
+  BONK_SPEED: 1.3, IMPULSE: 4, LIFT: 2.5, SPIN: 1.2,
+  FRAGMENT_LIMIT: 72, FRAGMENT_LIFE: 24, BREAK_RADIUS: 0.5,
+  DAMPING: 0.35, SLEEP_SPEED: 0.25, SLEEP_TIME: 0.8,
+  // Box parts: width,height,depth, x,y,z, colour, break group.
+  TYPES: {
+    lamp: {mass:16, size:5.5, parts:[
+      [.4,.3,.4,0,.15,0,0x4a5154,0], [.18,2.4,.18,0,1.5,0,0x586469,0],
+      [.18,2.7,.18,0,4.05,0,0x586469,1], [1.5,.15,.18,.65,5.3,0,0x586469,1],
+      [.7,.16,.38,1.1,5.15,0,0xffe3a1,2]]},
+    hydrant: {mass:12,size:1.1,parts:[
+      [.36,.8,.36,0,.4,0,0xb94c36,0],[.48,.15,.48,0,.86,0,0xb94c36,1],
+      [.68,.2,.23,0,.6,0,0xc29e58,1],[.45,.1,.45,0,.05,0,0x444b49,0]]},
+    bench: {mass:24,size:2,parts:[
+      [1.9,.13,.5,0,.5,0,0x976643,0],[1.9,.36,.13,0,.86,-.25,0x976643,1],
+      [.12,.5,.55,-.7,.25,0,0x3f4d52,2],[.12,.5,.55,.7,.25,0,0x3f4d52,2]]},
+    mailbox: {mass:14,size:1.4,parts:[
+      [.62,.68,.55,0,1.04,0,0x335b70,0],[.17,.75,.17,0,.38,0,0x485057,1],
+      [.43,.07,.03,0,1.22,.29,0x182b34,0],[.22,.13,.03,0,.9,.29,0xe9ddd0,0]]},
+    tree: {mass:45,size:4.8,parts:[
+      [.4,2.6,.4,0,1.3,0,0x735640,0],[.3,1.2,.3,.3,2.7,0,0x735640,1],
+      [2,1.1,1.7,0,3.1,0,0x527746,1],[1.5,1.2,1.4,.5,4,0,0x638748,2],
+      [1.2,.9,1.5,-.8,3.6,.2,0x819b50,2]]},
+  },
+  CAR: { MASS: 180 },
+};
+export const COLLECTION = {
+  MIN_RADIUS: 2.2, SIZE_RATIO: .72, CAPACITY: 64, CONTACT: 1.15,
+  PERSON_SIZE: 1.8, FOOD_SIZE: .3, SURFACE: .94,
+  RELEASE_GAP: 2, RELEASE_SPACING: 1.2, RELEASE_SCAN: 5,
+  RELEASE_IMMUNITY: 1.5, FALLBACK_Y: .8,
+};
+
+export const GROUNDING = {
+  PELVIS_DROP: .045, FOOT_CLEARANCE: .018, PROBE: .18,
+  MAX_REACH: .995, MAX_DROP: .6, ANCHOR_REACH: .7,
+  WHEEL_INSET: .8, MAX_TILT: .5, SUSPENSION: .4, WHEEL_CONTACT_BAND: .35, WHEEL_SOLVE_STEPS: 4,
+};
+export const GLAZING = {
+  MATERIAL_ID: 4, COLOR: 0xc9e2e4, ROUGHNESS: .08, TRANSMISSION: .88,
+  THICKNESS: .06, IOR: 1.46, ENV_SIZE: 128,
 };

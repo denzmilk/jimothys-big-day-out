@@ -517,6 +517,7 @@ export class JimothyController {
 
     let hidden = false;
     for (const [hx, hz] of HIDE_SPOTS.POSITIONS) {
+      if(gameState.world.disabledHideSpots.has(`${hx},${hz}`))continue;
       if (Math.hypot(p.x - hx, p.z - hz) < hideRadius) { hidden = true; break; }
     }
     gameState.player.hidden = hidden;

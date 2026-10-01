@@ -1,7 +1,8 @@
 import * as THREE from 'three';
+import { FootGrounding } from '../core/Grounding.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
-import { PEDESTRIANS as PED } from '../core/Constants.js';
+import { PEDESTRIANS as PED, COLLECTION } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import * as Layout from '../level/Layout.js';
@@ -12,7 +13,13 @@ export class Pedestrians {
   constructor(scene, jimothy, voxels) {
     this.scene=scene;this.jimothy=jimothy;this.voxels=voxels;
     this.people=[];this.models=[];this.ready=false;this.elapsed=0;this.serial=0;this.center=null;
-    this.graph=new Map();
+    this.graph=new Map();this.obstacles=new Map();
+    const remember=e=>{if(e.kind!=='person'&&e.kind!=='food')this.obstacles.set(e.id,e);};
+    eventBus.on(Events.ENTITY_REGISTER,remember);
+    eventBus.on(Events.ENTITY_UNREGISTER,({id})=>this.obstacles.delete(id));
+    eventBus.emit(Events.ENTITY_LIST,{receive:entities=>{for(const e of entities)remember(e);}});
+    eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=true;this._animate(p,'Idle');}});
+    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=false;p.x=position.x;p.z=position.z;p.y=ground;p.mesh.position.set(p.x,p.y,p.z);p.target=null;p.node=null;p.flee=PED.FLEE_SECONDS;}});
     const loader=new GLTFLoader();
     this.loading=Promise.all(PED.MODELS.map(id=>loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/people/${id}.glb`)))
       .then(models=>{
@@ -24,7 +31,7 @@ export class Pedestrians {
             mat.transparent=false;mat.depthWrite=true;mat.alphaTest=PED.ALPHA_CUTOFF;mat.needsUpdate=true;
           }
         });
-        this.models=models;this.ready=true;this.reset();
+        this.models=models;this.ready=true;this.reset();eventBus.emit(Events.HUMAN_MODELS_READY,{models});
       })
       .catch(error=>{this.loadError=String(error);console.error('Pedestrian assets failed',error);});
   }
@@ -34,7 +41,11 @@ export class Pedestrians {
     const cls=Layout.Masterplan.classAt(x,z);
     if(cls===C.WATER) return false;
     if(this.buildings.some(b=>x>b.x-PED.WALL_MARGIN&&x<b.x+b.w+PED.WALL_MARGIN&&z>b.z-PED.WALL_MARGIN&&z<b.z+b.d+PED.WALL_MARGIN)) return false;
-    return true;
+    for(const e of this.obstacles.values())if(!e.attached&&e.mesh.parent===this.scene&&Math.hypot(x-e.mesh.position.x,z-e.mesh.position.z)<Math.min(PED.OBSTACLE_RADIUS_MAX,e.size/2)+PED.OBSTACLE_MARGIN)return false;
+    // Terrace banks can rise a storey between two navigation nodes. Reject
+    // the whole foot span before IK is asked to reach across that cliff.
+    const r=PED.SLOPE_PROBE,h=this.voxels.terrainHeightAt(x,z);
+    return [[r,0],[-r,0],[0,r],[0,-r]].every(([dx,dz])=>Math.abs(this.voxels.terrainHeightAt(x+dx,z+dz)-h)<=r*PED.MAX_GRADE);
   }
 
   _graphAround(x,z) {
@@ -67,7 +78,8 @@ export class Pedestrians {
     const mixer=new THREE.AnimationMixer(visual),actions={};
     for(const clip of source.animations) actions[clip.name]=mixer.clipAction(clip);
     const p={id:`ped-${this.serial++}`,x:node.x,z:node.z,y:0,yaw:0,node:node.key,previous:null,target:null,mesh,visual,mixer,actions,animation:null,model:PED.MODELS[modelIndex],flee:0,scaredRecently:false,steps:index,pause:0,attached:false};
-    this.people.push(p);this._animate(p,'Idle');return p;
+    p.grounding=new FootGrounding(mesh,visual,(x,z)=>this.voxels.groundHeightAt(x,z,this.voxels.terrainHeightAt(x,z)+PED.GROUND_SCAN));
+    this.people.push(p);this._animate(p,'Idle');eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:'person',size:COLLECTION.PERSON_SIZE});return p;
   }
 
   _animate(p,name) {
@@ -77,6 +89,7 @@ export class Pedestrians {
   }
 
   _remove(p) {
+    eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});
     p.mixer.stopAllAction();p.mixer.uncacheRoot(p.visual);
     p.mesh.removeFromParent();
     p.visual.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});
@@ -89,7 +102,7 @@ export class Pedestrians {
     const candidates=[...this.graph.values()].filter(n=>Math.hypot(n.x-jp.x,n.z-jp.z)>PED.SPAWN_MIN)
       .sort((a,b)=>hash(a.ix,a.iz)-hash(b.ix,b.iz));
     for(const n of candidates) {
-      if(this.people.length>=PED.COUNT)break;
+      if(this.people.filter(p=>!p.attached).length>=PED.COUNT)break;
       if(this.people.some(p=>Math.hypot(p.x-n.x,p.z-n.z)<PED.SPAWN_GAP))continue;
       this._spawn(n,this.people.length);
     }
@@ -143,6 +156,7 @@ export class Pedestrians {
       p.mesh.rotation.y+=difference*Math.min(1,delta*PED.TURN_SPEED);
       this._animate(p,moving?(p.flee>0?'Run':'Walk'):'Idle');
       p.mixer.update(delta*(p.flee>0?PED.RUN_RATE:PED.WALK_RATE));
+      p.grounding.update(p.actions[p.animation],moving);
     }
   }
 
@@ -156,5 +170,5 @@ export class Pedestrians {
   }
 
   get fleeingCount(){return this.people.filter(p=>p.flee>0).length;}
-  snapshot(){const j=this.jimothy.group.position;return {ready:this.ready,models:this.models.length,count:this.people.length,nearby:this.people.filter(p=>Math.hypot(p.x-j.x,p.z-j.z)<PED.NEAR_DISTANCE).length,fleeing:this.fleeingCount,items:this.people.map(p=>({id:p.id,model:p.model,x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2),animation:p.animation,attached:p.attached}))};}
+  snapshot(){const j=this.jimothy.group.position;return {ready:this.ready,models:this.models.length,count:this.people.length,nearby:this.people.filter(p=>Math.hypot(p.x-j.x,p.z-j.z)<PED.NEAR_DISTANCE).length,fleeing:this.fleeingCount,items:this.people.map(p=>({id:p.id,model:p.model,x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2),animation:p.animation,attached:p.attached,feet:p.grounding.contacts}))};}
 }

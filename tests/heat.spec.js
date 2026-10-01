@@ -71,6 +71,8 @@ test('paparazzi spawn at tier 1 and close in', async ({ page }) => {
 test('tier-2 camera flash stuns jimothy', async ({ page }) => {
   await seedTuning(page, { HEAT: { PER_CAN_TIPPED: 25 } });
   await boot(page);
+  // Keep this tier-2 scenario from summoning the net when the new crowd flees.
+  await page.evaluate(async()=>{const {HEAT}=await import('/src/core/Constants.js');HEAT.PER_SCARED_LOCAL=0;});
   const s1 = await tipNearestCan(page);
   expect(s1.heat.tier).toBeGreaterThanOrEqual(2);
   // Stuns are short by design (0.45s — they're a comedy beat, not a threat),

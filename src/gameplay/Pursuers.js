@@ -1,7 +1,9 @@
 import * as THREE from 'three';
+import { FootGrounding } from '../core/Grounding.js';
+import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import {
   PAPARAZZI, ANIMAL_CONTROL, PURSUER_SPAWN_POINTS, COLORS, WORLD,
-  VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, SEWER,
+  VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, SEWER, COLLECTION, PEDESTRIANS,
 } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
@@ -53,6 +55,9 @@ export class Pursuers {
     this.paparazzi = [];
     this.animalControl = null;
     this.spawnIndex = 0;
+    eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=true;p.pinned=true;p.sees=false;}});
+    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=false;p.group.position.set(position.x,ground,position.z);p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
+    eventBus.on(Events.HUMAN_MODELS_READY,({models})=>{this.models=models;for(const p of this.all)this._human(p);});
     // Shared across the whole pack so a crowd can't chain-stun the player.
     this.globalFlashCooldown = 0;
 
@@ -115,7 +120,7 @@ export class Pursuers {
     body.position.y = 0.6;
     const head = new THREE.Mesh(this.headGeo, mat);
     head.position.y = 1.4;
-    group.add(body, head);
+    body.userData.placeholder=true;head.userData.placeholder=true;group.add(body, head);
     if (withNet) {
       const net = new THREE.Mesh(this.netGeo, this.netMat);
       net.position.set(0, 1.0, 0.55);
@@ -126,7 +131,8 @@ export class Pursuers {
 
     const jp = this.jimothy.group.position;
     this._nextId = (this._nextId || 0) + 1;
-    return {
+    const person = {
+      attached:false,
       // Stable identity, because the snapshot's ORDER is not: a blast raises
       // heat, heat spawns paparazzi, and `pursuers[0]` silently becomes a
       // different person mid-spec.
@@ -155,6 +161,29 @@ export class Pursuers {
       wanderStep: 0,
       flashCooldown: 1 + this.paparazzi.length * 0.7,
     };
+    this._human(person);
+    eventBus.emit(Events.ENTITY_REGISTER,{id:`pursuer-${person.id}`,mesh:group,kind:'person',size:COLLECTION.PERSON_SIZE});
+    return person;
+  }
+
+  _human(p) {
+    if(!this.models||p.visual)return;
+    const model=this.models[PEDESTRIANS.MODELS.indexOf(p.type==='animal-control'?'worker':'commuter')];
+    p.visual=clone(model.scene);const box=new THREE.Box3().setFromObject(p.visual);p.visual.position.y-=box.min.y;p.group.add(p.visual);
+    for(const child of [...p.group.children])if(child.userData.placeholder)p.group.remove(child);
+    p.mixer=new THREE.AnimationMixer(p.visual);p.actions={};for(const clip of model.animations)p.actions[clip.name]=p.mixer.clipAction(clip);
+    p.grounding=new FootGrounding(p.group,p.visual,(x,z)=>this._groundY(x,z));
+  }
+  _animate(p,dt,x,z) {
+    if(!p.mixer)return;
+    const moving=Math.hypot(p.group.position.x-x,p.group.position.z-z)>0;
+    const name=moving?'Run':'Idle';
+    if(name!==p.animation){p.actions[p.animation]?.fadeOut(PEDESTRIANS.FADE_TIME);p.actions[name]?.reset().fadeIn(PEDESTRIANS.FADE_TIME).play();p.animation=name;}
+    p.mixer.update(dt);p.grounding.update(p.actions[p.animation],moving);
+  }
+  _removePerson(p) {
+    eventBus.emit(Events.ENTITY_UNREGISTER,{id:`pursuer-${p.id}`});p.group.removeFromParent();
+    if(p.mixer){p.mixer.stopAllAction();p.mixer.uncacheRoot(p.visual);p.visual.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});}
   }
 
   /** Add a pursuer at an exact spot. Test hook (`window.spawnPursuerAt`): the
@@ -168,7 +197,7 @@ export class Pursuers {
     const p = this._makePerson(type, x, z);
     p.pinned = true;
     if (type === 'animal-control') {
-      if (this.animalControl) this.scene.remove(this.animalControl.group);
+      if (this.animalControl) this._removePerson(this.animalControl);
       this.animalControl = p;
     } else {
       this.paparazzi.push(p);
@@ -491,22 +520,25 @@ export class Pursuers {
     }
     while (managed().length > targetPaparazzi) {
       const i = this.paparazzi.map((p) => !p.pinned).lastIndexOf(true);
-      this.scene.remove(this.paparazzi.splice(i, 1)[0].group);
+      this._removePerson(this.paparazzi.splice(i, 1)[0]);
     }
     if (tier >= ANIMAL_CONTROL.MIN_TIER && !this.animalControl) {
       const [x, z] = this._spawnPoint();
       this.animalControl = this._makePerson('animal-control', x, z);
     }
     if (tier < ANIMAL_CONTROL.MIN_TIER && this.animalControl && !this.animalControl.pinned) {
-      this.scene.remove(this.animalControl.group);
+      this._removePerson(this.animalControl);
       this.animalControl = null;
     }
 
     this.globalFlashCooldown -= delta;
     for (const p of this.paparazzi) {
+      if(p.attached)continue;
+      const x=p.group.position.x,z=p.group.position.z;
       p.flashCooldown -= delta;
       this._think(p, delta);
       const d = this._steer(p, delta, this._speed(p));
+      this._animate(p,delta,x,z);
       // A photograph needs a subject: no sightline, no flash. Hiding used to be
       // a flag that switched this off; it is now simply not being seen.
       if (
@@ -522,10 +554,12 @@ export class Pursuers {
       }
     }
 
-    if (this.animalControl) {
+    if (this.animalControl && !this.animalControl.attached) {
       const ac = this.animalControl;
+      const x=ac.group.position.x,z=ac.group.position.z;
       this._think(ac, delta);
       const d = this._steer(ac, delta, this._speed(ac));
+      this._animate(ac,delta,x,z);
       // You cannot net what you cannot see. At NET_RANGE the bush multiplier
       // still leaves him visible, so hiding under someone's nose does not save
       // him — which is the behaviour the flag was pretending to have.
@@ -534,10 +568,10 @@ export class Pursuers {
   }
 
   reset() {
-    for (const pap of this.paparazzi) this.scene.remove(pap.group);
+    for (const pap of this.paparazzi) this._removePerson(pap);
     this.paparazzi = [];
     if (this.animalControl) {
-      this.scene.remove(this.animalControl.group);
+      this._removePerson(this.animalControl);
       this.animalControl = null;
     }
     this.spawnIndex = 0;
@@ -548,6 +582,7 @@ export class Pursuers {
     return this.all.map((p) => ({
       id: p.id,
       type: p.type,
+      attached: !!p.attached,
       x: round(p.group.position.x),
       z: round(p.group.position.z),
       // Milestone 19: without these, none of the awareness model is assertable

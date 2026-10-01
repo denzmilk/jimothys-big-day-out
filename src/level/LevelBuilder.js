@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { WORLD, COLORS, HIDE_SPOTS, TERRAIN, HORIZON, ATMOSPHERE as A } from '../core/Constants.js';
+import { WORLD, COLORS, HIDE_SPOTS, TERRAIN, HORIZON, ATMOSPHERE as A, STREET } from '../core/Constants.js';
 import * as Terrain from './Terrain.js';
 import * as Masterplan from './CityPlanner.js';
+import { gameState } from '../core/GameState.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
 // Static block dressing: the sea, hide-spot bushes, and the perimeter curbs
@@ -64,15 +65,20 @@ export class LevelBuilder {
       transparent: true,
       opacity: 0.75,
     });
+    this.bushes=[];
     for (const [x, z] of HIDE_SPOTS.POSITIONS) {
       const bush = new THREE.Mesh(bushGeo, bushMat);
-      bush.scale.y = 0.7;
+      bush.scale.y = STREET.BUSH_HEIGHT;
       // On the hillside it stands on, not at a height that used to mean grade.
       const ground = voxels ? voxels.terrainHeightAt(x, z) : 0;
-      bush.position.set(x, ground + HIDE_SPOTS.RADIUS * 0.45, z);
+      bush.position.set(x, ground + HIDE_SPOTS.RADIUS * STREET.BUSH_BURIED, z);
       scene.add(bush);
+      this.bushes.push({id:`bush-${this.bushes.length}`,mesh:bush,origin:bush.position.clone(),x,z,size:HIDE_SPOTS.RADIUS*2,kind:'bush',half:[HIDE_SPOTS.RADIUS,HIDE_SPOTS.RADIUS*STREET.BUSH_HEIGHT,HIDE_SPOTS.RADIUS],mass:STREET.BUSH_MASS,loose:false,attached:false});
     }
 
+    eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.bushes.find(p=>p.id===id);if(p){p.attached=true;if(p.loose)eventBus.emit(Events.PROP_SUSPEND,{id});gameState.world.disabledHideSpots.add(`${p.x},${p.z}`);}});
+    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.bushes.find(p=>p.id===id);if(p){p.attached=false;p.mesh.position.set(position.x,ground+p.half[1],position.z);if(!p.loose){p.loose=true;eventBus.emit(Events.PROP_CREATE,p);}else eventBus.emit(Events.PROP_RELEASE,{id,position:p.mesh.position});}});
+    eventBus.on(Events.WORLD_IMPACT,({x,y,z,radius})=>{for(const p of this.bushes){if(p.attached||p.mesh.position.distanceTo(new THREE.Vector3(x,y,z))>radius+p.size/2)continue;gameState.world.disabledHideSpots.add(`${p.x},${p.z}`);if(!p.loose){p.loose=true;eventBus.emit(Events.PROP_CREATE,p);}const dx=p.mesh.position.x-x,dz=p.mesh.position.z-z,d=Math.hypot(dx,dz)||1;eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity:[dx/d*STREET.IMPULSE,STREET.LIFT,dz/d*STREET.IMPULSE],spin:STREET.SPIN});}});
     this.wallMat = new THREE.MeshStandardMaterial({ color: COLORS.WALL });
     this.walls = [];
     this.buildWalls();
@@ -140,6 +146,12 @@ export class LevelBuilder {
     );
     this.horizon.renderOrder = -1;
     this.scene.add(this.horizon);
+  }
+
+  registerEntities(){for(const p of this.bushes)eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:p.kind,size:p.size});}
+  resetObjects(){
+    for(const p of this.bushes){eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});if(p.loose)eventBus.emit(Events.PROP_REMOVE,{id:p.id});this.scene.add(p.mesh);p.mesh.position.copy(p.origin);p.mesh.quaternion.identity();p.attached=false;p.loose=false;}
+    this.registerEntities();
   }
 
   update(delta, camera) {

@@ -87,3 +87,15 @@ MPFB 2.0.17 in Blender 5.2 creates varied clothed pedestrian rigs. Preserve sour
 ### MPFB people (milestone 26)
 
 `tools/build_pedestrians.py` creates six MPFB humans with fitted CC0 MakeHuman clothing/hair; packed editable and reduced game sources are in `assets/blender/people/`. The README records sources and rebuild commands. GLBs in `public/assets/models/people/` carry Idle/Walk/Run clips. `Pedestrians` shares geometry/materials, clones skeletons, disposes each removed skeleton, and uses opaque depth-writing materials with alpha-tested hair to avoid MakeSkin BLEND sorting holes.
+
+### Physical street life and grounding (milestone 27)
+
+- Kenney Car Kit 3.1, CC0: original GLBs/texture/licence in `assets/vehicles/kenney-source`; source URL and rebuild steps in `assets/vehicles/README.md`. `tools/prepare_vehicles.py` saves metre-scaled Blender sources and exports six cars with separate glazing.
+- `StreetLife` follows the baked road graph and owns street object lifetimes. `PhysicsSystem` owns their cannon bodies through `prop:*` events. Impacts split mesh sections; fragment count/lifetime is bounded.
+- `RollCollector` receives `entity:*` registrations for props, bins, food, bushes and people. It suspends the owner's physics/AI while attached to the animated belly's local bounds; stopping releases surviving entities. Uprooted bushes cease to hide the player.
+- `Grounding` is a geometry utility: analytic leg IK after animation, pelvis reach correction, planted foot targets and ground normals; vehicles use pitch/bank plus wheel suspension. Spare tyres are excluded from support.
+- Building glass is a separate material group in the greedy voxel mesh, so it transmits light while retaining voxel damage. The sky supplies a shared environment map.
+
+### Verification
+
+The opt-in `STATE_ONLY_TEST=1` skips repeated software rasterization after the harness renders its first frame; simulation and scene matrices still update. Default `advanceTime` and the smoke test render normally. Use the rendered smoke/pixel-readback and in-game captures for visual evidence. Restart Vite before a test run that imports singleton modules directly: a long-running HMR session can rewrite imports with timestamped URLs and create a second state/event module in test code. Boot waits for all people/car assets, and the real Jimothy rig when requested.

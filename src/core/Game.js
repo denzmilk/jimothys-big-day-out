@@ -340,7 +340,9 @@ class Game {
     if (!this.manualTime) this.update(delta);
     this.frames += 1;
     this.updateDiag(delta);
-    this.renderer.render(this.scene, this.camera);
+    // advanceTime renders its completed step. Redrawing that same frozen
+    // crowd on every RAF starves software WebGL during deterministic tests.
+    if (!this.manualTime) this.renderer.render(this.scene, this.camera);
   }
 
   // Always-visible readout of every input layer (frames → keys → move vector
@@ -777,6 +779,7 @@ class Game {
         finds: gameState.player.finds,
       },
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
+      people: this.pedestrians.snapshot(),
       world: { voxelSize: VOXEL.SIZE, atmosphereTime: this.level.time },
       voxels: {
         ...this.voxels.stats(),

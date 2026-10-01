@@ -83,3 +83,7 @@ GitHub Pages. Vite `base` must be set to the repo path; deploy via GitHub Action
 ## World pass asset pipeline (approved 2026-10-02)
 
 MPFB 2.0.17 in Blender 5.2 creates varied clothed pedestrian rigs. Preserve source `.blend` files and build recipes under `assets/blender/` and `tools/`, ship GLBs under `public/assets/models/`, and document the exact CC0 source assets. Building dimensions are authored in metres and quantized at voxelization. Physical street entities share a declarative catalog and EventBus lifecycle; PhysicsSystem remains the sole owner of cannon-es bodies.
+
+### MPFB people (milestone 26)
+
+`tools/build_pedestrians.py` creates six MPFB humans with fitted CC0 MakeHuman clothing/hair; packed editable and reduced game sources are in `assets/blender/people/`. The README records sources and rebuild commands. GLBs in `public/assets/models/people/` carry Idle/Walk/Run clips. `Pedestrians` shares geometry/materials, clones skeletons, disposes each removed skeleton, and uses opaque depth-writing materials with alpha-tested hair to avoid MakeSkin BLEND sorting holes.

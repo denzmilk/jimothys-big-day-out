@@ -4,7 +4,7 @@
 
 ## Current world pass — 2026-10-02
 
-Chris approved milestones 25 → 26 → 27: finer world/buildings, MPFB pedestrians, traffic and physical street objects, plus sky/water. Street objects must be knockable and attach to giant Jimothy while rolling, then release (milestone 24). Milestone 25 implemented and verified, awaiting playtest. Current step: 26 (six MPFB source rigs and GLBs authored; runtime population next). Existing uncommitted milestone-23 growth/camera changes were present on arrival and must be preserved and excluded from these commits. Blender 5.2 and MPFB 2.0.17 are installed; batch Blender works, live MCP was disconnected. Baseline capture: `output/iterate/world-before.png`.
+Chris approved milestones 25 → 26 → 27: finer world/buildings, MPFB pedestrians, traffic and physical street objects, plus sky/water. Street objects must be knockable and attach to giant Jimothy while rolling, then release (milestone 24). Milestone 25 implemented and verified, awaiting playtest. Milestone 26 implemented and verified: six varied MPFB rigs, 36 nearby animated civilians, obstacle-aware pavement movement, 10 pedestrian/heat tests passing. Current step: 27 (traffic, physical props and collection/release). Existing uncommitted milestone-23 growth/camera changes were present on arrival and must be preserved and excluded from these commits. Blender 5.2 and MPFB 2.0.17 are installed; batch Blender works, live MCP was disconnected. Baseline capture: `output/iterate/world-before.png`.
 
 ## Last updated
 

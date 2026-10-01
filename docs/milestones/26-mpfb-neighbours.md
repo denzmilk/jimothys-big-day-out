@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned — approved by Chris 2026-10-02 as one ordered world pass; implementation requires his playtest before sign-off.
+Implemented, awaiting Chris’s playtest — 2026-10-02.
 
 ## Objective
 
@@ -14,10 +14,10 @@ Create six clothed MPFB humans in Blender, preserve editable sources and a repro
 
 ## Acceptance criteria
 
-- [ ] Six visibly varied clothed humans use MPFB geometry, with documented assets and editable Blender source.
-- [ ] Exported models load in the game with walking animation, ground contact and varied appearance.
-- [ ] Populated streets near spawn and distant districts contain pedestrians; movement avoids buildings and water.
-- [ ] Scaring generates heat once per encounter; restart restores population without accumulating objects.
+- [x] Six visibly varied clothed humans use MPFB geometry, with documented assets and editable Blender source.
+- [x] Exported models load in the game with walking animation, ground contact and varied appearance.
+- [x] Populated streets near spawn and distant districts contain pedestrians; movement avoids buildings and water.
+- [x] Scaring generates heat once per encounter; restart restores population without accumulating objects.
 - [ ] Chris judges variety, animation and street activity in play.
 
 ## Dependencies
@@ -35,3 +35,7 @@ Chris explores several streets and sees the approved world changes, then tries d
 ## Test plan
 
 Write focused failing acceptance tests first. Verify state through render_game_to_text and advanceTime, inspect pixel-readback captures under output/iterate, run adjacent regression tests and build. Commit/push this milestone independently; report implemented, awaiting playtest until Chris signs off.
+
+## Evidence
+
+Six MPFB 2.0.17 humans authored in Blender 5.2, with packed editable sources, game sources, CC0 asset attribution and build scripts in `assets/blender/people/README.md`. Each has Idle, Walk and Run clips. Runtime uses 36 nearby clones and an obstacle-filtered pavement graph. Ten pedestrian/heat tests pass; build and smoke pixel readback pass. Captures: `output/iterate/mpfb-lineup.png`, `pedestrians-in-game.png`, `pedestrians-material-fix.png`. Tests run in manual time now render once per requested step instead of redrawing a frozen scene on every RAF; the first software-WebGL heat run timed out before this change.

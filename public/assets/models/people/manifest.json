@@ -1,0 +1,56 @@
+[
+  {
+    "id": "commuter",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "male_casualsuit01",
+    "hair": "short02",
+    "skin": "young_asian_male",
+    "triangles": 15834,
+    "bytes": 2678620
+  },
+  {
+    "id": "neighbour",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "female_elegantsuit01",
+    "hair": "afro01",
+    "skin": "middleage_african_female",
+    "triangles": 14119,
+    "bytes": 2484924
+  },
+  {
+    "id": "runner",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "female_sportsuit01",
+    "hair": "ponytail01",
+    "skin": "young_caucasian_female",
+    "triangles": 16734,
+    "bytes": 2193016
+  },
+  {
+    "id": "worker",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "male_worksuit01",
+    "hair": "short01",
+    "skin": "middleage_african_male",
+    "triangles": 16170,
+    "bytes": 2644364
+  },
+  {
+    "id": "retiree",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "male_elegantsuit01",
+    "hair": "short04",
+    "skin": "old_caucasian_male",
+    "triangles": 13541,
+    "bytes": 2350824
+  },
+  {
+    "id": "shopper",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "female_casualsuit02",
+    "hair": "bob02",
+    "skin": "young_asian_female",
+    "triangles": 14483,
+    "bytes": 2282424
+  }
+]

@@ -510,10 +510,18 @@ export const CITY = {
 };
 
 export const PEDESTRIANS = {
-  COUNT: 26,
+  MODELS: ['commuter','neighbour','runner','worker','retiree','shopper'],
+  COUNT: 36,
+  RADIUS: 76, NEAR_DISTANCE: 60, NAV_STEP: 2,
+  SPAWN_MIN: 12, SPAWN_GAP: 3.5, REFRESH_DISTANCE: 18,
+  WALL_MARGIN: 0.5, BODY_PROBE: 0.9, GROUND_SCAN: 0.5, FOOT_CLEARANCE: 0.035,
+  MAX_STEP: 1.5, GIVE_WAY_RADIUS: 7,
+  ALPHA_CUTOFF: 0.5,
+  TURN_SPEED: 8, WALK_RATE: 1, RUN_RATE: 1.4, FADE_TIME: 0.2,
+  PAUSE_EVERY: 7, PAUSE_SECONDS: 0.7,
   SPEED: 1.4,
   // Wander target reached → pick a new one.
-  ARRIVE_RADIUS: 1.5,
+  ARRIVE_RADIUS: 0.15,
   // Jimothy this close sends them fleeing (and that's chaos → heat).
   SCARE_RADIUS: 5,
   FLEE_SPEED: 4.2,

@@ -284,7 +284,9 @@ test('undisturbed ground is smooth; ground you have dug is not', async ({ page }
   // height field" alone would also pass on a world with no voxels in it at all,
   // and the whole point is that the crater stays blocky.
   await boot(page);
-  const spot = { x: 40, z: 24 };
+  // Milestone 25 puts a real house over the former sample line. Keep this
+  // terrain test on an exposed slope; the precision assertion is unchanged.
+  const spot = { x: 60, z: 10 };
   await page.evaluate((p) => window.teleportJimothy(p.x, p.z), spot);
   await adv(page, 0.5);
 

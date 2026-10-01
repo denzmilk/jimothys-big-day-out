@@ -79,3 +79,7 @@ GitHub Pages. Vite `base` must be set to the repo path; deploy via GitHub Action
 - **UI frameworks (React etc.)** — HUD is a plain HTML/CSS overlay.
 - **Audio libraries (Howler etc.)** — procedural Web Audio only.
 - **Networking (PartyKit etc.)** — single-player v1; see gameplan anti-goals.
+
+## World pass asset pipeline (approved 2026-10-02)
+
+MPFB 2.0.17 in Blender 5.2 creates varied clothed pedestrian rigs. Preserve source `.blend` files and build recipes under `assets/blender/` and `tools/`, ship GLBs under `public/assets/models/`, and document the exact CC0 source assets. Building dimensions are authored in metres and quantized at voxelization. Physical street entities share a declarative catalog and EventBus lifecycle; PhysicsSystem remains the sole owner of cannon-es bodies.

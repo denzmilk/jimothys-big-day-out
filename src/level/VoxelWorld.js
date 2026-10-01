@@ -706,6 +706,19 @@ export class VoxelWorld {
       { d: [0, 0, -1], v: [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]] },
     ];
 
+    const planes = new Map();
+    const mergeFace = (fi, lx, ly, lz, mat, flatHeight = null) => {
+      const axis = Math.floor(fi / 2), local = [lx, ly, lz];
+      const u = axis === 0 ? 2 : 0, v = axis === 1 ? 2 : 1;
+      const width = u === 1 ? CY : CX, height = v === 1 ? CY : CX;
+      const key = `${fi}:${local[axis]}:${flatHeight ?? ''}`;
+      let plane = planes.get(key);
+      if (!plane) {
+        plane = { fi, axis, u, v, width, height, slice: local[axis], flatHeight, mask: new Uint8Array(width * height) };
+        planes.set(key, plane);
+      }
+      plane.mask[local[u] + local[v] * width] = mat;
+    };
     for (let lz = 0; lz < CX; lz++) {
       for (let ly = 0; ly < CY; ly++) {
         for (let lx = 0; lx < CX; lx++) {
@@ -717,7 +730,8 @@ export class VoxelWorld {
           const vz = base[2] + lz;
           const color = this._colors.get(mat) || this._colors.get(1);
           const smooth = isTerrainTop(lx, ly, lz);
-          for (const f of FACES) {
+          for (let fi = 0; fi < FACES.length; fi++) {
+            const f = FACES[fi];
             if (occupied(lx + f.d[0], ly + f.d[1], lz + f.d[2])) continue;
             // Undisturbed ground: every vertex on the voxel's TOP plane moves to
             // the real surface. That covers the top face and the upper edge of
@@ -727,6 +741,13 @@ export class VoxelWorld {
               smooth && oy === 1 ? corner(lx + ox, lz + oz) : (vy + oy) * s,
               (vz + oz) * s,
             ]);
+            // Terrain slopes keep their sampled corners; only genuinely planar
+            // faces merge, so reducing cells cannot flatten a hill (JIM-34).
+            const flat = smooth && fi === 2 && quad.every(q => Math.abs(q[1] - quad[0][1]) < 1e-6);
+            if (!smooth || flat) {
+              mergeFace(fi, lx, ly, lz, mat, flat ? quad[0][1] : null);
+              continue;
+            }
             const lit = smooth && f.d[1] === 1;
             for (const [a, b, c] of [[0, 1, 2], [0, 2, 3]]) {
               for (const idx of [a, b, c]) {
@@ -742,6 +763,29 @@ export class VoxelWorld {
             }
           }
         }
+      }
+    }
+
+    for (const plane of planes.values()) {
+      const {mask,width,height,u,v,axis,slice,fi,flatHeight} = plane;
+      const f = FACES[fi];
+      for (let row=0; row<height; row++) for (let colIdx=0; colIdx<width;) {
+        const material = mask[row*width+colIdx];
+        if (!material) {colIdx++; continue;}
+        let run=1, rows=1;
+        while(colIdx+run<width && mask[row*width+colIdx+run]===material) run++;
+        outer: while(row+rows<height) {
+          for(let k=0;k<run;k++) if(mask[(row+rows)*width+colIdx+k]!==material) break outer;
+          rows++;
+        }
+        const origin=[0,0,0]; origin[axis]=slice; origin[u]=colIdx; origin[v]=row;
+        const size=[1,1,1];size[u]=run;size[v]=rows;
+        const color=this._colors.get(material)||this._colors.get(1);
+        const quad=f.v.map(c=>c.map((n,i)=>(base[i]+origin[i]+n*size[i])*s));
+        if(flatHeight!==null) for(const q of quad) q[1]=flatHeight;
+        for(const i of [0,1,2,0,2,3]) {pos.push(...quad[i]);norm.push(...f.d);col.push(color.r,color.g,color.b);}
+        for(let j=0;j<rows;j++) mask.fill(0,(row+j)*width+colIdx,(row+j)*width+colIdx+run);
+        colIdx+=run;
       }
     }
 

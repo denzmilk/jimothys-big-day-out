@@ -312,6 +312,7 @@ class Game {
     this.trashCans.update(delta);
     this.pursuers.update(delta);
     this.pedestrians.update(delta);
+    this.level.update(delta, this.camera);
     this.score.update(delta);
     this.heat.update(delta);
     this.debris.update(delta);
@@ -776,6 +777,7 @@ class Game {
         finds: gameState.player.finds,
       },
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
+      world: { voxelSize: VOXEL.SIZE, atmosphereTime: this.level.time },
       voxels: {
         ...this.voxels.stats(),
         debris: this.debris.liveCount,

@@ -167,3 +167,10 @@
 
 - Pants: cosmetic (Jimothy wears them) or score-only? Decide before milestone 03's loot table is finalized.
 - Mobile touch support and multiplayer are v1 anti-goals (gameplan) — revisit only after the loop ships.
+
+## World pass approved 2026-10-02
+
+- [x] Finer voxels and recognisable varied houses → milestone 25; promotes the earlier finer-voxels and world-variety entries.
+- [x] Varied MPFB humans and nearby animated pedestrians → milestone 26; promotes crowd density and JIM-08 presentation.
+- [x] Cars, poles, hydrants and physical street objects, with giant-roll attachment/release → milestone 27 and the collection portion of milestone 24. Driving/stealing remains deferred.
+- [x] Sky and animated water appearance → milestone 25. Full fluid simulation remains deferred.

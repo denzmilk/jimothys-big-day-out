@@ -683,18 +683,12 @@ export const RIG = {
 // Destructible voxel city (ADR-0003). Chunked so one draw call covers a whole
 // 16³ block of voxels — a mesh per voxel is ~19k draw calls and does not run.
 export const VOXEL = {
-  // Chunky on purpose (playtest 2026-07-23: "voxel parts are very small").
-  // Big blocks read as destruction from across the street and cost less to
-  // mesh; fine detail is not the aesthetic here.
-  SIZE: 0.55,
-  // Chunks are WIDE and SHALLOW, not cubic. Draw calls scale with the
-  // horizontal chunk count while the world is mostly flat, so a cube wastes
-  // its height budget on empty sky. 64×12×64 holds the same voxel count as
-  // the old 32³ (so re-mesh cost per blast is unchanged) while covering 4×
-  // the ground area per draw call — which is what lets the city grow and the
-  // voxels shrink at the same time.
-  CHUNK_XZ: 64,
-  CHUNK_Y: 12,
+  // Milestone 25: finer breakaway, with dimensions authored in metres.
+  SIZE: 0.22,
+  // Keep the original 35.2 m column coverage as cells shrink; otherwise
+  // nearby bins and streets disappear from the load radius (milestone 25).
+  CHUNK_XZ: 160,
+  CHUNK_Y: 32,
   // A skinny raccoon is not a wrecking ball. Base radius barely scratches
   // paint — real demolition is earned by eating (FATNESS.BLAST_PER_FAT).
   BLAST_RADIUS: 0.75,
@@ -728,6 +722,15 @@ export const VOXEL = {
     10: { name: 'rock', color: 0x7d7b76 },
     11: { name: 'deeprock', color: 0x4c4a4f },
     12: { name: 'sand', color: 0xc9b184 },
+    13: { name: 'ivory trim', color: 0xf2e7ce },
+    14: { name: 'sage siding', color: 0x829986 },
+    15: { name: 'blue siding', color: 0x688a9c },
+    16: { name: 'ochre siding', color: 0xb5986c },
+    17: { name: 'cedar', color: 0x926749 },
+    18: { name: 'asphalt', color: 0x414a50 },
+    19: { name: 'slate roof', color: 0x414f59 },
+    20: { name: 'terracotta', color: 0x9d604c },
+    21: { name: 'painted door', color: 0x3a5960 },
   },
   // Bedrock can't be destroyed. Without a floor, a roll digs straight through
   // every ground layer and leaves Jimothy stranded metres below grade in a
@@ -847,7 +850,7 @@ export const SEWER = {
   // The stairwell is a square shaft with a step spiralling down its wall. Steps
   // are ONE voxel high, so walking up is the auto-climb doing its ordinary job
   // rather than a special case — a vertical ladder would need one.
-  SHAFT: 5,
+  SHAFT: 13,
   // Underground light. The surface's golden-hour sun is useless down here, and
   // the milestone asks for lit enough to move through and dark enough to be
   // unpleasant.
@@ -965,4 +968,26 @@ export const LEGS = {
   SWING_HZ: 1.4,
   SWING_AMPLITUDE: 0.75,
   SWING_MIN: 0.06,
+};
+
+// Dimensions in metres keep architecture independent of destruction resolution.
+export const BUILDINGS = {
+  HEIGHTS: { craftsman: [2.9, 5.8], shed: [2.4, 3.1], apartment: [8.4, 16.8], shop: [3.6, 5.2], warehouse: [5.4, 8.0], tower: [22, 42] },
+  LOT_WIDTH: { craftsman: 11.8, shed: 6.4, apartment: 22, shop: 16, warehouse: 32, tower: 23 },
+  LOT_JITTER: [0.72, 1.22],
+  TERRACE_BLEND: 3.0,
+  MAX_LOT_SLOPE: { craftsman: 8, shed: 8, apartment: 12, shop: 8, warehouse: 8, tower: 8 },
+  STYLE_COUNT: 3, PALETTE: [1, 14, 15, 16, 17], ROOFS: [19, 2, 20],
+  STOREY: 2.9, FOOTING: 0.44, DOOR_WIDTH: 1.1, DOOR_HEIGHT: 2.2,
+  WINDOW_SILL: 1.05, WINDOW_HEIGHT: 1.25, WINDOW_WIDTH: 1.3, WINDOW_SPACING: 2.7,
+  PORCH_DEPTH: 1.65, PORCH_WIDTH: 3.8, PORCH_HEIGHT: 2.55,
+  ROOF_PITCH: [0.40, 0.56, 0.32], ROOF_OVERHANG: 0.44, TRIM: 0.22,
+  CHIMNEY_WIDTH: 0.66, CHIMNEY_RISE: 1.15,
+};
+export const ATMOSPHERE = {
+  SKY_TOP: 0x7bafc9, SKY_HORIZON: 0xffd9a0, CLOUD: 0xffefda,
+  SKY_RADIUS: 1800, CLOUD_SPEED: 0.003, CLOUD_SCALE: 5.0, SUN_DIRECTION: [-0.7, 0.36, 0.6],
+  WATER_DEEP: 0x164859, WATER_SHALLOW: 0x529d9e, WATER_HIGHLIGHT: 0xffdfb1,
+  WAVE_SPEED: 0.7, WAVE_SCALE: 0.22, WAVE_HEIGHT: 0.14, WATER_ROUGHNESS: 0.27,
+  HEMISPHERE: 0.7, GROUND_LIGHT: 0x786c52,
 };

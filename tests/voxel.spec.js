@@ -196,7 +196,9 @@ test('lands beside a building instead of hovering beside it', async ({ page }) =
   // hid a whole body radius of slack. One voxel of tolerance, because the floor
   // is a quantisation of a continuous height field.
   const floor = await page.evaluate((j) => window.groundHeightAtWorld(j.x, j.z), s.jimothy);
-  const feet = s.jimothy.y - PLAYER_CONFIG.RADIUS;
+  // The render group is rooted at the feet; subtracting radius from it
+  // double-counted clearance and passed only with the old 0.55 m tolerance.
+  const feet = await page.evaluate(() => window.__game.jimothy.body.position.y - window.__game.jimothy.radius);
   expect(feet, `feet ${feet} vs floor ${floor}`).toBeGreaterThanOrEqual(floor - VOXEL.SIZE);
   expect(feet, 'hovering above the floor').toBeLessThan(floor + VOXEL.SIZE);
   // …and it must be a resting state, not a frame of a bouncing cycle.

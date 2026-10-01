@@ -1,4 +1,4 @@
-import { VOXEL, STREAM, TERRAIN, SEWER } from '../core/Constants.js';
+import { VOXEL, STREAM, TERRAIN, SEWER, BUILDINGS } from '../core/Constants.js';
 import * as Layout from './Layout.js';
 
 // Authored voxel content. Buildings are written as footprints + rules rather
@@ -13,134 +13,88 @@ import * as Layout from './Layout.js';
 // Material ids come from VOXEL.MATERIALS.
 const CLAPBOARD = 1, SHINGLE = 2, BRICK = 3, GLASS = 4, MOSS = 5, CONCRETE = 6;
 
-/** A Ballard craftsman: brick footing, clapboard walls, punched windows, a
- *  peaked shingle roof, and a door gap Jimothy can waddle through. */
-export function buildCraftsman(world, ox, oy, oz, w = 14, d = 12, h = 9) {
-  const solid = (x, y, z, m) => world.set(ox + x, oy + y, oz + z, m);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      for (let z = 0; z < d; z++) {
-        const edge = x === 0 || x === w - 1 || z === 0 || z === d - 1;
-        if (!edge) continue;
-        const isDoor = z === 0 && y < 3 && x >= (w >> 1) - 1 && x <= (w >> 1);
-        if (isDoor) continue;
-        const isWindow = y >= 3 && y <= 5 && (x % 4 === 2) && (z === 0 || z === d - 1);
-        solid(x, y, z, y < 2 ? BRICK : isWindow ? GLASS : CLAPBOARD);
-      }
+// All facade detail is measured in metres (JIM-45). Sparse perimeter writes
+// keep finer cells affordable; iterating every empty room voxel did cubic work.
+const cell = metres => Math.max(1, Math.round(metres / VOXEL.SIZE));
+function building(world, ox, oy, oz, width, depth, h, b = {}, type = 'craftsman') {
+  const C = BUILDINGS, front = b.front || 0;
+  const rotate = front % 2 === 1;
+  const w = rotate ? depth : width, d = rotate ? width : depth;
+  const put = (x,y,z,m) => {
+    if (x < 0 || x >= w || z < 0 || z >= d) return;
+    let px=x, pz=z;
+    if(front===1){px=width-1-z;pz=x;}
+    if(front===2){px=width-1-x;pz=depth-1-z;}
+    if(front===3){px=z;pz=depth-1-x;}
+    world.set(ox+px,oy+y,oz+pz,m);
+  };
+  const rect = (x0,x1,y0,y1,z0,z1,m) => {
+    for(let x=x0;x<=x1;x++) for(let z=z0;z<=z1;z++) for(let y=y0;y<=y1;y++) put(x,y,z,m);
+  };
+  const home = type === 'craftsman' || type === 'shed';
+  const style = b.style || 0;
+  const wall = home ? C.PALETTE[b.palette || 0] : type==='warehouse' ? CONCRETE : BRICK;
+  const roof = C.ROOFS[(b.palette || 0)%C.ROOFS.length];
+  const porch = type==='craftsman' ? cell(C.PORCH_DEPTH) : 0;
+  const floor = cell(C.STOREY), sill = cell(C.WINDOW_SILL), wh=cell(C.WINDOW_HEIGHT);
+  const ww=cell(C.WINDOW_WIDTH), rhythm=cell(C.WINDOW_SPACING), door=cell(C.DOOR_WIDTH), dh=cell(C.DOOR_HEIGHT);
+  const middle=Math.floor(w/2), left=middle-Math.floor(door/2);
+  const facade = (u,y,span) => {
+    const beat=((u-Math.floor(span/2))%rhythm+rhythm)%rhythm;
+    const ly=y%floor;
+    if(y<cell(C.FOOTING)) return BRICK;
+    if(u===0 || u===span-1 || ly===floor-1) return 13;
+    if(beat<ww && ly>=sill && ly<=sill+wh) return beat===0||beat===ww-1||ly===sill||ly===sill+wh ? 13 : GLASS;
+    return wall;
+  };
+  for(let y=0;y<h;y++) {
+    for(let x=0;x<w;x++) {
+      const doorway=x>=left && x<left+door && y<dh;
+      if(!doorway) put(x,y,porch,facade(x,y,w));
+      if((x===left-1||x===left+door)&&y<=dh || y===dh&&x>=left-1&&x<=left+door) put(x,y,porch,13);
+      put(x,y,d-1,facade(x,y,w));
     }
+    for(let z=porch;z<d;z++) {put(0,y,z,facade(z-porch,y,d-porch));put(w-1,y,z,facade(z-porch,y,d-porch));}
   }
-  const peak = Math.ceil(w / 2);
-  for (let r = 0; r < peak; r++) {
-    for (let z = -1; z <= d; z++) {
-      for (const x of [r, w - 1 - r]) solid(x, h + r, z, z < d / 3 ? MOSS : SHINGLE);
-      if (r === peak - 1) for (let x = r; x <= w - 1 - r; x++) solid(x, h + r, z, SHINGLE);
+  // A shallow floor closes the shell without filling its playable interior.
+  rect(0,w-1,0,0,porch,d-1,CONCRETE);
+  if(home) {
+    const pitch=C.ROOF_PITCH[style];
+    const hip=style===2;
+    for(let x=0;x<w;x++) for(let z=porch;z<d;z++) {
+      const rise=Math.min(x,w-1-x,hip?z-porch:Infinity,hip?d-1-z:Infinity)*pitch;
+      const top=h+Math.floor(rise);
+      put(x,top,z,roof);
+      if(z===porch||z===d-1) for(let y=h;y<top;y++) put(x,y,z,wall);
+      if(x===0||x===w-1||z===porch||z===d-1) put(x,top,z,13);
     }
-  }
-}
-
-/** Downtown block: brick/glass tower with banded windows and a flat roof. */
-export function buildTower(world, ox, oy, oz, w, d, h) {
-  const solid = (x, y, z, m) => world.set(ox + x, oy + y, oz + z, m);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      for (let z = 0; z < d; z++) {
-        const edge = x === 0 || x === w - 1 || z === 0 || z === d - 1;
-        if (!edge && y !== h - 1) continue;
-        const band = y > 1 && y % 3 !== 0;
-        solid(x, y, z, y === h - 1 ? CONCRETE : band ? GLASS : BRICK);
-      }
+    if(type==='craftsman') {
+      const pw=Math.min(w-cell(C.TRIM)*2,cell(C.PORCH_WIDTH)), pl=middle-Math.floor(pw/2), ph=cell(C.PORCH_HEIGHT);
+      rect(pl,pl+pw,0,0,0,porch,17);
+      for(const x of [pl,pl+pw]) rect(x,x,1,ph,0,0,13);
+      for(let z=0;z<porch;z++) rect(pl,pl+pw,ph+Math.floor(z*C.ROOF_PITCH[0]),ph+Math.floor(z*C.ROOF_PITCH[0]),z,z,roof);
+      const cw=cell(C.CHIMNEY_WIDTH), cx=Math.floor(w*0.7), cz=Math.floor(d*0.72);
+      const rh=h+Math.floor(Math.min(cx,w-1-cx)*pitch);
+      rect(cx,Math.min(w-1,cx+cw),rh,rh+cell(C.CHIMNEY_RISE),cz,Math.min(d-1,cz+cw),BRICK);
+      // Bay windows create a third silhouette without enlarging the lot.
+      if(style===1) rect(cell(C.TRIM),Math.min(pl-1,cell(C.WINDOW_WIDTH)),sill,sill+wh,Math.max(0,porch-1),porch-1,GLASS);
     }
-  }
-}
-
-/** Apartment block: a plain box with banded windows and a flat roof. Reads as
- *  bulk — the thing a street of craftsmen needs next to it to stop looking
- *  like a suburb. */
-export function buildApartment(world, ox, oy, oz, w, d, h) {
-  const solid = (x, y, z, m) => world.set(ox + x, oy + y, oz + z, m);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      for (let z = 0; z < d; z++) {
-        const edge = x === 0 || x === w - 1 || z === 0 || z === d - 1;
-        if (!edge && y !== h - 1) continue;
-        if (y === h - 1) { solid(x, y, z, CONCRETE); continue; }
-        const isDoor = z === 0 && y < 3 && Math.abs(x - (w >> 1)) <= 1;
-        if (isDoor) continue;
-        // Two-storey window rhythm, so height reads at a glance.
-        const window = y % 4 >= 2 && x % 3 !== 0 && z % 3 !== 0;
-        solid(x, y, z, y < 2 ? CONCRETE : window ? GLASS : BRICK);
-      }
-    }
-  }
-}
-
-/** Corner shop: wide, low, flat-roofed, with a glass frontage and a parapet.
- *  The horizontal counterpoint to the apartment's verticality. */
-export function buildShop(world, ox, oy, oz, w, d, h) {
-  const solid = (x, y, z, m) => world.set(ox + x, oy + y, oz + z, m);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      for (let z = 0; z < d; z++) {
-        const edge = x === 0 || x === w - 1 || z === 0 || z === d - 1;
-        if (!edge && y !== h - 1) continue;
-        if (y === h - 1) { solid(x, y, z, CONCRETE); continue; }
-        // Shopfront: the whole z=0 face is glass above the stall riser, with a
-        // door gap Jimothy can waddle through.
-        const front = z === 0;
-        const isDoor = front && y < 3 && x >= w - 4 && x <= w - 3;
-        if (isDoor) continue;
-        const glazed = front && y >= 1 && y < h - 2;
-        solid(x, y, z, glazed ? GLASS : y === h - 2 ? MOSS : CLAPBOARD);
-      }
+  } else {
+    rect(0,w-1,h,h,0,d-1,roof);
+    for(let x=0;x<w;x++){put(x,h+1,0,13);put(x,h+1,d-1,13);}
+    for(let z=0;z<d;z++){put(0,h+1,z,13);put(w-1,h+1,z,13);}
+    if(type==='shop') {
+      const canopy=cell(C.PORCH_HEIGHT);
+      rect(1,w-2,canopy,canopy,0,Math.min(d-1,cell(C.ROOF_OVERHANG)),C.PALETTE[b.palette||0]);
     }
   }
 }
-
-/** Warehouse: long, low, corrugated, with a roller door. Industrial mass —
- *  and the biggest single volume the roll gets to bowl through. */
-export function buildWarehouse(world, ox, oy, oz, w, d, h) {
-  const solid = (x, y, z, m) => world.set(ox + x, oy + y, oz + z, m);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      for (let z = 0; z < d; z++) {
-        const edge = x === 0 || x === w - 1 || z === 0 || z === d - 1;
-        if (!edge && y !== h - 1) continue;
-        if (y === h - 1) { solid(x, y, z, SHINGLE); continue; }
-        // Roller door: wide and tall, so a rolling Jimothy fits.
-        const isDoor = z === 0 && y < Math.max(3, h - 2) && Math.abs(x - (w >> 1)) <= 2;
-        if (isDoor) continue;
-        // Corrugation — alternating material every other column. Cheap, and it
-        // reads as ribbed metal rather than a painted box.
-        solid(x, y, z, y < 1 ? CONCRETE : x % 2 === 0 ? CONCRETE : MOSS);
-      }
-    }
-  }
-}
-
-/** Garage / shed: a small box with a shallow pitched roof. Fills the leftover
- *  lots that would otherwise be conspicuous gaps. */
-export function buildShed(world, ox, oy, oz, w, d, h) {
-  const solid = (x, y, z, m) => world.set(ox + x, oy + y, oz + z, m);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      for (let z = 0; z < d; z++) {
-        const edge = x === 0 || x === w - 1 || z === 0 || z === d - 1;
-        if (!edge) continue;
-        const isDoor = z === 0 && y < 2 && Math.abs(x - (w >> 1)) <= 1;
-        if (isDoor) continue;
-        solid(x, y, z, CLAPBOARD);
-      }
-    }
-  }
-  // Shallow gable: two rakes and a ridge, a third the height of a craftsman's.
-  const peak = Math.max(1, Math.floor(w / 4));
-  for (let r = 0; r < peak; r++) {
-    for (let z = 0; z < d; z++) {
-      for (const x of [r, w - 1 - r]) solid(x, h + r, z, SHINGLE);
-      if (r === peak - 1) for (let x = r; x <= w - 1 - r; x++) solid(x, h + r, z, SHINGLE);
-    }
-  }
-}
+export const buildCraftsman=(world,x,y,z,w=14,d=12,h=9,b)=>building(world,x,y,z,w,d,h,b,'craftsman');
+export const buildShed=(world,x,y,z,w,d,h,b)=>building(world,x,y,z,w,d,h,b,'shed');
+export const buildApartment=(world,x,y,z,w,d,h,b)=>building(world,x,y,z,w,d,h,b,'apartment');
+export const buildTower=(world,x,y,z,w,d,h,b)=>building(world,x,y,z,w,d,h,b,'tower');
+export const buildShop=(world,x,y,z,w,d,h,b)=>building(world,x,y,z,w,d,h,b,'shop');
+export const buildWarehouse=(world,x,y,z,w,d,h,b)=>building(world,x,y,z,w,d,h,b,'warehouse');
 
 /** Jimothy's house: a squashed trash can on its side, torn open at the front.
  *  Real raccoon dens are tree hollows and abandoned vehicles — a crushed
@@ -318,7 +272,7 @@ export function generateColumn(world, cx, cz) {
   for (const b of Layout.buildingsIntersecting(cx * C, cz * C, (cx + 1) * C, (cz + 1) * C)) {
     const build = BUILDERS[b.type] || buildCraftsman;
     buildFoundation(world, b);
-    build(world, b.vx, b.vy, b.vz, b.vw, b.vd, b.vh);
+    build(world, b.vx, b.vy, b.vz, b.vw, b.vd, b.vh, b);
   }
 
   // The underground, after the buildings: a house planted on the street above
@@ -359,8 +313,8 @@ const DEN = {
   z: 9,
   vx: Math.round(-10 / VOXEL.SIZE),
   vz: Math.round(9 / VOXEL.SIZE),
-  length: 8,
-  radius: 4,
+  length: Math.round(4.4 / VOXEL.SIZE),
+  radius: Math.round(2.2 / VOXEL.SIZE),
 };
 
 /** Install the streaming generator and build the columns around spawn, so the

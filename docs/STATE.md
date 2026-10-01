@@ -2,6 +2,10 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Current world pass — 2026-10-02
+
+Chris approved milestones 25 → 26 → 27: finer world/buildings, MPFB pedestrians, traffic and physical street objects, plus sky/water. Street objects must be knockable and attach to giant Jimothy while rolling, then release (milestone 24). Milestone 25 implemented and verified, awaiting playtest. Current step: 26 (six MPFB source rigs and GLBs authored; runtime population next). Existing uncommitted milestone-23 growth/camera changes were present on arrival and must be preserved and excluded from these commits. Blender 5.2 and MPFB 2.0.17 are installed; batch Blender works, live MCP was disconnected. Baseline capture: `output/iterate/world-before.png`.
+
 ## Last updated
 
 2026-08-08 by Claude — **milestone 22: everything in the game had been falling through the island since milestone 17.** Chris's *"digging underground just felt like blocks disappearing"* turned out to be JIM-42: the only floor in the physics world was a plane at y = 0, and y = 0 has meant the waterline since the ground moved to y ≈ 35–75. Blast debris and **every trash can** fell 26–46 m through the terrain and slept at sea level. Fixed; things land now.

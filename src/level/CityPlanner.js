@@ -1,5 +1,5 @@
 import * as Terrain from './Terrain.js';
-import { TERRAIN, SEWER } from '../core/Constants.js';
+import { TERRAIN, SEWER, BUILDINGS } from '../core/Constants.js';
 import { inPolygon, polygonBounds } from '../core/MathUtils.js';
 
 const plan = Terrain.plan;
@@ -311,13 +311,23 @@ function buildingsForBlock(block) {
       const r = (n) => ((h >>> (n * 5)) & 31) / 31;
       if (r(0) < 0.25) continue; // gaps: yards, car parks, vacant plots
 
-      const bw = target * (0.55 + r(1) * 0.5);
-      const bd = target * (0.55 + r(2) * 0.5);
+      const type = mix[Math.floor(r(3) * mix.length) % mix.length];
+      const size = BUILDINGS.LOT_WIDTH[type] || target;
+      const [lo, hi] = BUILDINGS.LOT_JITTER;
+      const bw = size * (lo + r(1) * (hi - lo));
+      const bd = size * (lo + r(2) * (hi - lo));
       if (!fits(x, z, bw, bd, block.id, taken)) continue;
+      const heights = [[x,z],[x+bw,z],[x,z+bd],[x+bw,z+bd]].map(([px,pz])=>Terrain.surfaceHeight(px,pz));
+      // A steep hillside is landscape, not permission for a ten-metre blank
+      // concrete plinth beneath a bungalow (world review, milestone 25).
+      if (Math.max(...heights)-Math.min(...heights) > BUILDINGS.MAX_LOT_SLOPE[type]) continue;
       claim(x, z, bw, bd, taken);
 
       out.push({
-        type: mix[Math.floor(r(3) * mix.length) % mix.length],
+        type,
+        style: (h >>> 7) % BUILDINGS.STYLE_COUNT,
+        palette: (h >>> 13) % BUILDINGS.PALETTE.length,
+        front: nearestStreetSide(x, z, bw, bd),
         district,
         blockId: block.id,
         x,
@@ -329,6 +339,20 @@ function buildingsForBlock(block) {
     }
   }
   return out;
+}
+
+// Entrances face the nearest street; otherwise every porch faces world north.
+function nearestStreetSide(x, z, w, d) {
+  const edges = [[x+w/2,z,0,-1], [x+w,z+d/2,1,0], [x+w/2,z+d,0,1], [x,z+d/2,-1,0]];
+  let side = 0, best = Infinity;
+  edges.forEach(([px,pz,dx,dz], i) => {
+    for (let distance = CELL; distance <= 60; distance += CELL) {
+      if (classAt(px+dx*distance,pz+dz*distance) === CLASS.ROAD) {
+        if (distance < best) {best = distance; side = i;} break;
+      }
+    }
+  });
+  return side;
 }
 
 /** Can a footprint stand here? Every cell it covers must be buildable, must

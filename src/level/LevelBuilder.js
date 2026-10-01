@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD, COLORS, HIDE_SPOTS, TERRAIN, HORIZON } from '../core/Constants.js';
+import { WORLD, COLORS, HIDE_SPOTS, TERRAIN, HORIZON, ATMOSPHERE as A } from '../core/Constants.js';
 import * as Terrain from './Terrain.js';
 import * as Masterplan from './CityPlanner.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -10,28 +10,50 @@ export class LevelBuilder {
   constructor(scene, voxels = null) {
     this.scene = scene;
     this.voxels = voxels;
-    // The sea, at y = 0. One flat plane and one draw call — milestone 17 owns
-    // the SHAPE of the coast, milestone 14 owns the surface (waves, and the
-    // fairy godmother who bubbles you ashore). Until then this is what makes
-    // walking off the edge read as water rather than as falling off the world.
-    // It replaces the old green horizon plane, which was a flat world's answer
-    // to "what is under the voxels" and is now just the seabed.
-    const sea = new THREE.Mesh(
-      new THREE.PlaneGeometry(WORLD.BOUNDS * 4, WORLD.BOUNDS * 4),
-      new THREE.MeshStandardMaterial({
-        color: COLORS.SEA,
-        transparent: true,
-        opacity: 0.72,
-        roughness: 0.25,
-        metalness: 0.1,
-      }),
-    );
-    sea.rotation.x = -Math.PI / 2;
-    sea.position.y = TERRAIN.SEA_LEVEL;
-    // Rendered after the terrain so the shallows show through it rather than
-    // being z-sorted away.
-    sea.renderOrder = 1;
-    scene.add(sea);
+    this.time = 0;
+    const time = { value: 0 };
+    this.atmosphereTime = time;
+    const common = {
+      uTime: time, sunDir: { value: new THREE.Vector3(...A.SUN_DIRECTION).normalize() },
+      horizonColor: { value: new THREE.Color(A.SKY_HORIZON) },
+      topColor: { value: new THREE.Color(A.SKY_TOP) },
+    };
+    this.sky = new THREE.Mesh(new THREE.SphereGeometry(A.SKY_RADIUS, 32, 16), new THREE.ShaderMaterial({
+      side: THREE.BackSide, depthWrite: false,
+      uniforms: { ...common, cloudColor: {value:new THREE.Color(A.CLOUD)}, cloudSpeed:{value:A.CLOUD_SPEED}, cloudScale:{value:A.CLOUD_SCALE} },
+      vertexShader: `varying vec3 direction; void main(){direction=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+      fragmentShader: `varying vec3 direction; uniform float uTime,cloudSpeed,cloudScale; uniform vec3 topColor,horizonColor,cloudColor,sunDir;
+        float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+        float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
+        void main(){vec3 d=normalize(direction);float height=max(0.,d.y);vec3 c=mix(horizonColor,topColor,pow(height,.45));
+          vec2 p=d.xz/(height+.25)*cloudScale+vec2(uTime*cloudSpeed,0.);float n=noise(p)*.6+noise(p*2.1)*.3+noise(p*4.3)*.1;
+          float cloud=smoothstep(.53,.72,n)*smoothstep(.02,.22,height);c=mix(c,cloudColor,cloud*.75);
+          float sun=max(0.,dot(d,sunDir));c+=vec3(1.,.68,.32)*(pow(sun,500.)*.8+pow(sun,24.)*.12);
+          gl_FragColor=vec4(c,1.);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+    }));
+    this.sky.renderOrder=-10;
+    scene.add(this.sky);
+    this.sea = new THREE.Mesh(new THREE.PlaneGeometry(WORLD.BOUNDS * 4, WORLD.BOUNDS * 4, 128, 128),new THREE.ShaderMaterial({
+      transparent:true, depthWrite:false,
+      uniforms:{ ...common, deepColor:{value:new THREE.Color(A.WATER_DEEP)},shallowColor:{value:new THREE.Color(A.WATER_SHALLOW)}, highlightColor:{value:new THREE.Color(A.WATER_HIGHLIGHT)},waveSpeed:{value:A.WAVE_SPEED},waveScale:{value:A.WAVE_SCALE},waveHeight:{value:A.WAVE_HEIGHT} },
+      vertexShader:`uniform float uTime,waveSpeed,waveScale,waveHeight;varying vec3 wp;void main(){vec4 p=modelMatrix*vec4(position,1.);p.y+=waveHeight*sin(p.x*waveScale+uTime*waveSpeed)*sin(p.z*waveScale*.7-uTime*waveSpeed);wp=p.xyz;gl_Position=projectionMatrix*viewMatrix*p;}`,
+      fragmentShader:`uniform float uTime,waveSpeed,waveScale;uniform vec3 deepColor,shallowColor,highlightColor,sunDir,topColor,horizonColor;varying vec3 wp;
+      void main(){float t=uTime*waveSpeed;vec2 p=wp.xz*waveScale;vec3 n=normalize(vec3(cos(p.x*1.7+t)*.12+sin(p.y*2.4-t)*.08,1.,sin(p.y*1.8+t)*.14+cos(p.x*2.3+t)*.07));
+      n=normalize(mix(vec3(0.,1.,0.),n,exp(-length(cameraPosition-wp)*.002)));vec3 view=normalize(cameraPosition-wp);float fres=pow(1.-max(dot(view,n),0.),3.);vec3 reflection=reflect(-view,n);vec3 sky=mix(horizonColor,topColor,max(0.,reflection.y));
+      float glitter=pow(max(0.,dot(reflect(-sunDir,n),view)),90.);float pattern=sin(p.x*.31+p.y*.43+t*.3)*.5+.5;
+      vec3 c=mix(deepColor,shallowColor,pattern*.28);c=mix(c,sky,fres*.7);c+=highlightColor*glitter*.8;gl_FragColor=vec4(c,.9);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+      }`,
+    }));
+    this.sea.rotation.x=-Math.PI/2;
+    this.sea.position.y=TERRAIN.SEA_LEVEL;
+    this.sea.renderOrder=1;
+    scene.add(this.sea);
+    scene.add(new THREE.HemisphereLight(A.SKY_TOP,A.GROUND_LIGHT,A.HEMISPHERE));
 
     this.buildHorizon();
 
@@ -118,6 +140,12 @@ export class LevelBuilder {
     );
     this.horizon.renderOrder = -1;
     this.scene.add(this.horizon);
+  }
+
+  update(delta, camera) {
+    this.time += delta;
+    this.atmosphereTime.value = this.time;
+    this.sky.position.copy(camera.position);
   }
 
   buildWalls() {

@@ -1,4 +1,4 @@
-import { VOXEL, CONTAINERS } from '../core/Constants.js';
+import { VOXEL, CONTAINERS, BUILDINGS } from '../core/Constants.js';
 import * as Masterplan from './CityPlanner.js';
 import * as TerrainField from './Terrain.js';
 
@@ -19,17 +19,6 @@ import * as TerrainField from './Terrain.js';
 // The public API is deliberately unchanged, so streaming, the minimap and the
 // chunk voxelizer did not have to care that the city underneath them was
 // replaced.
-
-// Height ranges in VOXELS per archetype. Kept here rather than in the plan:
-// the plan says WHAT belongs somewhere, this says how tall that thing is.
-const HEIGHTS = {
-  craftsman: [5, 9],
-  shed: [3, 4],
-  apartment: [10, 16],
-  shop: [4, 6],
-  warehouse: [5, 8],
-  tower: [18, 26],
-};
 
 const v = (world) => Math.round(world / VOXEL.SIZE);
 
@@ -67,14 +56,50 @@ const BRICK = 3;
  *  knowledge of streets (so `CityPlanner` can ask it where the water is without
  *  a cycle) and keeps `VoxelWorld` a pure voxel engine.
  */
+// Terrace building plots into the hillside. The old highest-corner rule put
+// every entrance above a blank multi-storey concrete plinth (JIM-45).
+// A baked height override keeps terrain, collision and destruction in agreement
+// without querying buildings millions of times during voxel generation.
+let terraceGrid = null;
+const TERRAIN_CELL = Masterplan.CELL;
+const terraceSize = Math.ceil(TerrainField.BOUNDS * 2 / TERRAIN_CELL) + 1;
+
+function terraceHeight(x, z) {
+  if (!terraceGrid) {
+    terraceGrid = new Float32Array(terraceSize * terraceSize); terraceGrid.fill(NaN);
+    const B=TerrainField.BOUNDS, step=TERRAIN_CELL, margin=BUILDINGS.TERRACE_BLEND;
+    for (const b of Masterplan.buildingsIn(-B,-B,B,B)) {
+      const height=TerrainField.surfaceHeight(b.x+b.w/2,b.z+b.d/2);
+      for(let iz=Math.max(0,Math.floor((b.z-margin+B)/step));iz<=Math.min(terraceSize-1,Math.ceil((b.z+b.d+margin+B)/step));iz++) {
+        for(let ix=Math.max(0,Math.floor((b.x-margin+B)/step));ix<=Math.min(terraceSize-1,Math.ceil((b.x+b.w+margin+B)/step));ix++) {
+          const px=ix*step-B,pz=iz*step-B;
+          if(Masterplan.isRoad(px,pz)) continue;
+          const dist=Math.max(b.x-px,px-b.x-b.w,b.z-pz,pz-b.z-b.d,0);
+          const mix=Math.max(0,1-dist/margin);
+          const raw=TerrainField.surfaceHeight(px,pz);
+          terraceGrid[iz*terraceSize+ix]=raw+(height-raw)*mix;
+        }
+      }
+    }
+  }
+  const B=TerrainField.BOUNDS, fx=(x+B)/TERRAIN_CELL,fz=(z+B)/TERRAIN_CELL,ix=Math.floor(fx),iz=Math.floor(fz);
+  if(ix<0||iz<0||ix>=terraceSize-1||iz>=terraceSize-1) return TerrainField.surfaceHeight(x,z);
+  const at=(i,j)=>{const h=terraceGrid[j*terraceSize+i];return Number.isNaN(h)?TerrainField.surfaceHeight(i*TERRAIN_CELL-B,j*TERRAIN_CELL-B):h;};
+  const tx=fx-ix,tz=fz-iz;
+  return (at(ix,iz)*(1-tx)+at(ix+1,iz)*tx)*(1-tz)+(at(ix,iz+1)*(1-tx)+at(ix+1,iz+1)*tx)*tz;
+}
+const terraceTop=(x,z)=>Math.floor(terraceHeight(x,z)/VOXEL.SIZE-0.5);
+
 export const terrain = {
-  surfaceHeight: (x, z) => TerrainField.surfaceHeight(x, z),
-  topSolidVoxelY: (x, z) => TerrainField.topSolidVoxelY(x, z),
+  surfaceHeight: terraceHeight,
+  topSolidVoxelY: terraceTop,
 
   /** Implicit ground. 0 is air; anything else is solid, whether or not a single
    *  voxel of it has ever been stored. */
   materialAtVoxel(vx, vy, vz) {
-    const m = TerrainField.materialAtVoxel(vx, vy, vz);
+    const wx=(vx+0.5)*VOXEL.SIZE,wz=(vz+0.5)*VOXEL.SIZE;
+    const shift=terraceTop(wx,wz)-TerrainField.topSolidVoxelY(wx,wz);
+    const m = TerrainField.materialAtVoxel(vx, vy-shift, vz);
     if (m !== TerrainField.TOPSOIL) return m;
     // The visible skin follows the masterplan's classes, so a park is grass, an
     // alley is scruffier than a street, and the road network you SEE is the one
@@ -84,7 +109,8 @@ export const terrain = {
     const z = (vz + 0.5) * VOXEL.SIZE;
     const cls = Masterplan.classAt(x, z);
     const C = Masterplan.CLASS;
-    if (cls === C.ROAD || cls === C.PLAZA) return CONCRETE;
+    if (cls === C.ROAD) return 18;
+    if (cls === C.PLAZA) return CONCRETE;
     if (cls === C.ALLEY) return BRICK;
     return MOSS;
   },
@@ -106,7 +132,7 @@ export function hideSpots(all) {
  *  take. Deterministic: the height comes from the building's own stored roll,
  *  never from a fresh random draw, so a chunk built twice is identical. */
 function toVoxelBuilding(b) {
-  const range = HEIGHTS[b.type] || HEIGHTS.craftsman;
+  const range = BUILDINGS.HEIGHTS[b.type] || BUILDINGS.HEIGHTS.craftsman;
   return {
     type: b.type,
     district: b.district,
@@ -120,7 +146,10 @@ function toVoxelBuilding(b) {
     vy: plantVoxelY(b),
     vw: Math.max(4, v(b.w)),
     vd: Math.max(4, v(b.d)),
-    vh: range[0] + Math.floor(b.heightRoll * (range[1] - range[0] + 1)),
+    vh: v(range[0] + b.heightRoll * (range[1] - range[0])),
+    style: b.style,
+    palette: b.palette,
+    front: b.front,
     x: b.x,
     z: b.z,
     w: b.w,
@@ -138,7 +167,7 @@ function plantVoxelY(b) {
   let top = -Infinity;
   for (let i = 0; i <= 3; i++) {
     for (let j = 0; j <= 3; j++) {
-      const y = TerrainField.topSolidVoxelY(b.x + (b.w * i) / 3, b.z + (b.d * j) / 3);
+      const y = terraceTop(b.x + (b.w * i) / 3, b.z + (b.d * j) / 3);
       if (y > top) top = y;
     }
   }

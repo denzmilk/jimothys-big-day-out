@@ -10,6 +10,18 @@
 
 ## Open
 
+### JIM-45 — World reads as oversized blocks and blank building shells
+
+**Status:** implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 25
+
+Voxel edge is 0.55 m. Houses near spawn measure 14–26 m wide with 7–13 m roof rises above only 2.75–4.95 m walls. Windows and doors are counted in voxels, so reducing resolution alone shrinks usable openings. The mesher does not merge coplanar faces (JIM-34). See `src/level/VoxelCity.js`, `Layout.js`, `CityPlanner.js`, and `VOXEL` in Constants.
+
+### JIM-46 — Island feels unpopulated
+
+**Status:** in progress · **Reported:** 2026-10-02 (Chris) · **Milestones:** 26–27
+
+Live audit: 26 people across the whole island, zero within 60 m of spawn. Pedestrians move without street/building/water checks and use capsule placeholders (JIM-08). No traffic system exists. Add streamed MPFB people and physical street life; preserve slapstick reactions and giant-roll collection.
+
 ### JIM-44 — Bad food: something that gives Jimothy the runs and makes him skinnier
 
 **Status:** open (feature) · **Severity:** medium (it is the first thing that can take fatness *away*) · **Reported:** Chris, 2026-08-09

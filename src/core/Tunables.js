@@ -48,9 +48,15 @@ export const TUNABLES = [
     group: 'FATNESS',
     label: 'Fatness',
     fields: {
-      SOFTCAP: [5, 100], MAX_WIDTH_GAIN: [0.2, 2], MAX_HEIGHT_GAIN: [0, 1],
+      SOFTCAP: [5, 100], WIDTH_GAIN: [0.2, 4], HEIGHT_GAIN: [0, 2],
+      // The exponent is the shape of the whole growth curve (milestone 23), so
+      // it is the one dial worth having while judging how a monster should
+      // grow. Under 1 it decelerates and he never gets big; the range keeps
+      // both sides reachable so the feel can be argued with rather than
+      // asserted.
+      GROWTH_POWER: [0.5, 2.5],
       JIGGLE_HZ: [2, 20], JIGGLE_DAMPING: [1, 12], KICK_FEAST: [0.05, 0.6],
-      JELLY: [0, 0.2], SPEED_PENALTY_MAX: [0, 0.8], HIDE_SQUEEZE: [0, 8],
+      JELLY: [0, 0.2], SPEED_PENALTY_MAX: [0, 0.8], HIDE_SQUEEZE_MAX: [0, 8],
     },
   },
   {

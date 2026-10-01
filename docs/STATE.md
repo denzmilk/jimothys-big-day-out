@@ -4,7 +4,7 @@
 
 ## Current world pass — 2026-10-02
 
-Chris approved milestones 25 → 26 → 27: finer world/buildings, MPFB pedestrians, traffic and physical street objects, plus sky/water. Street objects must be knockable and attach to giant Jimothy while rolling, then release (milestone 24). Milestone 25 implemented and verified, awaiting playtest. Milestone 26 implemented and verified: six varied MPFB rigs, 36 nearby animated civilians, obstacle-aware pavement movement, 10 pedestrian/heat tests passing. Current step: 27 (traffic, physical props and collection/release). Existing uncommitted milestone-23 growth/camera changes were present on arrival and must be preserved and excluded from these commits. Blender 5.2 and MPFB 2.0.17 are installed; batch Blender works, live MCP was disconnected. Baseline capture: `output/iterate/world-before.png`.
+Chris approved milestones 25 → 26 → 27: finer world/buildings, MPFB pedestrians, traffic and physical street objects, plus sky/water. Street objects must be knockable and attach to giant Jimothy while rolling, then release (milestone 24). Milestones 25 and 26 are implemented and verified, awaiting playtest. Milestone 23's existing growth/camera/held-roll work has now passed its seven scale specs and adjacent aim/physics/dev-panel checks, plus camera bounds checks on the loaded rig. It is preserved in a separate dependency commit. Current step: final verification of milestone 27 (imported CC0 traffic, glass, ground IK, physical props and collection/release). Blender 5.2 and MPFB 2.0.17 are installed; batch Blender works, live MCP was disconnected. Baseline capture: `output/iterate/world-before.png`.
 
 ## Last updated
 
@@ -18,7 +18,7 @@ development
 
 ## Current milestone
 
-**Milestone 23 — break the fatness ceiling.** Planned 2026-08-09, not started. Both of its open questions were decided by Chris the same day (block-sized ×30–50; the roll is how a giant moves), so it is ready to pick up. Milestone 24 (katamari roll) follows it and is the collecting half of the same idea.
+**Milestone 27 — traffic and physical street objects.** Milestones 23, 25 and 26 are implemented, awaiting playtest. Milestone 27 also implements the collection/release portion of milestone 24; final stash/sifting UI remains outside this pass.
 
 Five earlier milestones are implemented and unplayed; Chris played round 1 of 21 on 2026-08-08 and its findings are fixed.
 

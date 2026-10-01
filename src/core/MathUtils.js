@@ -15,6 +15,47 @@ export function fatFactor(fatness) {
   return fatness / (fatness + FATNESS.SOFTCAP);
 }
 
+/** How many times his lean size he is — **unbounded** (milestone 23 / JIM-24).
+ *
+ *  Deliberately NOT `fatFactor`, and the split is the whole design. Everything
+ *  that is a *trade-off* — the speed penalty, the hide squeeze, the jiggle —
+ *  must still saturate, because those were tuned against a curve that tops out
+ *  and would make a moderately fat Jimothy stationary and un-hideable if they
+ *  inherited this one. Only SIZE grows forever.
+ *
+ *  Six places used to spell `1 + f * MAX_WIDTH_GAIN` out longhand, which is the
+ *  same hazard `fatFactor` was extracted for. */
+export function fatWidth(fatness) {
+  return 1 + FATNESS.EARLY_WIDTH_GAIN * fatFactor(fatness) + FATNESS.WIDTH_GAIN * fatGrowth(fatness);
+}
+
+/** The raw unbounded growth term the size curves are built from. */
+export function fatGrowth(fatness) {
+  return (fatness / FATNESS.SOFTCAP) ** FATNESS.GROWTH_POWER;
+}
+
+/** How spherical he should be: 0 keeps the short-spine raccoon silhouette,
+ *  1 is a ball.
+ *
+ *  Uniform scaling preserves proportions, so a raccoon grown 32x is a 64 m
+ *  raccoon — Chris, playtest 2026-08-09: *"he just kind of gets really long -
+ *  but he should grow out in a big circle so the rolling makes sense."* The
+ *  shape has to CHANGE as he grows, not just the size. */
+export function fatRoundness(fatness) {
+  const g = fatGrowth(fatness);
+  return g / (g + FATNESS.ROUNDNESS_SOFTCAP);
+}
+
+/** The same curve, gaining far less: he is a short-spine raccoon, so growing
+ *  has to read as a wide low blob rather than a cube. */
+export function fatHeight(fatness) {
+  // The height gain climbs toward the width gain as he rounds out, so a giant
+  // is as tall as he is wide rather than a pancake.
+  const gain = FATNESS.HEIGHT_GAIN
+    + (FATNESS.WIDTH_GAIN - FATNESS.HEIGHT_GAIN) * fatRoundness(fatness);
+  return 1 + FATNESS.EARLY_HEIGHT_GAIN * fatFactor(fatness) + gain * fatGrowth(fatness);
+}
+
 // Shortest-path angle damp: frame-rate independent enough at our lerp rates,
 // avoids the 2π wrap snap a naive lerp produces when crossing ±π.
 export function dampAngle(current, target, lambda, delta) {

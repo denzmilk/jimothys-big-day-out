@@ -2,7 +2,7 @@
 
 ## Status
 
-**planned 2026-08-09.**
+**Implemented 2026-10-02, awaiting Chris's playtest.** The existing growth work was completed and validated as the movement dependency for the approved world pass.
 
 Depends on: milestone 22 (things land on the ground) · Blocks: milestone 24 (katamari roll)
 
@@ -71,15 +71,19 @@ So the on-foot penalty **stays exactly as signed off** — a fat raccoon waddlin
 
 ## Acceptance criteria
 
-- [ ] Eating past the old ceiling keeps making him bigger — width strictly increases at fatness 200, 2 000 and 20 000, where today all three are ×1.8
-- [ ] He reaches block scale: at a reachable fatness he is wider than `CITY.MAX_HEIGHT`, i.e. bigger than any building on the island
-- [ ] The camera keeps him in frame at every size — asserted against his actual silhouette in the frustum, not against a distance constant
-- [ ] He can still move at scale: he steps over the things he is now bigger than instead of catching on them, and never wedges on a house
-- [ ] The roll is a sustained traversal mode at scale — a block-sized Jimothy crosses the island in a time comparable to a lean one on foot, against 12 minutes today
-- [ ] Everything that saturates still saturates: the speed penalty, hide squeeze and jiggle are unchanged at the fatnesses they were tuned at
-- [ ] Nothing that reads fatness breaks at extreme values — the dev readout, the HUD, the snapshot
+- [x] Eating past the old ceiling keeps making him bigger — width strictly increases at fatness 200, 2 000 and 20 000, where today all three are ×1.8
+- [x] He reaches block scale: at a reachable fatness he is wider than `CITY.MAX_HEIGHT`, i.e. bigger than any building on the island
+- [x] The camera keeps him in frame at every size — asserted against his actual silhouette in the frustum, not against a distance constant
+- [x] He can still move at scale: he steps over the things he is now bigger than instead of catching on them, and never wedges on a house
+- [x] The roll is a sustained traversal mode at scale — a block-sized Jimothy crosses the island in a time comparable to a lean one on foot, against 12 minutes today
+- [x] Everything that saturates still saturates: the speed penalty, hide squeeze and jiggle are unchanged at the fatnesses they were tuned at
+- [x] Nothing that reads fatness breaks at extreme values — the dev readout, the HUD, the snapshot
 - [ ] It feels like becoming a monster rather than a bigger raccoon — **verified by user playtest**
 
 ## Exit condition
 
 User eats until Jimothy is taller than the houses, rolls across the island in a sane amount of time, and the city reads as furniture rather than as an obstacle course.
+
+## Verification — 2026-10-02
+
+`tests/scale.spec.js` covers continued growth, reachable block size, unchanged saturating penalties, camera framing, movement and held rolling. Adjacent aim, physics, fatness and dev-panel checks were run with the world pass. A separate loaded-rig measurement projected the bounds of every posed body part into the camera at fatness 0, 90 and 250: maximum vertical screen extent 0.263, 0.500 and 0.695, all within the frame. Evidence: `output/iterate/actual-rig-camera-check.log`. The visual feel still needs Chris's playtest.

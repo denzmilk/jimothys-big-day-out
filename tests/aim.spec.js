@@ -10,11 +10,17 @@
 // its own passes on a world where the headbutt does nothing at all.
 import { test, expect } from '@playwright/test';
 import { state, adv, boot } from './helpers.mjs';
-import { MOVES, CAMERA } from '../src/core/Constants.js';
+import { MOVES, CAMERA, VOXEL } from '../src/core/Constants.js';
 
-const SPOT = { x: 40, z: 24 };
+// The old probe (40,24) is now inside a house; keep this road/dig fixture in clear pavement.
+const SPOT = { x: 60, z: 10 };
 
-async function standing(page, { fat = 90 } = {}) {
+// Fatness 90 used to mean "a chunky raccoon" (x1.70) and since milestone 23 it
+// means "taller than a house" (x8.5) — a Jimothy that no longer fits the streets
+// these specs measure. 15 is the fatness that reproduces the OLD x1.7, so these
+// keep testing what they were written to test rather than silently becoming
+// giant-scale specs. Scale itself is `tests/scale.spec.js`.
+async function standing(page, { fat = 15 } = {}) {
   await boot(page);
   await page.evaluate((p) => window.teleportJimothy(p.x, p.z), SPOT);
   await page.evaluate((f) => window.setFatness(f), fat);
@@ -61,9 +67,10 @@ test('aiming down digs; aiming flat still spares the road', async ({ page }) => 
 
   await page.evaluate((d) => window.aimJimothy(d), CAMERA.PITCH_MAX);
   await adv(page, 0.2);
+  const target=await page.evaluate(()=>{const g=window.__game,p=g.reticle.position;return {x:p.x,z:p.z,ground:g.voxels.groundHeightAt(p.x,p.z,p.y+1)};});
   await page.keyboard.press('e');
   await adv(page, 1.2);
-  const dug = await shaftDepth(page);
+  const dug = await page.evaluate(p=>p.ground-window.__game.voxels.groundHeightAt(p.x,p.z,p.ground),target);
   expect(dug, 'aiming down did not dig').toBeGreaterThan(flat + 1);
 });
 
@@ -219,7 +226,7 @@ test('the reticle lands ON the wall you point at, oriented to it (JIM-39)', asyn
   // findWallTarget stands him 2.6 m off, which is inside a headbutt's reach.
   expect(s.reticle.inReach, 'a wall 2.6 m away read as out of reach').toBe(true);
 
-  const probe = await page.evaluate(() => {
+  const probe = await page.evaluate((probeDepth) => {
     const g = window.__game;
     const p = g.reticle.position;
     // The torus's hole axis is its local +Z, so world-direction IS the surface
@@ -227,11 +234,11 @@ test('the reticle lands ON the wall you point at, oriented to it (JIM-39)', asyn
     // and in front of it must be air — a marker floating in the air fails both.
     const n = g.reticle.getWorldDirection(g.reticle.position.clone());
     return {
-      behind: g.voxels.solidAtWorld(p.x - n.x * 0.3, p.y - n.y * 0.3, p.z - n.z * 0.3),
-      infront: g.voxels.solidAtWorld(p.x + n.x * 0.3, p.y + n.y * 0.3, p.z + n.z * 0.3),
+      behind: g.voxels.solidAtWorld(p.x - n.x * probeDepth, p.y - n.y * probeDepth, p.z - n.z * probeDepth),
+      infront: g.voxels.solidAtWorld(p.x + n.x * probeDepth, p.y + n.y * probeDepth, p.z + n.z * probeDepth),
       normalY: +n.y.toFixed(2),
     };
-  });
+  }, VOXEL.SIZE * .4);
   expect(probe.behind, 'nothing solid behind the marker — it is floating').toBe(true);
   expect(probe.infront, 'the marker is buried inside the wall').toBe(false);
   // A wall's normal is horizontal. The old torus was pinned flat (normal +Y),
@@ -265,7 +272,7 @@ test('the crater lands where the marker is, not at a fixed distance ahead', asyn
   // blast used to sit at a fixed standoff and never ask what was there, so
   // measured across a pitch sweep the marker moved between 0.49 m and 1.07 m
   // ahead while the crater stayed pinned at 1.87 m every single time.
-  await standing(page, { fat: 60 });
+  await standing(page, { fat: 15 });
   await page.evaluate(() => window.lookJimothy(0.7));
 
   const seen = [];
@@ -319,7 +326,7 @@ test('no hard lock: the marker and the swing never disagree about digging', asyn
   // Measured at this spot the ground slopes away, so a gentle tilt genuinely
   // does not reach it for 12 m — correctly no dig, and a spec asserting "0.25
   // rad must dig" would be asserting something the game should not promise.
-  await standing(page, { fat: 60 });
+  await standing(page, { fat: 15 });
 
   const samples = [];
   for (let pitch = CAMERA.PITCH_MIN; pitch <= CAMERA.PITCH_MAX + 1e-6; pitch += 0.08) {

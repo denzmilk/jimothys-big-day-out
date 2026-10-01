@@ -128,7 +128,7 @@ test('fat jimothy waddles slower', async ({ page }) => {
 });
 
 test('fat jimothy cannot fit in bushes', async ({ page }) => {
-  await seedTuning(page, { FATNESS: { SOFTCAP: 5, HIDE_SQUEEZE: 6 } });
+  await seedTuning(page, { FATNESS: { SOFTCAP: 5, HIDE_SQUEEZE_MAX: 6 } });
   await boot(page);
   await tipNearestCan(page);
   await warpToFeast(page);

@@ -138,6 +138,17 @@ export const MOVES = {
     TUCK_HEAD: 0.75,   // chin to chest
     TUCK_TAIL: 0.5,    // tail curls in
     TUCK_SQUASH: 0.12, // body balls up: wider and shorter
+    // How much of his girth becomes roll speed (milestone 23). The roll is how
+    // a giant gets around, so this is the number that decides whether the
+    // island is crossable once he is block-sized: at 0.15 a fatness-250 Jimothy
+    // (x32.6) rolls at about 29 m/s, crossing 2 km in ~70 s against 5m31s for a
+    // LEAN raccoon on foot. Neutral at fatness 0 by construction.
+    GIRTH_SPEED: 0.15,
+    // Seconds between destruction ticks. It used to be five ticks spread across
+    // a fixed 0.9 s roll; now that the roll is held for as long as you like,
+    // ticking on a fraction of a duration that no longer exists would fire the
+    // whole budget in the first second. TICKS is gone with it.
+    TICK_SECONDS: 0.18,
     // A roll scrapes what it passes; it does not bore a tunnel. Five ticks of
     // a fat blast radius trenched whole streets (playtest 2026-08-06).
     RADIUS_SCALE: 0.55,
@@ -145,8 +156,6 @@ export const MOVES = {
     // you a better demolisher without making the flop a bulldozer.
     FAT_BLAST_SHARE: 0.3,
     DIGS_TERRAIN: false,
-    // Destruction ticks along the roll rather than one big sphere.
-    TICKS: 5,
   },
 };
 
@@ -221,10 +230,63 @@ export const FOODS = {
 };
 
 export const FATNESS = {
-  // Fat units at which visual bulk reaches half its maximum (asymptotic).
+  // Fat units at which the SATURATING factor reaches a half. Everything that
+  // is a trade-off rides that factor (`fatFactor`) and still tops out.
   SOFTCAP: 25,
-  MAX_WIDTH_GAIN: 0.9,
-  MAX_HEIGHT_GAIN: 0.25,
+  // --- size: unbounded (milestone 23 / JIM-24) ---
+  //
+  // `width = 1 + MAX_WIDTH_GAIN * f` with `f = fat/(fat+SOFTCAP)` could never
+  // exceed x1.9, for any amount of food ever eaten, because `f < 1`. That is
+  // arithmetic and no value of SOFTCAP moves it: measured, eating 24x more
+  // between fatness 25 and 600 bought 28 % more width. Chris, 2026-08-08:
+  // *"that's gotta be an issue to change and increase to an actual massive
+  // size. Like consume the world size."*
+  //
+  // A power curve instead, and deliberately one with POWER > 1. The obvious
+  // alternatives were tried on paper and none of them work here: log and any
+  // sub-linear power are *steep early and flat late*, so calibrating either to
+  // reach block scale at a reachable fatness makes him house-sized by his
+  // twentieth snack. The whole point is a big dynamic range, and only a
+  // super-linear curve is small at the start and enormous at the end.
+  //
+  // Calibrated against the world's own numbers, which is why it lands where it
+  // does — `Gorged` (90) is the fatness every measurement in the docs is
+  // quoted at, and 250 is a run that went well:
+  //
+  //   fatness  90 -> x7.8   ~8.6 m, taller than a craftsman house (6-16 m)
+  //   fatness 250 -> x32.6  ~36 m, wider than a CITY.BLOCK, bigger than a tower
+  //   fatness 400 -> x65    and it keeps going, forever
+  //
+  // It has no ceiling. The practical limit is what the renderer can show — past
+  // roughly x100 he is wider than the streamed world (STREAM.LOAD_RADIUS, 106 m)
+  // and would be standing in ungenerated void, which is JIM-37's problem.
+  WIDTH_GAIN: 1.0,
+  GROWTH_POWER: 1.5,
+  // A power curve is nearly FLAT near zero — at fatness 3 it gives x1.04 where
+  // the old asymptote gave x1.10 — so the first few snacks would stop showing,
+  // and "every snack visibly fattens Jimothy" is the core loop's step 3. So the
+  // old curve is kept as an EARLY term rather than replaced: it saturates, so
+  // it contributes 0.9 at most and is a rounding error once the power term
+  // takes over, but it restores exactly the early growth that was signed off.
+  EARLY_WIDTH_GAIN: 0.9,
+  EARLY_HEIGHT_GAIN: 0.25,
+  // How fast the silhouette becomes a BALL as he grows (playtest 2026-08-09).
+  //
+  // Chris: *"using the slider at the moment he just kind of gets really long -
+  // but he should grow out in a big circle so the rolling makes sense."* He was
+  // right, and the cause is that the skinned path scales the belly bone
+  // UNIFORMLY — which preserves proportions, so a raccoon at x32 is a 64 m
+  // raccoon. Long, not round.
+  //
+  // Small, he keeps the short-spine shape, because that silhouette is the whole
+  // character. Big, he converges on a sphere, because that is what a thing that
+  // rolls has to be. Measured against the growth term, so it is the same clock:
+  // ~0.11 round at fatness 25, 0.46 at 90, 0.80 at 250.
+  ROUNDNESS_SOFTCAP: 8,
+  // Height gains far less than width: he is a short-spine raccoon, and the
+  // silhouette has to stay a wide low blob rather than becoming a cube. Kept at
+  // the same RATIO to width the old constants had (0.25 / 0.9).
+  HEIGHT_GAIN: 0.28,
   JIGGLE_HZ: 9,
   JIGGLE_DAMPING: 4,
   KICK_SCRAP: 0.06,
@@ -244,9 +306,15 @@ export const FATNESS = {
   // also what makes the lasso (JIM-23) land — a gorged Jimothy is slow enough
   // to rope — and it is step one of JIM-24, where he grows house-sized.
   SPEED_PENALTY_MAX: 0.7,
-  // …and how fast bushes stop fitting: effective hide radius shrinks by this
-  // per unit of body-width gain, until the blob simply doesn't fit.
-  HIDE_SQUEEZE: 2.5,
+  // …and how much of a bush's radius he has lost by the time he is maximally
+  // fat, so past a point the blob simply doesn't fit.
+  //
+  // Expressed against the SATURATING factor, not against his width. It used to
+  // be `(width - 1) * 2.5`, which was the same thing only while width was
+  // bounded — once size grew without limit that formula closed every bush in
+  // the game by fatness 30. 2.25 reproduces the old numbers exactly
+  // (0.9 x 2.5), so the pressure valve still shuts exactly where it did.
+  HIDE_SQUEEZE_MAX: 2.25,
 };
 
 // How dynamic bodies meet the voxel world (milestone 22 / JIM-42).
@@ -291,12 +359,14 @@ export const DEV = {
   // here the curve is visually flat: 200 gives 0.89 against 100's 0.80, and
   // 1000 would give 0.98. Chris asked for a way to add "power/fattness"; this
   // is the range where moving the slider still changes something.
-  FATNESS_MAX: 200,
+  FATNESS_MAX: 400,
   // Named stops, so "how fat is fat" is one click rather than a guess. The
   // numbers are the curve's own landmarks: SOFTCAP is where bulk reaches half
   // its maximum, and 90 is the fatness milestone 20 measured its 19.7 m shaft
   // at, so it is the one everything else in the docs is comparable to.
-  FATNESS_PRESETS: [['Lean', 0], ['Chunky', 25], ['Gorged', 90], ['Absolute unit', 200]],
+  // Named against the world's own landmarks now that size means something
+  // (milestone 23): 90 clears a craftsman house, 250 clears a CITY.BLOCK.
+  FATNESS_PRESETS: [['Lean', 0], ['Chunky', 25], ['House', 90], ['Block', 250], ['Absurd', 400]],
 };
 
 export const SNACKS = {
@@ -560,6 +630,25 @@ export const CAMERA = {
   COLLIDE_MIN: 1.0,
   // Under this, he is between you and everything you are trying to see.
   FADE_DISTANCE: 3.2,
+  // --- girth (milestone 23) ---
+  // The boom grows with him, or a city-block-wide Jimothy fills the screen and
+  // you cannot see the street. Added to the base distance PER METRE of body
+  // radius over lean, so a lean Jimothy's camera is untouched — the same
+  // neutrality rule the aim follows.
+  //
+  // 2.5 keeps him under about 20 degrees of the 60 degree FOV at every size:
+  // at fatness 250 he is 18 m in radius, which puts the eye 50 m back.
+  GIRTH_PULLBACK: 2.5,
+  // …and it has to rise as well as retreat, or the camera ends up looking at
+  // the side of a ten-metre-tall animal from its ankle.
+  GIRTH_LIFT: 1.2,
+  // What the camera aims at, per metre of radius. He is a wide low blob, so
+  // this is well under half.
+  GIRTH_LOOK: 0.45,
+  // How much of him the collision clamp may sacrifice. `COLLIDE_MIN` of 1 m is
+  // *inside* a giant, so without this a wall behind him would put the camera in
+  // his ribcage.
+  GIRTH_COLLIDE_MIN: 1.6,
 };
 
 // The aiming marker (milestone 20, rebuilt by milestone 21/JIM-39).

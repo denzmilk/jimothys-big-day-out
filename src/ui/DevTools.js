@@ -3,7 +3,7 @@ import { GROUPS, TUNABLES } from '../core/Tunables.js';
 import { DevOverrides } from '../core/DevOverrides.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
-import { fatFactor } from '../core/MathUtils.js';
+import { fatFactor, fatWidth } from '../core/MathUtils.js';
 
 // In-game tuning/debug panel. Talks to gameplay only via dev:* EventBus
 // events — it never writes to GameState or to a system directly. It READS
@@ -232,18 +232,21 @@ export class DevTools {
     if (document.activeElement !== this.fatRange) this.fatRange.value = fat;
 
     const f = fatFactor(fat);
-    const width = 1 + f * FATNESS.MAX_WIDTH_GAIN;
+    const width = fatWidth(fat);
     // Deliberately the UNCLAMPED squeeze. The controller clamps this at 0, and
     // at the top of the range the squeeze consumes the radius exactly — which
     // leaves a positive float crumb, so `> 0` reported "0.00 m radius" for a
     // bush that mathematically cannot hold him. The raw value is the one that
     // knows the difference between just fitting and not fitting at all.
-    const hide = HIDE_SPOTS.RADIUS - (width - 1) * FATNESS.HIDE_SQUEEZE;
+    //
+    // Off the SATURATING factor, like the controller: the squeeze must not
+    // follow size now that size is unbounded (milestone 23).
+    const hide = HIDE_SPOTS.RADIUS - f * FATNESS.HIDE_SQUEEZE_MAX;
     this.powerEl.textContent = [
       `factor  ${f.toFixed(3)}  softcap ${FATNESS.SOFTCAP}`,
       `blast   ${(VOXEL.BLAST_RADIUS + f * FATNESS.BLAST_PER_FAT).toFixed(2)} m` +
         `  (lean ${VOXEL.BLAST_RADIUS})`,
-      `width   x${width.toFixed(2)}`,
+      `width   x${width.toFixed(2)}  (${(width * 1.1).toFixed(1)} m across)`,
       `speed   ${(PLAYER_CONFIG.SPEED * (1 - f * FATNESS.SPEED_PENALTY_MAX)).toFixed(2)}` +
         `  (lean ${PLAYER_CONFIG.SPEED})`,
       `bush    ${hide > 0.01 ? `fits, ${hide.toFixed(2)} m radius` : 'NO — too fat to hide'}`,

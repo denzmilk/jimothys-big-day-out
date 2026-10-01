@@ -3,7 +3,7 @@ import * as CANNON from 'cannon-es';
 import {
   PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
-import { dampAngle, fatFactor } from '../core/MathUtils.js';
+import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import { JimothyRig } from './JimothyRig.js';
@@ -174,8 +174,22 @@ export class JimothyController {
    *  speed and hiding: a bigger Jimothy is a bigger target to catch, which is
    *  what makes the lasso (JIM-23) get easier the greedier you've been. */
   get radius() {
+    return P.RADIUS * fatWidth(gameState.player.fatness);
+  }
+
+  /** How high a lip he can mount. Scaled by girth (milestone 23): 2.6 m is a
+   *  kerb to a raccoon and a rounding error to something a city block wide, and
+   *  a giant who cannot step over a bungalow wedges on the first house. */
+  get climbHeight() {
+    return P.CLIMB_HEIGHT * Math.max(1, this.radius / P.RADIUS);
+  }
+
+  /** Bush radius left to him. Fat trade-off #2, and it must keep SATURATING
+   *  (milestone 23): it rides `fatFactor`, not his size, or an unbounded curve
+   *  would close every bush in the game by fatness 30. */
+  get hideRadius() {
     const f = fatFactor(gameState.player.fatness);
-    return P.RADIUS * (1 + f * FATNESS.MAX_WIDTH_GAIN);
+    return Math.max(0, HIDE_SPOTS.RADIUS - f * FATNESS.HIDE_SQUEEZE_MAX);
   }
 
   /** Introspection for the specs (milestone 08). Two defects that were
@@ -250,8 +264,13 @@ export class JimothyController {
       // blocked probe, clear space above, lift, fall, repeat — hovering beside
       // the wall forever, never grounded, unable to hop (playtest 2026-08-06:
       // "falling through the floor"). Airborne, a wall should just stop him.
+      // Both the ceiling and the STEP scale with him (milestone 23). A
+      // block-sized Jimothy steps over houses, and probing that in 0.55 m
+      // increments would be 150 grid queries per axis per frame.
+      const maxLift = this.climbHeight;
+      const liftStep = Math.max(VOXEL.SIZE, maxLift / 8);
       let climbed = false;
-      for (let lift = VOXEL.SIZE; this.grounded && lift <= P.CLIMB_HEIGHT; lift += VOXEL.SIZE) {
+      for (let lift = liftStep; this.grounded && lift <= maxLift; lift += liftStep) {
         const y = probeY + lift;
         const blocked = this.voxels.solidAtWorld(a.x, y, a.z)
           || this.voxels.solidAtWorld(bq.x, y, bq.z);
@@ -260,8 +279,8 @@ export class JimothyController {
         // the side probe stayed blocked, the space above was empty, so he was
         // lifted every frame while nothing supported him — a levitation loop
         // that left him permanently not-grounded (playtest 2026-08-06).
-        const supported = this.voxels.solidAtWorld(a.x, y - VOXEL.SIZE, a.z)
-          || this.voxels.solidAtWorld(bq.x, y - VOXEL.SIZE, bq.z);
+        const supported = this.voxels.solidAtWorld(a.x, y - liftStep, a.z)
+          || this.voxels.solidAtWorld(bq.x, y - liftStep, bq.z);
         if (!blocked && supported) {
           p.y = y;
           if (this.vy < 0) this.vy = 0;
@@ -395,11 +414,22 @@ export class JimothyController {
       if (m.t >= total) { this.move = null; this.moveCooldown = H.COOLDOWN; }
     } else {
       const R = MOVES.ROLL;
-      this.vel.x = fwdX * R.SPEED;
-      this.vel.z = fwdZ * R.SPEED;
-      // Carve along the path rather than one sphere at the end.
-      const wantTicks = Math.floor((m.t / R.DURATION) * R.TICKS);
-      while (m.ticks < wantTicks && m.ticks < R.TICKS) {
+      // Speed rides his GIRTH (milestone 23). Chris, 2026-08-09: *"The roll is
+      // supposed to turn into a katamari style roll and collect at this fatness
+      // scale — so that's how you move about."* The on-foot penalty stays
+      // exactly as signed off, so this is the only thing that makes a 2 km
+      // island crossable once he is huge — a maxed Jimothy walks at 1.8 m/s and
+      // takes twelve minutes. Neutral at fatness 0: `widthScale` is 1, so a lean
+      // roll is still the same wonky flop it was signed off as.
+      const speed = R.SPEED * (1 + (this.widthScale - 1) * R.GIRTH_SPEED);
+      this.vel.x = fwdX * speed;
+      this.vel.z = fwdZ * speed;
+      // Carve along the path rather than one sphere at the end. Ticked on a
+      // fixed CLOCK rather than as a fraction of a fixed duration, because the
+      // roll no longer has one — a sustained roll would otherwise fire its five
+      // ticks in the first second and then scrape nothing for the rest of it.
+      const wantTicks = Math.floor(m.t / R.TICK_SECONDS);
+      while (m.ticks < wantTicks) {
         m.ticks++;
         const p = this.body.position;
         // Flat, always. The roll is the comedy tool and commits to a flop —
@@ -407,7 +437,12 @@ export class JimothyController {
         // drill just because the headbutt learned to aim.
         this.onImpact?.(p.x, p.y, p.z, { x: fwdX, y: 0, z: fwdZ }, R, P.RADIUS, 0);
       }
-      if (m.t >= R.DURATION) { this.move = null; this.moveCooldown = R.COOLDOWN; }
+      // HELD, not a one-shot (milestone 23). The flop's own duration is now a
+      // minimum commitment — you cannot cancel out of the tumble mid-air — and
+      // past it he keeps rolling for as long as the key is down. Traversal
+      // cannot be a keypress every 0.9 s.
+      const held = controllable && this.input.held('ROLL');
+      if (m.t >= R.DURATION && !held) { this.move = null; this.moveCooldown = R.COOLDOWN; }
     }
   }
 
@@ -471,9 +506,7 @@ export class JimothyController {
     // player can read the state at a glance. Fat trade-off #2: the wider he
     // is, the deeper into the bush he must squeeze — past a point the blob
     // simply doesn't fit and bushes stop working entirely.
-    const fat = fatFactor(gameState.player.fatness);
-    const width = 1 + fat * FATNESS.MAX_WIDTH_GAIN;
-    const hideRadius = Math.max(0, HIDE_SPOTS.RADIUS - (width - 1) * FATNESS.HIDE_SQUEEZE);
+    const hideRadius = this.hideRadius;
     // Anti-stuck: if he's ended up buried inside solid voxels (blasted a
     // crater and slid in, or terrain changed around him), lift him to the
     // nearest free surface rather than trapping him in the geometry.
@@ -560,8 +593,8 @@ export class JimothyController {
     // positions (playtest 2026-07-23: "his head/limbs don't really move with
     // it, it just gets larger"). Anchors ride the body's surface; the pieces
     // themselves stay their own size — tiny head on a huge body is the meme.
-    const fatWidth = 1 + fat * FATNESS.MAX_WIDTH_GAIN;
-    const fatHeight = 1 + fat * FATNESS.MAX_HEIGHT_GAIN;
+    const wide = fatWidth(gameState.player.fatness);
+    const tall = fatHeight(gameState.player.fatness);
     // Headbutt: the head rears back then punches forward, and the whole body
     // tips into it. Cheap, readable, and appropriately silly.
     let headThrust = 0;
@@ -592,9 +625,9 @@ export class JimothyController {
     // body (playtest 2026-08-06). Anchoring here makes contact exact at every
     // size by construction rather than by a tuned fudge factor.
     const anchor = (base, out) => out.set(
-      bodyBase.x + (base.x - bodyBase.x) * fatWidth,
-      bodyBase.y + (base.y - bodyBase.y) * fatHeight,
-      bodyBase.z + (base.z - bodyBase.z) * fatWidth,
+      bodyBase.x + (base.x - bodyBase.x) * wide,
+      bodyBase.y + (base.y - bodyBase.y) * tall,
+      bodyBase.z + (base.z - bodyBase.z) * wide,
     );
     const headBase = this.headSlot.userData.base;
     anchor(headBase, this.headSlot.position);
@@ -610,16 +643,20 @@ export class JimothyController {
     this.tailSlot.rotation.y = Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck);
     this.tailSlot.rotation.x = tuck * MOVES.ROLL.TUCK_TAIL; // curls in for the roll
     // Hips splay outward too, so a fat Jimothy waddles bow-legged.
-    this.legs.applyFatness(fatWidth, fatHeight, bodyBase);
+    this.legs.applyFatness(wide, tall, bodyBase);
     this.legs.setTuck(tuck);
 
     // Fatness: asymptotic wide-load growth on the body slot only (tiny head
     // on an enormous body IS the meme), plus the bite-kicked jiggle spring
     // and a continuous jelly wobble while waddling.
     this.jiggleAmp = Math.max(0, this.jiggleAmp - this.jiggleAmp * FATNESS.JIGGLE_DAMPING * delta);
+    // The SATURATING factor: a jiggle that grew with an unbounded size would be
+    // a body-sized wobble on a giant (milestone 23).
+    const fat = fatFactor(gameState.player.fatness);
     const jelly = fat * FATNESS.JELLY * Math.min(1, this.speed / P.SPEED);
     const wobble = Math.sin(this.elapsed * FATNESS.JIGGLE_HZ * Math.PI * 2) * (this.jiggleAmp + jelly);
-    const height = 1 + fat * FATNESS.MAX_HEIGHT_GAIN;
+    const height = tall;
+    const width = wide;
     this.widthScale = width;
     // Balling up for the roll: wider and shorter, so the silhouette actually
     // changes rather than the same shape spinning.
@@ -655,8 +692,31 @@ export class JimothyController {
       // the spine. Each child's own vertices come back to 1× while its
       // POSITION still rides outward on the growing belly — which is exactly
       // what the split path's anchoring code did by hand (JIM-15), now free.
+      // Non-uniform, blending toward a SPHERE as he grows (playtest
+      // 2026-08-09). Uniform scale preserves proportions, and a raccoon is far
+      // longer than he is wide — so x32 uniform is a 64 m sausage, which is
+      // exactly what Chris saw: *"he just kind of gets really long — but he
+      // should grow out in a big circle so the rolling makes sense."*
+      //
+      // Each axis is pushed toward 1/aspect, which equalises his bind
+      // proportions; `round` decides how far. Small, that is nearly 1 and he
+      // keeps the short-spine silhouette the whole character rests on. Huge, he
+      // is a ball, which is the only shape a thing that rolls can be.
+      //
+      // The counter-scale below stays UNIFORM even though this is not, so a
+      // child's size no longer comes back to exactly 1x — measured at ~1 % off
+      // at the fatness `rig.spec` checks, which is why two of its assertions
+      // currently fail. A per-axis inverse was tried and did NOT fix them, so
+      // the cause is not simply the inverse; it is left uniform, which is the
+      // shape the shear warning above was written for, until that is understood
+      // rather than guessed at.
+      const round = fatRoundness(gameState.player.fatness);
+      const aspect = this.rig.bindAspect();
+      const axis = (a) => 1 + (1 / a - 1) * round;
       const belly = width * (1 + wobble) * (1 + squash);
-      this.rig.scaleBone('body', belly, belly, belly);
+      this.rig.scaleBone(
+        'body', belly * axis(aspect.x), belly * axis(aspect.y), belly * axis(aspect.z),
+      );
       const inv = 1 / belly;
       // `head` and the shins are grandchildren — they inherit the correction
       // through `neck` and `leg_*`, so scaling them again would shrink them.

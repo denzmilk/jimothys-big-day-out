@@ -82,7 +82,10 @@ test('debris in a sewer settles on the tunnel floor (JIM-42)', async ({ page }) 
   const entrances = await page.evaluate(() => window.sewerEntrances());
   const e = entrances.reduce((a, c) => (Math.hypot(c.x, c.z) < Math.hypot(a.x, a.z) ? c : a));
   await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
-  await page.evaluate(() => window.setFatness(60));
+  // 12, not 60: since milestone 23 a fatness-60 Jimothy is ~5 m across and does
+  // not fit in a 3.6 m sewer at all. This spec is about where rubble LANDS, so
+  // it wants a raccoon that fits down the hole.
+  await page.evaluate(() => window.setFatness(12));
   await adv(page, 1.5);
   const s = await state(page);
   expect(s.underground.below, 'never got underground').toBe(true);
@@ -109,7 +112,7 @@ test('debris does not pass through a tunnel wall (JIM-42)', async ({ page }) => 
   const entrances = await page.evaluate(() => window.sewerEntrances());
   const e = entrances.reduce((a, c) => (Math.hypot(c.x, c.z) < Math.hypot(a.x, a.z) ? c : a));
   await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
-  await page.evaluate(() => window.setFatness(60));
+  await page.evaluate(() => window.setFatness(12));
   await adv(page, 1.5);
   await page.evaluate(() => window.blastAtJimothy());
   await adv(page, 3);

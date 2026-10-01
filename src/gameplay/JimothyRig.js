@@ -99,6 +99,27 @@ export class JimothyRig {
     return this.partBox('body', out);
   }
 
+  /** The belly's BIND proportions, normalised so the longest axis is 1.
+   *
+   *  Measured once, at rest, before fatness has scaled anything — a raccoon is
+   *  much longer than he is wide or tall, and that ratio is what has to be
+   *  cancelled for a giant to read as a ball rather than a bus (milestone 23).
+   *  Cached because it is a property of the model, not of the frame. */
+  bindAspect() {
+    if (!this._bindAspect) {
+      const size = this.bellyBox(new THREE.Box3()).getSize(new THREE.Vector3());
+      const longest = Math.max(size.x, size.y, size.z) || 1;
+      // Guard every axis: a degenerate box on one axis would divide by zero and
+      // send the whole animal to infinity.
+      this._bindAspect = {
+        x: Math.max(size.x / longest, 0.05),
+        y: Math.max(size.y / longest, 0.05),
+        z: Math.max(size.z / longest, 0.05),
+      };
+    }
+    return this._bindAspect;
+  }
+
   /** Where each animated part's flesh sits, in the frame of `origin` — pass
    *  Jimothy's group and the walking and turning drop out, so anything left
    *  moving is the animation itself. That is the only way to see a bone pose

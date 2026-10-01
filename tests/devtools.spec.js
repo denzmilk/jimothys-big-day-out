@@ -180,9 +180,9 @@ test('the presets set named stops, and the readout follows the game', async ({ p
   await boot(page);
   await jimothyTab(page);
 
-  await page.locator('#dt-fatness-presets button[data-fatness="200"]').click();
+  await page.locator('#dt-fatness-presets button[data-fatness="400"]').click();
   await adv(page, 0.2);
-  expect((await state(page)).fatness).toBe(200);
+  expect((await state(page)).fatness).toBe(400);
   // Too fat to hide is a real consequence at the top of the range, and it is
   // the one a bare number cannot tell you.
   await expect(page.locator('#dt-fatness-power')).toContainText('too fat to hide');

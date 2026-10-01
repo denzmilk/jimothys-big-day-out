@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CAMERA } from '../core/Constants.js';
+import { CAMERA, PLAYER_CONFIG } from '../core/Constants.js';
 
 // Two modes. Follow (default) is a pull-cam: yaw derives from the camera→
 // Jimothy line, so it rotates only when he displaces sideways — walking
@@ -40,23 +40,42 @@ export class CameraSystem {
     return this.pitch - this.neutralPitch;
   }
 
+  /** How far past his lean size he has grown, in metres of body radius. Zero
+   *  for a lean raccoon, so every girth term below is exactly neutral until he
+   *  eats — the same rule the aim follows (milestone 20). */
+  get _girth() {
+    return Math.max(0, this.jimothy.radius - PLAYER_CONFIG.RADIUS);
+  }
+
+  /** Boom length. It has to grow with him or a Jimothy a city block wide fills
+   *  the screen and the player cannot see the street (milestone 23). */
+  get _boom() {
+    return CAMERA.FOLLOW_DISTANCE + this._girth * CAMERA.GIRTH_PULLBACK;
+  }
+
+  /** What the camera aims at: his middle, not his ankle. */
+  get _lookHeight() {
+    return CAMERA.LOOK_HEIGHT + this._girth * CAMERA.GIRTH_LOOK;
+  }
+
   _computeFollowDesired() {
     const jp = this.jimothy.group.position;
+    const dist = this._boom;
     this._desired.set(
-      jp.x - Math.sin(this.yaw) * CAMERA.FOLLOW_DISTANCE,
-      jp.y + CAMERA.FOLLOW_HEIGHT,
-      jp.z - Math.cos(this.yaw) * CAMERA.FOLLOW_DISTANCE,
+      jp.x - Math.sin(this.yaw) * dist,
+      jp.y + CAMERA.FOLLOW_HEIGHT + this._girth * CAMERA.GIRTH_LIFT,
+      jp.z - Math.cos(this.yaw) * dist,
     );
     return this._desired;
   }
 
   _computeOrbitDesired() {
     const jp = this.jimothy.group.position;
-    const dist = CAMERA.FOLLOW_DISTANCE;
+    const dist = this._boom;
     const horiz = Math.cos(this.pitch) * dist;
     this._desired.set(
       jp.x - Math.sin(this.yaw) * horiz,
-      jp.y + CAMERA.LOOK_HEIGHT + Math.sin(this.pitch) * dist,
+      jp.y + this._lookHeight + Math.sin(this.pitch) * dist,
       jp.z - Math.cos(this.yaw) * horiz,
     );
     return this._desired;
@@ -64,7 +83,7 @@ export class CameraSystem {
 
   _lookTarget() {
     const jp = this.jimothy.group.position;
-    return this._look.set(jp.x, jp.y + CAMERA.LOOK_HEIGHT, jp.z);
+    return this._look.set(jp.x, jp.y + this._lookHeight, jp.z);
   }
 
   /** Pull a boom endpoint in until the line from the look target to it is clear
@@ -84,7 +103,7 @@ export class CameraSystem {
     if (!this.voxels) return point;
     const jp = this.jimothy.group.position;
     const ox = jp.x;
-    const oy = jp.y + CAMERA.LOOK_HEIGHT;
+    const oy = jp.y + this._lookHeight;
     const oz = jp.z;
     const dx = point.x - ox;
     const dy = point.y - oy;
@@ -96,7 +115,11 @@ export class CameraSystem {
     // Never past the wall, never inside him. In a pipe this bottoms out at
     // COLLIDE_MIN, which is what puts the underground camera near-first-person
     // — correct for the space, and why he fades at this range.
-    const want = Math.max(hit.t - CAMERA.COLLIDE_MARGIN, CAMERA.COLLIDE_MIN);
+    // The floor scales with him too: COLLIDE_MIN is 1 m, which is *inside* a
+    // giant, so a wall behind a block-sized Jimothy would otherwise park the
+    // camera in his ribcage (milestone 23).
+    const floor = CAMERA.COLLIDE_MIN + this._girth * CAMERA.GIRTH_COLLIDE_MIN;
+    const want = Math.max(hit.t - CAMERA.COLLIDE_MARGIN, floor);
     if (want >= len) return point;
     const k = want / len;
     return point.set(ox + dx * k, oy + dy * k, oz + dz * k);
@@ -108,7 +131,7 @@ export class CameraSystem {
     const jp = this.jimothy.group.position;
     return Math.hypot(
       this.camera.position.x - jp.x,
-      this.camera.position.y - (jp.y + CAMERA.LOOK_HEIGHT),
+      this.camera.position.y - (jp.y + this._lookHeight),
       this.camera.position.z - jp.z,
     );
   }

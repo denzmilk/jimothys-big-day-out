@@ -887,6 +887,7 @@ class Game {
         digs: this.reticleHit.digs,
         moveCooldown: +this.jimothy.moveCooldown.toFixed(2),
         tuck: +(this.jimothy.rollTuck || 0).toFixed(3),
+        idle: this.jimothy.idleAction,
         ...(() => {
           const { up, parts, bodyY, bodyBottom } = this.jimothy.inspect();
           return {

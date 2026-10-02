@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  WATER, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  WATER, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -109,6 +109,7 @@ export class JimothyController {
     this.yaw = Math.PI;
     this.group.rotation.y = this.yaw;
     this.elapsed = 0;
+    this.idleWait=0;this.idleTime=0;this.idleIndex=0;this.idleAction=null;this.idleBlend=0;this.idleBreath=0;
     this.stunTimer = 0;
     // Damped jiggle spring: every bite kicks it, big bites kick it harder.
     this.jiggleAmp = 0;
@@ -153,6 +154,7 @@ export class JimothyController {
   }
 
   reset() {
+    this.idleWait=0;this.idleTime=0;this.idleIndex=0;this.idleAction=null;this.idleBlend=0;this.idleBreath=0;
     this.swimming=false;gameState.player.swimming=false;
     // JIM-52: a held attack must not carry momentum into the next run.
     this.move = null;
@@ -175,6 +177,21 @@ export class JimothyController {
 
   get speed() {
     return Math.hypot(this.vel.x, this.vel.z);
+  }
+
+  _updateIdle(delta){
+    const available=this.grounded&&!this.swimming&&!this.move&&this.speed<IDLE.MIN_SPEED&&!gameState.player.stunned&&gameState.game.isPlaying;
+    if(!available){this.idleWait=0;this.idleTime=0;this.idleAction=null;this.idleBlend=0;this.idleBreath=0;return;}
+    this.idleBreath=Math.sin(this.elapsed*IDLE.BREATH_HZ*Math.PI*2)*IDLE.BREATH;
+    if(this.idleAction){
+      this.idleTime+=delta;
+      const duration=this.idleAction==='scratch'?IDLE.SCRATCH_SECONDS:IDLE.LOOK_SECONDS;
+      this.idleBlend=THREE.MathUtils.smoothstep(Math.min(this.idleTime,duration-this.idleTime),0,IDLE.FADE_SECONDS);
+      if(this.idleTime>=duration){this.idleAction=null;this.idleBlend=0;this.idleWait=-IDLE.GAP+IDLE.WAIT;}
+    }else{
+      this.idleWait+=delta;
+      if(this.idleWait>=IDLE.WAIT){this.idleAction=this.idleIndex++%2?'scratch':'look';this.idleTime=0;}
+    }
   }
 
   /** Collision radius, which GROWS with fatness (Chris 2026-08-07: "with the
@@ -600,6 +617,7 @@ export class JimothyController {
     }
     this.group.rotation.z = rollWobble;
     const tuck = Math.max(0, this.rollTuck || 0);
+    this._updateIdle(delta);
 
     // Waddle: bob + roll on the body slot, scaled by speed; a stun overrides
     // with a full-body comedy wobble. Head bobs off-phase; tail wiggles.
@@ -702,11 +720,17 @@ export class JimothyController {
     // x = pitch, y = twist along the bone (invisible), z = lateral. Positive
     // x on the head drops the chin.
     if (this.rig.skinned) {
+      // Reset the visual support offset before measuring the tumble pivot;
+      // feeding last frame's IK drop into that pivot would accumulate drift.
+      this.rig.root.position.y=this.rig.baseY;
       const bob = Math.abs(Math.sin(this.elapsed * P.WADDLE_BOB_HZ + 0.9)) * 0.12 * speedNorm;
+      const resting=this.speed<IDLE.MIN_SPEED&&!this.move&&!this.swimming&&this.grounded;
+      const look=this.idleAction==='look'?this.idleBlend:0,scratch=this.idleAction==='scratch'?this.idleBlend:0;
       this.rig.pose('head', -bodyPitch * MOVES.HEADBUTT.HEAD_PITCH_GAIN
-        + tuck * MOVES.ROLL.TUCK_HEAD + bob, 0, 0);
+        + tuck * MOVES.ROLL.TUCK_HEAD + (resting?Math.sin(this.elapsed*IDLE.BREATH_HZ*Math.PI*2)*IDLE.HEAD_PITCH:bob)
+        + look*IDLE.LOOK_PITCH, 0, look*Math.sin(this.idleTime*Math.PI)*IDLE.LOOK_YAW+scratch*IDLE.HEAD_SCRATCH);
       this.rig.pose('tail', tuck * MOVES.ROLL.TUCK_TAIL, 0,
-        Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck));
+        resting?Math.sin(this.elapsed*IDLE.TAIL_HZ*Math.PI*2)*IDLE.TAIL_ANGLE:Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck));
       // Fatness grows the BELLY ONLY. Head, tail and legs keep their own size
       // (Chris 2026-08-07) — tiny head on an enormous body is the meme, and
       // skinning would otherwise inflate the whole animal, since head vertices
@@ -795,6 +819,7 @@ export class JimothyController {
     );
 
     if(this.swimming&&this.rig.skinned){
+      this.legs.reset();
       for(const [i,name] of ['FL','FR','RL','RR'].entries()){
         const phase=this.elapsed*WATER.PADDLE_RATE+(i%2)*Math.PI;
         this.rig.pose('leg_'+name,Math.sin(phase)*WATER.PADDLE_ANGLE,0,Math.cos(phase)*WATER.PADDLE_ANGLE/2);

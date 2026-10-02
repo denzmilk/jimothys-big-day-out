@@ -1052,6 +1052,16 @@ export const DEBRIS = {
 };
 
 export const LEGS = {
+  // M11/JIM-22: stride distance follows actual travel; feet remain world
+  // contacts during stance even when the player turns or walks into a wall.
+  STRIDE: 0.65, MIN_SWING: 0.025, MAX_SWING: 0.18, PLANT_TRIGGER: 0.18,
+  MIN_SWING_FRAMES: 2, MAX_STANCE: 0.34,
+  PAW_CLEARANCE: 0.012, PAW_BAND: 0.045, PAW_SAMPLES: 24,
+  SPRAWL: 0.045, TOE_FORWARD: 0.06, CROUCH: 0.17, MAX_DROP: 0.38,
+  BODY_RESPONSE: 18, BODY_SPEED: 5, VELOCITY_RESPONSE: 22,
+  RESET_DISTANCE: 3, GROUND_SCAN: 0.55, MIN_SPEED: 0.05,
+  MAX_REACH: 0.995, SOLE_PASSES: 5,
+  KNEE_FORWARD: 0.22, RECOVER_SECONDS: 0.16,
   TUBE_RADIUS: 0.09,
   FOOT_RADIUS: 0.11,
   // Hip anchor offsets in bodySlot space [x, y, z] — mirrored for left/right.
@@ -1068,6 +1078,15 @@ export const LEGS = {
   SWING_HZ: 1.4,
   SWING_AMPLITUDE: 0.75,
   SWING_MIN: 0.06,
+};
+
+export const JIMOTHY_IDLE = {
+  WAIT: 3.2, GAP: 3.8, LOOK_SECONDS: 1.9, SCRATCH_SECONDS: 2.2,
+  FADE_SECONDS: 0.3, MIN_SPEED: 0.08,
+  BREATH_HZ: 0.45, BREATH: 0.008, HEAD_PITCH: 0.045,
+  LOOK_YAW: 0.22, LOOK_PITCH: 0.12, TAIL_HZ: 0.65, TAIL_ANGLE: 0.08,
+  SCRATCH_HZ: 5.5, SCRATCH_TRAVEL: 0.035, SCRATCH_SIDE: 0.24,
+  SCRATCH_DROP: 0.34, SCRATCH_BACK: -0.10, HEAD_SCRATCH: 0.10,
 };
 
 // Dimensions in metres keep architecture independent of destruction resolution.

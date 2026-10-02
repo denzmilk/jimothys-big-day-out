@@ -8,6 +8,24 @@ function rotateToward(bone,from,to){
   bone.quaternion.premultiply(parent.clone().invert().multiply(turn).multiply(parent));bone.updateWorldMatrix(false,true);
 }
 
+// Solve in the hip parent's frame: Jimothy's growing belly has non-uniform
+// scale, so treating its sheared world transform as a rotation misses the paw.
+export function solveTwoBone(hip,knee,foot,target,pole,maxReach=C.MAX_REACH){
+  const parent=hip.parent;
+  const h=hip.position.clone(),k=parent.worldToLocal(position(knee)),f=parent.worldToLocal(position(foot));
+  const t=parent.worldToLocal(target.clone()),l1=h.distanceTo(k),l2=k.distanceTo(f);
+  const toward=t.clone().sub(h),distance=THREE.MathUtils.clamp(toward.length(),Math.abs(l1-l2)+C.SOLVE_EPSILON,(l1+l2)*maxReach),axis=toward.normalize();
+  const hint=parent.worldToLocal(position(hip).add(pole)).sub(h);
+  hint.addScaledVector(axis,-hint.dot(axis)).normalize();
+  const a=(l1*l1-l2*l2+distance*distance)/(2*distance),height=Math.sqrt(Math.max(0,l1*l1-a*a));
+  const bend=h.clone().addScaledVector(axis,a).addScaledVector(hint,height);
+  hip.quaternion.premultiply(new THREE.Quaternion().setFromUnitVectors(k.sub(h).normalize(),bend.sub(h).normalize()));
+  hip.updateWorldMatrix(false,true);
+  const nk=knee.position,nf=hip.worldToLocal(position(foot)),nt=hip.worldToLocal(target.clone());
+  knee.quaternion.premultiply(new THREE.Quaternion().setFromUnitVectors(nf.sub(nk).normalize(),nt.sub(nk).normalize()));
+  knee.updateWorldMatrix(false,true);
+}
+
 // JIM-50: feet transfer through a swing arc instead of swapping directly from
 // a world anchor to the exported pose. Stride timing follows actual movement.
 export class FootGrounding {

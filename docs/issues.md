@@ -655,7 +655,9 @@ The current game-over screen is a number. This turns it into the thing people sc
 
 ### JIM-22 — Legs should scamper: sprawled, low, with physics-aware footing
 
-**Status:** open · **Severity:** medium (it's the character's whole read) · **Reported:** 2026-08-07 (Chris)
+**2026-10-02 playtest:** Chris reported sliding feet and requested pedestrian-style IK, scratching and small idle movements. The loaded-bone path used an open-loop sine swing without planted contacts. Milestone 11 now implements terrain-aware paw contacts, smooth support height and interruptible idle gestures. The full regression passed 176/181, with only the five existing JIM-03/JIM-48/JIM-49 failures. Seven focused checks and build/rendered smoke pass after the final correction for loading the rig mid-tumble. The scratch also exposed torso vertices with up to 85% leg influence: the preserved Blender source/recipe corrects those weights, and an isolated-paw test reduces upper-body displacement from 10.4 cm to zero. Captures and test logs are recorded in `docs/STATE.md`; animation feel awaits Chris's playtest.
+
+**Status:** implemented, awaiting Chris’s playtest — 2026-10-02 · **Severity:** medium (it's the character's whole read) · **Reported:** 2026-08-07 (Chris)
 
 > "What I want with his little legs is to have them be a bit more scamper-y, so a bit more sprawling and lower to the ground, like he's sort of creeping about — then have the physics aware footing you get with unity/unreal engine."
 

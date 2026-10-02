@@ -180,3 +180,8 @@
 - [x] Reactive grass, flowers, environmental animals, wind and airborne particles → milestone 30. Requested with ragdolls, lighting and water as the next world pass.
 - [ ] Destructible fountain and pond basins with conserved drainage into dug channels. Ocean and nearby ripple simulation are milestone 31; finite water volumes need a separate flow model.
   - Source: earlier water-physics request, retained while milestone 31 adds swimming. Rough size: L · Rough value: M.
+
+## Grounding follow-up — 2026-10-02
+
+- [ ] Support feet on loose moving props and rubble piles, using a shared physical-surface query for people and Jimothy. Milestone 11 adds planted paws on voxel terrain, kerbs and broken ground; the existing pedestrian ground sampler also excludes moving prop surfaces. This retains the broader rubble criterion from milestone 11.
+  - Source: milestone 11 original footing scope; clarified during JIM-22. Rough size: M · Rough value: M.

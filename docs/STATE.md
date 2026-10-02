@@ -2,6 +2,18 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Jimothy idle animation and planted paws — milestone 11 / JIM-22 — 2026-10-02
+
+**Implemented, awaiting Chris's playtest.** Chris reported sliding feet and requested idle scratches and small movements. The loaded model now uses four world-space paw contacts, two-bone IK, lifted diagonal steps and a smooth crouched support height. Idle breathing, head glances, tail movement and a face scratch interrupt on movement/actions; rolls, hops and swimming release contacts. The corrected Blender rig keeps paw movement out of the torso while preserving the original shape, textures and 12 bones.
+
+All seven final focused checks pass (`output/iterate/jimothy-animation-final.log`). They cover 30/60/120 Hz walking/scurrying, turns/stops, slopes, kerbs, zero-time stability, growth/action/teleport resets, scratch interruption, visible skin deformation, a real voxel blast and loading the rig mid-tumble. Worst measured flat stance drift is below 1 mm per frame; worst slope p95 sole error is 2.73 cm. The isolated paw pose formerly moved torso vertices 10.4 cm; the corrected rig measures zero. Character-space sole calibration reduces the difference between upright and mid-tumble loading from 9.4 cm to less than one micrometre. Final build and rendered smoke pass without console errors.
+
+The full regression passed **176/181** (`output/iterate/jimothy-animation-full-suite.log`): the five failures remain JIM-03 interrupted feast, two JIM-49 rig growth checks and two JIM-48 renderer-budget checks. The full run preceded the final character-space calibration correction; all seven focused checks plus build/rendered smoke were rerun afterward. Roll/tuck, headbutt, growth movement, pedestrian IK, ragdolls/capture, swimming/beach transitions and restart passed. Ground contacts cover voxel terrain and paving; support on loose moving props remains a documented follow-up.
+
+Inspected captures: `output/iterate/jimothy-idle-weights-rest.png`, `jimothy-idle-weights-look.png`, `jimothy-idle-weights-scratch.png`, and `jimothy-walk-0.png` through `jimothy-walk-5.png`. The asset integrity check preserves 39,991 triangles, 12 bones and all three embedded texture hashes; rest-surface differences are below one micrometre (export rounding). Blender sources and the reproducible weight recipe are in `assets/blender/jimothy/` and `tools/refine_jimothy_weights.py`.
+
+**Playtest:** http://127.0.0.1:4174. Stand still for about 10 seconds to see the look and scratch, then walk/scurry across a kerb, turn and stop. Chris has been asked whether the paws feel planted. Animation feel remains unsigned-off.
+
 ## Living-world continuation — 2026-10-02
 
 **Development; milestones 29–31 are implemented, awaiting Chris's playtest.** Milestone 28 also remains awaiting playtest.

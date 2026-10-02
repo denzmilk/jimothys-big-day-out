@@ -52,8 +52,8 @@ export class JimothyRig {
     }).catch((e) => console.error('JimothyRig load failed:', e));
   }
 
-  /** Pose a bone by a delta from its bind orientation, in the bone's own
-   *  frame. The ONLY sanctioned way to move a bone here — see `rest`. */
+  /** Start from the bind orientation before applying animation in the bone's
+   *  own frame. Foot IK adds its rotations after this reset. */
   pose(name, x = 0, y = 0, z = 0) {
     const b = this.bones[name];
     if (!b) return;
@@ -240,6 +240,8 @@ export class JimothyRig {
     // Sibling of the slots, like the split path's leg pivots — the slots
     // themselves are only scaffolding for the placeholder now.
     this.slots.body.parent.add(root);
+    this.root = root;
+    this.baseY = root.position.y;
     this.bodyPiece = this.skinned;
     this._indexRestParts();
   }

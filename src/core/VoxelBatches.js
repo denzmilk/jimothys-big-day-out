@@ -4,7 +4,7 @@ import {VOXEL_BATCH as C} from '../core/Constants.js';
 /** Bounded buffer banks let chunk replacement retain per-chunk frustum tests
  * in every render pass, while WEBGL_multi_draw submits each bank once. */
 export class VoxelBatches {
- constructor(scene,materials){this.scene=scene;this.materials=materials;this.banks=[];this.entries=new Map();}
+ constructor(scene,materials,limits=C){this.limits=limits;this.scene=scene;this.materials=materials;this.banks=[];this.entries=new Map();}
  part(geometry,group){
   const part=new THREE.BufferGeometry();
   for(const [name,attribute]of Object.entries(geometry.attributes))part.setAttribute(name,new THREE.BufferAttribute(attribute.array.subarray(group.start*attribute.itemSize,(group.start+group.count)*attribute.itemSize),attribute.itemSize));
@@ -19,7 +19,7 @@ export class VoxelBatches {
    if(old&&count<=old.reserved){old.bank.mesh.setGeometryAt(old.id,part);next[materialIndex]=old;}
    else{
     if(old)this.release(old);
-    const reserved=Math.ceil(count*C.RESERVE),bank=this.findBank(materialIndex,reserved);
+    const reserved=Math.ceil(count*this.limits.RESERVE),bank=this.findBank(materialIndex,reserved);
     const id=bank.mesh.addGeometry(part,reserved),instance=bank.mesh.addInstance(id);
     bank.used+=reserved;bank.count++;next[materialIndex]={bank,id,instance,reserved};
    }
@@ -28,9 +28,9 @@ export class VoxelBatches {
   this.entries.set(key,next);
  }
  findBank(materialIndex,reserved){
-  let bank=this.banks.find(b=>b.materialIndex===materialIndex&&b.capacity-b.used>=reserved&&b.count<C.INSTANCES);
+  let bank=this.banks.find(b=>b.materialIndex===materialIndex&&b.capacity-b.used>=reserved&&b.count<this.limits.INSTANCES);
   if(bank){if(bank.mesh.unusedVertexCount<reserved)bank.mesh.optimize();return bank;}
-  const capacity=Math.max(C.VERTICES,reserved),mesh=new THREE.BatchedMesh(C.INSTANCES,capacity,0,this.materials[materialIndex]);
+  const capacity=Math.max(this.limits.VERTICES,reserved),mesh=new THREE.BatchedMesh(this.limits.INSTANCES,capacity,0,this.materials[materialIndex]);
   mesh.castShadow=true;mesh.receiveShadow=true;
   // Its own per-object test uses the current main/shadow camera. A stale
   // aggregate sphere must not reject newly streamed chunks before that test.

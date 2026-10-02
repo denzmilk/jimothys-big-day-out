@@ -1,5 +1,16 @@
 # Session state
 
+## Quality settings and distant town — milestone 33 — 2026-10-02
+
+Implemented, awaiting Chris's playtest. Low/Medium/High control 350/700/1,400 m view distance, detail, pixel ratio, shadow resolution and live voxel work budgets. Offscreen distant pedestrian animation/AI updates less often; visible and nearby feet keep their normal cadence. Collision streaming expands for giant contact. The town retains 1,989 inexpensive building silhouettes, using the same quantised footprints, heights, roof styles and palette as the voxel buildings. Ready-column masking prevents overlap; damaged silhouettes remain hidden after unloading and reset correctly. Their fixed buffers reserve about 0.7 million vertices rather than 4.2 million. `render.drawCalls` is the whole renderer count; `voxels.drawCalls` remains a compatibility alias.
+
+Verification: the two new quality/LOD regressions pass (`graphics-final.log`), plus 20 adjacent lighting, giant destruction, water, traffic and restart cases (`graphics-adjacent.log`), ten initial pedestrian/streaming cases and all 31 focused unit checks. Build and production rendered smoke pass with no console errors (`graphics-build.log`, `graphics-smoke.log`). Inspected all-preset day/night native captures; `quality-medium-14.png` and `quality-low-0.png` show continued town silhouettes, sky, water and working street illumination.
+
+Controlled native Chrome/Metal/M5 Pro, 1,280 × 800, Medium, loaded rig, a straight 100 m road from (-2,-40), with no competing test process: lean/House/Block median frame **14.2 / 14.6 / 19.3 ms**, p95 **16.7 / 19.3 / 35.6 ms**, worst **97.1 / 77.7 / 112.1 ms**. Median CPU **10.9 / 10.9 / 15.0 ms** and median draw calls **180 / 218 / 380**. Block destroys 18,269 cells; collection and damage queues stay capped. This is improved responsiveness, not a locked 60 fps claim. Reset returns to 25 columns, zero edits/damage/attachments and no pending mesh work. Evidence: `native-distance.log`. The later reduction in distant buffer capacity leaves identical geometry; these timings precede that allocation-only change. The route's delayed canvas captures were black; visual evidence comes from the separate same-frame `quality-*.png` captures.
+
+**Next:** continue approved milestone 34 military tanks/jets, then 35 beaches and 36 diving/underwater sites. New sources downloaded from Quaternius and Poly Pizza are being prepared in Blender; they are not yet integrated. Net-only endings remain unchanged.
+
+
 ## Ground-query optimisation — milestone 33 — 2026-10-02
 
 Intact-ground support queries now consult the sparse structure index instead of scanning empty air above every road/wheel probe. Craters, tunnels and damaged ground retain the exact downward scan. Two focused checks verify bounded lookups and equality with a reference scan across structures, chunk seams and underground cavities; all 19 physics/paving/traffic cases pass (`indexed-ground-green.log`). Build and rendered smoke pass. A native diagnostic shows traffic and physics CPU costs falling; the final controlled route remains part of the quality/distance pass.

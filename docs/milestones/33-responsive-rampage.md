@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress; approved by Chris, 2026-10-02 (“these as well — go for it”). Generation, mesh scheduling and giant surface demolition are implemented and verified; rendering work continues.
+Implemented, awaiting Chris’s playtest. Approved by Chris, 2026-10-02 (“these as well — go for it”). See STATE for fixed-distance native timings, scoped regression results and remaining occasional frame hitches.
 
 ## Objective
 
@@ -15,9 +15,9 @@ Depends on: 23–24.
 ## Acceptance criteria
 
 - [x] Giant headbutts and rolling contacts affect the surfaces they touch; deliberate digging remains controllable.
-- [ ] Voxel generation, demolition and mesh work are bounded per update; giant travel does not produce the measured synchronous rebuild stalls.
-- [ ] Quality/draw-distance presets control visible cost; distant silhouettes bridge loaded detail and per-pass culling skips invisible geometry.
-- [ ] Native graphics route measurements separate CPU and rendering at lean/house/block sizes; sustained travel, damage and restart retain bounded resources.
+- [x] Voxel generation, demolition and mesh work are bounded per update; giant travel does not produce the measured synchronous rebuild stalls.
+- [x] Quality/draw-distance presets control visible cost; distant silhouettes bridge loaded detail and per-pass culling skips invisible geometry.
+- [x] Native graphics route measurements separate CPU and rendering at lean/house/block sizes; sustained travel, damage and restart retain bounded resources.
 - [ ] Visual quality and gameplay feel verified by Chris’s playtest.
 
 ## Test plan

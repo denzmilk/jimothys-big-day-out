@@ -36,7 +36,7 @@ export class InputSystem {
       this.everKeydown = true;
       // Don't let typing in DevTools fields drive the raccoon.
       const t = e.target;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'BUTTON' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
       if (KEYBINDS.HOP.includes(e.code)) {
         // e.repeat filters the OS key-repeat storm from a held Space —
         // otherwise every repeat queues another hop and he stair-steps into

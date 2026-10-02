@@ -22,7 +22,7 @@ export class WaterSystem {
   }
   this.normalTexture=new THREE.DataTexture(normalData,C.NORMAL_SIZE,C.NORMAL_SIZE);this.normalTexture.wrapS=this.normalTexture.wrapT=THREE.RepeatWrapping;this.normalTexture.magFilter=this.normalTexture.minFilter=THREE.LinearFilter;this.normalTexture.needsUpdate=true;
   this.surface=new Water(new THREE.PlaneGeometry(C.NEAR_SIZE,C.NEAR_SIZE,C.NEAR_SEGMENTS,C.NEAR_SEGMENTS),{textureWidth:C.REFLECTION_SIZE,textureHeight:C.REFLECTION_SIZE,waterNormals:this.normalTexture});
-  this.surface.rotation.x=-Math.PI/2;this.surface.frustumCulled=false;
+  this.surface.rotation.x=-Math.PI/2;this.surface.userData.farDetail=true;this.surface.frustumCulled=false;
   const m=this.surface.material,u=m.uniforms;m.transparent=true;m.depthWrite=false;
   Object.assign(u,{waterTime:{value:0},rippleMap:{value:this.rippleTexture},rippleGrid:{value:new THREE.Vector2()},depthMap:{value:this.depthTexture},detailMap:{value:this.normalTexture},nearCenter:{value:new THREE.Vector2()},farSurface:{value:0},reflectionReady:{value:0},daylight:{value:1},deepColor:{value:new THREE.Color(C.DEEP)},shallowColor:{value:new THREE.Color(C.SHALLOW)},foamColor:{value:new THREE.Color(C.FOAM)},skyTop:sky.material.uniforms.topColor,skyHorizon:sky.material.uniforms.horizonColor,lightDirection:sky.material.uniforms.sunDir});
   const fields=`uniform float waterTime,farSurface;uniform sampler2D rippleMap,depthMap;uniform vec2 rippleGrid,nearCenter;

@@ -216,7 +216,7 @@ export class StreetLife {
   afterUpdate(){
     this.batches.update(this.items.filter(p=>!p.fragment).map(p=>({
       key:`${p.kind}:${p.kind==='car'?p.seed%this.vehicles.length:''}:${p.brokenWindows?.join(',')||''}:${p.mesh.children.map(m=>m.material?.uuid).join(',')}`,
-      root:p.mesh,visible:p.mesh.visible,
+      root:p.mesh,visible:p.mesh.visible&&(p.attached||p.mesh.position.distanceTo(this.jimothy.body.position)<(gameState.world.graphics?.detail??Infinity)+this.jimothy.radius),
     })));
   }
   updateSignals(){

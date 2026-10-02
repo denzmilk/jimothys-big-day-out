@@ -116,7 +116,7 @@ Chris's 2026-10-02 playtest confirms a visible shape failure. Actual posed mesh 
 
 ### JIM-48 — Populated world exceeds the legacy draw-call budget
 
-**Status:** open · **Found:** 2026-10-02 during milestone 27 glass verification
+**Status:** implemented, awaiting Chris’s playtest · **Found:** 2026-10-02 during milestone 27 glass verification
 
 `tests/voxel.spec.js` has two assertions requiring fewer than 300 renderer calls. A clean isolated copy of pre-shatter commit `723c993` already reports 866 calls, 2,931,262 triangles and 195 voxel meshes at deterministic boot. Separate car panes report 900 calls with the same triangle and voxel mesh counts. The `voxels.drawCalls` field currently reports the whole renderer, including people and props. Evidence: `output/iterate/glass-baseline-comparison.log`, `glass-adjacent.log`. Review scene batching/LOD and the telemetry naming in a separate performance pass; do not raise the limit to conceal it. Locations: `Game.renderToText`, `Pedestrians`, `StreetLife`, `VoxelWorld`, `tests/voxel.spec.js`.
 
@@ -132,6 +132,9 @@ The giant audit adds a confirmed CPU bottleneck: synchronous `remeshDirty()` cal
 **Milestone 33 foundation, 2026-10-02:** generation/meshing now yield within chunks; existing geometry stays visible and damage persists during regeneration. The 240-frame native Block route's worst observed frame falls from 2,041.9 to 123.3 ms, with calls still around 1,617 median. The follow-up overlapped smoke, so final controlled profiling remains required. Rendering, distant work and giant demolition continue; this issue remains open. See the newest STATE entry.
 
 **Rendering checkpoint, 2026-10-02:** compatible street/bush assemblies and voxel geometry are batched; intact ground is simplified within 2.5 cm error; every MPFB person is one skinned draw. The two unchanged <300 renderer-call regressions now pass, along with terrain/paving, crowd/ragdoll, traffic/streaming and car checks. Rendered smoke reports 287 calls with no errors. Native giant travel still has median 30.1 ms frames; CPU optimisation, presets, distant silhouettes and final profiling remain open. See STATE for evidence and limitations.
+
+**Quality/rendering repair, 2026-10-02:** physical .22 m destruction remains intact; work is sliced, rigid props and voxel chunks are batched, and twelve MPFB models use one draw each. Graphics presets change distance/detail/shadows; 1,989 distant building silhouettes match the masterplan and preserve damage. The new quality/LOD checks and 20 adjacent checks pass, plus build/rendered smoke. Native 100 m lean/House/Block median frames are 14.2/14.6/19.3 ms; worst 97.1/77.7/112.1 ms. Occasional hitches remain, so no locked-60 claim. See STATE and `output/iterate/native-distance.log`; visual sign-off remains Chris’s.
+
 
 ### JIM-47 — Feet and wheels need contact with the visible ground
 
@@ -334,7 +337,7 @@ Not urgent: normal play streams a 210 m disc and sits at ~110 draw calls.
 
 ### JIM-37 — Draw distance: buildings pop in at 106 m now that the fog is gone
 
-**Status:** open · **Severity:** medium (visible constantly, not game-breaking) · **Reported:** Chris, playtest 2026-08-07 — *"might need to work out draw distance to prevent popin."*
+**Status:** implemented, awaiting Chris’s playtest · **Severity:** medium (visible constantly, not game-breaking) · **Reported:** Chris, playtest 2026-08-07 — *"might need to work out draw distance to prevent popin."*
 
 Direct consequence of fixing JIM-36, and expected. Fog used to be 41% opaque at the edge of the loaded voxel world; now it starts at 220 m, so **the streaming boundary is naked**. Voxel columns load at `STREAM.LOAD_RADIUS` (106 m) and unload at 176 m, and the horizon mesh beyond it carries terrain and roads but **no buildings** — so the city's silhouette stops dead at 106 m and whole blocks appear as you walk.
 
@@ -346,6 +349,9 @@ Four ways out, roughly in order of value for effort:
 4. **Generate further than you mesh.** Decouple "column exists" from "column is drawn" so distant columns can be meshed at lower detail. Biggest change; only worth it with (2) done.
 
 (1) and (2) are complementary and neither blocks the other. (1) is the one that would be felt immediately.
+
+**Quality/rendering repair, 2026-10-02:** physical .22 m destruction remains intact; work is sliced, rigid props and voxel chunks are batched, and twelve MPFB models use one draw each. Graphics presets change distance/detail/shadows; 1,989 distant building silhouettes match the masterplan and preserve damage. The new quality/LOD checks and 20 adjacent checks pass, plus build/rendered smoke. Native 100 m lean/House/Block median frames are 14.2/14.6/19.3 ms; worst 97.1/77.7/112.1 ms. Occasional hitches remain, so no locked-60 claim. See STATE and `output/iterate/native-distance.log`; visual sign-off remains Chris’s.
+
 
 ### JIM-36 — Fog tuned for a 250 m world, on a 2 km island
 

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { FootGrounding } from '../core/Grounding.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
-import { PEDESTRIANS as PED, COLLECTION, TRAFFIC } from '../core/Constants.js';
+import { PEDESTRIANS as PED, COLLECTION, TRAFFIC, GRAPHICS } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import * as Layout from '../level/Layout.js';
@@ -113,9 +113,9 @@ export class Pedestrians {
     }
   }
 
-  update(delta) {
+  update(frameDelta,isVisible=()=>true) {
     if(!this.ready||!gameState.game.isPlaying)return;
-    this.elapsed+=delta;
+    this.elapsed+=frameDelta;
     const jp=this.jimothy.position;
     if(!this.center||Math.hypot(jp.x-this.center.x,jp.z-this.center.z)>PED.REFRESH_DISTANCE) {
       this._graphAround(jp.x,jp.z);
@@ -124,7 +124,11 @@ export class Pedestrians {
     }
     for(const p of this.people) {
       if(p.attached||p.ragdoll)continue;
-      const dj=Math.hypot(p.x-jp.x,p.z-jp.z);
+      const dj=Math.hypot(p.x-jp.x,p.z-jp.z),quality=gameState.world.graphics;
+      p.pendingDelta=(p.pendingDelta||0)+frameDelta;
+      const distant=quality&&dj>Math.max(quality.aiDistance,this.jimothy.radius+GRAPHICS.CONTACT_MARGIN)&&!isVisible(p.mesh.position);
+      if(distant&&p.pendingDelta<quality.aiInterval){p.throttled=true;continue;}
+      const delta=p.pendingDelta;p.pendingDelta=0;p.throttled=false;
       if(dj<PED.SCARE_RADIUS&&!gameState.player.hidden) {
         if(!p.scaredRecently){p.scaredRecently=true;eventBus.emit(Events.LOCAL_SCARED,{id:p.id,x:p.x,z:p.z});}
         p.flee=PED.FLEE_SECONDS;

@@ -1,8 +1,13 @@
 import { eventBus, Events } from '../core/EventBus.js';
+import {GRAPHICS} from '../core/Constants.js';
 import { gameState } from '../core/GameState.js';
 
 export class HUD {
   constructor() {
+    const quality=document.getElementById('graphics-quality');
+    for(const [name,preset]of Object.entries(GRAPHICS.PRESETS)){const option=document.createElement('option');option.value=name;option.textContent=`${name[0].toUpperCase()+name.slice(1)} · ${preset.DISTANCE} m`;quality.appendChild(option);}
+    quality.value=gameState.world.graphics?.preset||GRAPHICS.DEFAULT;
+    quality.addEventListener('change',()=>eventBus.emit(Events.GRAPHICS_CHANGED,{preset:quality.value}));
     this.scoreEl = document.getElementById('score');
     this.fatEl = document.getElementById('fat');
     this.heatEl = document.getElementById('heat');

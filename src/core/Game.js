@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
-  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT,
+  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT, GRAPHICS,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { fatFactor } from './MathUtils.js';
@@ -10,6 +10,8 @@ import { DevOverrides } from './DevOverrides.js';
 import { InputSystem } from '../systems/InputSystem.js';
 import { PhysicsSystem } from '../systems/PhysicsSystem.js';
 import { CameraSystem } from '../systems/CameraSystem.js';
+import {RenderQuality} from '../systems/RenderQuality.js';
+import {FarBuildings} from '../level/FarBuildings.js';
 import { FlyCamera } from '../systems/FlyCamera.js';
 import { ScoreSystem } from '../systems/ScoreSystem.js';
 import { HeatSystem } from '../systems/HeatSystem.js';
@@ -68,6 +70,7 @@ class Game {
     this.setupRenderer();
     this.setupScene();
     this.setupCamera();
+    this.quality=new RenderQuality(this.scene,this.renderer,this.camera);
 
     this.input = new InputSystem(this.renderer.domElement);
     this.physics = new PhysicsSystem();
@@ -80,6 +83,7 @@ class Game {
     // After the world: the bushes and the sea have to sit on ground that
     // already knows how high it is.
     this.level = new LevelBuilder(this.scene, this.voxels);
+    this.farBuildings=new FarBuildings(this.scene,this.level.horizonCoverage);
     const environmentScene=new THREE.Scene();environmentScene.add(this.level.sky.clone());
     const pmrem=new THREE.PMREMGenerator(this.renderer);
     this.environment=pmrem.fromScene(environmentScene,0,CAMERA.NEAR,ATMOSPHERE.SKY_RADIUS*2,{size:GLAZING.ENV_SIZE});
@@ -192,7 +196,7 @@ class Game {
       this.voxels.clear();
       installCity(this.voxels);
       this.streetLife.reset();
-      this.level.resetObjects();
+      this.level.resetObjects();this.farBuildings.reset();
       gameState.game.started = true;
       gameState.game.isPlaying = true;
       this.pedestrians.reset();
@@ -357,8 +361,8 @@ class Game {
     this.collector.update(delta);
     this.streetLife.afterUpdate();
     this.pursuers.update(delta);
-    this.pedestrians.update(delta);
-    this.level.update(delta, this.camera);
+    this.pedestrians.update(delta,position=>this.quality.inView(position,GRAPHICS.ACTOR_RADIUS));
+    this.level.update(delta, this.camera,jp,this.quality.preset.DETAIL+this.jimothy.radius);
     this.environmentLife.update(delta);
     this.score.update(delta);
     this.heat.update(delta);
@@ -380,6 +384,7 @@ class Game {
     this.jimothy.cameraDist = this.flyCamera.active ? Infinity : this.cameraSystem.distance;
     this.devTools.update(delta);
     this.carExplosions.update(delta);
+    this.quality.update(this.flyCamera.active?this.camera.position:jp,this.jimothy.radius,this.underground);
   }
 
   animate() {
@@ -672,7 +677,9 @@ class Game {
     // WHERE, not just how much (milestone 19). Destruction is loud, and the
     // noise is what pulls pursuers — toward the wall he just came through
     // rather than toward him, which is what makes demolition a decision.
-    eventBus.emit(Events.WORLD_DEMOLISHED, { voxels: removed.length, x: pos.x, z: pos.z });
+    const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+    for(const cell of removed)for(const [i,key]of ['x','y','z'].entries()){min[i]=Math.min(min[i],cell[key]-VOXEL.SIZE/2);max[i]=Math.max(max[i],cell[key]+VOXEL.SIZE/2);}
+    eventBus.emit(Events.WORLD_DEMOLISHED, { voxels: removed.length, x: pos.x, z: pos.z,bounds:{min,max} });
     return removed.length;
   }
 
@@ -850,6 +857,7 @@ class Game {
       explosions: this.carExplosions.snapshot(),
       collection: this.collector.snapshot(),
       world: { voxelSize: VOXEL.SIZE, atmosphereTime: this.level.time },
+      render:{drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,quality:this.quality.snapshot(),farBuildings:this.farBuildings.snapshot()},
       voxels: {
         ...this.voxels.stats(),
         debris: this.debris.liveCount,

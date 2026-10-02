@@ -321,3 +321,8 @@ body {
 #capture-meter[hidden] { display:none; }
 #capture-meter > div { height:12px; margin-top:8px; background:#44342c; border-radius:4px; overflow:hidden; }
 #capture-fill { display:block; height:100%; width:0; background:#f48a55; }
+
+#graphics-panel { position:fixed;left:12px;bottom:12px;z-index:90;padding:8px 12px;border:1px solid #52616b;border-radius:8px;background:#172029e8;color:#edf4f5;font:14px system-ui; }
+#graphics-panel summary { cursor:pointer; }
+#graphics-panel label { display:block;margin:10px 0 6px; }
+#graphics-quality { padding:8px;background:#253541;color:#fff;border:1px solid #667d8e;border-radius:5px;font:inherit; }

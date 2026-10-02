@@ -38,6 +38,7 @@ export class Military {
    const turret=new THREE.Group(),parts=mesh.children.filter(m=>/turret|barrel/.test(m.name)),box=new THREE.Box3();parts.forEach(m=>{m.geometry.computeBoundingBox();box.union(m.geometry.boundingBox);});turret.position.copy(box.getCenter(new THREE.Vector3()));turret.position.z=0;mesh.add(turret);mesh.updateMatrixWorld(true);parts.forEach(m=>turret.attach(m));u.turret=turret;
   }else{
    const angle=(this.serial*C.JET_HEADING)% (Math.PI*2);u.direction=new THREE.Vector3(Math.sin(angle),0,Math.cos(angle));u.target=new THREE.Vector3(j.position.x,this.ground(j.position.x,j.position.z),j.position.z);u.altitude=Math.max(j.body.position.y,...Array.from({length:C.JET_GROUND_SAMPLES},(_,i)=>{const d=(i/(C.JET_GROUND_SAMPLES-1)*2-1)*C.JET_APPROACH;return this.voxels.terrainHeightAt(u.target.x+u.direction.x*d,u.target.z+u.direction.z*d); }))+C.JET_ALTITUDE;u.travel=-C.JET_APPROACH;
+   u.passAltitude=j.body.position.y+Math.max(C.JET_PASS_MIN,j.radius*C.JET_PASS_BODY);
    mesh.position.copy(u.target).addScaledVector(u.direction,u.travel);mesh.position.y=u.altitude;mesh.rotation.y=angle;u.warning=this.warning(u.target,C.JET_BLAST);u.phase='approach';
   }
   this.units.push(u);this.register(u);return u;
@@ -97,7 +98,10 @@ export class Military {
     }else if(u.phase==='aim'&&u.clock>=C.TANK_WARNING){this.fire(u,u.target,C.TANK_BLAST);u.phase='cooldown';u.clock=0;}
     else if(u.phase==='cooldown'&&u.clock>=C.TANK_COOLDOWN){u.phase='approach';u.clock=0;}
    }else{
-    u.travel+=C.JET_SPEED*dt;u.mesh.position.copy(u.target).addScaledVector(u.direction,u.travel);u.mesh.position.y=u.altitude+Math.max(0,u.travel)*C.JET_CLIMB;
+    u.travel+=C.JET_SPEED*dt;u.mesh.position.copy(u.target).addScaledVector(u.direction,u.travel);
+    const dive=1-THREE.MathUtils.smoothstep(Math.abs(u.travel),0,C.JET_DIVE_DISTANCE);
+    u.mesh.position.y=Math.max(this.voxels.terrainHeightAt(u.mesh.position.x,u.mesh.position.z)+C.JET_TERRAIN_CLEARANCE,
+      THREE.MathUtils.lerp(u.altitude,u.passAltitude,dive)+Math.max(0,u.travel)*C.JET_CLIMB);
     if(u.phase==='approach'&&u.travel>=-C.JET_RELEASE){this.fire(u,u.target,C.JET_BLAST);u.phase='exit';}
     if(u.travel>C.JET_EXIT){this.remove(u);continue;}
    }

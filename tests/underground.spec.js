@@ -173,6 +173,19 @@ test('treasure can be dug up, is recorded, and buys nothing', async ({ page }) =
   await page.evaluate(() => window.setFatness(90)); // a dig needs a full blast
   await adv(page, 0.2);
   expect((await state(page)).underground.finds).toEqual([]);
+  // Capture the pickup boundary: the digging itself can reveal the treasure,
+  // and its heat can bring in a tank that changes world heat afterward.
+  await page.evaluate(async () => {
+    const { gameState } = await import('/src/core/GameState.js');
+    const t = window.__game.treasures, update = t.update.bind(t);
+    const economy = () => ({score:gameState.player.score,fatness:gameState.player.fatness,heat:gameState.heat.points});
+    window.treasureEconomy = [];
+    t.update = dt => {
+      const before = economy(), finds = gameState.player.finds.length;
+      update(dt);
+      if (gameState.player.finds.length > finds) window.treasureEconomy.push({before,after:economy()});
+    };
+  });
 
   // Find a buried one nearby and blast the ground off it.
   const dug = await page.evaluate(() => {
@@ -189,11 +202,7 @@ test('treasure can be dug up, is recorded, and buys nothing', async ({ page }) =
   });
   expect(dug, 'no treasure buried within 80 m').toBeTruthy();
 
-  // The baseline sits BETWEEN the digging and the pickup. Taken any earlier it
-  // measures the shaft rather than the find — eleven fat blasts move heat by
-  // about 950 points, and the first version of this spec blamed the Tamagotchi.
   await adv(page, 0.3);
-  const before = await state(page);
 
   await page.evaluate((t) => window.dropJimothy(t.x, t.z, t.y + 4), dug);
   await adv(page, 4);
@@ -201,9 +210,13 @@ test('treasure can be dug up, is recorded, and buys nothing', async ({ page }) =
 
   expect(after.underground.finds, `never found ${dug.name}`).toContain(dug.name);
   // The joke IS the uselessness. Nothing it touches may move.
-  expect(after.score, 'treasure paid out').toBe(before.score);
-  expect(after.fatness, 'treasure fed him').toBe(before.fatness);
-  expect(after.heat.points, 'treasure raised heat').toBe(before.heat.points);
+  const pickups = await page.evaluate(() => window.treasureEconomy);
+  expect(pickups.length, 'never observed an actual treasure pickup').toBeGreaterThan(0);
+  for (const {before,after} of pickups) {
+    expect(after.score, 'treasure paid out').toBe(before.score);
+    expect(after.fatness, 'treasure fed him').toBe(before.fatness);
+    expect(after.heat, 'treasure raised heat').toBe(before.heat);
+  }
   expect(TREASURE.NAMES).toContain(dug.name);
 });
 

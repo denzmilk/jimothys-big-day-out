@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  GIANT_IMPACT, RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -445,14 +445,20 @@ export class JimothyController {
    *  AHEAD of him, so he never digs the hole he's standing in. */
   _updateMoves(delta, controllable) {
     if (this.moveCooldown > 0) this.moveCooldown -= delta;
+    const interrupt=controllable&&this.move?.kind==='roll'&&this.radius>=GIANT_IMPACT.MIN_RADIUS&&this.input.consumeHeadbutt();
+    let rollFrom=0;
+    if(interrupt){
+      rollFrom=THREE.MathUtils.euclideanModulo(this.rollSpin+Math.PI,Math.PI*2)-Math.PI;
+      this.move=null;this.moveCooldown=0;
+    }
 
     if (controllable && !this.move && this.moveCooldown <= 0) {
       // The aim is LOCKED when the move starts, exactly as the facing is: a
       // headbutt commits to where it was pointed, not to where the mouse
       // drifted during the windup.
-      if (this.input.consumeHeadbutt()) {
+      if (interrupt||this.input.consumeHeadbutt()) {
         const yaw = this.aimYaw ?? this.yaw;
-        this.move = { kind: 'headbutt', t: 0, fired: false, aim: this.aimPitch || 0, yaw };
+        this.move = { kind: 'headbutt', t: 0, fired: false, aim: this.aimPitch || 0, yaw, rollFrom };
         // He commits his BODY to the aim as the windup begins (Chris,
         // 2026-08-08: snap on the swing, rather than turning to the camera
         // while merely looking around — that would rewrite a walk feel he has
@@ -460,7 +466,7 @@ export class JimothyController {
         // this is the only moment it can happen, and the 0.12 s of rearing
         // back covers the turn.
         this.yaw = yaw;
-      } else if (this.input.consumeRoll()) this.move = { kind: 'roll', t: 0, ticks: 0,
+      } else if (this.input.consumeRoll() || (this.radius>=GIANT_IMPACT.MIN_RADIUS&&this.grounded&&this.input.held('ROLL'))) this.move = { kind: 'roll', t: 0, ticks: 0,
         carveFrom:{x:this.body.position.x,y:this.body.position.y-this.radius,z:this.body.position.z} };
     }
     // Queued presses are deliberately NOT drained while busy — a press during
@@ -486,10 +492,13 @@ export class JimothyController {
         this.vel.x = -fwdX * 1.5 * flat;
         this.vel.z = -fwdZ * 1.5 * flat;
       } else if (m.t < H.WINDUP + H.LUNGE) {
-        this.vel.x = fwdX * H.LUNGE_SPEED * flat;
-        this.vel.z = fwdZ * H.LUNGE_SPEED * flat;
+        const giant=this.radius>=GIANT_IMPACT.MIN_RADIUS;
+        const speed=giant?Math.min(GIANT_IMPACT.MAX_LUNGE_SPEED,H.LUNGE_SPEED+this.radius*GIANT_IMPACT.LUNGE_PER_RADIUS):H.LUNGE_SPEED;
+        this.vel.x = fwdX * speed * flat;
+        this.vel.z = fwdZ * speed * flat;
         if (!m.fired) {
           m.fired = true;
+          if(giant&&aim<-GIANT_IMPACT.UPWARD_THRESHOLD&&this.grounded){this.vy=-Math.sin(aim)*speed;this.grounded=false;}
           const p = this.body.position;
           // Game offsets the impact by its own blast radius so the sphere
           // lands clear of his feet — otherwise a fat Jimothy digs the pit
@@ -633,7 +642,7 @@ export class JimothyController {
     // so a sewer puts the eye a metre off his back and he is between you and
     // everything you are trying to look at. One frame stale — the camera runs
     // after him in the loop — which at 60 Hz is nothing.
-    const crowded = this.cameraDist < CAMERA.FADE_DISTANCE;
+    const crowded = this.cameraDist < Math.max(CAMERA.FADE_DISTANCE,rad*CAMERA.BODY_FADE_RATIO);
     const fade = hidden || crowded;
     // Transparency is a STATE, not a permanent property. Leaving `transparent`
     // on parks every piece in the sorted transparent queue for the whole run
@@ -750,7 +759,13 @@ export class JimothyController {
     this.headSlot.rotation.x =
       -bodyPitch * MOVES.HEADBUTT.HEAD_PITCH_GAIN + tuck * MOVES.ROLL.TUCK_HEAD;
     // Single owner of the body's pitch: headbutt lean + roll tumble.
-    this.group.rotation.x = bodyPitch * 0.5 + this.rollSpin + this.launchSpin + gameState.arrival.pitch;
+    let aimLean=0;
+    if(this.move?.kind==='headbutt'&&rad>=GIANT_IMPACT.MIN_RADIUS){
+      const H=MOVES.HEADBUTT,t=this.move.t;
+      aimLean=Math.min(0,this.move.aim)*Math.sin(Math.PI*Math.min(1,t/(H.WINDUP+H.LUNGE+H.RECOVER)))*GIANT_IMPACT.AIM_LEAN;
+      aimLean+=(this.move.rollFrom||0)*(1-THREE.MathUtils.smoothstep(t,0,H.WINDUP));
+    }
+    this.group.rotation.x = bodyPitch * 0.5 + aimLean + this.rollSpin + this.launchSpin + gameState.arrival.pitch;
     anchor(this.tailSlot.userData.base, this.tailSlot.position);
     this.tailSlot.rotation.y = Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck);
     this.tailSlot.rotation.x = tuck * MOVES.ROLL.TUCK_TAIL; // curls in for the roll

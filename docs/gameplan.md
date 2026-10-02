@@ -107,7 +107,7 @@ Procedural Web Audio, zero dependencies. Full meme slop: honks/squeaks for Jimot
 
 ## Approved military refinement — 2026-10-02
 
-The giant-world pass adds tanks at tier 5 for all sizes, or tier 4 when Jimothy reaches an 8 m collision radius. Jets join at tier 5 for that larger size. Orange ground marks and HUD warnings precede attacks; moving away dodges the marked strike. Shells collide with intervening buildings and Jimothy's outer body. Blasts reset the combo, briefly launch and tumble him, and return control. The net remains the only run-ender. Strong attacks break military vehicles into physical parts that a large rolling Jimothy can collect. Trees and the police cordon remain separate future work in milestone 03.
+The giant-world pass adds tanks at tier 5 for all sizes, or tier 4 when Jimothy reaches an 8 m collision radius. Jets join at tier 5 for that larger size. Orange ground marks and HUD warnings precede attacks; moving away dodges the marked strike. Shells collide with intervening buildings and Jimothy's outer body. Blasts reset the combo, briefly launch and tumble him, and return control. The net remains the only run-ender. Strong attacks break military vehicles into physical parts that a large rolling Jimothy can collect. At giant size, E can interrupt rolling for an aimed headbutt. Looking upward launches his body toward low jet passes; the camera keeps the aircraft visible above his shoulder. Holding C resumes rolling after landing and recovery. Jets descend for their attack and climb away; distant or wrongly aimed attacks miss. Trees and the police cordon remain separate future work in milestone 03.
 
 ## Approved coast and underwater extension — 2026-10-02
 

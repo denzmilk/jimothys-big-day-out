@@ -1,12 +1,22 @@
 # Session state
 
+## Giant military headbutts — JIM-71 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Giant headbutts now include upward aim, a bounded body lunge and matching reticle reach. E interrupts an active roll; holding C resumes rolling after landing/recovery. Jets descend into a reachable pass and climb away. Hits break jets/tanks into their existing physical parts; distant and wrongly aimed attacks miss. An elevated shoulder camera keeps sky targets visible and avoids the below-street orbit found during native review. Lean controls and the net-only ending remain intact.
+
+All 54 unit checks and 63 unique relevant gameplay checks pass across the regression/final runs. The final 34-case run passed 33; its treasure heat failure was traced to an army shell after the treasure had already been found. The fixture now measures score/fatness/heat across actual pickup, and passes with the same no-reward assertions. Native loaded-model Block/Absurd aim, lunge, breakage and landing captures were inspected; a separate loaded-model case intercepts a moving jet on its natural pass. Build and production pixel smoke pass, with no native or smoke console errors. Six earlier reproductions failed before repair: upward reach, tank reach, roll interrupt, low jet pass, below-ground camera and held-roll resumption.
+
+Evidence under `output/iterate/`: `giant-military-{red,green,regression,final,units,native,absurd-native}.log`, `giant-jet-pass-red.log`, `giant-camera-{red,green}.log`, `giant-intercept-first.log`, `giant-treasure-{trace,source,final}.log`, `giant-military-{build,smoke}-final.log`, and `giant-army-*.png`.
+
+**This correction pass:** original fat/jiggly model and skin attachments (`f5ecfec`), shallow continuous ground channels (`b63c8f9`), and aimed military headbutts are implemented. Heavy-demolition hitches remain as measured below (JIM-48); this pass is not a frame-rate sign-off. Play at **http://127.0.0.1:4174**: use Block/Absurd size in DevTools, hold C, look up toward a low jet and press E, then keep C held to resume rolling. Chris still needs to judge the body shape, channel feel and attack timing. The separate collectibles/farms/Seattle proposal remains recorded below.
+
 ## Ground channels — JIM-70 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Giant rolls now carve continuous shallow channels across ground/roads. Tapered banks, real voxel floors and persistent edits share the existing world; repeated passes respect original grade. A bounded segment queue shares time with building damage and preserves travel appended during yielding. Lean rolls/aimed digging stay intact.
 
 All 54 unit checks and 25 unique adjacent terrain/aim/destruction/beach gameplay checks pass across the final runs. Three reproductions failed first (absent cuts, lost appended segment, starved structure work). Build and production pixel smoke are error-free; native cuts inspected. Loaded Chrome/Metal, 1280×800 Medium, live work budgets, 100 m roll, army disabled: Block/Absurd update-plus-render submission median **18.4/20.9 ms**, p95 **32.5/43.6**, worst **667.8/167**. Both carry 64 objects; at most three damage jobs, with one/three queued path segments. Damage drains; Absurd still has seven mesh jobs after six seconds settling. Heavy destruction still hitches and this is not a locked frame-rate result (JIM-48). See milestone 33 and `output/iterate/ground-channel-*` for exact evidence.
 
-**Next:** JIM-71 upward military headbutts, already reproduced with four failing checks. JIM-69 is pushed as `f5ecfec`.
+**Follow-up:** JIM-71 is implemented in the entry above. JIM-70 is pushed as `b63c8f9`; JIM-69 as `f5ecfec`.
 
 ## Original giant model — JIM-69 — 2026-10-03
 

@@ -37,9 +37,11 @@ Roll damage intentionally excludes implicit terrain and repeats separate spheres
 
 ### JIM-71 — Giant headbutts ignore upward aim against military aircraft
 
-**Status:** queued in this correction pass · **Reported:** 2026-10-03 (Chris) · Milestone 34 refinement.
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 34 refinement.
 
-Giant headbutt centres offset only x/z, discarding the aim direction's y component; military units only receive a nearby sphere impact. Verify and repair upward aimed reach against low attack passes and ground army units while keeping net-only endings and existing lean controls. Locations: `Game.onImpact`, aiming/reticle, `Military`.
+Giant headbutt centres offset only x/z, discarding the aim direction's y component; military units only receive a nearby sphere impact. Verify and repair upward aimed reach against low attack passes and ground army units while keeping net-only endings and existing lean controls. Locations: `Game.onImpact`, aiming/reticle, `Military`. Native verification also exposed the extended upward orbit placing the eye 9.34 m beneath terrain; a loaded-model camera regression now guards above-ground clearance and aircraft framing.
+
+**Repair:** the damage sphere follows all three aim axes, with shared reticle reach, a grounded upward lunge and roll interruption/resumption. Jets descend near the target and climb out; the sky camera stays elevated. Eight targeted attack/camera cases pass, including a moving jet interception. Across final runs, 63 unique gameplay checks and all 54 unit checks pass, plus build/pixel smoke. The older treasure fixture was corrected after tracing its heat change to a tank shell; the actual pickup still changes no score, fatness or heat. Loaded Block/Absurd native captures are error-free. Evidence and remaining performance limits are in STATE.
 
 ### JIM-68 — Lean Jimothy charges through people and cars without resistance
 

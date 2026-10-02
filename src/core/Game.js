@@ -115,7 +115,7 @@ class Game {
             if(this.voxels.queueGroundChannel(from,to,halfWidth,depth)&&move)move.carveFrom=to;
           }
         }
-        const center={x:x+dir.x*offset,y,z:z+dir.z*offset};
+        const center={x:x+dir.x*offset,y:y+dir.y*offset,z:z+dir.z*offset};
         const radius=bodyRadius*(rolling?GIANT_IMPACT.ROLL_RADIUS:GIANT_IMPACT.HEADBUTT_RADIUS);
         this.voxels.queueDamageSphere(center.x,center.y,center.z,radius,{key:rolling?'roll':null});
         // Body contact already loosens collectibles. A demolition impulse on
@@ -506,7 +506,7 @@ class Game {
     // the swing meets, whether that is ground, whether it is close enough to
     // hit, and where the sphere goes. The three used to be derived separately
     // and disagreed by 1.4 m (playtest 2026-08-08).
-    const hit = this.aimHit(p, this._aimDir);
+    const hit = this.aimHit(p, this._aimDir,Math.max(RETICLE.LOOK_RANGE,reach));
     const inReach = !!hit && hit.t <= reach;
     const digs = this.digsTerrain(H, aim, p, inReach ? hit : null);
     // While aiming (pointer locked), while a swing is in flight, and ALWAYS when
@@ -665,6 +665,8 @@ class Game {
    *  and the reticle's "in reach", so none of them can hold a different opinion
    *  about what this swing can and cannot get to. */
   blastReach(cfg, reach) {
+    if(cfg===MOVES.HEADBUTT&&this.jimothy.radius>=GIANT_IMPACT.MIN_RADIUS)
+      return this.jimothy.radius*(GIANT_IMPACT.HEADBUTT_FORWARD+GIANT_IMPACT.HEADBUTT_RADIUS);
     const r = this.blastRadius(cfg.FAT_BLAST_SHARE) * cfg.RADIUS_SCALE;
     return r * 0.95 + reach + r;
   }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {eventBus, Events} from '../core/EventBus.js';
-import { CAMERA, PLAYER_CONFIG, OCEAN } from '../core/Constants.js';
+import { CAMERA, PLAYER_CONFIG, OCEAN, GIANT_IMPACT } from '../core/Constants.js';
 
 // Two modes. Follow (default) is a pull-cam: yaw derives from the camera→
 // Jimothy line, so it rotates only when he displaces sideways — walking
@@ -78,18 +78,37 @@ export class CameraSystem {
   _computeOrbitDesired() {
     const jp = this.jimothy.position;
     const dist = this._boom;
-    const horiz = Math.cos(this.pitch) * dist;
+    // JIM-71: a low orbit puts the eye beneath the street at giant scale.
+    // Keep the shoulder elevated and lift the sight line toward the attack.
+    const skyAim = this._skyAim;
+    const pitch = THREE.MathUtils.lerp(this.pitch, Math.max(this.pitch,this.neutralPitch), skyAim);
+    const horiz = Math.cos(pitch) * dist;
+    const shoulder = this.jimothy.radius * CAMERA.GIANT_AIM_SHOULDER * skyAim;
     this._desired.set(
-      jp.x - Math.sin(this.yaw) * horiz,
-      jp.y + this._lookHeight + Math.sin(this.pitch) * dist,
-      jp.z - Math.cos(this.yaw) * horiz,
+      jp.x - Math.sin(this.yaw) * horiz - Math.cos(this.yaw) * shoulder,
+      jp.y + this._lookHeight + Math.sin(pitch) * dist,
+      jp.z - Math.cos(this.yaw) * horiz + Math.sin(this.yaw) * shoulder,
     );
     return this._desired;
   }
 
+  get _skyAim() {
+    return this.mode === 'orbit' && !this.jimothy.diving && this.jimothy.radius >= GIANT_IMPACT.MIN_RADIUS
+      ? THREE.MathUtils.smoothstep(-this.aimPitch,0,CAMERA.GIANT_AIM_BLEND) : 0;
+  }
+
   _lookTarget() {
     const jp = this.jimothy.position;
-    return this._look.set(jp.x, jp.y + this._lookHeight, jp.z);
+    this._look.set(jp.x, jp.y + this._lookHeight, jp.z);
+    const skyAim = this._skyAim;
+    if(skyAim){
+      const reach=this.jimothy.radius*(GIANT_IMPACT.HEADBUTT_FORWARD+GIANT_IMPACT.HEADBUTT_RADIUS);
+      const flat=Math.cos(this.aimPitch)*reach;
+      this._look.x+=Math.sin(this.yaw)*flat*skyAim;
+      this._look.z+=Math.cos(this.yaw)*flat*skyAim;
+      this._look.y=THREE.MathUtils.lerp(this._look.y,this.jimothy.body.position.y-Math.sin(this.aimPitch)*reach,skyAim);
+    }
+    return this._look;
   }
 
   /** Pull a boom endpoint in until the line from the look target to it is clear
@@ -158,7 +177,7 @@ export class CameraSystem {
       this.yaw -= d.x * CAMERA.MOUSE_SENS;
       this.pitch = THREE.MathUtils.clamp(
         this.pitch + d.y * CAMERA.MOUSE_SENS,
-        this.jimothy.diving?OCEAN.CAMERA_PITCH_MIN:CAMERA.PITCH_MIN,
+        this.jimothy.diving?OCEAN.CAMERA_PITCH_MIN:this.jimothy.radius>=GIANT_IMPACT.MIN_RADIUS?CAMERA.GIANT_PITCH_MIN:CAMERA.PITCH_MIN,
         CAMERA.PITCH_MAX,
       );
       this._computeOrbitDesired();

@@ -10,6 +10,12 @@
 
 ## Open
 
+### JIM-65 — Stone structures show a narrow gap above smoothed ground
+
+**Status:** implemented, awaiting playtest · **Found:** 2026-10-02 during underwater visual review
+
+A rigid wall's lowest side face was culled against an adjacent terrain voxel even when that neighbour's rendered surface had been lowered inside the cell. This exposed a thin blue strip at the feet of underwater pillars. `tests/structure-ground-contact.test.mjs` reproduces the missing face with a horizontal ray between the actual ground and the voxel ceiling (`structure-ground-red.log`). The mesher now retains only that exposed strip; normal buried faces remain hidden. All 39 unit checks and 17 terrain/physics/beach cases pass, along with build and production rendered smoke. The native temple capture now shows closed bases and no errors (`structure-ground-native.log`, `ocean-temple.png`). These checks include the in-progress underwater feature.
+
 ### JIM-64 — First explosion recompiles the lit world and freezes a frame
 
 **Status:** implemented, awaiting playtest · **Found:** 2026-10-02 during native military profiling

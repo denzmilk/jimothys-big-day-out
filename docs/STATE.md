@@ -1,5 +1,9 @@
 # Session state
 
+## Structure-to-ground contact — JIM-65 — 2026-10-02
+
+Implemented, awaiting playtest. A meshing gap discovered at underwater pillar bases also affected rigid structures beside smoothed terrain. The exposed fraction of the lowest side face is now retained. The failing geometry ray check passes, all 39 unit checks and 17 terrain/physics/beach cases pass, and build/production rendered smoke are error-free. Native temple inspection confirms the gap is closed. Evidence: `structure-ground-*`, `ocean-temple.png`. Milestone 36 remains in progress; final atmosphere and native travel measurements are next.
+
 ## Deformable beaches — milestone 35 / JIM-59 — 2026-10-02
 
 Implemented, awaiting Chris’s playtest. Five beach regions have dry/wet sand, blended tidelines, longer outer shallows and modest dunes; roads and hills remain intact. Moving paws, rolls and impacts compact a sparse persistent sand field with partial settling and pooled grains. Rendering and contact use the same field; real craters disable the skin. Four sand/contact unit cases, fifteen beach/water/terrain cases three final beach/grounding cases and all three living-environment regressions pass. Build and production rendered smoke pass without console errors. Native beach/track captures were inspected (`beach-overview.png`, `beach-tracks.png`); the close view is for shallow paw dents, not large granular piles.

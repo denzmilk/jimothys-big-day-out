@@ -951,7 +951,21 @@ export class VoxelWorld {
               }
               continue;
             }
-            if (occupied(nx, ly + f.d[1], nz, mat)) continue;
+            if (occupied(nx, ly + f.d[1], nz, mat)) {
+              // JIM-65: a smoothed neighbour can end below its voxel ceiling.
+              // Keep the exposed strip on a rigid wall instead of culling it
+              // against ground that no longer reaches that height visually.
+              if(!smooth&&f.d[1]===0&&intact[(nz+1)*P+nx+1]&&vy===tops[(nz+1)*P+nx+1]){
+                let exposed=false;
+                const wall=f.v.map(([ox,oy,oz])=>{
+                  const top=(vy+1)*s,bottom=Math.max(vy*s,surfaceCorner(nx,nz,ox-f.d[0],oz-f.d[2]));
+                  if(top>bottom+1e-6)exposed=true;
+                  return[(vx+ox)*s,oy?top:Math.min(top,bottom),(vz+oz)*s];
+                });
+                if(exposed)emitQuad(wall,color,f.d);
+              }
+              continue;
+            }
             // Undisturbed ground: every vertex on the voxel's TOP plane moves to
             // the real surface. That covers the top face and the upper edge of
             // any side wall in one rule, so the two always meet.

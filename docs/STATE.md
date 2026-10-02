@@ -1,5 +1,9 @@
 # Session state
 
+## Food and populated interiors — milestones 37–38 — 2026-10-02
+
+Milestone 37 implemented, awaiting playtest: sixteen food identities/models, matching pickup names, actual floor support, vertical reach checks and a 96-pickup cap. Food assets share batches. Food/economy, asset/batch, restart, build and rendered smoke checks pass; native lineup/spill inspected. Milestone 38 continuous furnished interiors and bounded residents is next. Prior world-pass code is implemented and pushed; playtest sign-off remains outstanding. See milestones 37–38 and ADR-0006.
+
 ## Underwater exploration and completed world-pass sequence — milestone 36 — 2026-10-02
 
 **Implemented, awaiting Chris’s playtest.** The approved sequence is now implemented: giant shape/continuous rolling/collection repairs → bounded demolition, batching and quality/draw distance → military tanks/jets → deformable beaches → diving and underwater sites. Earlier pedestrian/car/world work remains in place. Unrelated backlog features remain deferred.

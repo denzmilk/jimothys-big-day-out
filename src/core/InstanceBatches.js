@@ -19,7 +19,7 @@ export class InstanceBatches {
       }
       let geo=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();
       // Only position/normal/UV are used by the imported rigid materials.
-      for(const name of Object.keys(geo.attributes))if(!['position','normal','uv'].includes(name))geo.deleteAttribute(name);
+      for(const name of Object.keys(geo.attributes))if(!['position','normal','uv','color'].includes(name))geo.deleteAttribute(name);
       if(!geo.getAttribute('normal'))geo.computeVertexNormals();
       if(!geo.getAttribute('uv'))geo.setAttribute('uv',new THREE.BufferAttribute(new Float32Array(geo.getAttribute('position').count*2),2));
       if(solid){const colors=new Float32Array(geo.getAttribute('position').count*3);for(let i=0;i<colors.length;i+=3)source.color.toArray(colors,i);geo.setAttribute('color',new THREE.BufferAttribute(colors,3));}

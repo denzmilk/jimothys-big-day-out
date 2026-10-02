@@ -1,0 +1,178 @@
+[
+  {
+    "id": "pizza-slice",
+    "name": "PIZZA SLICE",
+    "type": "scrap",
+    "size": 0.32,
+    "source": "pizza",
+    "edit": "slice",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "old-banana",
+    "name": "OLD BANANA",
+    "type": "scrap",
+    "size": 0.28,
+    "source": "banana",
+    "edit": "",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "cold-fries",
+    "name": "COLD FRIES",
+    "type": "scrap",
+    "size": 0.26,
+    "source": "fries",
+    "edit": "",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "mystery-meat",
+    "name": "MYSTERY MEAT",
+    "type": "scrap",
+    "size": 0.3,
+    "source": "meat-cooked",
+    "edit": "",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "chicken-bone",
+    "name": "CHICKEN BONE",
+    "type": "scrap",
+    "size": 0.27,
+    "source": "turkey",
+    "edit": "bone",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "burrito",
+    "name": "SUSPICIOUS BURRITO",
+    "type": "scrap",
+    "size": 0.34,
+    "source": "loaf",
+    "edit": "wrap",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "wet-bread",
+    "name": "WET BREAD",
+    "type": "scrap",
+    "size": 0.25,
+    "source": "bread",
+    "edit": "",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "half-hot-dog",
+    "name": "HALF A HOT DOG",
+    "type": "scrap",
+    "size": 0.26,
+    "source": "hot-dog",
+    "edit": "half",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "expired-yogurt",
+    "name": "EXPIRED YOGURT",
+    "type": "scrap",
+    "size": 0.21,
+    "source": "ice-cream-cup",
+    "edit": "yogurt",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "fancy-garbage",
+    "name": "FANCY GARBAGE",
+    "type": "scrap",
+    "size": 0.24,
+    "source": "sushi-salmon",
+    "edit": "",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "whole-pizza",
+    "name": "WHOLE PIZZA",
+    "type": "feast",
+    "size": 0.68,
+    "source": "pizza",
+    "edit": "",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "turkey-leg",
+    "name": "TURKEY LEG",
+    "type": "feast",
+    "size": 0.43,
+    "source": "turkey",
+    "edit": "leg",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "lasagna",
+    "name": "ENTIRE LASAGNA",
+    "type": "feast",
+    "size": 0.62,
+    "source": "bread",
+    "edit": "lasagna",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "birthday-cake",
+    "name": "BIRTHDAY CAKE",
+    "type": "feast",
+    "size": 0.52,
+    "source": "cake-birthday",
+    "edit": "",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "family-roast",
+    "name": "FAMILY ROAST",
+    "type": "feast",
+    "size": 0.7,
+    "source": "turkey",
+    "edit": "",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  },
+  {
+    "id": "meatloaf",
+    "name": "ABANDONED MEATLOAF",
+    "type": "feast",
+    "size": 0.62,
+    "source": "loaf",
+    "edit": "meatloaf",
+    "author": "Kenney",
+    "license": "CC0-1.0",
+    "url": "https://kenney.nl/assets/food-kit"
+  }
+]

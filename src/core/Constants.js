@@ -1420,3 +1420,10 @@ OCEAN.RUIN_LAYOUTS=Object.fromEntries(OCEAN.RUINS.map(family=>{
  }
  return [family,pieces];
 }));
+
+// M37: the pickup silhouette, displayed name and payout share one identity.
+export const FOOD_MODELS = {
+  IDS: ['pizza-slice','old-banana','cold-fries','mystery-meat','chicken-bone','burrito','wet-bread','half-hot-dog','expired-yogurt','fancy-garbage','whole-pizza','turkey-leg','lasagna','birthday-cake','family-roast','meatloaf'],
+  LIMIT: 96, BOB_HEIGHT: .025, CLEARANCE: .035, SUPPORT_SCAN: .25,
+  SUPPORT_INTERVAL: .25, REACH_HEIGHT: 1.15, SPIN_RATE: 3,
+};

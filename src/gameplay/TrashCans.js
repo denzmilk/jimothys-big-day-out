@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  TRASH_CAN as TC, SNACKS, FOODS, PLAYER_CONFIG, COLORS, WORLD, CITY, STREAM, VOXEL, COLLECTION,
+  TRASH_CAN as TC, SNACKS, FOODS, PLAYER_CONFIG, COLORS, WORLD, CITY, STREAM, VOXEL, COLLECTION, FOOD_MODELS as FOOD,
 } from '../core/Constants.js';
+import {FoodLibrary} from '../core/FoodLibrary.js';
+import {InstanceBatches} from '../core/InstanceBatches.js';
 import * as Layout from '../level/Layout.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
@@ -59,15 +61,15 @@ export class TrashCans {
     eventBus.on(Events.ENTITY_RELEASE, ({id,position,ground}) => {
       const can=this.cans.find(c=>c.collectId===id),snack=this.snacks.find(s=>s.collectId===id);
       if(can){can.attached=false;can.body.position.set(position.x,ground+can.kind.height/2,position.z);can.mesh.position.copy(can.body.position);can.body.quaternion.copy(can.mesh.quaternion);can.body.velocity.setZero();can.body.angularVelocity.setZero();this.physics.resetSweep(can.body);this.physics.add(can.body,can.mesh);can.body.wakeUp();}
-      if(snack){snack.attached=false;snack.baseY=this._restY(position.x,position.z);snack.mesh.position.set(position.x,snack.baseY,position.z);}
+      if(snack){snack.attached=false;snack.baseY=this._restY(position.x,position.z,ground);snack.mesh.position.set(position.x,snack.baseY,position.z);}
     });
     this._up = new CANNON.Vec3();
 
-    this.snackGeo = new THREE.SphereGeometry(FOODS.SCRAP.RADIUS, 10, 8);
-    this.snackMat = new THREE.MeshStandardMaterial({ color: COLORS.SNACK });
-    // Feast = golden puck (a whole pizza in spirit).
-    this.feastGeo = new THREE.CylinderGeometry(FOODS.FEAST.RADIUS, FOODS.FEAST.RADIUS, 0.12, 12);
-    this.feastMat = new THREE.MeshStandardMaterial({ color: COLORS.FEAST });
+    this.foodLibrary=new FoodLibrary();this.foodBatches=new InstanceBatches(scene,FOOD.LIMIT);
+    this.ready=false;
+    this.loading=this.foodLibrary.loading.then(()=>{
+      this.ready=true;for(const s of this.snacks)this._dressFood(s);
+    }).catch(error=>console.error('Food assets failed',error));
     this.canGeo = new THREE.CylinderGeometry(TC.RADIUS + 0.02, TC.RADIUS - 0.03, TC.HEIGHT, 12);
     this.canMat = new THREE.MeshStandardMaterial({ color: COLORS.PLACEHOLDER_TRASH_CAN });
 
@@ -246,7 +248,7 @@ export class TrashCans {
 
   clearSnacks() {
     for (const s of this.snacks) {eventBus.emit(Events.ENTITY_UNREGISTER,{id:s.collectId});s.mesh.removeFromParent();}
-    this.snacks = [];
+    this.snacks = [];this.foodBatches.clear();
   }
 
   reset() {
@@ -322,26 +324,28 @@ export class TrashCans {
     for (let i = this.snacks.length - 1; i >= 0; i--) {
       const s = this.snacks[i];
       if(s.attached||(this.jimothy.move?.kind==='roll'&&this.jimothy.radius>=COLLECTION.MIN_RADIUS))continue;
-      s.mesh.position.y = (s.baseY ?? 0.18)
-        + Math.sin(this.elapsed * SNACKS.BOB_HZ + s.phase) * 0.05;
+      s.supportTimer=(s.supportTimer||0)-delta;
+      if(s.supportTimer<=0){s.supportTimer=FOOD.SUPPORT_INTERVAL;s.baseY=this._restY(s.mesh.position.x,s.mesh.position.z,s.baseY);}
+      s.mesh.position.y = s.baseY + Math.sin(this.elapsed * SNACKS.BOB_HZ + s.phase) * FOOD.BOB_HEIGHT;
       const d = Math.hypot(s.mesh.position.x - jp.x, s.mesh.position.z - jp.z);
+      const reachable=Math.abs(s.baseY-(jp.y-this.jimothy.radius))<FOOD.REACH_HEIGHT;
       if (s.type === 'feast') {
         // Feasts are a commitment: stand within reach, nearly still, and chomp
         // through the channel. Wander off (or get stunned into a stagger) and
         // the progress is gone.
         const eating =
-          d < FOODS.FEAST.REACH &&
+          reachable && d < FOODS.FEAST.REACH &&
           this.jimothy.speed < FOODS.FEAST.EAT_MAX_SPEED &&
           !gameState.player.stunned;
         if (eating) {
           if (s.progress === 0) eventBus.emit(Events.PLAYER_EATING, {});
           s.progress += delta;
-          s.mesh.rotation.y += delta * 6; // spinning pizza = being devoured
+          s.mesh.rotation.y += delta * FOOD.SPIN_RATE;
           if (s.progress >= FOODS.FEAST.CHANNEL_SECONDS) {
             eventBus.emit(Events.ENTITY_UNREGISTER,{id:s.collectId});
             this.scene.remove(s.mesh);
             this.snacks.splice(i, 1);
-            const name = FOODS.FEAST.NAMES[Math.floor(Math.random() * FOODS.FEAST.NAMES.length)];
+            const name = s.name;
             eventBus.emit(Events.PLAYER_PICKUP, {
               name, points: FOODS.FEAST.POINTS, fat: FOODS.FEAST.FAT,
             });
@@ -349,12 +353,12 @@ export class TrashCans {
         } else if (s.progress > 0) {
           s.progress = 0;
         }
-      } else if (d < PLAYER_CONFIG.PICKUP_RADIUS) {
+      } else if (reachable && d < PLAYER_CONFIG.PICKUP_RADIUS) {
         // Geometry/material are shared across all snacks — remove, don't dispose.
         eventBus.emit(Events.ENTITY_UNREGISTER,{id:s.collectId});
         this.scene.remove(s.mesh);
         this.snacks.splice(i, 1);
-        const name = SNACKS.NAMES[Math.floor(Math.random() * SNACKS.NAMES.length)];
+        const name = s.name;
         eventBus.emit(Events.PLAYER_PICKUP, {
           name, points: FOODS.SCRAP.POINTS, fat: FOODS.SCRAP.FAT,
         });
@@ -362,10 +366,13 @@ export class TrashCans {
     }
   }
 
-  /** Rest height for a dropped snack: on the ground under it, not at 0.18,
-   *  which meant "just above grade" and only ever worked on a flat world. */
-  _restY(x, z) {
-    return (this.voxels ? this.voxels.terrainHeightAt(x, z) : 0) + 0.18;
+  _restY(x,z,from=null) {
+    const surface=this.voxels?.terrainHeightAt(x,z)||0;
+    return (this.voxels?this.voxels.groundHeightAt(x,z,(from??surface)+FOOD.SUPPORT_SCAN):surface)+FOOD.CLEARANCE;
+  }
+
+  _dressFood(s){
+    const model=this.foodLibrary.clone(s.foodId);if(model)s.mesh.add(model);
   }
 
   _addSnack(s) {
@@ -373,28 +380,29 @@ export class TrashCans {
     eventBus.emit(Events.ENTITY_REGISTER,{id:s.collectId,mesh:s.mesh,kind:'food',size:COLLECTION.FOOD_SIZE});
   }
 
+  spawnFood(foodId,x,z,y=null,owner=null){
+    const food=this.foodLibrary.get(foodId);if(!food)return null;
+    if(this.snacks.length>=FOOD.LIMIT){
+      const old=this.snacks.find(s=>!s.attached);if(!old)return null;
+      this.removeSnack(old);
+    }
+    const mesh=new THREE.Group(),baseY=y??this._restY(x,z);
+    mesh.position.set(x,baseY,z);mesh.rotation.y=this.entitySerial;this.scene.add(mesh);
+    const s={mesh,foodId,name:food.name,type:food.type,phase:this.entitySerial,progress:0,baseY,owner};
+    this._dressFood(s);this._addSnack(s);return s;
+  }
+
+  removeSnack(s){eventBus.emit(Events.ENTITY_UNREGISTER,{id:s.collectId});s.mesh.removeFromParent();this.snacks.splice(this.snacks.indexOf(s),1);}
+  syncVisuals(){this.foodBatches.update(this.snacks.map(s=>({key:s.foodId,root:s.mesh})));}
+
   spillFrom(can) {
-    const cp = can.body.position;
-    const scraps = can.kind?.scraps ?? SNACKS.SCRAPS_PER_CAN;
-    const feasts = can.kind?.feasts ?? SNACKS.FEASTS_PER_CAN;
-    for (let k = 0; k < scraps; k++) {
-      const a = (k / scraps) * Math.PI * 2;
-      const mesh = new THREE.Mesh(this.snackGeo, this.snackMat);
-      const x = cp.x + Math.cos(a) * SNACKS.SCATTER_RADIUS;
-      const z = cp.z + Math.sin(a) * SNACKS.SCATTER_RADIUS;
-      const baseY = this._restY(x, z);
-      mesh.position.set(x, baseY, z);
-      this.scene.add(mesh);
-      this._addSnack({ mesh, phase: k, type: 'scrap', baseY });
+    const cp=can.body.position,scraps=can.kind?.scraps??SNACKS.SCRAPS_PER_CAN,feasts=can.kind?.feasts??SNACKS.FEASTS_PER_CAN;
+    const seed=Math.abs(Math.imul(Math.round(cp.x),73856093)^Math.imul(Math.round(cp.z),19349663));
+    const catalog=this.foodLibrary.catalog;
+    for(let k=0;k<scraps;k++){
+      const a=k/scraps*Math.PI*2,x=cp.x+Math.cos(a)*SNACKS.SCATTER_RADIUS,z=cp.z+Math.sin(a)*SNACKS.SCATTER_RADIUS;
+      this.spawnFood(catalog[(seed+k)%SNACKS.NAMES.length].id,x,z);
     }
-    for (let k = 0; k < feasts; k++) {
-      const mesh = new THREE.Mesh(this.feastGeo, this.feastMat);
-      const x = cp.x + SNACKS.FEAST_OFFSET[0] * (k + 1);
-      const z = cp.z + SNACKS.FEAST_OFFSET[1] * (k + 1);
-      const baseY = this._restY(x, z);
-      mesh.position.set(x, baseY, z);
-      this.scene.add(mesh);
-      this._addSnack({ mesh, phase: k, type: 'feast', progress: 0, baseY });
-    }
+    for(let k=0;k<feasts;k++)this.spawnFood(catalog[SNACKS.NAMES.length+(seed+k)%FOODS.FEAST.NAMES.length].id,cp.x+SNACKS.FEAST_OFFSET[0]*(k+1),cp.z+SNACKS.FEAST_OFFSET[1]*(k+1));
   }
 }

@@ -165,3 +165,7 @@ Q descends, Space ascends, and release brakes vertical movement to hold depth. G
 Habitat budgets: 13 animated fish including one larger swimmer, 220 plant instances, ten seabed creatures, 72 registered parts with at most 20 loose, 160 bubbles and seven sunlight shafts. Fish skeletons/mixers are released on removal; nearby schools survive plant-window shifts. Effects and local fog follow camera depth and day/night. Shafts are soft additive geometry, tested against voxel cover, rather than a volumetric fluid renderer. Plants bend in the current and respond to Jimothy. All tuning lives in `OCEAN`.
 
 Blender recipes: `tools/prepare_ocean.py`, `tools/build_ocean_dressing.py`, `tools/export_ocean_layouts.mjs`. Source files/licences, editable deliveries, exact ruin descriptors and runtime GLBs remain under the corresponding `assets/sources/ocean`, `assets/blender/ocean` and `public/assets/models/ocean` folders.
+
+## Food deliveries — milestone 37
+
+Kenney CC0 Food Kit originals/licence are retained in `assets/sources/food`. `tools/prepare_food.py` prepares sixteen metre-scaled single-mesh foods, preserving labels in the runtime manifest and editable files in `assets/blender/food`. Source-derived leftovers and two authored closed silhouettes are recorded by the recipe. `FoodLibrary` caches their geometry; `TrashCans` assigns identity before spawning and batches repeated foods. Shared vertex palettes survive instance batching. Pickup support uses the actual floor and vertical reach; names no longer change at consumption.

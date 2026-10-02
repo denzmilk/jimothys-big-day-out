@@ -375,7 +375,7 @@ class Game {
     this.trashCans.update(delta);
     this.ragdolls.update(delta);
     this.collector.update(delta);
-    this.streetLife.afterUpdate();
+    this.streetLife.afterUpdate();this.trashCans.syncVisuals();
     this.pursuers.update(delta);this.military.update(delta);
     this.pedestrians.update(delta,position=>this.quality.inView(position,GRAPHICS.ACTOR_RADIUS));
     this.level.update(delta, this.camera,jp,this.quality.preset.DETAIL+this.jimothy.radius);
@@ -967,7 +967,7 @@ class Game {
       snacks: this.trashCans.snacks.map((s) => ({
         x: +s.mesh.position.x.toFixed(1),
         z: +s.mesh.position.z.toFixed(1),
-        type: s.type,
+        type: s.type, name:s.name, foodId:s.foodId, y:+s.mesh.position.y.toFixed(2), progress:s.progress,
       })),
     });
   }

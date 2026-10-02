@@ -8,6 +8,15 @@
 >
 > ⚠️ **Not yet mirrored to GitHub.** The repo has a remote (`denzmilk/jimothys-big-day-out`) but the `gh` CLI on this machine is an x86 binary and won't run on Apple Silicon (`bad CPU type in executable`). Fix `gh` (`brew install gh`) and these can be filed as real GitHub issues; until then this file is the register.
 
+## Current interior and food reports — 2026-10-02
+
+### JIM-66 — Food models do not resemble their pickup names
+**Status:** implemented, awaiting playtest · Milestone 37. `TrashCans` renders spheres/discs and selects the food name only when eaten. Fix stable identity, model correspondence and surface support; preserve economy.
+
+### JIM-67 — Buildings are empty shells with no residents
+**Status:** planned · Milestone 38. `VoxelCity` has one floor and no furnished rooms; pedestrian navigation excludes all building footprints. Generate continuous rooms and bounded indoor furniture/residents, with shared grounding/physics.
+
+
 ## Open
 
 ### JIM-65 — Stone structures show a narrow gap above smoothed ground

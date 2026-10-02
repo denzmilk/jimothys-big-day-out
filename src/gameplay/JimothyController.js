@@ -501,7 +501,7 @@ export class JimothyController {
     if (Math.abs(sphere.radius - rad) > 1e-3) {
       sphere.radius = rad;
       sphere.updateBoundingSphereRadius();
-      this.body.updateBoundingRadius();
+      this.body.updateBoundingRadius();this.body.aabbNeedsUpdate=true;
     }
     p.x = THREE.MathUtils.clamp(p.x, -WORLD.BOUNDS, WORLD.BOUNDS);
     p.z = THREE.MathUtils.clamp(p.z, -WORLD.BOUNDS, WORLD.BOUNDS);

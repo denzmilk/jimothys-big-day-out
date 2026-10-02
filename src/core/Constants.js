@@ -1131,6 +1131,7 @@ export const ATMOSPHERE = {
 // Milestones 24/27: the same dimensions drive appearance, break pieces and
 // collection eligibility, so a five-metre pole cannot masquerade as a pebble.
 export const STREET = {
+  BATCH_CAPACITY:256, MARK_REFRESH:.12,
   BUSH_MASS: 10, BUSH_HEIGHT: .7, BUSH_BURIED: .45,
   VEHICLES: ['sedan','hatchback-sports','suv','van','taxi','delivery'],
   ROUGHNESS: .8, LEAF_THRESHOLD: 1,
@@ -1310,3 +1311,5 @@ export const WATER = {
 export const WORK_BUDGET = {MESH_MS:4,MESH_SLICES:2048,GENERATION_MS:3,GENERATION_SLICES:128,DAMAGE_MS:3,DAMAGE_SLICES:16,REPLAY_BATCH:256,MAX_COLUMN_QUEUE:8,MAX_DAMAGE_QUEUE:4,DAMAGE_BATCH:256};
 
 export const GIANT_IMPACT = { MIN_RADIUS:8, ROLL_RADIUS:1.02, HEADBUTT_RADIUS:1.3, HEADBUTT_FORWARD:.25 };
+
+export const VOXEL_BATCH={VERTICES:262144,INSTANCES:128,RESERVE:1.125,GROUND_STEP:4,GROUND_ERROR:.025};

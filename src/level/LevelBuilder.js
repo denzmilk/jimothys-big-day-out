@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {InstanceBatches} from '../core/InstanceBatches.js';
 import { WORLD, COLORS, HIDE_SPOTS, TERRAIN, HORIZON, VOXEL, ATMOSPHERE as A, STREET } from '../core/Constants.js';
 import * as Terrain from './Terrain.js';
 import * as Masterplan from './CityPlanner.js';
@@ -51,7 +52,7 @@ export class LevelBuilder {
       transparent: true,
       opacity: 0.75,
     });
-    this.bushes=[];
+    this.bushes=[];this.bushBatches=new InstanceBatches(scene,HIDE_SPOTS.POSITIONS.length);
     for (const [x, z] of HIDE_SPOTS.POSITIONS) {
       const bush = new THREE.Mesh(bushGeo, bushMat);
       bush.scale.y = STREET.BUSH_HEIGHT;
@@ -163,12 +164,14 @@ export class LevelBuilder {
 
   registerEntities(){for(const p of this.bushes)eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:p.kind,size:p.size});}
   resetObjects(){
+    this.bushBatches.clear();
     for(const p of this.bushes){eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});if(p.loose)eventBus.emit(Events.PROP_REMOVE,{id:p.id});this.scene.add(p.mesh);p.mesh.position.copy(p.origin);p.mesh.quaternion.identity();p.attached=false;p.loose=false;}
     this.registerEntities();
   }
 
   update(delta, camera) {
     this.updateHorizonCoverage();
+    this.bushBatches.update(this.bushes.map(p=>({key:'bush',root:p.mesh})));
     this.time += delta;
     this.atmosphereTime.value = this.time;
     this.sky.position.copy(camera.position);

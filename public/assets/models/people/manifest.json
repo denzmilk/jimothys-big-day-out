@@ -6,7 +6,7 @@
     "hair": "short02",
     "skin": "young_asian_male",
     "triangles": 15834,
-    "bytes": 2678620,
+    "bytes": 2832516,
     "physique": {
       "gender": 1.0,
       "age": 0.5,
@@ -14,7 +14,8 @@
       "weight": 0.4,
       "height": 0.6
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   },
   {
     "id": "neighbour",
@@ -23,7 +24,7 @@
     "hair": "afro01",
     "skin": "middleage_african_female",
     "triangles": 14119,
-    "bytes": 2484924,
+    "bytes": 2563536,
     "physique": {
       "gender": 0.0,
       "age": 0.65,
@@ -31,7 +32,8 @@
       "weight": 0.65,
       "height": 0.4
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   },
   {
     "id": "runner",
@@ -40,7 +42,7 @@
     "hair": "ponytail01",
     "skin": "young_caucasian_female",
     "triangles": 16734,
-    "bytes": 2193016,
+    "bytes": 2333980,
     "physique": {
       "gender": 0.0,
       "age": 0.4,
@@ -48,7 +50,8 @@
       "weight": 0.3,
       "height": 0.7
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   },
   {
     "id": "worker",
@@ -57,7 +60,7 @@
     "hair": "short01",
     "skin": "middleage_african_male",
     "triangles": 16170,
-    "bytes": 2644364,
+    "bytes": 2846740,
     "physique": {
       "gender": 1.0,
       "age": 0.65,
@@ -65,7 +68,8 @@
       "weight": 0.8,
       "height": 0.7
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   },
   {
     "id": "retiree",
@@ -74,7 +78,7 @@
     "hair": "short04",
     "skin": "old_caucasian_male",
     "triangles": 13541,
-    "bytes": 2350824,
+    "bytes": 2533880,
     "physique": {
       "gender": 1.0,
       "age": 0.9,
@@ -82,7 +86,8 @@
       "weight": 0.55,
       "height": 0.4
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   },
   {
     "id": "shopper",
@@ -91,7 +96,7 @@
     "hair": "bob02",
     "skin": "young_asian_female",
     "triangles": 14483,
-    "bytes": 2282424,
+    "bytes": 2424640,
     "physique": {
       "gender": 0.0,
       "age": 0.5,
@@ -99,7 +104,8 @@
       "weight": 0.4,
       "height": 0.55
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   },
   {
     "id": "student",
@@ -108,7 +114,7 @@
     "hair": "short03",
     "skin": "young_african_male",
     "triangles": 13778,
-    "bytes": 2166716,
+    "bytes": 2302516,
     "physique": {
       "gender": 1.0,
       "age": 0.28,
@@ -116,7 +122,8 @@
       "weight": 0.27,
       "height": 0.64
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   },
   {
     "id": "walker",
@@ -125,7 +132,7 @@
     "hair": "braid01",
     "skin": "middleage_asian_female",
     "triangles": 16991,
-    "bytes": 2620440,
+    "bytes": 2768512,
     "physique": {
       "gender": 0.0,
       "age": 0.62,
@@ -133,7 +140,8 @@
       "weight": 0.6,
       "height": 0.78
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   },
   {
     "id": "musician",
@@ -142,7 +150,7 @@
     "hair": null,
     "skin": "middleage_caucasian_male",
     "triangles": 13736,
-    "bytes": 2676088,
+    "bytes": 2837544,
     "physique": {
       "gender": 1.0,
       "age": 0.55,
@@ -152,7 +160,8 @@
     },
     "accessories": [
       "fedora01"
-    ]
+    ],
+    "draws": 1
   },
   {
     "id": "tourist",
@@ -161,7 +170,7 @@
     "hair": "short01",
     "skin": "middleage_asian_male",
     "triangles": 15718,
-    "bytes": 2112976,
+    "bytes": 2348436,
     "physique": {
       "gender": 1.0,
       "age": 0.58,
@@ -169,7 +178,8 @@
       "weight": 0.88,
       "height": 0.42
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   },
   {
     "id": "pensioner",
@@ -178,7 +188,7 @@
     "hair": "short04",
     "skin": "old_african_female",
     "triangles": 13021,
-    "bytes": 2249652,
+    "bytes": 2369800,
     "physique": {
       "gender": 0.0,
       "age": 0.9,
@@ -186,7 +196,8 @@
       "weight": 0.72,
       "height": 0.3
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   },
   {
     "id": "artist",
@@ -195,7 +206,7 @@
     "hair": "long01",
     "skin": "young_african_female",
     "triangles": 16342,
-    "bytes": 2403176,
+    "bytes": 2553052,
     "physique": {
       "gender": 0.0,
       "age": 0.38,
@@ -203,6 +214,7 @@
       "weight": 0.35,
       "height": 0.58
     },
-    "accessories": []
+    "accessories": [],
+    "draws": 1
   }
 ]

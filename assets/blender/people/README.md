@@ -29,3 +29,9 @@ MPFB_ONLY=student,walker,musician,tourist,pensioner,artist /Applications/Blender
 Preview the new six with `MPFB_ONLY` set to the same list and `MPFB_PREVIEW=mpfb-new-neighbours.png`; omit the filter for the complete lineup. The system pack's fedora material references an absent optional displacement image. MPFB reports that authoring warning; diffuse and normal maps are packed, and the exported hat uses its modelled silhouette (glTF does not require that image).
 
 Runtime contract: `Idle`, `Walk`, `Run`, standard MPFB game-engine bones, two independently planted feet, and the same 11-body ragdoll. Geometry and materials remain shared between clones; only skeletons and animation state are per person.
+
+## Delivery packing (M33, 2026-10-02)
+
+After the Blender build, run `python tools/pack_pedestrians.py` in a Python environment with NumPy and Pillow. It combines each person's aligned skin primitives into one skinned draw and packs their existing diffuse/normal maps with periodic gutters. Original vertices, weights, joints, bind matrices and animation streams remain exact. The editable/game Blender files remain the source; regenerate raw GLBs from those before repacking. `--backup /path/to/folder` optionally preserves raw exports.
+
+Every original geometry/skin/animation array was checked for exact equivalence before replacing delivery files (`output/iterate/people-packing-equivalence.log`). The 12-person native comparison uses 13 draws including its floor, versus 98 before packing; 0.0901% of pixels differ by more than 24 summed RGB levels, primarily texture filtering/normal-map quantisation. Captures: `people-packed-before.png`, `people-packed-after.png`. Packed exports remain below 3 MB each; the crowd cap stays 36.

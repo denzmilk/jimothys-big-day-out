@@ -131,6 +131,8 @@ The giant audit adds a confirmed CPU bottleneck: synchronous `remeshDirty()` cal
 
 **Milestone 33 foundation, 2026-10-02:** generation/meshing now yield within chunks; existing geometry stays visible and damage persists during regeneration. The 240-frame native Block route's worst observed frame falls from 2,041.9 to 123.3 ms, with calls still around 1,617 median. The follow-up overlapped smoke, so final controlled profiling remains required. Rendering, distant work and giant demolition continue; this issue remains open. See the newest STATE entry.
 
+**Rendering checkpoint, 2026-10-02:** compatible street/bush assemblies and voxel geometry are batched; intact ground is simplified within 2.5 cm error; every MPFB person is one skinned draw. The two unchanged <300 renderer-call regressions now pass, along with terrain/paving, crowd/ragdoll, traffic/streaming and car checks. Rendered smoke reports 287 calls with no errors. Native giant travel still has median 30.1 ms frames; CPU optimisation, presets, distant silhouettes and final profiling remain open. See STATE for evidence and limitations.
+
 ### JIM-47 — Feet and wheels need contact with the visible ground
 
 **Status:** implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 27 refinement

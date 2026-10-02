@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { VOXEL, STREAM, TERRAIN, PAVING, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
+import {VoxelBatches} from '../core/VoxelBatches.js';
+import { VOXEL, STREAM, TERRAIN, PAVING, VOXEL_BATCH, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
 
 // Chunked destructible voxel grid (ADR-0003).
 //
@@ -24,6 +25,7 @@ export class VoxelWorld {
     this.chunks = new Map(); // key "cx,cy,cz" -> { mesh, dirty, data }
     this.material = new THREE.MeshStandardMaterial({ vertexColors: true });
     this.glassMaterial = new THREE.MeshPhysicalMaterial({color:G.COLOR,roughness:G.ROUGHNESS,transmission:G.TRANSMISSION,thickness:G.THICKNESS,ior:G.IOR,side:THREE.DoubleSide});
+    this.renderBatches=new VoxelBatches(scene,[this.material,this.glassMaterial]);
     this.removedCount = 0;
     this.damageQueue = [];
     this._colors = new Map(
@@ -170,6 +172,7 @@ export class VoxelWorld {
         this.scene.remove(chunk.mesh);
         chunk.mesh.geometry.dispose();
       }
+      this.renderBatches.remove(chunk);
       this.chunks.delete(key);
     }
     this.columnChunks.delete(col);
@@ -845,6 +848,32 @@ export class VoxelWorld {
       { d: [0, 0, -1], v: [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]] },
     ];
 
+    const coarse=new Uint8Array(CX*CX),stride=VOXEL_BATCH.GROUND_STEP;
+    if(this.terrain)for(let z=0;z<CX;z+=stride){yield;for(let x=0;x<CX;x+=stride){
+      const top=tops[(z+1)*P+x+1],ly=top-base[1];
+      if(ly<0||ly>=CY)continue;
+      const mat=chunk.data[x+CX*(ly+CY*z)];
+      if(!mat||[PAVING.SLAB_MATERIAL,PAVING.SLAB_VARIANT,PAVING.KERB_MATERIAL].includes(mat))continue;
+      const sample=(dx,dz)=>surfaceCorner(x+Math.min(stride-1,dx),z+Math.min(stride-1,dz),dx===stride?1:0,dz===stride?1:0);
+      const h00=sample(0,0),h10=sample(stride,0),h01=sample(0,stride),h11=sample(stride,stride);
+      let safe=true;
+      for(let dz=0;dz<stride&&safe;dz++)for(let dx=0;dx<stride;dx++){
+        const cy=tops[(z+dz+1)*P+x+dx+1]-base[1];
+        if(cy<0||cy>=CY||!intact[(z+dz+1)*P+x+dx+1]||chunk.data[x+dx+CX*(cy+CY*(z+dz))]!==mat){safe=false;break;}
+      }
+      for(let dz=0;dz<=stride&&safe;dz++)for(let dx=0;dx<=stride;dx++){
+        // Match the two rendered triangles, including their diagonal. Fine
+        // cells remain where curvature, kerbs or damage exceed this error.
+        const u=dx/stride,v=dz/stride,h=v>=u?h00+(h01-h00)*v+(h11-h01)*u:h00+(h10-h00)*u+(h11-h10)*v;
+        if(Math.abs(sample(dx,dz)-h)>VOXEL_BATCH.GROUND_ERROR){safe=false;break;}
+      }
+      if(!safe)continue;
+      const color=this._colors.get(mat)||this._colors.get(1),corners=[[x,z,h00],[x,z+stride,h01],[x+stride,z+stride,h11],[x+stride,z,h10]];
+      if(mat===PAVING.ROAD_MATERIAL)emitQuad(corners.map(([xx,zz,h])=>[(base[0]+xx)*s,h,(base[2]+zz)*s]),color);
+      else for(const i of [0,1,2,0,2,3]){const [xx,zz,h]=corners[i];pos.push((base[0]+xx)*s,h,(base[2]+zz)*s);slopeNormal(xx,zz,nrm);norm.push(...nrm);col.push(color.r,color.g,color.b);}
+      for(let dz=0;dz<stride;dz++)coarse.fill(1,(z+dz)*CX+x,(z+dz)*CX+x+stride);
+    }}
+
     const planes = new Map();
     const mergeFace = (fi, lx, ly, lz, mat, flatHeight = null) => {
       const axis = Math.floor(fi / 2), local = [lx, ly, lz];
@@ -871,6 +900,7 @@ export class VoxelWorld {
           const color = this._colors.get(mat) || this._colors.get(1);
           const smooth = isTerrainTop(lx, ly, lz);
           for (let fi = 0; fi < FACES.length; fi++) {
+            if(fi===2&&coarse[lz*CX+lx]&&isTerrainTop(lx,ly,lz))continue;
             const f = FACES[fi];
             const nx=lx+f.d[0],nz=lz+f.d[2];
             if (sided && f.d[1]===0 && intact[(lz+1)*P+lx+1] && intact[(nz+1)*P+nx+1]
@@ -983,13 +1013,14 @@ export class VoxelWorld {
   _applyChunk(chunk,geo){
     chunk.meshed=true;
     if(chunk.mesh){this.scene.remove(chunk.mesh);chunk.mesh.geometry.dispose();chunk.mesh=null;}
-    if(!geo)return;
+    if(!geo){this.renderBatches.remove(chunk);return;}
     chunk.mesh = new THREE.Mesh(geo, [this.material,this.glassMaterial]);
     chunk.mesh.castShadow=true;chunk.mesh.receiveShadow=true;
-    this.scene.add(chunk.mesh);
+    this.renderBatches.set(chunk,geo);
   }
 
   clear() {
+    this.renderBatches.clear();
     this._meshWork=null;this._columnWork.clear();this.damageQueue=[];
     for (const chunk of this.chunks.values()) {
       if (chunk.mesh) {
@@ -1017,6 +1048,7 @@ export class VoxelWorld {
       removed: this.removedCount,
       columns: this.generated.size,
       edits,
+      batches:this.renderBatches.stats(),
       pendingDamage:this.damageQueue.length,
       damageMs:this.lastDamageMs||0,
       pendingColumns:this._columnWork.size,

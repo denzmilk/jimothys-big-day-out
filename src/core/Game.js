@@ -355,6 +355,7 @@ class Game {
     this.trashCans.update(delta);
     this.ragdolls.update(delta);
     this.collector.update(delta);
+    this.streetLife.afterUpdate();
     this.pursuers.update(delta);
     this.pedestrians.update(delta);
     this.level.update(delta, this.camera);

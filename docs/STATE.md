@@ -1,5 +1,15 @@
 # Session state
 
+## Rendering checkpoint — milestone 33 / JIM-48 — 2026-10-02
+
+Implemented, awaiting playtest; milestone 33 remains in progress. Cars/furniture/bushes share rigid instance batches while retaining original hit/physics/breakage assemblies. Plain colours are vertex colours; glazing stays separate. Chunk geometry uses bounded BatchedMesh buffers with per-object main/shadow frustum tests. Intact ground/asphalt can use 0.88 m render tiles only when the measured height error is below 2.5 cm; pavement joints, boundaries and damaged cells keep fine geometry. The physical voxel size stays 0.22 m. Road markings rebuild on layout/damage changes instead of every update.
+
+All 12 MPFB deliveries now use one skinned draw with existing diffuse/normal atlases. Original positions, normals, weights, triangle indices, joints, bind matrices and animation streams compare exactly. Editable Blender sources remain unchanged; `tools/pack_pedestrians.py` records the delivery recipe. A native 12-person lineup drops from 98 to 13 calls including the floor, with 0.0901% of pixels differing noticeably (`people-pack-preview.log`, before/after PNGs). The final street-only comparison, forcing the same shadow pass both times, drops 891 → 278 calls with 0.0024% changed pixels (`batch-parity-final.log`).
+
+Verification: both existing under-300 whole-renderer checks pass unchanged, including twenty blasts (`draw-budget-final.log`). Fifteen terrain/paving checks and 13 pedestrian/paving/ragdoll/capture/restart checks pass (`coarse-ground-green.log`, `packed-people-green.log`). The preceding 17 traffic/streaming and 14 car/physics/spare checks pass. A SAP broadphase experiment altered debris settling; it was reverted, and the failing check then passed (`debris-naive-green.log`). Focused batch/ground/voxel/asset tests pass. Build and production rendered smoke pass with no console errors and 287 calls after two seconds (`render-batch-build.log`, `render-batch-smoke.log`).
+
+Native Block travel still needs CPU work: median CPU 26.5 ms, frame 30.1 ms, p95 frame 60.5 ms, maximum frame 248.8 ms, median 330 calls (`native-batched-block.log`, Metal/M5 Pro). It now performs real giant demolition, unlike the earlier baseline, and is a fixed-frame diagnostic rather than a final fixed-distance acceptance route. **Next:** quality/draw-distance controls, distant building silhouettes and measured CPU hot spots. Military, beaches and underwater work follow in the approved order.
+
 ## Giant demolition — JIM-61 / milestone 33 — 2026-10-02
 
 Implemented, awaiting Chris's playtest. Giant headbutts and continuous rolling damage the buildings their physical sphere reaches. Surface damage uses sparse above-ground occupancy, with bounded work and coalesced roll contacts. Roads remain protected; deliberately aimed digs retain their existing smaller footprint. Debris and glass stay pooled; reset cancels queued damage.

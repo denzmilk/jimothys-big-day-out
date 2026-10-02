@@ -9,6 +9,7 @@ import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 import * as Layout from '../level/Layout.js';
 import {buildTrafficRoutes} from '../level/TrafficRoutes.js';
+import {InstanceBatches} from '../core/InstanceBatches.js';
 import {TrafficFlow} from '../core/TrafficFlow.js';
 
 const hash=(x,z)=>Math.abs(Math.imul(x,73856093)^Math.imul(z,19349663))>>>0;
@@ -19,7 +20,8 @@ export class StreetLife {
     this.scene=scene;this.jimothy=jimothy;this.voxels=voxels;
     this.items=[];this.saved=new Map();this.destroyed=new Set();this.center=null;this.graph=new Map();this.serial=0;
     this.materials=new Map();this.geometries=new Map();this.templates=new Map();
-    this.carFragments=new Map();
+    this.carFragments=new Map();this.batches=new InstanceBatches(scene,C.BATCH_CAPACITY);this.markingsDirty=false;this.markingTimer=0;
+    eventBus.on(Events.WORLD_DEMOLISHED,()=>{this.markingsDirty=true;});
     this.routes=buildTrafficRoutes();this.flow=new TrafficFlow(this.routes,(x,z)=>this.roadClear(x,z));
     // Signal colours are gameplay cues: exposure must not wash green into white.
     this.signalMaterials=T.SIGNAL_COLORS.map(color=>new THREE.MeshBasicMaterial({color,toneMapped:false}));
@@ -164,7 +166,8 @@ export class StreetLife {
       if(road.to.outgoing.length>=T.SIGNAL_MIN_ROADS)mark(road.end.x-road.dir.x*T.STOP_SETBACK,road.end.z-road.dir.z*T.STOP_SETBACK,road.dir,road.lane*2,T.MARK_WIDTH,T.MARK_COLOR);
       if(road.from.id<road.to.id)for(let d=T.DASH_SPACING/2;d<road.length;d+=T.DASH_SPACING)mark(road.centreStart.x+road.dir.x*d,road.centreStart.z+road.dir.z*d,road.dir,T.DASH_WIDTH,T.DASH_LENGTH,T.DASH_COLOR);
     }
-    this.markings.count=count;this.markings.instanceMatrix.needsUpdate=true;if(this.markings.instanceColor)this.markings.instanceColor.needsUpdate=true;
+    this.markingsDirty=false;this.markingTimer=0;
+    this.markings.count=count;this.markings.instanceMatrix.needsUpdate=true;if(this.markings.instanceColor)this.markings.instanceColor.needsUpdate=true;this.markings.frustumCulled=true;this.markings.computeBoundingSphere();
   }
 
   spawn(id,kind,node,driving){
@@ -208,7 +211,13 @@ export class StreetLife {
       return expected===undefined||Math.abs(h-expected)>T.MAX_DROP||this.voxels.solidAtWorld(x,h+C.ROAD_CLEARANCE,z)?NaN:h;
     });
     for(const p of cars)this.poseVehicle(p);
-    this.updateMarkings();this.updateSignals();
+    this.markingTimer+=dt;if(this.markingsDirty&&this.markingTimer>=C.MARK_REFRESH)this.updateMarkings();this.updateSignals();
+  }
+  afterUpdate(){
+    this.batches.update(this.items.filter(p=>!p.fragment).map(p=>({
+      key:`${p.kind}:${p.kind==='car'?p.seed%this.vehicles.length:''}:${p.brokenWindows?.join(',')||''}:${p.mesh.children.map(m=>m.material?.uuid).join(',')}`,
+      root:p.mesh,visible:p.mesh.visible,
+    })));
   }
   updateSignals(){
     for(const p of this.items)if(p.kind==='signal'){
@@ -247,7 +256,7 @@ export class StreetLife {
     for(const [i,child] of children.entries()){
       const key=isCar?(child.userData.part==='wheel'?`wheel-${i}`:child.userData.part):child.userData.section||0;
       if(!sections.has(key)){const group=new THREE.Group();group.userData.part=child.userData.part;sections.set(key,group);}
-      const part=child.clone();part.applyMatrix4(p.mesh.matrixWorld);sections.get(key).add(part);
+      const part=child.clone();part.visible=true;part.applyMatrix4(p.mesh.matrixWorld);sections.get(key).add(part);
     }
     const origin=p.mesh.position.clone(),power=Math.min(CAR_EXPLOSION.POWER_CAP,Math.max(1,radius/C.CAR.EXPLODE_RADIUS));
     this.destroyed.add(p.id);this.saved.delete(p.id);this.remove(p);
@@ -270,6 +279,6 @@ export class StreetLife {
       }else this.loosen(q,center.x-x,center.z-z);
     }
   }
-  reset(){for(const p of [...this.items])this.remove(p);this.saved.clear();this.destroyed.clear();this.serial=0;this.center=null;this.flow.reset();this.populate();}
+  reset(){this.batches.clear();for(const p of [...this.items])this.remove(p);this.saved.clear();this.destroyed.clear();this.serial=0;this.center=null;this.flow.reset();this.populate();}
   snapshot(){return {junctions:[...this.routes.junctions.values()].filter(j=>Math.hypot(j.x-this.center.x,j.z-this.center.z)<C.RADIUS).map(j=>({id:j.id,x:j.x,z:j.z,phase:[this.flow.signal(j,0),this.flow.signal(j,1)],holder:this.flow.reservations.get(j.id)||null,broken:this.flow.broken.has(j.id)})),ready:this.ready,models:this.vehicles.length,traffic:this.items.filter(p=>p.driving).length,parked:this.items.filter(p=>p.kind==='car'&&!p.driving&&!p.loose).length,fragments:this.items.filter(p=>p.fragment).length,items:this.items.map(p=>({id:p.id,kind:p.kind,x:+p.mesh.position.x.toFixed(2),y:+p.mesh.position.y.toFixed(2),z:+p.mesh.position.z.toFixed(2),model:p.kind==='car'&&!p.fragment?C.VEHICLES[p.seed%this.vehicles.length]:null,driving:p.driving,speed:p.route?.speed||0,waiting:p.route&&p.route.speed<T.STOP_SPEED?p.route.reason:null,road:p.route?.road.id,yaw:p.yaw,loose:p.loose,attached:p.attached,windows:p.mesh.children.filter(m=>m.userData.glassPane!==undefined).length,brokenWindows:p.brokenWindows?.length||0,sourceId:p.sourceId,part:p.part}))};}
 }

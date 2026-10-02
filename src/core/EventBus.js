@@ -52,6 +52,7 @@ export const Events = {
   // local:*
   LOCAL_SCARED: 'local:scared',
   // world:*
+  WORLD_TIME_CHANGED: 'world:time-changed',
   WATER_SAMPLE: 'water:sample',
   WATER_DISTURB: 'water:disturb',
   WORLD_IMPACT: 'world:impact',

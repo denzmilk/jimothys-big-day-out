@@ -10,6 +10,16 @@
 
 ## Open
 
+### JIM-56 — Shadows and the day–night cycle are not apparent in play
+
+**Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris)
+
+Chris reports missing shadows and day/night. A fresh production preview advanced automatically from 17.22 to 18.6879, changed sky and enabled streetlights. Night shadows were absent because only the sun had a shadow map. Trash bins and voxel rubble also lacked shadow participation; rebuilt car fragments dropped the original mesh flags. The Dev time slider stayed at its initial value, and normal play had no clock readout.
+
+`DayNight` now uses the sun or moon above the horizon as the sole active celestial shadow caster. Both reuse their maps; resolution is 2,048² over the existing local area, with the existing five updates per second. Underground disables celestial shadows. Bins/rubble cast and receive shadows, and detached car panels preserve their source flags. The HUD shows time and Dawn/Day/Dusk/Night; `world:time-changed` updates it and the Dev slider once per game minute. Dragging retains control until the slider loses focus. The automatic cycle remains 12 minutes.
+
+Evidence: baseline midnight comparison changed zero shadow pixels (`output/iterate/lighting-red.log`). Final rendered comparisons change 48,415 ground pixels by day and 23,452 at midnight; the bin contributes 2,309 pixels in direct sunlight. A complete clock cycle checks 48 samples, six sky colours, UI synchronisation, midnight wrap and restart. The final scoped run passes 22/23 (`lighting-final-regression.log`); its bin fixture was under an existing building shadow. Placing it on a sunlit road makes the remaining check pass with the same pixel threshold (`lighting-bins-final.log`), without further runtime changes. Traffic, water, environment and car-destruction checks pass after restarting the dev server to clear stale event-module imports. Build and rendered production smoke pass with no console errors. Inspected normal-play captures: `lighting-play-dawn.png`, `lighting-play-day.png`, `lighting-play-dusk.png`, `lighting-play-night.png`; the actual time control was checked in `lighting-night-controls.png`. The rendering budget remains tracked by JIM-48; visual/feel approval is still open.
+
 ### JIM-55 — Downhill turns leave a pedestrian's support foot out of reach
 
 **Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-02 during milestone 32 regression

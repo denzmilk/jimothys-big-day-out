@@ -301,9 +301,13 @@ export class DevTools {
   _buildLevelTab() {
     const root = this.sections.level;
     const timeLabel=document.createElement('label');timeLabel.textContent='Time of day';
-    const time=document.createElement('input');time.type='range';time.min='0';time.max='24';time.step='.25';time.value=String(gameState.world.hour??DAY_NIGHT.START_HOUR);
+    const time=document.createElement('input');time.id='dt-time';time.type='range';time.min='0';time.max='24';time.step='.01';time.value=String(gameState.world.hour??DAY_NIGHT.START_HOUR);
     time.addEventListener('input',()=>eventBus.emit(Events.DEV_SET_TIME,{hour:Number(time.value)}));
-    timeLabel.appendChild(time);root.appendChild(timeLabel);
+    const clock=document.createElement('output');clock.id='dt-time-label';clock.textContent=gameState.world.timeLabel??'';
+    eventBus.on(Events.WORLD_TIME_CHANGED,({hour,label})=>{clock.textContent=label;if(document.activeElement!==time)time.value=String(hour);});
+    // A focused slider belongs to the player; resume clock tracking on blur.
+    time.addEventListener('blur',()=>{time.value=String(gameState.world.hour);});
+    timeLabel.append(time,clock);root.appendChild(timeLabel);
     const mk = (id, label, fn) => {
       const btn = document.createElement('button');
       btn.id = id;

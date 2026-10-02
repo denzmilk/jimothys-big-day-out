@@ -9,6 +9,9 @@ export class HUD {
     this.comboEl = document.getElementById('combo');
     this.popupsEl = document.getElementById('popups');
     this.flashEl = document.getElementById('flash');
+    this.clockEl = document.getElementById('world-clock');
+    const renderClock=()=>{this.clockEl.textContent=gameState.world.timeLabel??'';};
+    eventBus.on(Events.WORLD_TIME_CHANGED,renderClock);renderClock();
     eventBus.on(Events.CAPTURE_CHANGED,c=>{
       const meter=document.getElementById('capture-meter');
       meter.hidden=c.progress<=0&&c.phase!=='windup'&&c.phase!=='swing';

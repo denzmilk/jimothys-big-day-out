@@ -2,6 +2,16 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Visible shadows and day/night — JIM-56 — 2026-10-02
+
+**Implemented, awaiting Chris's playtest.** Chris reported missing shadows and the day/night cycle. The fresh preview's clock already advanced, but the moon did not cast shadows and the Dev slider stayed at its initial value. Sun and moon now share the active shadow workload: one 2,048² local map at a time, five updates per second, with cached maps reused across switches/restart. Bins and voxel rubble cast/receive shadows; detached car parts preserve their source flags. The HUD shows time plus Dawn/Day/Dusk/Night, and the Dev Level slider follows live time while unfocused. The cycle remains 12 minutes.
+
+Verification: day shadows change 48,415 ground pixels; midnight shadows change 23,452 (previously zero). A sunlit bin adds 2,309. A complete 48-sample clock cycle checks phase, sky, UI, midnight wrap and restart. The scoped regression passes 22/23 (`output/iterate/lighting-final-regression.log`); the remaining bin test passed after correcting its fixture to use a sunlit road (`lighting-bins-final.log`), without further runtime edits or a threshold change. Traffic, water, environment and car-destruction checks pass. Build and rendered production smoke pass with no console errors (`lighting-build.log`, `lighting-smoke.log`). Ordinary play was checked with `manualTime: false`; the time control also changes the actual scene. Inspected captures: `lighting-play-dawn.png`, `lighting-play-day.png`, `lighting-play-dusk.png`, `lighting-play-night.png`, `lighting-night-controls.png`.
+
+No full unrelated-suite rerun was needed for this scoped lighting fix; existing JIM-03/JIM-48/JIM-49 remain open. JIM-48 still owns the scene rendering budget, so this is not an FPS sign-off.
+
+**Playtest:** refresh http://127.0.0.1:4174. The clock appears under HEAT. Watch dusk arrive, or use Dev → Level → Time of day to compare midday and midnight shadows around Jimothy, cars and lamp posts. Chris's visual judgement remains open.
+
 ## Streetlights and controlled traffic — milestone 32 — 2026-10-02
 
 **Implemented, awaiting Chris's playtest.** Traffic follows authored right-hand lanes and smooth junction curves, with red/amber/green phases, stop lines, queues, blocked-exit checks and braking for pedestrians, Jimothy, cars and road damage. Damaged signals use a stopped yield and one crossing reservation at a time. Pavement lamps point over the road and illuminate at night. Lamps and signals retain physical breakage and rolling collection; stop bars/centre dashes follow street grades. Wide roads supply kerb parking. Clean traffic leaving the area is replenished even while Jimothy stands still; damaged cars retain saved state.

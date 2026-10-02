@@ -18,6 +18,7 @@ export class Debris {
       new Float32Array(DEBRIS.MAX * 3), 3,
     );
     this.mesh.frustumCulled = false;
+    this.mesh.castShadow = true;this.mesh.receiveShadow = true;
     this.mesh.count = DEBRIS.MAX;
     scene.add(this.mesh);
 

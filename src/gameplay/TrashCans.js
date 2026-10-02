@@ -152,6 +152,7 @@ export class TrashCans {
     const kind = TC.KINDS[kindIndex] ?? TC.KINDS[0];
     const geo = this._geoFor(kind);
     const mesh = new THREE.Mesh(geo, this._matFor(kind));
+    mesh.castShadow = true;mesh.receiveShadow = true;
     this.scene.add(mesh);
     // On the ground it is actually standing on. `kind.height / 2` alone meant
     // "resting on grade", which is only true on a flat world — on a 45 m hill

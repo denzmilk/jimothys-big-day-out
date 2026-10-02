@@ -35,7 +35,7 @@ export function buildCarFragments(root){
       }
       // Detached sheet metal exposes its back face as it tumbles.
       if(!materials.has(mesh.material)){const material=mesh.material.clone();material.side=THREE.DoubleSide;materials.set(mesh.material,material);}
-      const piece=new THREE.Mesh(geometry,materials.get(mesh.material));piece.name=mesh.name;piece.userData.part=part;parts.push(piece);
+      const piece=new THREE.Mesh(geometry,materials.get(mesh.material));piece.name=mesh.name;piece.userData.part=part;piece.castShadow=mesh.castShadow;piece.receiveShadow=mesh.receiveShadow;parts.push(piece);
     }
     geo.dispose();
   }

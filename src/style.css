@@ -37,6 +37,11 @@ body {
   color: #ffd23f;
 }
 
+#world-clock {
+  font-size: 0.75em;
+  margin-top: 0.4em;
+}
+
 #popups {
   position: fixed;
   top: 28%;

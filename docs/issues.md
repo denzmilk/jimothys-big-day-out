@@ -10,6 +10,12 @@
 
 ## Open
 
+### JIM-57 — SUV spare tyre floats behind the body
+
+**Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris)
+
+The Kenney SUV parents its spare tyre to the body. `tools/prepare_vehicles.py` scaled every mesh locally, so the spare inherited another 1.6× conversion from its parent. Its diameter and mounting offset grew while the road wheels stayed correctly sized. The new regression compares the spare's dimensions and mounting position with the preserved original model, checks slope/heading poses, and requires five breakaway wheels. The baseline fails with a 0.881 m size-vector error (`output/iterate/spare-red.log`). The exporter now flattens original world transforms before the metre conversion. The corrected spare matches the original within one micrometre, has zero local mounting drift across 12 slope/heading poses and remains the fifth breakaway wheel. All nine spare/heading/grounding/destruction checks pass (`spare-green.log`), as do build and rendered production smoke. Inspected runtime capture: `output/iterate/spare-mounted.png`; console errors: none.
+
 ### JIM-56 — Shadows and the day–night cycle are not apparent in play
 
 **Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris)

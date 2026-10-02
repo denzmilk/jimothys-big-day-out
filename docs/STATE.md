@@ -1,8 +1,12 @@
 # Session state
 
-> Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
-
 ## Visible shadows and day/night — JIM-56 — 2026-10-02
+
+## SUV spare tyre — JIM-57 — 2026-10-02
+
+**Implemented, awaiting Chris's playtest.** The SUV's parented spare was scaled twice during Blender export. Flattening original world transforms before metre conversion fixes its size and mounting point. Original Kenney source remains preserved; editable SUV and runtime GLB rebuilt. Nine spare/heading/grounding/destruction checks pass; build and rendered production smoke pass with no console errors. The spare matches the original within one micrometre, does not move locally during road tilt and remains a separate fifth breakaway wheel. Evidence: `output/iterate/spare-green.log`, `spare-mounted.png`, `spare-smoke.log`.
+
+Next authorized work: expand the MPFB pedestrian roster and verify walking/IK/ragdolls across the new models.
 
 **Implemented, awaiting Chris's playtest.** Chris reported missing shadows and the day/night cycle. The fresh preview's clock already advanced, but the moon did not cast shadows and the Dev slider stayed at its initial value. Sun and moon now share the active shadow workload: one 2,048² local map at a time, five updates per second, with cached maps reused across switches/restart. Bins and voxel rubble cast/receive shadows; detached car parts preserve their source flags. The HUD shows time plus Dawn/Day/Dusk/Night, and the Dev Level slider follows live time while unfocused. The cycle remains 12 minutes.
 

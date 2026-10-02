@@ -1,18 +1,24 @@
 """Import Kenney CC0 Car Kit sources; separate glazing and export at metre scale."""
-import bpy, json, math
+import bpy, json, math, os
 from pathlib import Path
 from mathutils import Vector, Matrix
 ROOT=Path(__file__).resolve().parents[1]
 SOURCE=ROOT/'assets/vehicles/kenney-source'; OUT=ROOT/'public/assets/models/vehicles'
 NAMES=['sedan','hatchback-sports','suv','van','taxi','delivery']
-manifest=[]
-for name in NAMES:
+manifest=[dict(id=name,author='Kenney',license='CC0 1.0',source='https://kenney.nl/assets/car-kit') for name in NAMES]
+for index,name in enumerate(NAMES):
+ if os.environ.get('VEHICLES_ONLY') and name not in os.environ['VEHICLES_ONLY'].split(','):continue
  bpy.ops.wm.read_factory_settings(use_empty=True);bpy.context.preferences.filepaths.save_version=0
  bpy.ops.import_scene.gltf(filepath=str(SOURCE/(name+'.glb')))
  meshes=[o for o in bpy.context.scene.objects if o.type=='MESH']
  # Library vehicles share units. Scale consistently to a 4.1 m sedan;
  # deliveries retain their larger authored proportions.
- for o in meshes:o.location*=1.6;o.scale*=1.6
+ # The SUV spare is a child of its body. Flatten the authored world transforms
+ # before scaling, otherwise that tyre inherits the metre conversion twice (JIM-57).
+ bpy.context.view_layer.update()
+ transforms=[(o,o.matrix_world.copy()) for o in meshes]
+ for o,world in transforms:
+  o.parent=None;o.matrix_world=Matrix.Scale(1.6,4)@world
  bpy.context.view_layer.update()
  points=[o.matrix_world@Vector(c) for o in meshes for c in o.bound_box]
  minz=min(p.z for p in points)
@@ -30,11 +36,10 @@ for name in NAMES:
    # in the bottom row. Other pale swatches are lamps, tyres and paint.
    if u<.125 and v<.25:face.material_index=idx
  for o in meshes:
-  if 'wheel'  in o.name:o['section']=len(manifest)%4+2
+  if 'wheel'  in o.name:o['section']=index%4+2
   else:o['section']=0
  for img in bpy.data.images:
   if img.source=='FILE':img.pack()
  bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'assets/blender/vehicles'/(name+'.blend')),compress=True)
  bpy.ops.export_scene.gltf(filepath=str(OUT/(name+'.glb')),export_format='GLB',export_extras=True)
- manifest.append(dict(id=name,author='Kenney',license='CC0 1.0',source='https://kenney.nl/assets/car-kit'))
 (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')

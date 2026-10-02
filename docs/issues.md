@@ -10,6 +10,12 @@
 
 ## Open
 
+### JIM-59 — Shoreline reads as a hard edge instead of a beach
+
+**Status:** open · **Reported:** 2026-10-02 (Chris)
+
+Chris requests a softer shore and deformable sand. `Terrain.bake` has a smooth 34 m shore ramp, but `Terrain.materialAtVoxel` selects sand only at/below sea level and dry land remains topsoil. That is a concrete presentation gap; the exact reported hard edge needs a coast survey before choosing the final shape fix. Proposed milestone 34 in `docs/backlog.md` covers varied dry/wet sand bands, walkable shallows, local deformation and matching ground/water contact. This is planned, not implemented.
+
 ### JIM-58 — Short pedestrians overreach while running uphill
 
 **Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-02, pedestrian variety pass
@@ -89,6 +95,8 @@ Both failures reproduce unchanged on isolated pre-shatter commit `723c993`: `rig
 Milestones 30–31 add local sun shadows, vegetation/wildlife and water. The final production smoke records 1,510 whole-renderer calls after two simulated seconds (`output/iterate/water-smoke-final.log`), with 1,249 plants and nine animals. The draw-call budget remains unresolved; bounded populations and passing state tests are not an FPS sign-off.
 
 Milestone 32's final production smoke records 1,720 whole-renderer calls with regular streetlights and signal poles (`output/iterate/traffic-final-smoke.log`). Its full-suite boot assertion reports 1,714 against the unchanged 300-call limit (`traffic-full-suite.log`). Traffic correctness checks pass, but the scene still needs the separate batching/LOD performance pass.
+
+Chris reported poor frame rate on 2026-10-02 and requested draw-distance controls and less out-of-view work. The latest twelve-model production smoke reports 1,731 whole-renderer calls after two simulated seconds (`output/iterate/pedestrian-variety-smoke.log`). No native-GPU frame-time baseline has been recorded for this report. `EnvironmentLife` disables frustum culling on vegetation batches and particles; `StreetLife` does so for road markings, and `WaterSystem` for local water/splashes. These are investigation points, not a confirmed complete diagnosis. Proposed milestone 33 in `docs/backlog.md` prioritises measurements, per-pass culling/bounds, batching/LOD, quality controls and bounded simulation before more world content.
 
 ### JIM-47 — Feet and wheels need contact with the visible ground
 

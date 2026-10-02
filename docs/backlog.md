@@ -185,3 +185,39 @@
 
 - [ ] Support feet on loose moving props and rubble piles, using a shared physical-surface query for people and Jimothy. Milestone 11 adds planted paws on voxel terrain, kerbs and broken ground; the existing pedestrian ground sampler also excludes moving prop surfaces. This retains the broader rubble criterion from milestone 11.
   - Source: milestone 11 original footing scope; clarified during JIM-22. Rough size: M · Rough value: M.
+
+## Next world pass — proposals, 2026-10-02
+
+Chris asked to finish the interrupted spare-tyre/pedestrian pass first, then plan these additions. That pass is pushed as `0df5441` and `b8ca85d`, with 26 final focused checks plus build/rendered smoke passing. The following sequence is a proposal; no new milestone is active yet. Existing unrelated gameplay backlog remains deferred.
+
+### 1. Draw distance and performance (proposed milestone 33)
+
+- [ ] Make the current populated world run smoothly before adding more scenery. Promotes JIM-48 and the distant-building visibility work in JIM-37. **Size: L; value: L. Depends on:** existing world/traffic systems. **Blocks:** the beach and underwater content budgets.
+- Source: Chris, “runs very poorly — likely too much rendering with things out of view.” The latest production smoke reports 1,731 renderer calls after two simulated seconds, with 36 people, 1,249 plants and nine animals. This is draw telemetry, not an FPS measurement. Some vegetation/particle batches, road markings and water meshes explicitly disable frustum culling. Water already limits reflection frequency; the cause and cost split still need measurement.
+- Proposed AC: record native-GPU browser/viewport/hardware and before/after frame time on a fixed town → destruction → coast route, by day and night. Separate primary rendering, shadows, reflections, terrain streaming, AI/IK and physics costs; correct the snapshot's misleading `voxels.drawCalls` label. Keep the existing draw-call assertion meaningful and do not raise its limit to hide the failure.
+- Proposed AC: add Low/Medium/High draw-distance and quality controls; spatially split batches with valid bounds, skip out-of-view work per render pass, use simpler meshes farther away, and merge compatible static objects. Distant building silhouettes should bridge the current streaming edge without loading full destructible buildings to the horizon. Preserve visible shadows and destruction state when objects return.
+- Proposed AC: reduce distant animation/AI frequency while retaining nearby interaction and traffic correctness. Memory, bodies and streamed objects remain bounded after repeated routes and restarts. Aim for a 60 FPS desktop default on the recorded hardware; report measured frame times and any remaining bottleneck. Chris confirms playability before moving on.
+- Exit: Chris crosses town, turns the camera, wrecks objects and reaches the coast → movement remains responsive and changing draw distance visibly changes cost without holes or lost world state.
+
+### 2. Soft beaches and deformable sand (proposed milestone 34)
+
+- [ ] Replace the hard shore transition with varied dry sand, wet sand and shallow seabed profiles. **Size: L; value: L. Depends on:** performance budgets / milestone 33, existing water and ground-contact systems. **Blocks:** placement of underwater sites near shore.
+- Source: Chris, “softbody sand and a beach — too much of a hard edge on the shore.” Logged as JIM-59. Current terrain has a mathematical shore ramp, but its sand top material is selected only at/below sea level; dry land is topsoil. The exact reported hard edge still needs a coast survey and rendered reproduction.
+- Proposed AC: broad curved sand bands, dunes and flatter shallows appear at suitable beaches, with wet/dry material transitions and foam following the actual shoreline. Retain intentional rocky bluffs and harbour edges; avoid flattening the island's hills or roads.
+- Proposed AC: nearby sand yields into footprints, roll tracks and impact craters, with small bounded grain/sand effects and local settling. Jimothy's size changes the deformation. Ground sampling, visible terrain, feet, objects and water agree after deformation; there are no floating feet or invisible ledges.
+- Proposed AC: walking → wading → swimming → walking works across sampled coast sections. Deformations persist while travelling within the run and clear predictably on restart; streaming does not create seams. All work fits the performance budget established first.
+- **Open preference:** asked whether “softbody” means a deformable beach surface or loose granular piles that can be pushed around. The recommended draft is local surface deformation with bounded settling and grain effects. A full granular solver needs a separate measured scope before commitment.
+- Exit: Chris walks, rolls and headbutts along a beach → sand visibly yields, the shoreline feels gradual, and returning from the sea does not snag.
+
+### 3. Scattered underwater places and wildlife (proposed milestone 35)
+
+- [ ] Make underwater exploration varied, sparse and interactive. **Size: L; value: L. Depends on:** milestones 33–34 and existing water/day-night/destruction systems. The current controller floats Jimothy at the surface; depth movement and underwater camera transitions belong in this scope so the scenery can actually be explored.
+- Source: Chris requested underwater objects, fauna/creatures, ruins, boat wreckages, deliberate empty stretches, daylight god rays and bubbles. Repeated copies of one site do not meet the brief.
+- Proposed AC: seeded placement selects suitable depth/slope and separates points of interest with substantial empty seabed. Start with three distinct wreck hull families and four ruin layout families; vary layout, damage, burial, tilt, materials and plant growth. Reject repeated complete site signatures near each other. A fixed exploration route demonstrates variety and quiet gaps; streaming preserves the chosen site and its damage.
+- Proposed AC: dive/surface movement, paddling and camera transitions expose these places cleanly, with depth-dependent visibility. Retain the net-only run-ending rule and safe transitions back to shore.
+- Proposed AC: create or source licensed editable wreck/ruin assets with breakable sections and the existing physical interaction/collection interfaces. Populate suitable habitats with kelp/seagrass, schooling fish, seabed creatures and a slow-swimming creature family. Use bounded nearby populations, shared meshes and distance-based animation from the first milestone.
+- Proposed AC: sunlight shafts appear underwater during daylight, respect cover/depth and fade at night. Bubbles respond to swimming and selected environmental sources. Effects have explicit pool and visibility budgets and do not draw through the entire world.
+- Proposed AC: inspect several complete sites and intervening empty stretches in play, test destruction/streaming/restart, and rerun the same native-GPU performance route after adding underwater content. Chris judges variety, spacing and atmosphere.
+- Exit: Chris swims between separated ruins and wrecks → the next site has a different silhouette/layout, creatures react nearby, daylight rays and bubbles sell the water, and frame time stays within the agreed budget.
+
+These proposals extend the earlier water scope; finite pond drainage remains separately deferred. Source recipes, asset licences, editable Blender files and in-engine inspection remain required for new assets. Proposed milestones need scope/order confirmation before promotion into `docs/milestones/`.

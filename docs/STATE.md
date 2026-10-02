@@ -2,6 +2,14 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Additional world requests — planning handoff — 2026-10-02
+
+The interrupted pass is now pushed: `0df5441` fixes the SUV spare; `b8ca85d` adds six MPFB people and corrects short-leg running stride. Final verification is recorded below. Chris then asked for underwater sites/wildlife/rays/bubbles, soft beach sand and better draw distance/performance, and explicitly requested **finish the interrupted task, then plan these additions**.
+
+Three concrete proposals are recorded under “Next world pass” in `docs/backlog.md`: **33 performance/draw distance → 34 beaches/deformable sand → 35 sparse varied underwater exploration**. No implementation or active new milestone is claimed. JIM-48 now includes Chris's poor-frame-rate report; JIM-59 tracks the hard shoreline. The latest rendered smoke reports 1,731 calls after two simulated seconds; this does not establish an FPS baseline or prove that out-of-view rendering is the only cause.
+
+One preference is pending: deformable beach surface versus loose granular piles. Surface deformation is the recommended draft. Next action: confirm/revise the proposed scope/order, then promote the first milestone and measure a native-GPU town/coast baseline. Existing visible/feel work still needs Chris's playtest.
+
 ## Pedestrian variety — milestone 26 refinement / JIM-58 — 2026-10-02
 
 **Implemented, awaiting Chris's playtest.** The roster expands from six to twelve authored MPFB people: student, walker, musician, tourist, pensioner and artist join the existing six. Twelve outfits/skin textures, nine hair assets and a fitted hat; age, height and build change the actual geometry and skeleton. Each has packed editable/game Blender sources and Idle/Walk/Run clips. Maximum asset size is 2.68 MB / 16,991 triangles; new GLBs add 14.23 MB. The active crowd remains capped at 36.

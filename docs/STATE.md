@@ -2,6 +2,10 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Approved full continuation — 2026-10-02
+
+Chris approved the complete pass, explicitly including draw-distance optimisation, deformable sand/beaches and varied underwater ruins/wrecks/fauna/rays/bubbles. Proceed in order: existing milestones 23–24 giant repairs → 33 responsive destruction/performance → 34 military → 35 beaches → 36 underwater. Keep net-only run endings; use local deformable sand with bounded settling as the stated defaults. No repeat approval is needed for this sequence. Each coherent issue is tested, documented, committed and pushed separately; visual sign-off remains Chris’s.
+
 ## Giant Jimothy feedback — reproduced and planned — 2026-10-02
 
 Chris's latest playtest reopens giant shape/collection. The interrupted SUV/pedestrian pass remains completed and pushed (`0df5441`, `b8ca85d`). **This follow-up is a loaded-game audit and revised plan; no giant or military runtime fix is claimed.** See [the audit](giant-audit-2026-10-02.md) for measurements, captures and limitations.

@@ -69,6 +69,12 @@ So the on-foot penalty **stays exactly as signed off** — a fat raccoon waddlin
 - **Heat and destruction at scale (JIM-35).** `BLAST_PER_FAT` compounds, so a block-sized headbutt will level a block, and one headbutt is already a five-star wanted level. Expect the playtest to make this urgent; it wants Chris's judgement rather than a guess, so it stays logged.
 - **Softening the on-foot speed penalty.** Explicitly rejected above.
 
+## Giant repair acceptance — approved 2026-10-02
+
+- [ ] Loaded torso becomes round at Block/Absurd size, with small head/limbs and collision/visual centres aligned at multiple headings.
+- [ ] Held giant rolling continues rotating with travelled distance past the first second; lean flop remains intact.
+- [ ] Attached props and people meet the visible skin across several rotations and release with owner physics/AI restored.
+
 ## Acceptance criteria
 
 - [x] Eating past the old ceiling keeps making him bigger — width strictly increases at fatness 200, 2 000 and 20 000, where today all three are ×1.8

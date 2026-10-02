@@ -22,6 +22,7 @@ class GameState {
     };
     this.world = { disabledHideSpots: new Set() };
     this.capture = { progress: 0, holding: false, phase: 'idle' };
+    this.arrival = {phase:'done',time:0,ground:0,impacts:0,pitch:0,tuck:0};
     this.heat = {
       points: 0,
       tier: 0,

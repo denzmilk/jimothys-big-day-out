@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
-  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT, GRAPHICS, OCEAN, INTERIORS,
+  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT, GRAPHICS, OCEAN, INTERIORS, COMET,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { fatFactor } from './MathUtils.js';
@@ -32,6 +32,7 @@ import * as Layout from '../level/Layout.js';
 import { Debris } from '../gameplay/Debris.js';
 import { GlassShards } from '../gameplay/GlassShards.js';
 import { CarExplosions } from '../gameplay/CarExplosions.js';
+import {CometArrival} from '../gameplay/CometArrival.js';
 import { StreetLife } from '../gameplay/StreetLife.js';
 import { RollCollector } from '../gameplay/RollCollector.js';
 import { HumanRagdolls } from '../gameplay/HumanRagdolls.js';
@@ -142,6 +143,13 @@ class Game {
     this.hud = new HUD();
     this.gameOverScreen = new GameOverScreen();
     this.devTools = new DevTools(this.input);
+    this.arrival=new CometArrival(this.scene,this.camera,this.jimothy,this.voxels,()=>
+      (this.jimothy.rig.loaded||window.__SKIP_RIG__)&&this.streetLife.ready&&this.pedestrians.ready&&this.interiors.ready&&this.trashCans.ready);
+    eventBus.on(Events.SPAWN_IMPACT,({x,y,z})=>this.voxels.queueDamageSphere(x,y+COMET.CRATER_RADIUS-COMET.CRATER_DEPTH,z,COMET.CRATER_RADIUS,{digsTerrain:true,key:'spawn'}));
+    eventBus.on(Events.SPAWN_COMPLETE,()=>{
+      this.camera.fov=CAMERA.FOV;this.camera.updateProjectionMatrix();this.cameraSystem.yaw=this.jimothy.yaw;
+      this.cameraSystem.pitch=this.cameraSystem.neutralPitch;this.cameraSystem.snapToTarget();
+    });
 
     eventBus.on(Events.DEV_TUNING_CHANGED, ({ group, key }) => {
       if (group === 'CAMERA' && key === 'FOV') {
@@ -226,10 +234,12 @@ class Game {
       gameState.game.isPlaying = true;
       this.pedestrians.reset();this.interiors.reset();
       this.dayNight.reset();this.environmentLife.reset();
+      this.arrival.reset();
     });
 
     gameState.game.started = true;
     gameState.game.isPlaying = true;
+    this.arrival.reset();
 
     this.frames = 0;
     this.diagEl = document.getElementById('diag');
@@ -348,6 +358,7 @@ class Game {
       if (!this.flyCamera.active) this.cameraSystem.snapToTarget();
     }
     this.input.update();
+    this.arrival.update(delta);
     // Before he moves, not after: the ground he is about to walk onto has to
     // exist by the time the controller queries it. The queries generate on
     // demand anyway, but arriving first is what keeps that a safety net rather
@@ -402,7 +413,8 @@ class Game {
     this.dayNight.update(delta,this.underground);
     this.lamp.position.set(jp.x, jp.y + 1.6, jp.z);
     this.updateReticle();
-    if (this.flyCamera.active) this.flyCamera.update(delta);
+    if(this.arrival.active)this.arrival.cameraPose();
+    else if (this.flyCamera.active) this.flyCamera.update(delta);
     else if (!this.freeCamera) this.cameraSystem.update(delta);
     // After the camera, read next frame: the boom collides now (JIM-41), and a
     // sewer cuts it to a metre, at which point he is between the player and
@@ -412,6 +424,7 @@ class Game {
     this.carExplosions.update(delta);
     this.quality.update(this.flyCamera.active?this.camera.position:jp,this.jimothy.radius,this.underground);
     this.ocean.afterCamera();
+    this.arrival.afterCamera();
   }
 
   animate() {
@@ -886,6 +899,7 @@ class Game {
       streetLife: this.streetLife.snapshot(),
       glass: this.glassShards.snapshot(),
       explosions: this.carExplosions.snapshot(),
+      arrival:this.arrival.snapshot(),
       collection: this.collector.snapshot(),
       world: { voxelSize: VOXEL.SIZE, atmosphereTime: this.level.time },
       render:{drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,quality:this.quality.snapshot(),farBuildings:this.farBuildings.snapshot()},

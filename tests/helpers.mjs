@@ -5,7 +5,7 @@
 export const state = (page) => page.evaluate(() => JSON.parse(window.render_game_to_text()));
 export const adv = (page, s) => page.evaluate((secs) => window.advanceTime(secs), s);
 
-export async function boot(page, { withRig = false } = {}) {
+export async function boot(page, { withRig = false, arrival = false } = {}) {
   // Manual time from frame zero: no real-time sim ever runs under test, so
   // physics settling is identical regardless of machine load. The heavy
   // Meshy rig loads only where a spec asks for it.
@@ -13,6 +13,7 @@ export async function boot(page, { withRig = false } = {}) {
     window.__MANUAL_TIME__ = true;
     if (!rig) window.__SKIP_RIG__ = true;
   }, withRig);
+  await page.addInitScript(enabled=>{window.__SKIP_ARRIVAL__=!enabled;},arrival);
   await page.goto('/');
   await page.waitForFunction((rig) => typeof window.render_game_to_text === 'function' && window.__game.pedestrians.ready && window.__game.trashCans.ready && window.__game.interiors.ready && window.__game.streetLife.ready && (!window.__game.environmentLife || window.__game.environmentLife.ready) && (!rig || window.__game.jimothy.rig?.loaded), withRig);
   await adv(page, 0.1);

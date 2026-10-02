@@ -1,5 +1,13 @@
 # Session state
 
+## Comet entrance — milestone 39 — 2026-10-03
+
+**Implemented, awaiting Chris's playtest.** Each new run waits for its visible character/assets, then drops Jimothy 82 m through flame, embers and a smoky wake. A three-second descent ends in a flash, boom, shockwave, dust and pooled debris; a shallow voxel crater persists. The camera settles and normal grounded control returns at about 4.55 s. Score/heat start at zero. Restart replaces the whole sequence, and effect/audio resources have explicit bounds and cleanup. Click once while loading to unlock browser audio.
+
+Verification: three entrance cases pass, including loaded-rig descent, input lock, shallow crater, walking out, audio cleanup and mid-sequence restart. All 27 adjacent movement/camera/footing/military/physics/restart/lighting checks and 44 unit tests pass; final build and production pixel smoke are error-free. The regression exposed an audio cleanup timeout; final lifetime/disconnection checks pass. Native captures were inspected. Independent native Chrome/Metal/M5 Pro, 1280 × 800 Medium: 420 rendered simulation frames at **8.0 ms median / 13.3 ms p95 / 129.5 ms worst update-plus-render submission time**; impact phase worst 16.1 ms. One descent hitch remains in that measurement, which is not an FPS sign-off. Crater depth is 1.124 m; 1,236 cells removed; no leftover effect particles or sound nodes.
+
+Evidence: `output/iterate/comet-{red,final,audio-final,regression,units,build-final,smoke-final,profile}.log`, `comet-native-final.log`, `comet-{fall,approach,impact,crater,play}.png`. **Next:** reload **http://127.0.0.1:4174**, click while loading for sound, and judge the entrance's scale and crash feel. Prior world/food/interior playtest sign-off remains outstanding. No further implementation from this request is queued.
+
 ## Food and populated interiors — milestones 37–38 — 2026-10-03
 
 **Implemented, awaiting Chris's playtest.** Milestone 37 is pushed as `8362b9e`: sixteen food identities/models, matching pickup names, actual floor support, vertical reach checks and a 96-pickup cap. Food assets share batches. Food/economy, asset/batch, restart, build and rendered smoke checks pass; native lineup/spill inspected.

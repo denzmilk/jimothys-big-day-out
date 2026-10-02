@@ -17,7 +17,8 @@ await page.waitForFunction(() => window.__game?.pedestrians.ready && window.__ga
 await page.waitForTimeout(1500);
 
 const state = await page.evaluate(() => window.render_game_to_text());
-const advanced = await page.evaluate(() => { window.advanceTime(2); return window.render_game_to_text(); });
+// Cover the real opening and its handoff rather than stopping mid-comet.
+const advanced = await page.evaluate(() => { window.advanceTime(7); return window.render_game_to_text(); });
 
 // Playwright screenshots composite WebGL canvases black under headless
 // SwiftShader, so verify rendering by reading pixels back off the canvas.
@@ -43,6 +44,6 @@ const skyRendered = pixels && pixels.sky[3] === 255 && pixels.ground[3] === 255
   && pixels.sky.slice(0,3).reduce((sum,v,i)=>sum+Math.abs(v-pixels.ground[i]),0) > 30;
 console.log('pixels:', JSON.stringify(pixels));
 console.log('state:', state);
-console.log('after advanceTime(2):', advanced);
+console.log('after advanceTime(7):', advanced);
 console.log('console errors:', errors.length ? errors : 'none');
 if (!skyRendered || errors.length) process.exit(1);

@@ -137,6 +137,13 @@ export class JimothyController {
     this._bellyBox = new THREE.Box3();
     this.onImpact = null; // set by Game: (x, y, z, radiusScale) => void
 
+    eventBus.on(Events.SPAWN_POSE,({position,grounded})=>{
+      this.body.position.set(position.x,position.y+this.radius,position.z);
+      this.body.velocity.setZero();this.vel.set(0,0,0);this.vy=0;
+      this.grounded=grounded;this.move=null;this.moveCooldown=0;this._prevFeetY=undefined;
+      this._prevX=undefined;this._prevZ=undefined;
+    });
+
     eventBus.on(Events.PLAYER_LAUNCHED,({velocity,seconds})=>{
       this.launched=seconds;this.launchSpin=0;this.move=null;this.stunTimer=0;this.grounded=false;gameState.player.stunned=true;this.vel.set(velocity[0],0,velocity[2]);this.vy=velocity[1];
     });
@@ -336,6 +343,11 @@ export class JimothyController {
   }
 
   update(delta, cameraYaw, aimPitch = 0) {
+    if(gameState.arrival.phase!=='done'){
+      this.input.consumeHop();this.input.consumeHeadbutt();this.input.consumeRoll();
+      this.body.velocity.setZero();this.vel.set(0,0,0);this.vy=0;this.elapsed+=delta;
+      return;
+    }
     // Radians below horizontal, straight off the camera (milestone 20). Aiming
     // IS looking: no aim mode, no modifier key. Held on the controller rather
     // than threaded through `_updateMoves`, because the head has to be posed to
@@ -535,48 +547,51 @@ export class JimothyController {
         eventBus.emit(Events.SWIM_CONTACT,{from,to:p,radius:rad,receive:q=>p.copy(q)});
       }
     }
-    this._resolveVoxels(p);
-    // Ground height comes from the voxel slab, so blasted craters are real
-    // terrain he can drop into and climb out of. Scanned from his own feet so
-    // nearby rooftops can't yank him upward.
-    //
-    // SWEPT, not instantaneous: the scan starts from wherever his feet were
-    // last frame, so a surface he crossed *between* frames still catches him.
-    // Scanning only from the current position means one long frame — the
-    // update loop allows up to 0.1 s — can step straight past thin geometry
-    // and drop him out of the world.
-    const feetY = p.y - rad;
-    const scanFrom = Math.max(feetY, this._prevFeetY ?? feetY);
-    const floorY = this.voxels ? this.voxels.groundHeightAt(p.x, p.z, scanFrom) : 0;
-    const standY = floorY + rad;
-    // Only land when descending — rising through a lip shouldn't snap him to it.
-    if (p.y <= standY && this.vy <= 0) {
-      p.y = standY;
-      this.vy = 0;
-      this.grounded = true;
-    } else if (this.swimming || p.y > standY + P.GROUND_STICK) {
-      this.grounded = false;
-    } else {
-      // Within sticking distance of a surface: hold him there rather than
-      // letting gravity accumulate. Without this he can sit in a limit cycle
-      // against a wall or roof edge — auto-climb lifts him, the ground check
-      // un-grounds him, gravity pulls him back — never landing, never able to
-      // hop, and carrying a big negative velocity into the next gap he meets
-      // (playtest 2026-08-06: "falling through the floor").
-      this.grounded = true;
-      // Settle onto the floor so contact tolerance cannot preserve a visible gap.
-      // Preserve upward motion so the first frames of a hop remain free.
-      if (this.vy <= 0) { p.y = standY; this.vy = 0; }
-    }
-    if(this.launched&&this.grounded)this.body.velocity.y=0;
-    // Last line of defence: whatever happened above, he is never below the
-    // surface of his own column. Cheap, and it makes falling out of the world
-    // impossible rather than merely unlikely.
-    if (p.y < standY) {
-      p.y = standY;
-      if (this.vy < 0) this.vy = 0;
-    }
-    this._prevFeetY = p.y - rad;
+    // The authored comet path must not acquire a roof as its walking floor.
+    if(!['waiting','falling'].includes(gameState.arrival.phase)){
+      this._resolveVoxels(p);
+      // Ground height comes from the voxel slab, so blasted craters are real
+      // terrain he can drop into and climb out of. Scanned from his own feet so
+      // nearby rooftops can't yank him upward.
+      //
+      // SWEPT, not instantaneous: the scan starts from wherever his feet were
+      // last frame, so a surface he crossed *between* frames still catches him.
+      // Scanning only from the current position means one long frame — the
+      // update loop allows up to 0.1 s — can step straight past thin geometry
+      // and drop him out of the world.
+      const feetY = p.y - rad;
+      const scanFrom = Math.max(feetY, this._prevFeetY ?? feetY);
+      const floorY = this.voxels ? this.voxels.groundHeightAt(p.x, p.z, scanFrom) : 0;
+      const standY = floorY + rad;
+      // Only land when descending — rising through a lip shouldn't snap him to it.
+      if (p.y <= standY && this.vy <= 0) {
+        p.y = standY;
+        this.vy = 0;
+        this.grounded = true;
+      } else if (this.swimming || p.y > standY + P.GROUND_STICK) {
+        this.grounded = false;
+      } else {
+        // Within sticking distance of a surface: hold him there rather than
+        // letting gravity accumulate. Without this he can sit in a limit cycle
+        // against a wall or roof edge — auto-climb lifts him, the ground check
+        // un-grounds him, gravity pulls him back — never landing, never able to
+        // hop, and carrying a big negative velocity into the next gap he meets
+        // (playtest 2026-08-06: "falling through the floor").
+        this.grounded = true;
+        // Settle onto the floor so contact tolerance cannot preserve a visible gap.
+        // Preserve upward motion so the first frames of a hop remain free.
+        if (this.vy <= 0) { p.y = standY; this.vy = 0; }
+      }
+      if(this.launched&&this.grounded)this.body.velocity.y=0;
+      // Last line of defence: whatever happened above, he is never below the
+      // surface of his own column. Cheap, and it makes falling out of the world
+      // impossible rather than merely unlikely.
+      if (p.y < standY) {
+        p.y = standY;
+        if (this.vy < 0) this.vy = 0;
+      }
+      this._prevFeetY = p.y - rad;
+    }else this.grounded=false;
     // group.position is set once at the END of this method, after the tumble
     // pivot is known — setting it here too would just be overwritten.
 
@@ -651,6 +666,7 @@ export class JimothyController {
       this.rollSpin = 0;
       this.rollTuck = 0;
     }
+    this.rollTuck=Math.max(this.rollTuck,gameState.arrival.tuck);
     this._rollPosition.copy(p);
     this.group.rotation.z = rollWobble;
     const tuck = Math.max(0, this.rollTuck || 0);
@@ -719,7 +735,7 @@ export class JimothyController {
     this.headSlot.rotation.x =
       -bodyPitch * MOVES.HEADBUTT.HEAD_PITCH_GAIN + tuck * MOVES.ROLL.TUCK_HEAD;
     // Single owner of the body's pitch: headbutt lean + roll tumble.
-    this.group.rotation.x = bodyPitch * 0.5 + this.rollSpin + this.launchSpin;
+    this.group.rotation.x = bodyPitch * 0.5 + this.rollSpin + this.launchSpin + gameState.arrival.pitch;
     anchor(this.tailSlot.userData.base, this.tailSlot.position);
     this.tailSlot.rotation.y = Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck);
     this.tailSlot.rotation.x = tuck * MOVES.ROLL.TUCK_TAIL; // curls in for the roll

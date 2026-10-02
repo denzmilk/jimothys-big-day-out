@@ -101,6 +101,7 @@ export const Events = {
   RIG_LOADED: 'rig:loaded',
   // game:*
   GAME_START: 'game:start',
+  SPAWN_POSE:'spawn:pose', SPAWN_IMPACT:'spawn:impact', SPAWN_COMPLETE:'spawn:complete',
   GAME_OVER: 'game:over',
   GAME_RESTART: 'game:restart',
   // dev:* — DevTools panel; gameplay modules subscribe, panel never imports them

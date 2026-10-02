@@ -17,6 +17,7 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
 
 ## Game rules
 
+- **Comet arrival (2026-10-03):** each new run opens with flaming Jimothy falling from the sky, a huge crash and a small destructible crater. A brief cinematic hands back grounded control with score and heat at zero.
 - No timer. The day lasts until animal control's **net** catches Jimothy — the net is the *only* way the run ends.
 - Heat tiers (0–5), GTA wanted-star style:
   - **0** — quiet block.

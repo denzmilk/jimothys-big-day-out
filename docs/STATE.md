@@ -2,6 +2,19 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Giant Jimothy feedback — reproduced and planned — 2026-10-02
+
+Chris's latest playtest reopens giant shape/collection. The interrupted SUV/pedestrian pass remains completed and pushed (`0df5441`, `b8ca85d`). **This follow-up is a loaded-game audit and revised plan; no giant or military runtime fix is claimed.** See [the audit](giant-audit-2026-10-02.md) for measurements, captures and limitations.
+
+- Actual Block-size skin bounds are 33.14 × 15.03 × 50.10 m. World-space proportions are applied in body-bone axes; the collision/pivot/collector proxies disagree with the rendered body. JIM-24/JIM-49 and milestone 23 are reopened.
+- Collection counts reach 64, but attached people sit metres from the skin. JIM-29/milestone 24 are reopened. JIM-60 records the held-roll animation stopping at 0.9 seconds while movement continues.
+- JIM-61: the same aimed wall loses 56 / 538 / 0 / 0 voxels at fatness 0 / 90 / 250 / 400. At giant size the small blast sits above the building.
+- JIM-48: synchronous mesh rebuilding peaks at 475 ms at Block and 1,938 ms at Absurd in a 90-update CPU probe. Draw calls also rise, but native-GPU FPS has not been measured. No page errors in the loaded-model reproductions. These diagnostics are not passing regression tests or a performance sign-off.
+
+**Recommended next implementation:** repair existing milestones 23–24's giant form, pivot, sustained rotation and real surface attachments. The revised backlog then proposes **33 responsive giant destruction/performance → 34 military tanks/jets**. Beach deformation and varied underwater exploration retain their full briefs afterwards, without assigned milestone numbers. No new milestone files are active. Keep runtime changes issue-scoped and test actual skinned contact/visible outcomes, not just registry counts.
+
+Military escalation is absent from the runtime. The current gameplan still ends runs only through the net; a question is pending on whether Chris wants military attacks to change that rule. Sand surface deformation versus granular piles is also still an unanswered preference. Neither pending preference blocks giant geometry diagnosis/repair. The earlier planning order below is superseded by this entry.
+
 ## Additional world requests — planning handoff — 2026-10-02
 
 The interrupted pass is now pushed: `0df5441` fixes the SUV spare; `b8ca85d` adds six MPFB people and corrects short-leg running stride. Final verification is recorded below. Chris then asked for underwater sites/wildlife/rays/bubbles, soft beach sand and better draw distance/performance, and explicitly requested **finish the interrupted task, then plan these additions**.

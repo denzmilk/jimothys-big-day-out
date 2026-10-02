@@ -2,7 +2,7 @@
 
 ## Status
 
-**Partially implemented 2026-10-02, awaiting playtest.** Milestone 27 delivers size-gated collection, attachment to the rolling belly, and release of physical props, edible food and living civilians/pursuers. Final stash/sifting presentation remains open.
+**Partially implemented; contact reopened after Chris's playtest, 2026-10-02.** The registry collects and releases entities, but Block-size people attach several metres from the visible skin and stop revolving after the first tumble. JIM-29/JIM-60 require repair before collection can be accepted. See [the loaded-model audit](../giant-audit-2026-10-02.md). Final stash/sifting presentation remains open.
 
 Depends on: milestone 23 (break the fatness ceiling) — the roll is only a traversal mode once he is big enough to need one.
 

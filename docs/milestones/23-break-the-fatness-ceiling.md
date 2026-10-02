@@ -2,7 +2,7 @@
 
 ## Status
 
-**Implemented 2026-10-02, awaiting Chris's playtest.** The existing growth work was completed and validated as the movement dependency for the approved world pass.
+**Reopened after Chris's playtest, 2026-10-02.** Growth and held movement exist, but the giant form does not read as a ball and the tumble stops after 0.9 seconds while translation continues (JIM-24/JIM-49/JIM-60). See [the loaded-model audit](../giant-audit-2026-10-02.md). Previous size/camera checks below do not establish correct shape or continuous rotation. Giant destruction is separately recorded as JIM-61.
 
 Depends on: milestone 22 (things land on the ground) · Blocks: milestone 24 (katamari roll)
 

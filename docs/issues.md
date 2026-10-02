@@ -10,11 +10,23 @@
 
 ## Open
 
+### JIM-61 — Giant attacks pass above buildings
+
+**Status:** open · **Reported:** 2026-10-02 (Chris)
+
+Flat headbutts at the same wall remove 56 voxels at fatness 0, 538 at 90, and zero at 250/400. All four ordinary E presses fire. At Block size the blast centre is y=55.92 with radius 5.75 over ground y=39.56; the collision body grows upward while blast radius saturates. Roll damage is only a 1.24 m sphere at this size. There is no giant surface-contact demolition path. Fix impact/contact geometry with bounded voxel work; simply enlarging the existing cubic loop would worsen JIM-48. Locations: `JimothyController._updateMoves`, `Game.blastRadius/impactPoint/blastAt`, `VoxelWorld.damageSphere`. Evidence: `output/iterate/giant-headbutt-audit.log`; [audit](giant-audit-2026-10-02.md). Proposed responsive-destruction work is in the backlog; no fix is claimed.
+
+### JIM-60 — Held rolling stops tumbling after 0.9 seconds
+
+**Status:** open · **Found:** 2026-10-02 while reproducing Chris's giant/collection report
+
+Given a loaded rig and C held for 1.5 seconds, movement continues but `rollSpin` reaches 2π at 0.9 seconds and stays there. The animation clamps normalized move time to 1; extending the move to held traversal did not extend the tumble. This also stops collected objects revolving with Jimothy. Preserve the lean flop while making giant rotation follow travel continuously. Location: `JimothyController.postUpdate`. Evidence: `output/iterate/giant-audit.log`; [audit](giant-audit-2026-10-02.md). Milestone 23 is reopened.
+
 ### JIM-59 — Shoreline reads as a hard edge instead of a beach
 
 **Status:** open · **Reported:** 2026-10-02 (Chris)
 
-Chris requests a softer shore and deformable sand. `Terrain.bake` has a smooth 34 m shore ramp, but `Terrain.materialAtVoxel` selects sand only at/below sea level and dry land remains topsoil. That is a concrete presentation gap; the exact reported hard edge needs a coast survey before choosing the final shape fix. Proposed milestone 34 in `docs/backlog.md` covers varied dry/wet sand bands, walkable shallows, local deformation and matching ground/water contact. This is planned, not implemented.
+Chris requests a softer shore and deformable sand. `Terrain.bake` has a smooth 34 m shore ramp, but `Terrain.materialAtVoxel` selects sand only at/below sea level and dry land remains topsoil. That is a concrete presentation gap; the exact reported hard edge needs a coast survey before choosing the final shape fix. The deferred beach proposal in `docs/backlog.md` covers varied dry/wet sand bands, walkable shallows, local deformation and matching ground/water contact. This is planned, not implemented.
 
 ### JIM-58 — Short pedestrians overreach while running uphill
 
@@ -80,11 +92,13 @@ Chris reports walking jitter and people jumping on angles. Reproduced at spawn b
 
 World-space planted contacts now transfer through bounded swing arcs; trailing-foot selection handles reversals, late landing targets lock, and pelvis/foot rotation respond smoothly. Civilian movement slows while turning toward a new route. The same street repro now measures a 0.050 m maximum hip displacement and 0.033 m planted-foot error at the 95th percentile. `tests/walking-ik.spec.js` covers real streets, all six models on three ramp directions, stop/start, walk/run and 30/60/120 Hz; production captures and smoke are in `output/iterate/ik-*`. Visual feel awaits Chris's sign-off.
 
-### JIM-49 — Two rig growth checks fail at House size
+### JIM-49 — Giant rig proportions and child scales disagree with the intended ball
 
 **Status:** open · **Found:** 2026-10-02 during full regression verification
 
 Both failures reproduce unchanged on isolated pre-shatter commit `723c993`: `rig.spec.js::fatness grows the belly and nothing else` reports a non-body bone scale of 0.858 versus a lean 0.849 (tolerance 0.005); `::the belly carries head, tail and legs outward as it grows` reports leg height 0.596 versus 0.647 (tolerance 0.05). Investigate posed bone measurements and growth correction before deciding whether these represent visible model drift or outdated invariant checks. No rig code or assertion tolerance was changed in the glass pass. Evidence: `output/iterate/glass-rig-baseline.log`, `glass-rig-offset-baseline.log`; code: `JimothyRig`, `JimothyController`, `tests/rig.spec.js`.
+
+Chris's 2026-10-02 playtest confirms a visible shape failure. Actual posed mesh bounds at Block size are 33.14 × 15.03 × 50.10 m; the collector's proxy is 40.83 × 28.93 × 62.47 m. `bindAspect()` caches world-space proportions but growth applies them in body-bone axes (Y is the spine); uniform child correction remains inaccurate. The pivot also misses the large longitudinal offset. This requires a visible-body/contact repair, not wider test tolerances. See [the audit](giant-audit-2026-10-02.md), `output/iterate/giant-audit.log` and `giant-before-250.png`. JIM-24 and milestone 23 are reopened.
 
 ### JIM-48 — Populated world exceeds the legacy draw-call budget
 
@@ -97,6 +111,8 @@ Milestones 30–31 add local sun shadows, vegetation/wildlife and water. The fin
 Milestone 32's final production smoke records 1,720 whole-renderer calls with regular streetlights and signal poles (`output/iterate/traffic-final-smoke.log`). Its full-suite boot assertion reports 1,714 against the unchanged 300-call limit (`traffic-full-suite.log`). Traffic correctness checks pass, but the scene still needs the separate batching/LOD performance pass.
 
 Chris reported poor frame rate on 2026-10-02 and requested draw-distance controls and less out-of-view work. The latest twelve-model production smoke reports 1,731 whole-renderer calls after two simulated seconds (`output/iterate/pedestrian-variety-smoke.log`). No native-GPU frame-time baseline has been recorded for this report. `EnvironmentLife` disables frustum culling on vegetation batches and particles; `StreetLife` does so for road markings, and `WaterSystem` for local water/splashes. These are investigation points, not a confirmed complete diagnosis. Proposed milestone 33 in `docs/backlog.md` prioritises measurements, per-pass culling/bounds, batching/LOD, quality controls and bounded simulation before more world content.
+
+The giant audit adds a confirmed CPU bottleneck: synchronous `remeshDirty()` calls peak at 475 ms at Block and 1,938 ms at Absurd during 90 rolling updates. Total meshing time is 2.84 / 5.08 seconds respectively. The one-column streaming budget does not bound the expensive chunk rebuilds. Loaded rendering reports up to 3,831 calls after the largest roll. These are headless SwiftShader CPU/draw measurements, not native-GPU FPS; fixed-distance native profiling remains open. `output/iterate/giant-audit.log` and [the audit](giant-audit-2026-10-02.md) record methodology and limitations. Budget meshing/destruction before scaling impact volumes (JIM-61).
 
 ### JIM-47 — Feet and wheels need contact with the visible ground
 
@@ -475,7 +491,7 @@ Still open:
 
 ### JIM-24 — Jimothy should be able to get as big as a house — no, bigger than that
 
-**Status:** implemented, awaiting playtest (milestone 23, 2026-10-02) · **Severity:** high (it is the core fantasy) · **Reported:** 2026-08-07 (Chris), **escalated 2026-08-08**
+**Status:** reopened after giant-form playtest (milestone 23, 2026-10-02; JIM-49/JIM-60) · **Severity:** high (it is the core fantasy) · **Reported:** 2026-08-07 (Chris), **escalated 2026-08-08**
 
 > "Speed slow down can be more aggressive, the idea is that Jimothy can get as big as a house if he keeps eating."
 
@@ -595,13 +611,15 @@ Three systems were anchored to the old map. Two were fixed in milestone 12 becau
 
 ### JIM-29 — Katamari roll: fat Jimothy becomes a hoarding marble
 
-**Status:** collection/release implemented in milestone 27, awaiting playtest; final stash UI remains open · **Severity:** high (it resolves the fat-slowness tension AND adds a loop) · **Reported:** 2026-08-07 (Chris)
+**Status:** collection contact reopened after playtest, 2026-10-02; final stash UI remains open · **Severity:** high (it resolves the fat-slowness tension AND adds a loop) · **Reported:** 2026-08-07 (Chris)
 
 > "let's do something with the roll katamari style, make it turn into more of an actual 'roll' instead of a set animation where Jimothy becomes a giant wrecking ball."
 >
 > "Yes on picking things up, make it maybe a little less destructive to buildings, but think of it as a mass food and item hoarding strategy when jimothy is fat, you get into katamari mode to move quick enough to collect things like a marble - then when you stop everything unloads and you can sift through what you picked up - people included. So if you get some paparrazi or animal control, or military in the roll - you'll need to get away from them to do anything with the stash."
 
 **This is a whole loop, not a move.** It resolves the fat-slowness problem the bigger map created (a successful run ends taking **12m 12s** to cross a world built for exploring) by converting the penalty into a *mode*: on foot fat is slow, but rolling it is fast, and rolling is also how you harvest. Fat stops being a tax and becomes a change of gear.
+
+**2026-10-02 reproduction:** Block/Absurd register 64 attachments, but visible contact is wrong. Rays from attached people to the belly first hit the actual skinned surface 3.63–14.25 m away at Block and 8.97–31.19 m at Absurd. Proxy placement uses an approximate bone-owned box, while pickup proximity uses the smaller, offset collider. Counts/parenting tests miss this. JIM-60 also stops rotation after one tumble. See `RollCollector.update`, `JimothyRig.bellyLocalBox`, `output/iterate/giant-contact-audit.log` and [the audit](giant-audit-2026-10-02.md). Milestone 24 remains unaccepted.
 
 ### The loop
 

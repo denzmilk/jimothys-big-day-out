@@ -14,7 +14,7 @@ window.teleportJimothy = (x, z) => game.teleportJimothy(x, z);
 window.restartGame = () => game.restart();
 // Fatness scales body size, blast power and every anchor offset, so specs need
 // to reach the extremes without eating 80 snacks to get there.
-window.setFatness = (fat) => { gameState.player.fatness = fat; };
+window.setFatness = (fat) => eventBus.emit(Events.DEV_SET_FATNESS,{value:fat});
 // Heading matters for the move specs: bugs that hide when he faces world +z
 // (the spawn heading) are exactly the ones that shipped.
 //

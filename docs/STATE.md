@@ -1,5 +1,9 @@
 # Session state
 
+## Size-slider ground preservation — JIM-63 — 2026-10-02
+
+Implemented, awaiting playtest. Abrupt size changes now preserve physical feet by moving the collision centre with the radius. The test hook follows the real slider event. The failing 17.84 m foot drop is fixed; the actual dev control passes Block/Absurd/lean checks, and build/rendered smoke pass with the in-progress military code present. Military runtime/asset work remains uncommitted and continues next.
+
 ## Quality settings and distant town — milestone 33 — 2026-10-02
 
 Implemented, awaiting Chris's playtest. Low/Medium/High control 350/700/1,400 m view distance, detail, pixel ratio, shadow resolution and live voxel work budgets. Offscreen distant pedestrian animation/AI updates less often; visible and nearby feet keep their normal cadence. Collision streaming expands for giant contact. The town retains 1,989 inexpensive building silhouettes, using the same quantised footprints, heights, roof styles and palette as the voxel buildings. Ready-column masking prevents overlap; damaged silhouettes remain hidden after unloading and reset correctly. Their fixed buffers reserve about 0.7 million vertices rather than 4.2 million. `render.drawCalls` is the whole renderer count; `voxels.drawCalls` remains a compatibility alias.

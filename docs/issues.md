@@ -10,6 +10,13 @@
 
 ## Open
 
+### JIM-63 — Size slider drops physical feet into the ground
+
+**Status:** implemented, awaiting playtest · **Found:** 2026-10-02 during military inspection
+
+Jumping from lean to Block size left the collision centre unchanged and dropped the feet from y=42.044 to y=24.201, activating underground lighting. The size event now raises/lowers the centre by the radius change, preserving feet. The test hook uses that same event instead of writing fatness directly. The actual DevTools number input passes lean → Block → Absurd → lean without moving the feet or entering the underground (`dev-growth-red.log`, `dev-growth-green.log`). Build/rendered smoke pass (`military-build.log`, `military-smoke.log`); these ran with the in-progress military work present.
+
+
 ### JIM-62 — Chunk-boundary damage leaves the adjoining face missing
 
 **Status:** implemented, awaiting world playtest · **Found:** 2026-10-02 while testing staged meshing

@@ -149,7 +149,10 @@ class Game {
     // GameState, so the panel keeps its one-way relationship with gameplay.
     eventBus.on(Events.DEV_SET_FATNESS, ({ value }) => {
       if (!Number.isFinite(value)) return;
+      const radius=this.jimothy.radius;
       gameState.player.fatness = Math.max(0, value);
+      // Preserve feet when the slider skips many growth steps (JIM-63).
+      this.jimothy.body.position.y+=this.jimothy.radius-radius;
     });
 
     // Straight to the nearest stairwell (milestone 20). Inspecting the

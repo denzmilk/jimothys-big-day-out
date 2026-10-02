@@ -3,7 +3,7 @@ import { FootGrounding } from '../core/Grounding.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import {
   PAPARAZZI, ANIMAL_CONTROL, PURSUER_SPAWN_POINTS, COLORS, WORLD,
-  VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, SEWER, COLLECTION, PEDESTRIANS, CAPTURE,
+  VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, SEWER, COLLECTION, PEDESTRIANS, CAPTURE, TRAFFIC,
 } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { fatFactor } from '../core/MathUtils.js';
@@ -56,6 +56,7 @@ export class Pursuers {
     this.paparazzi = [];
     this.animalControl = null;
     this.spawnIndex = 0;
+    eventBus.on(Events.TRAFFIC_OBSTACLES,({obstacles})=>{for(const p of this.all)if(!p.attached)obstacles.push({id:`pursuer-${p.id}`,x:p.group.position.x,z:p.group.position.z,y:p.group.position.y,radius:TRAFFIC.PERSON_RADIUS});});
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=true;p.pinned=true;p.sees=false;}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=false;p.group.position.set(position.x,ground,position.z);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
     eventBus.on(Events.HUMAN_MODELS_READY,({models})=>{this.models=models;for(const p of this.all)this._human(p);});

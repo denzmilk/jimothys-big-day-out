@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { FootGrounding } from '../core/Grounding.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
-import { PEDESTRIANS as PED, COLLECTION } from '../core/Constants.js';
+import { PEDESTRIANS as PED, COLLECTION, TRAFFIC } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import * as Layout from '../level/Layout.js';
@@ -14,6 +14,7 @@ export class Pedestrians {
     this.scene=scene;this.jimothy=jimothy;this.voxels=voxels;
     this.people=[];this.models=[];this.ready=false;this.elapsed=0;this.serial=0;this.center=null;
     this.graph=new Map();this.obstacles=new Map();
+    eventBus.on(Events.TRAFFIC_OBSTACLES,({obstacles})=>{for(const p of this.people)if(!p.attached)obstacles.push({id:p.id,x:p.mesh.position.x,z:p.mesh.position.z,y:p.mesh.position.y,radius:TRAFFIC.PERSON_RADIUS});});
     const remember=e=>{if(e.kind!=='person'&&e.kind!=='food')this.obstacles.set(e.id,e);};
     eventBus.on(Events.ENTITY_REGISTER,remember);
     eventBus.on(Events.ENTITY_UNREGISTER,({id})=>this.obstacles.delete(id));

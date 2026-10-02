@@ -20,7 +20,7 @@ The changed street obstacle layout exposes a long recovery step after a downhill
 
 **Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris)
 
-Chris observes cars travelling backwards. All six preserved Blender exports have their front axle along -Z, while `StreetLife` drives along +Z. The template now normalizes every imported mesh by `STREET.CAR.MODEL_YAW` before centring, preserving glass, wheels and breakaway geometry. The baseline front/rear axle difference was -2.112 m for the sedan; the regression measures the actual front/rear wheels against travel direction. Eight orientation/grounding/destruction checks pass (`output/iterate/traffic-heading-green.log`), build and rendered smoke pass with no console errors, and all six corrected models were inspected in `traffic-car-directions.png`. Junction turning and regular streetlights follow in milestone 32.
+Chris observes cars travelling backwards. All six preserved Blender exports have their front axle along -Z, while `StreetLife` drives along +Z. The template now normalizes every imported mesh by `STREET.CAR.MODEL_YAW` before centring, preserving glass, wheels and breakaway geometry. The baseline front/rear axle difference was -2.112 m for the sedan; the regression measures the actual front/rear wheels against travel direction. Eight orientation/grounding/destruction checks pass (`output/iterate/traffic-heading-green.log`), build and rendered smoke pass with no console errors, and all six corrected models were inspected in `traffic-car-directions.png`. Milestone 32 now implements curved junction turns, controlled traffic and regular streetlights.
 
 ### JIM-53 — Jimothy does not participate in the new world shadows
 
@@ -65,6 +65,8 @@ Both failures reproduce unchanged on isolated pre-shatter commit `723c993`: `rig
 `tests/voxel.spec.js` has two assertions requiring fewer than 300 renderer calls. A clean isolated copy of pre-shatter commit `723c993` already reports 866 calls, 2,931,262 triangles and 195 voxel meshes at deterministic boot. Separate car panes report 900 calls with the same triangle and voxel mesh counts. The `voxels.drawCalls` field currently reports the whole renderer, including people and props. Evidence: `output/iterate/glass-baseline-comparison.log`, `glass-adjacent.log`. Review scene batching/LOD and the telemetry naming in a separate performance pass; do not raise the limit to conceal it. Locations: `Game.renderToText`, `Pedestrians`, `StreetLife`, `VoxelWorld`, `tests/voxel.spec.js`.
 
 Milestones 30–31 add local sun shadows, vegetation/wildlife and water. The final production smoke records 1,510 whole-renderer calls after two simulated seconds (`output/iterate/water-smoke-final.log`), with 1,249 plants and nine animals. The draw-call budget remains unresolved; bounded populations and passing state tests are not an FPS sign-off.
+
+Milestone 32's final production smoke records 1,720 whole-renderer calls with regular streetlights and signal poles (`output/iterate/traffic-final-smoke.log`). Its full-suite boot assertion reports 1,714 against the unchanged 300-call limit (`traffic-full-suite.log`). Traffic correctness checks pass, but the scene still needs the separate batching/LOD performance pass.
 
 ### JIM-47 — Feet and wheels need contact with the visible ground
 

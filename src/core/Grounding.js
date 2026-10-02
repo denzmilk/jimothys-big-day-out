@@ -8,66 +8,107 @@ function rotateToward(bone,from,to){
   bone.quaternion.premultiply(parent.clone().invert().multiply(turn).multiply(parent));bone.updateWorldMatrix(false,true);
 }
 
-// Two-bone analytic IK runs after animation. Exported animation supplies the
-// gait; live terrain queries supply the support height and foot normal.
+// JIM-50: feet transfer through a swing arc instead of swapping directly from
+// a world anchor to the exported pose. Stride timing follows actual movement.
 export class FootGrounding {
   constructor(root,visual,ground){
     this.root=root;this.visual=visual;this.ground=ground;this.baseY=visual.position.y;
     root.updateWorldMatrix(true,true);
     const floor=new THREE.Box3().setFromObject(visual).min.y;
+    const rotation=root.getWorldQuaternion(new THREE.Quaternion()).invert();
     this.legs=['l','r'].map(side=>{
       const hip=visual.getObjectByName(`thigh_${side}`),knee=visual.getObjectByName(`calf_${side}`),foot=visual.getObjectByName(`foot_${side}`);
-      return {hip,knee,foot,offset:position(foot).y-floor,l1:position(hip).distanceTo(position(knee)),l2:position(knee).distanceTo(position(foot)),neutral:foot.getWorldQuaternion(new THREE.Quaternion()),stance:false,anchor:null};
+      return {hip,knee,foot,offset:position(foot).y-floor,l1:position(hip).distanceTo(position(knee)),l2:position(knee).distanceTo(position(foot)),
+        rest:root.worldToLocal(position(foot)),neutral:rotation.clone().multiply(foot.getWorldQuaternion(new THREE.Quaternion()))};
     });
-    this.contacts=[];
+    this.reset();
   }
-  update(action,moving){
+  reset(){
+    this.previous=null;this.bodyY=null;this.velocity=new THREE.Vector3();this.wait=0;this.contacts=[];
+    for(const leg of this.legs){leg.target=null;leg.swing=null;leg.orientation=null;}
+  }
+  foothold(leg){
+    const target=this.root.localToWorld(leg.rest.clone());
+    target.y=this.ground(target.x,target.z)+leg.offset+C.FOOT_CLEARANCE;return target;
+  }
+  update(action,moving,dt){
     this.visual.position.y=this.baseY-C.PELVIS_DROP;this.root.updateWorldMatrix(true,true);this.contacts=[];
-    const phase=action?((action.time/action.getClip().duration)%1):0;
-    const forward=new THREE.Vector3(0,0,1).applyQuaternion(this.root.quaternion);
+    const rootPosition=position(this.root);
+    if(this.previous&&rootPosition.distanceTo(this.previous)>C.RESET_DISTANCE)this.reset();
+    const fresh=!this.previous;
+    const velocity=rootPosition.clone().sub(this.previous||rootPosition);velocity.y=0;
+    if(dt>0)velocity.divideScalar(dt);
+    if(!moving)velocity.set(0,0,0);
+    this.velocity.lerp(velocity, fresh?1:1-Math.exp(-C.VELOCITY_RESPONSE*dt));
+    this.previous=rootPosition;
+    const speed=this.velocity.length(),stride=action?.getClip().name==='Run'?C.RUN_STRIDE:C.WALK_STRIDE;
+    const direction=this.velocity.clone().normalize();
+    for(const leg of this.legs)if(!leg.target)leg.target=this.foothold(leg);
+    this.wait=Math.max(0,this.wait-dt);
+    if(moving&&speed>C.MIN_SPEED&&!this.legs.some(l=>l.swing)&&this.wait===0){
+      // After a reversal the last foot to land may already be the trailing
+      // one. Blind alternation would leave it a full extra stride behind.
+      const leg=this.legs.reduce((a,b)=>this.foothold(a).sub(a.target).dot(direction)>this.foothold(b).sub(b.target).dot(direction)?a:b);
+      const duration=THREE.MathUtils.clamp(stride/(2*Math.max(speed,velocity.length()))*C.SWING_SHARE,C.SWING_MIN,C.SWING_MAX);
+      const end=this.foothold(leg).addScaledVector(this.velocity,duration).addScaledVector(direction,stride*C.FOOT_LEAD);
+      end.y=this.ground(end.x,end.z)+leg.offset+C.FOOT_CLEARANCE;
+      leg.swing={start:leg.target.clone(),end,elapsed:0,duration,gap:duration*(1-C.SWING_SHARE)/C.SWING_SHARE};
+    }
+    for(const leg of this.legs){
+      const swing=leg.swing;
+      if(swing){
+        swing.elapsed=Math.min(swing.duration,swing.elapsed+dt);
+        // A late navigation turn must not yank a nearly planted foot sideways.
+        if(moving&&swing.elapsed/swing.duration<C.LANDING_LOCK){
+          const end=this.foothold(leg).addScaledVector(this.velocity,swing.duration-swing.elapsed).addScaledVector(direction,stride*C.FOOT_LEAD);
+          end.y=this.ground(end.x,end.z)+leg.offset+C.FOOT_CLEARANCE;
+          const correction=end.sub(swing.end).multiplyScalar(1-Math.exp(-C.LANDING_RESPONSE*dt));
+          correction.clampLength(0,C.LANDING_SPEED*dt);swing.end.add(correction);
+        }
+        swing.end.y=this.ground(swing.end.x,swing.end.z)+leg.offset+C.FOOT_CLEARANCE;
+        const t=swing.elapsed/swing.duration,ease=t*t*(3-2*t);
+        const desired=swing.start.clone().lerp(swing.end,ease);
+        desired.y=Math.max(desired.y,this.ground(desired.x,desired.z)+leg.offset+C.FOOT_CLEARANCE)+C.STEP_LIFT*Math.sin(Math.PI*t)**2;
+        const footSpeed=action?.getClip().name==='Run'?C.RUN_FOOT_SPEED:C.WALK_FOOT_SPEED;
+        leg.target.add(desired.sub(leg.target).clampLength(0,footSpeed*dt));
+        // Finish a long recovery step before starting the other foot; a timer
+        // expiring must never teleport the ankle onto its landing point.
+        if(t===1&&leg.target.distanceTo(swing.end)<C.SOLVE_EPSILON){this.wait=swing.gap;leg.swing=null;}
+      }else leg.target.y=this.ground(leg.target.x,leg.target.z)+leg.offset+C.FOOT_CLEARANCE;
+    }
     let drop=0;
-    const targets=this.legs.map((leg,i)=>{
-      const stance=!moving||(i===0?phase<.5:phase>=.5),h=position(leg.hip),f=position(leg.foot);
-      if(stance&&!leg.stance)leg.anchor=f.clone();
-      if(!stance)leg.anchor=null;
-      leg.stance=stance;
-      let target=(leg.anchor||f).clone();
-      const reach=(leg.l1+leg.l2)*C.MAX_REACH;
-      if(Math.hypot(target.x-h.x,target.z-h.z)>reach*C.ANCHOR_REACH){target=f.clone();leg.anchor=stance?target.clone():null;}
-      let ground=this.ground(target.x,target.z);
-      // A planted anchor can become unreachable after a sharp turn, a drop,
-      // or a release from Jimothy. Start a new foothold instead of stretching.
-      const verticalReach=Math.sqrt(Math.max(0,reach*reach-(target.x-h.x)**2-(target.z-h.z)**2));
-      if(stance&&h.y-(ground+leg.offset)-verticalReach>C.MAX_DROP){
-        target=f.clone();ground=this.ground(target.x,target.z);leg.anchor=target.clone();
-      }
-      target.y=stance?ground+leg.offset+C.FOOT_CLEARANCE:Math.max(f.y,ground+leg.offset+C.FOOT_CLEARANCE);
-      if(stance){
-        const horizontal=Math.hypot(target.x-h.x,target.z-h.z);
-        const available=Math.sqrt(Math.max(0,reach*reach-horizontal*horizontal));
-        drop=Math.max(drop,h.y-target.y-available);
-      }
-      return {target,ground,stance};
-    });
-    this.visual.position.y-=Math.min(C.MAX_DROP,drop);this.root.updateWorldMatrix(true,true);
-    for(let i=0;i<this.legs.length;i++){
-      const leg=this.legs[i],{hip,knee,foot,l1,l2}=leg,{target,ground,stance}=targets[i];
-      const h=position(hip),k=position(knee);
-      const toward=target.clone().sub(h),distance=Math.min(toward.length(),(l1+l2)*C.MAX_REACH),axis=toward.normalize();
+    for(const leg of this.legs){
+      const h=position(leg.hip),reach=(leg.l1+leg.l2)*C.MAX_REACH;
+      const horizontal=Math.hypot(leg.target.x-h.x,leg.target.z-h.z);
+      const available=Math.sqrt(Math.max(0,reach*reach-horizontal*horizontal));
+      drop=Math.max(drop,h.y-leg.target.y-available);
+    }
+    const desiredY=rootPosition.y+this.baseY-C.PELVIS_DROP-Math.min(C.MAX_DROP,drop);
+    if(fresh)this.bodyY=desiredY;
+    else{
+      const change=(desiredY-this.bodyY)*(1-Math.exp(-C.PELVIS_RESPONSE*dt));
+      this.bodyY+=THREE.MathUtils.clamp(change,-C.PELVIS_SPEED*dt,C.PELVIS_SPEED*dt);
+    }
+    this.visual.position.y=this.bodyY-rootPosition.y;this.root.updateWorldMatrix(true,true);
+    const rotation=this.root.getWorldQuaternion(new THREE.Quaternion());
+    const forward=new THREE.Vector3(0,0,1).applyQuaternion(rotation);
+    for(const leg of this.legs){
+      const {hip,knee,foot,l1,l2,target}=leg,h=position(hip),k=position(knee);
+      const toward=target.clone().sub(h),distance=THREE.MathUtils.clamp(toward.length(),Math.abs(l1-l2)+C.SOLVE_EPSILON,(l1+l2)*C.MAX_REACH),axis=toward.normalize();
       const a=(l1*l1-l2*l2+distance*distance)/(2*distance),height=Math.sqrt(Math.max(0,l1*l1-a*a));
       const pole=forward.clone().addScaledVector(axis,-forward.dot(axis)).normalize();
       const bend=h.clone().addScaledVector(axis,a).addScaledVector(pole,height);
       rotateToward(hip,k.clone().sub(h),bend.clone().sub(h));
       const nk=position(knee),nf=position(foot);rotateToward(knee,nf.sub(nk),target.clone().sub(nk));
-      {
-        const px=this.ground(target.x+C.PROBE,target.z)-this.ground(target.x-C.PROBE,target.z);
-        const pz=this.ground(target.x,target.z+C.PROBE)-this.ground(target.x,target.z-C.PROBE);
-        const normal=new THREE.Vector3(-px,2*C.PROBE,-pz).normalize();
-        const world=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),normal)
-          .multiply(this.root.getWorldQuaternion(new THREE.Quaternion())).multiply(leg.neutral);
-        foot.quaternion.copy(foot.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(world));foot.updateWorldMatrix(false,true);
-      }
-      const end=position(foot);this.contacts.push({stance,x:end.x,z:end.z,soleY:end.y-leg.offset,ground,error:end.y-leg.offset-ground});
+      const px=this.ground(target.x+C.PROBE,target.z)-this.ground(target.x-C.PROBE,target.z);
+      const pz=this.ground(target.x,target.z+C.PROBE)-this.ground(target.x,target.z-C.PROBE);
+      const normal=new THREE.Vector3(-px,2*C.PROBE,-pz).normalize();
+      const world=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),normal).multiply(rotation).multiply(leg.neutral);
+      if(!leg.orientation)leg.orientation=world.clone();
+      else leg.orientation.slerp(world,1-Math.exp(-C.NORMAL_RESPONSE*dt));
+      foot.quaternion.copy(foot.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(leg.orientation));foot.updateWorldMatrix(false,true);
+      const end=position(foot),ground=this.ground(end.x,end.z);
+      this.contacts.push({stance:!leg.swing,x:end.x,z:end.z,soleY:end.y-leg.offset,ground,error:end.y-leg.offset-ground});
     }
   }
 }

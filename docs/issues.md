@@ -10,6 +10,14 @@
 
 ## Open
 
+### JIM-50 — Pedestrians jump during foot-support changes on slopes
+
+**Status:** implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 27 grounding refinement
+
+Chris reports walking jitter and people jumping on angles. Reproduced at spawn by sampling six seconds of pedestrian walking at 60 Hz: `ped-21` near `(6, 20.95, 44.70)` moves its hips upward 0.555 m in one frame while the ground rises only 0.012 m. A planted foot trails too far behind; the unsmoothed pelvis correction disappears at the half-cycle support switch. Evidence: `output/iterate/ik-jitter-baseline.log`. Scope: continuous foot transfer, bounded pelvis movement, slope contact, animation/idle/release transitions. Locations: `src/core/Grounding.js`, `Pedestrians`, shared pursuer grounding.
+
+World-space planted contacts now transfer through bounded swing arcs; trailing-foot selection handles reversals, late landing targets lock, and pelvis/foot rotation respond smoothly. Civilian movement slows while turning toward a new route. The same street repro now measures a 0.050 m maximum hip displacement and 0.033 m planted-foot error at the 95th percentile. `tests/walking-ik.spec.js` covers real streets, all six models on three ramp directions, stop/start, walk/run and 30/60/120 Hz; production captures and smoke are in `output/iterate/ik-*`. Visual feel awaits Chris's sign-off.
+
 ### JIM-49 — Two rig growth checks fail at House size
 
 **Status:** open · **Found:** 2026-10-02 during full regression verification

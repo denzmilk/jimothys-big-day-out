@@ -2,6 +2,16 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Smooth pedestrian walking — JIM-50 — 2026-10-02
+
+**Implemented, awaiting Chris's playtest.** Chris reported pedestrian walking jitter and jumping on angles. The old support switch released a large pelvis correction instantly: the reproduced hip jump was 0.555 m in one 60 Hz frame while the terrain rose only 0.012 m. `FootGrounding` now keeps world-space foot contacts, transfers through bounded swing arcs, selects the trailing foot after turns, and smooths pelvis height and foot rotation. Pedestrians turn toward a route before translating along it. Civilian and pursuer grounding reset when released from rolling collection.
+
+The six-second real-street repro samples 12,924 person-frame transitions: maximum hip displacement is 0.050 m, maximum ankle displacement 0.139 m, and 95% of planted-foot errors are within 0.033 m. All six models pass uphill/downhill 50% grades and 45% cross slopes with stop/start transitions. Walk/run transitions and zero-time stability pass at 30/60/120 Hz. Tests: `tests/walking-ik.spec.js`; baseline: `output/iterate/ik-jitter-red.log`; final results: `ik-jitter-regression.log`. Build and production smoke pass without console errors. Eight production walking captures: `output/iterate/ik-walk-0.png` through `ik-walk-7.png`.
+
+Focused bug-fix regression: **20/20 passed** across walking IK, grounding, pedestrians, street life and pursuers. The last full-suite baseline remains 151/156 from the car refinement below; this scoped fix did not rerun unrelated suites or change their five known failures.
+
+Playtest the sloping streets near spawn at **http://127.0.0.1:4174**. Watch a person walk uphill, turn, stop and resume; Chris's judgement of the remaining body movement and foot contact is still required.
+
 ## Powered car destruction — 2026-10-02
 
 **Milestone 27 refinement is implemented, awaiting Chris's playtest.** Chris requested car destruction at bigger size/power with explosions and breakaway parts. Chunky (fatness 25) reaches a 3.5 m headbutt blast and now triggers a fireball/flash, sparks and fading smoke. Weaker hits keep the previous glass/body damage tiers. Imported Kenney car geometry supplies separate roof, bonnet/rear, side, bumper, chassis and wheel pieces; all six models preserve every opaque triangle and their intact appearance.

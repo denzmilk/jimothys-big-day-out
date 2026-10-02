@@ -46,6 +46,12 @@ Chris requested car destruction at a bigger size/power level, with explosion eff
 - [x] Destroyed cars stay gone after streaming; repeated impacts cannot re-explode a wreck. Fragments/effects have hard caps and restart clears bodies and registry entries; geometry/material caches and effect buffers are bounded and reused. `car-destruction.spec.js`: streaming, repeated reset and 18-car stress case.
 - [ ] Chris judges the threshold, explosion and breakaway readability in play (verified by user playtest).
 
+### Walking refinement — JIM-50
+
+- [x] Walking across slopes transfers support continuously, without single-frame hip or foot jumps; `walking-ik.spec.js` samples real streets and ramps across all six models. Reproduced hip jump drops from 0.555 m to at most 0.050 m per 60 Hz frame.
+- [x] Planted feet stay near the ground during walking, stopping and restarting; `walking-ik.spec.js` covers stop/start and 30/60/120 Hz walk/run transitions, `grounding.spec.js` checks contact, and adjacent pursuer/street-life checks cover shared grounding and rolling release.
+- [ ] Chris judges smooth walking and slope transitions in play (verified by user playtest).
+
 ## Dependencies
 
 Depends on: milestones 12, 17, 22; uses the existing in-progress milestone 23 scale work. Delivery order: 25 → 26 → 27. Milestone 27 implements the collection/release portion of milestone 24.
@@ -79,6 +85,8 @@ For glass, aim a lean headbutt at a car window, then try a building window. Chec
 The focused glass/grounding/street/voxel run passed 17/19 cases. The two draw-call failures reproduce on the previous commit and are tracked as JIM-48. Glass-specific red/green evidence: `glass-red.log`, `glass-refinement-red.log`, `glass-adjacent.log`. The stress test exposed glass overlapping coarse vehicle colliders; the final implementation excludes prop contacts while retaining gravity and voxel collision. This is a deliberate approximation, not mesh-accurate vehicle collision.
 
 ## Final checks
+
+JIM-50 walking refinement: **20/20 focused checks pass** in `output/iterate/ik-jitter-regression.log` (walking IK, grounding, pedestrians, street life and pursuers). Build and production rendered smoke pass with no console errors. Real-street maximum hip displacement falls from 0.555 m to 0.050 m per 60 Hz frame; planted-foot error is 0.033 m at the 95th percentile. Production captures `ik-walk-0.png` through `ik-walk-7.png` show successive uphill steps. Chris's playtest remains the visual/feel gate.
 
 Powered car destruction: four new checks pass (`output/iterate/car-destruction-green.log`). The first adjacent run passed 12/13; the timer stress case correctly froze on game over after mass destruction summoned animal control. The final test clears that chase before measuring elapsed cleanup, and asserts the run remains active. Production build and rendered smoke pass. A real E-key headbutt at fatness 25 produces one explosion with ten fire particles, twelve smoke puffs and eighteen sparks; state is in `car-destruction-headbutt-state.log`. Captures: `car-destruction-before.png`, `car-destruction-explosion.png`, `car-destruction-parts.png`, `car-destruction-headbutt.png`. Visual feel awaits Chris's playtest.
 

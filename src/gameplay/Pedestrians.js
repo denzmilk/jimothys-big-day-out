@@ -19,7 +19,7 @@ export class Pedestrians {
     eventBus.on(Events.ENTITY_UNREGISTER,({id})=>this.obstacles.delete(id));
     eventBus.emit(Events.ENTITY_LIST,{receive:entities=>{for(const e of entities)remember(e);}});
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=true;this._animate(p,'Idle');}});
-    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=false;p.x=position.x;p.z=position.z;p.y=ground;p.mesh.position.set(p.x,p.y,p.z);p.target=null;p.node=null;p.flee=PED.FLEE_SECONDS;}});
+    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=false;p.x=position.x;p.z=position.z;p.y=ground;p.mesh.position.set(p.x,p.y,p.z);p.grounding.reset();p.target=null;p.node=null;p.flee=PED.FLEE_SECONDS;}});
     const loader=new GLTFLoader();
     this.loading=Promise.all(PED.MODELS.map(id=>loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/people/${id}.glb`)))
       .then(models=>{
@@ -141,7 +141,10 @@ export class Pedestrians {
       let moving=false;
       if(p.target&&p.pause<=0) {
         const dx=p.target.x-p.x,dz=p.target.z-p.z,d=Math.hypot(dx,dz);
-        const speed=p.flee>0?PED.FLEE_SPEED:PED.SPEED;
+        p.yaw=Math.atan2(dx,dz);
+        // JIM-50: turn toward the new route before walking along it. An
+        // instant U-turn otherwise drags a planted foot behind the pelvis.
+        const speed=(p.flee>0?PED.FLEE_SPEED:PED.SPEED)*Math.max(0,Math.cos(p.yaw-p.mesh.rotation.y));
         const step=Math.min(speed*delta,d),nx=p.x+dx/(d||1)*step,nz=p.z+dz/(d||1)*step;
         const surface=this.voxels.terrainHeightAt(nx,nz), ground=this.voxels.groundHeightAt(nx,nz,surface+PED.GROUND_SCAN);
         const givesWay=p.flee<=0&&Math.hypot(nx-jp.x,nz-jp.z)<PED.GIVE_WAY_RADIUS;
@@ -156,7 +159,7 @@ export class Pedestrians {
       p.mesh.rotation.y+=difference*Math.min(1,delta*PED.TURN_SPEED);
       this._animate(p,moving?(p.flee>0?'Run':'Walk'):'Idle');
       p.mixer.update(delta*(p.flee>0?PED.RUN_RATE:PED.WALK_RATE));
-      p.grounding.update(p.actions[p.animation],moving);
+      p.grounding.update(p.actions[p.animation],moving,delta);
     }
   }
 

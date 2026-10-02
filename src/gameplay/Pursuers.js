@@ -56,7 +56,7 @@ export class Pursuers {
     this.animalControl = null;
     this.spawnIndex = 0;
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=true;p.pinned=true;p.sees=false;}});
-    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=false;p.group.position.set(position.x,ground,position.z);p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
+    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=false;p.group.position.set(position.x,ground,position.z);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
     eventBus.on(Events.HUMAN_MODELS_READY,({models})=>{this.models=models;for(const p of this.all)this._human(p);});
     // Shared across the whole pack so a crowd can't chain-stun the player.
     this.globalFlashCooldown = 0;
@@ -179,7 +179,7 @@ export class Pursuers {
     const moving=Math.hypot(p.group.position.x-x,p.group.position.z-z)>0;
     const name=moving?'Run':'Idle';
     if(name!==p.animation){p.actions[p.animation]?.fadeOut(PEDESTRIANS.FADE_TIME);p.actions[name]?.reset().fadeIn(PEDESTRIANS.FADE_TIME).play();p.animation=name;}
-    p.mixer.update(dt);p.grounding.update(p.actions[p.animation],moving);
+    p.mixer.update(dt);p.grounding.update(p.actions[p.animation],moving,dt);
   }
   _removePerson(p) {
     eventBus.emit(Events.ENTITY_UNREGISTER,{id:`pursuer-${p.id}`});p.group.removeFromParent();

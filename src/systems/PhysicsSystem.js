@@ -23,6 +23,7 @@ export class PhysicsSystem {
     // so anything given a mass gets this for free — including the vehicles and
     // props in the entity-registry backlog, which must not each re-derive it.
     this.dynamic = [];
+    this.waterContacts = new WeakMap();
     this.voxels = null;
 
     // ADR-0005: keep the safety plane below the seabed so it cannot turn
@@ -150,6 +151,7 @@ export class PhysicsSystem {
    *  from the blast three seconds ago. Same discipline as `teleportJimothy`
    *  clearing `_prevX` / `_prevFeetY`. */
   resetSweep(body) {
+    this.waterContacts.delete(body);
     body._prevX = undefined;
     body._prevY = undefined;
     body._prevZ = undefined;
@@ -165,6 +167,7 @@ export class PhysicsSystem {
   }
 
   remove(body, mesh = null) {
+    this.waterContacts.delete(body);
     this.world.removeBody(body);
     const d = this.dynamic.indexOf(body);
     if (d !== -1) this.dynamic.splice(d, 1);
@@ -195,10 +198,19 @@ export class PhysicsSystem {
     const C=WATER;
     for(const body of this.dynamic){
       const p=body.position,sup=this._support(body);
+      const previous=this.waterContacts.get(body);this.waterContacts.set(body,0);
       if(p.y>TERRAIN.SEA_LEVEL+sup.y+C.RIPPLE_MAX||p.y<TERRAIN.SEA_LEVEL-C.MAX_DEPTH)continue;
       let water;eventBus.emit(Events.WATER_SAMPLE,{x:p.x,z:p.z,id:body.id,receive:w=>water=w});if(!water)continue;
-      const fraction=Math.max(0,Math.min(1,(water.height-p.y+sup.y)/(sup.y*2)));if(!fraction)continue;
-      eventBus.emit(Events.WATER_DISTURB,{id:body.id,x:p.x,z:p.z,speed:body.velocity.length(),verticalSpeed:Math.abs(body.velocity.y)});
+      const fraction=Math.max(0,Math.min(1,(water.height-p.y+sup.y)/(sup.y*2)));
+      // A body's own depression must not re-arm its entry splash. Only a
+      // genuine exit above the underlying wave surface releases this contact.
+      const held=previous>0&&p.y-sup.y<=water.baseHeight+C.CONTACT_RESET_MARGIN;
+      this.waterContacts.set(body,fraction||(held?previous:0));if(!fraction)continue;
+      const entering=previous===0||(previous===undefined&&fraction<1&&body.velocity.y<-C.SPLASH_MIN_FALL);
+      // Body support follows its rotation, so fallen poles, car panels and
+      // ragdoll limbs displace their actual footprint through the same path.
+      if(body!==this.playerBody)eventBus.emit(Events.WATER_DISTURB,{id:body.id,x:p.x,z:p.z,radius:sup.r,halfHeight:sup.y,
+        fraction,entering,speed:Math.hypot(body.velocity.x,body.velocity.z),verticalSpeed:body.velocity.y,vx:body.velocity.x,vz:body.velocity.z});
       body.wakeUp();const s=body.shapes[0],h=s?.halfExtents;
       const volume=h?8*h.x*h.y*h.z:4/3*Math.PI*(s?.radius||sup.r)**3;
       const lift=Math.min(body.mass*C.MAX_BUOYANCY,C.DENSITY*volume)*WORLD.GRAVITY*fraction;

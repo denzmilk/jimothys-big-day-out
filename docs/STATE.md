@@ -1,5 +1,19 @@
 # Session state
 
+## Size-sensitive water reactions — JIM-72 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Jimothy produces footprint-sized entry ripples, spreading foam and splash droplets; moving at the surface leaves a trailing wake and smaller spray. Radius and impact speed control scale/strength. Actual imported cars, articulated MPFB ragdolls, pooled rubble and other dynamic props share the contact path. Fully submerged motion stays quiet at the surface, and a contact latch prevents the body’s own depression from triggering another entry burst.
+
+The fixed 64×64 field expands from 48 m to about 217 m at Absurd size, reprojects existing waves and shares cell spacing with the rendered surface. The near mesh grows without adding vertices. Budgets remain 96 droplets, 32 foam rings and 16 non-player reactions per frame; larger wakes emit less often. Restart reuses the textures/geometries and clears all effects.
+
+Verification: all 58 unit checks, the 31-case water/shore/ocean/physics/ragdoll regression and all 11 final water checks pass. The new size/window, contact and submerged-effect checks failed before repair. Native review exposed a duplicate entry burst; its regression failed at two bursts and now passes at one, then settles to zero effects. The moving-spray check also failed before its addition. One initial falling-prop fixture stopped before contact; it now waits up to two seconds for the actual crossing. Build and production pixel smoke pass with no console errors. Native lean/Block/Absurd entry and spread views plus an imported-car splash were inspected.
+
+Native Chrome/Metal/M5 Pro, 1280×800 Medium, 300 measured frames per offshore movement condition: lean water reactions disabled/enabled both **3.6 ms median / 6.3 ms p95** update-plus-render submission; Absurd **4.5/4.5 ms median, 9.4/8.7 ms p95**. Water updates were about **0.1 ms p95** at both sizes; enabled effects added two median draw calls. This compares the current build with its reactions toggled, not an older release, and does not cover demolition or establish a frame-rate sign-off. Moving-view review also led to thinner foam with a fixed width in world metres, faint wakes and foam limited to positive wave crests.
+
+Evidence: `output/iterate/water-reaction-{units-red,red,first,green,regression,final,units-final,build-final,smoke-final,native-final,profile}.log`, `water-entry-repeat-red.log`, `water-moving-spray-red.log`, `water-drop-contact.log`, `water-car-native.log`, `water-react-*.png`, `water-car-*.png` and `water-wake-*.png`.
+
+**Next:** Chris’s playtest at **http://127.0.0.1:4174**. Use Dev → Level → beach, compare lean with Block/Absurd, and knock physical objects into the sea. Judge ripple visibility and whether the giant splash feels large enough. The earlier giant/military playtest and the separate collectibles/farms/Seattle proposal remain open.
+
 ## Giant military headbutts — JIM-71 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Giant headbutts now include upward aim, a bounded body lunge and matching reticle reach. E interrupts an active roll; holding C resumes rolling after landing/recovery. Jets descend into a reachable pass and climb away. Hits break jets/tanks into their existing physical parts; distant and wrongly aimed attacks miss. An elevated shoulder camera keeps sky targets visible and avoids the below-street orbit found during native review. Lean controls and the net-only ending remain intact.

@@ -19,6 +19,14 @@
 
 ## Open
 
+### JIM-72 — Water reactions ignore body size and submerged contact
+
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 31 refinement.
+
+Jimothy uses one fixed point ripple and 12 identical droplets at all sizes. Dynamic props report speed without footprint or entry state, so a bin and car splash alike and fully submerged motion can disturb the surface. The 48 m ripple window is narrower than Absurd Jimothy. Add size/speed-sensitive entry splashes, spreading surface ripples/foam and movement wakes for Jimothy and all dynamic body families, with bounded buffers and clean restart. Locations: `WaterSystem`, `WaterField`, `PhysicsSystem`, `WATER` tuning.
+
+**Repair:** adaptive spacing keeps the wave grid at 64×64 cells while covering giant footprints. Entry speed/size drive displaced water, bounded foam rings and variable spray; moving bodies leave trailing wakes. Dynamic physics reports rotated support extents and latched contact, preventing underwater and repeated self-triggered splashes. All 58 unit checks, 31 adjacent gameplay cases and 11 final water cases pass, plus build/rendered smoke. Loaded native size and car-entry captures are console-clean. See STATE and milestone 31 for evidence; visual feel awaits Chris.
+
 ### JIM-69 — Giant form loses Jimothy's original model and visible jiggle
 
 **Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 23 refinement.

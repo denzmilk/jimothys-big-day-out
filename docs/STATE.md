@@ -1,5 +1,9 @@
 # Session state
 
+## Ground-query optimisation — milestone 33 — 2026-10-02
+
+Intact-ground support queries now consult the sparse structure index instead of scanning empty air above every road/wheel probe. Craters, tunnels and damaged ground retain the exact downward scan. Two focused checks verify bounded lookups and equality with a reference scan across structures, chunk seams and underground cavities; all 19 physics/paving/traffic cases pass (`indexed-ground-green.log`). Build and rendered smoke pass. A native diagnostic shows traffic and physics CPU costs falling; the final controlled route remains part of the quality/distance pass.
+
 ## Rendering checkpoint — milestone 33 / JIM-48 — 2026-10-02
 
 Implemented, awaiting playtest; milestone 33 remains in progress. Cars/furniture/bushes share rigid instance batches while retaining original hit/physics/breakage assemblies. Plain colours are vertex colours; glazing stays separate. Chunk geometry uses bounded BatchedMesh buffers with per-object main/shadow frustum tests. Intact ground/asphalt can use 0.88 m render tiles only when the measured height error is below 2.5 cm; pavement joints, boundaries and damaged cells keep fine geometry. The physical voxel size stays 0.22 m. Road markings rebuild on layout/damage changes instead of every update.

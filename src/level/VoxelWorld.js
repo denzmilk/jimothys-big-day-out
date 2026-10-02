@@ -459,6 +459,24 @@ export class VoxelWorld {
     const terrainTop = this.terrain
       ? this.terrain.topSolidVoxelY((vx + 0.5) * s, (vz + 0.5) * s)
       : NaN;
+    if(this.terrain&&fromY+stepUp>=surface&&this.get(vx,terrainTop,vz)!==0){
+      // Traffic probes used to march dozens of known-empty air cells per
+      // wheel/look-ahead sample. The damage index already stores every solid
+      // above grade. Holes and underground queries keep the exact scan below.
+      const C=VOXEL.CHUNK_XZ,CY=VOXEL.CHUNK_Y,lx=vx-column.cx*C,lz=vz-column.cz*C;let support=terrainTop;
+      for(const key of this.columnChunks.get(this._colKey(column.cx,column.cz))||[]){
+        const chunk=this.chunks.get(key);if(!chunk)continue;
+        const ceiling=Math.min(CY-1,top-chunk.cy*CY);if(ceiling<0)continue;
+        let mask=((chunk.damageColumns.get(lx+C*lz)||0)&(2**(ceiling+1)-1))>>>0;
+        while(mask){
+          const y=31-Math.clz32(mask),vy=chunk.cy*CY+y;
+          if(vy<=support)break;
+          if(this.get(vx,vy,vz)!==0){support=vy;break;}
+          mask=(mask&~(1<<y))>>>0;
+        }
+      }
+      return support===terrainTop?surface:(support+1)*s;
+    }
     for (let vy = top; vy >= bottom; vy--) {
       if (this.get(vx, vy, vz) === 0) continue;
       return vy === terrainTop ? surface : (vy + 1) * s;

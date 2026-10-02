@@ -6,7 +6,15 @@
     "hair": "short02",
     "skin": "young_asian_male",
     "triangles": 15834,
-    "bytes": 2678620
+    "bytes": 2678620,
+    "physique": {
+      "gender": 1.0,
+      "age": 0.5,
+      "muscle": 0.45,
+      "weight": 0.4,
+      "height": 0.6
+    },
+    "accessories": []
   },
   {
     "id": "neighbour",
@@ -15,7 +23,15 @@
     "hair": "afro01",
     "skin": "middleage_african_female",
     "triangles": 14119,
-    "bytes": 2484924
+    "bytes": 2484924,
+    "physique": {
+      "gender": 0.0,
+      "age": 0.65,
+      "muscle": 0.3,
+      "weight": 0.65,
+      "height": 0.4
+    },
+    "accessories": []
   },
   {
     "id": "runner",
@@ -24,7 +40,15 @@
     "hair": "ponytail01",
     "skin": "young_caucasian_female",
     "triangles": 16734,
-    "bytes": 2193016
+    "bytes": 2193016,
+    "physique": {
+      "gender": 0.0,
+      "age": 0.4,
+      "muscle": 0.75,
+      "weight": 0.3,
+      "height": 0.7
+    },
+    "accessories": []
   },
   {
     "id": "worker",
@@ -33,7 +57,15 @@
     "hair": "short01",
     "skin": "middleage_african_male",
     "triangles": 16170,
-    "bytes": 2644364
+    "bytes": 2644364,
+    "physique": {
+      "gender": 1.0,
+      "age": 0.65,
+      "muscle": 0.7,
+      "weight": 0.8,
+      "height": 0.7
+    },
+    "accessories": []
   },
   {
     "id": "retiree",
@@ -42,7 +74,15 @@
     "hair": "short04",
     "skin": "old_caucasian_male",
     "triangles": 13541,
-    "bytes": 2350824
+    "bytes": 2350824,
+    "physique": {
+      "gender": 1.0,
+      "age": 0.9,
+      "muscle": 0.25,
+      "weight": 0.55,
+      "height": 0.4
+    },
+    "accessories": []
   },
   {
     "id": "shopper",
@@ -51,6 +91,118 @@
     "hair": "bob02",
     "skin": "young_asian_female",
     "triangles": 14483,
-    "bytes": 2282424
+    "bytes": 2282424,
+    "physique": {
+      "gender": 0.0,
+      "age": 0.5,
+      "muscle": 0.4,
+      "weight": 0.4,
+      "height": 0.55
+    },
+    "accessories": []
+  },
+  {
+    "id": "student",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "male_casualsuit02",
+    "hair": "short03",
+    "skin": "young_african_male",
+    "triangles": 13778,
+    "bytes": 2166716,
+    "physique": {
+      "gender": 1.0,
+      "age": 0.28,
+      "muscle": 0.3,
+      "weight": 0.27,
+      "height": 0.64
+    },
+    "accessories": []
+  },
+  {
+    "id": "walker",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "male_casualsuit05",
+    "hair": "braid01",
+    "skin": "middleage_asian_female",
+    "triangles": 16991,
+    "bytes": 2620440,
+    "physique": {
+      "gender": 0.0,
+      "age": 0.62,
+      "muscle": 0.45,
+      "weight": 0.6,
+      "height": 0.78
+    },
+    "accessories": []
+  },
+  {
+    "id": "musician",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "male_casualsuit03",
+    "hair": null,
+    "skin": "middleage_caucasian_male",
+    "triangles": 13736,
+    "bytes": 2676088,
+    "physique": {
+      "gender": 1.0,
+      "age": 0.55,
+      "muscle": 0.4,
+      "weight": 0.35,
+      "height": 0.5
+    },
+    "accessories": [
+      "fedora01"
+    ]
+  },
+  {
+    "id": "tourist",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "male_casualsuit04",
+    "hair": "short01",
+    "skin": "middleage_asian_male",
+    "triangles": 15718,
+    "bytes": 2112976,
+    "physique": {
+      "gender": 1.0,
+      "age": 0.58,
+      "muscle": 0.35,
+      "weight": 0.88,
+      "height": 0.42
+    },
+    "accessories": []
+  },
+  {
+    "id": "pensioner",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "female_casualsuit01",
+    "hair": "short04",
+    "skin": "old_african_female",
+    "triangles": 13021,
+    "bytes": 2249652,
+    "physique": {
+      "gender": 0.0,
+      "age": 0.9,
+      "muscle": 0.2,
+      "weight": 0.72,
+      "height": 0.3
+    },
+    "accessories": []
+  },
+  {
+    "id": "artist",
+    "source": "MPFB 2.0.17 / MakeHuman CC0 system assets",
+    "outfit": "male_casualsuit06",
+    "hair": "long01",
+    "skin": "young_african_female",
+    "triangles": 16342,
+    "bytes": 2403176,
+    "physique": {
+      "gender": 0.0,
+      "age": 0.38,
+      "muscle": 0.5,
+      "weight": 0.35,
+      "height": 0.58
+    },
+    "accessories": []
   }
 ]

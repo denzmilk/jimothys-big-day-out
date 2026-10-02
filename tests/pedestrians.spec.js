@@ -5,7 +5,7 @@ test('MPFB neighbours populate the street, animate and stay out of solid walls',
   await boot(page);
   await page.waitForFunction(() => window.__game.pedestrians.ready === true);
   const a = await state(page);
-  expect(a.people.models).toBe(6);
+  expect(a.people.models).toBe(12);
   expect(a.people.nearby).toBeGreaterThanOrEqual(12);
   const first = a.people.items;
   await adv(page, 5);

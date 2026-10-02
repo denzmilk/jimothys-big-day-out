@@ -580,7 +580,7 @@ export const CITY = {
 };
 
 export const PEDESTRIANS = {
-  MODELS: ['commuter','neighbour','runner','worker','retiree','shopper'],
+  MODELS: ['commuter','neighbour','runner','worker','retiree','shopper','student','walker','musician','tourist','pensioner','artist'],
   COUNT: 36,
   RADIUS: 76, NEAR_DISTANCE: 60, NAV_STEP: 2,
   SPAWN_MIN: 12, SPAWN_GAP: 3.5, REFRESH_DISTANCE: 18,
@@ -1187,6 +1187,7 @@ export const GROUNDING = {
   PELVIS_DROP: .045, FOOT_CLEARANCE: .018, PROBE: .18,
   MAX_REACH: .995, MAX_DROP: .6, SOLVE_EPSILON: .0001,
   WALK_STRIDE: 1.1, RUN_STRIDE: 1.6, FOOT_LEAD: .32, STEP_LIFT: .14,
+  STRIDE_LEG_RATIO: 1.85,
   WALK_FOOT_SPEED: 7.2, RUN_FOOT_SPEED: 14,
   SWING_SHARE: .85, SWING_MIN: .12, SWING_MAX: .4, MIN_SPEED: .05,
   VELOCITY_RESPONSE: 16, LANDING_RESPONSE: 18, LANDING_SPEED: 2.5, LANDING_LOCK: .65, NORMAL_RESPONSE: 16,

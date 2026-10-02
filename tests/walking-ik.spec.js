@@ -31,8 +31,8 @@ test('walking and running transitions stay stable at 30, 60 and 120 Hz',async({p
   await boot(page);
   const reports=await page.evaluate(()=>{
     const g=window.__game,reports=[];
-    for(const hz of [30,60,120]){
-      const p=g.pedestrians.people[0],dt=1/hz;
+    for(let model=0;model<g.pedestrians.models.length;model++)for(const hz of [30,60,120]){
+      const p=g.pedestrians.people[model],dt=1/hz;
       p.grounding.ground=(x,z)=>.3*z+.2*x;p.grounding.reset();p.mesh.position.set(0,.035,0);p.mesh.rotation.set(0,0,0);
       let previous=null,hipSpeed=0;const errors=[];
       for(let frame=0;frame<hz*4;frame++){
@@ -47,14 +47,15 @@ test('walking and running transitions stay stable at 30, 60 and 120 Hz',async({p
       const before=p.grounding.legs.map(l=>l.foot.getWorldPosition(p.mesh.position.clone()));
       for(let i=0;i<10;i++){p.mixer.update(0);p.grounding.update(p.actions[p.animation],true,0);}
       const frozenDrift=Math.max(...p.grounding.legs.map((l,i)=>l.foot.getWorldPosition(p.mesh.position.clone()).distanceTo(before[i])));
-      errors.sort((a,b)=>a-b);reports.push({hz,hipSpeed,frozenDrift,p95:errors[Math.floor(errors.length*.95)],maxError:Math.max(...errors)});
+      errors.sort((a,b)=>a-b);reports.push({model:p.model,hz,hipSpeed,frozenDrift,p95:errors[Math.floor(errors.length*.95)],maxError:Math.max(...errors)});
     }
     return reports;
   });
   console.log('TIMESTEP_IK',JSON.stringify(reports));
+  expect(reports).toHaveLength(36);
   for(const r of reports){
-    expect(r.hipSpeed).toBeLessThan(3.6);expect(r.frozenDrift).toBeLessThan(.0001);
-    expect(r.p95).toBeLessThan(.12);expect(r.maxError).toBeLessThan(.2);
+    expect(r.hipSpeed,JSON.stringify(r)).toBeLessThan(3.6);expect(r.frozenDrift,JSON.stringify(r)).toBeLessThan(.0001);
+    expect(r.p95,JSON.stringify(r)).toBeLessThan(.12);expect(r.maxError,JSON.stringify(r)).toBeLessThan(.2);
   }
 });
 
@@ -62,7 +63,7 @@ test('all people walk, stop and resume smoothly on uphill, downhill and cross sl
   await boot(page);
   const reports=await page.evaluate(()=>{
     const g=window.__game,reports=[];
-    for(let model=0;model<6;model++)for(const [sx,sz] of [[0,.5],[0,-.5],[.45,0]]){
+    for(let model=0;model<g.pedestrians.models.length;model++)for(const [sx,sz] of [[0,.5],[0,-.5],[.45,0]]){
       const p=g.pedestrians.people.find(p=>p.model===g.pedestrians.people[model].model);
       const ground=(x,z)=>sx*x+sz*z;
       p.grounding.ground=ground;p.mesh.position.set(0,0,0);p.mesh.rotation.set(0,0,0);
@@ -84,7 +85,7 @@ test('all people walk, stop and resume smoothly on uphill, downhill and cross sl
     return reports;
   });
   console.log('RAMP_IK',JSON.stringify(reports));
-  expect(reports).toHaveLength(18);
+  expect(reports).toHaveLength(36);
   for(const r of reports){
     expect(r.hipJump,JSON.stringify(r)).toBeLessThan(.06);
     expect(r.footJump,JSON.stringify(r)).toBeLessThan(.15);

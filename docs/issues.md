@@ -10,6 +10,12 @@
 
 ## Open
 
+### JIM-58 — Short pedestrians overreach while running uphill
+
+**Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-02, pedestrian variety pass
+
+Testing all twelve physiques at 30/60/120 Hz exposes the fixed 1.6 m running stride's assumption about leg length. The new pensioner's 0.692 m legs show 0.132 m p95 planted-sole error on an uphill run at 120 Hz, above the existing 0.12 m limit; their walk and ragdoll contracts pass. Evidence: `output/iterate/pedestrian-variety-all-rates.log`. `FootGrounding` now caps stride using measured leg length and `GROUNDING.STRIDE_LEG_RATIO`; hip/foot speed limits and contact-error assertions are unchanged. The failing automated reproduction is in `pedestrian-stride-red.log`. All twelve people pass at 30/60/120 Hz after the correction; the pensioner's 120 Hz p95 error falls to 0.0338 m (maximum 0.0498 m). All 36 slope/model cases pass too. Final checks: 3 walking and 23 adjacent tests pass (`pedestrian-stride-green.log`, `pedestrian-variety-adjacent.log`), along with build and rendered production smoke.
+
 ### JIM-57 — SUV spare tyre floats behind the body
 
 **Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris)

@@ -21,7 +21,15 @@ PEOPLE = [
  ('worker', 1.0,.65,.7,.8,.7,'middleage_african_male','male_worksuit01','short01','shoes04'),
  ('retiree', 1.0,.9,.25,.55,.4,'old_caucasian_male','male_elegantsuit01','short04','shoes01'),
  ('shopper', 0.0,.5,.4,.4,.55,'young_asian_female','female_casualsuit02','bob02','shoes02'),
+ ('student', 1.0,.28,.3,.27,.64,'young_african_male','male_casualsuit02','short03','shoes05'),
+ ('walker', 0.0,.62,.45,.6,.78,'middleage_asian_female','male_casualsuit05','braid01','shoes04'),
+ ('musician', 1.0,.55,.4,.35,.5,'middleage_caucasian_male','male_casualsuit03',None,'shoes01'),
+ ('tourist', 1.0,.58,.35,.88,.42,'middleage_asian_male','male_casualsuit04','short01','shoes03'),
+ ('pensioner', 0.0,.9,.2,.72,.3,'old_african_female','female_casualsuit01','short04','shoes02'),
+ ('artist', 0.0,.38,.5,.35,.58,'young_african_female','male_casualsuit06','long01','shoes06'),
 ]
+CATALOG=PEOPLE[:]
+ACCESSORIES={'musician':['fedora01']}
 if os.environ.get('MPFB_ONE'): PEOPLE=PEOPLE[:1]
 if os.environ.get('MPFB_ONLY'): PEOPLE=[p for p in PEOPLE if p[0] in os.environ['MPFB_ONLY'].split(',')]
 bpy.context.preferences.filepaths.save_version=0
@@ -38,13 +46,19 @@ for name,gender,age,muscle,weight,height,skin,outfit,hair,shoes in PEOPLE:
     rig=HumanService.add_builtin_rig(body,'game_engine')
     rig.name=name+'_rig'
     HumanService.set_character_skin(str(ASSETS/'skins'/skin/(skin+'.mhmat')),body,skin_type='MAKESKIN')
-    for folder,item,kind in [('clothes',outfit,'Clothes'),('clothes',shoes,'Clothes'),('hair',hair,'Hair'),('eyes','low-poly','Eyes')]:
+    fitted=[('clothes',outfit,'Clothes'),('clothes',shoes,'Clothes'),('eyes','low-poly','Eyes')]
+    if hair: fitted.append(('hair',hair,'Hair'))
+    fitted.extend(('clothes',item,'Clothes') for item in ACCESSORIES.get(name,[]))
+    for folder,item,kind in fitted:
         HumanService.add_mhclo_asset(str(ASSETS/folder/item/(item+'.mhclo')),body,asset_type=kind,subdiv_levels=0,material_type='MAKESKIN')
     # Packed, bounded textures keep the editable project portable after the
     # downloaded source pack is removed from the temporary directory.
     for img in bpy.data.images:
-        if img.size[0]>512 or img.size[1]>512:
-            ratio=512/max(img.size);img.scale(max(1,round(img.size[0]*ratio)),max(1,round(img.size[1]*ratio)))
+        # A hat occupies far fewer screen pixels than a full outfit; its
+        # extra material must fit the same per-person download budget.
+        limit=256 if img.name.startswith('fedora') else 512
+        if img.size[0]>limit or img.size[1]>limit:
+            ratio=limit/max(img.size);img.scale(max(1,round(img.size[0]*ratio)),max(1,round(img.size[1]*ratio)))
         if img.source=='FILE': img.pack()
     # Save the parametric MPFB project before baking shape keys and masks.
     bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/(name+'-editable.blend')),compress=True)
@@ -107,7 +121,11 @@ for name,gender,age,muscle,weight,height,skin,outfit,hair,shoes in PEOPLE:
     bpy.ops.wm.save_as_mainfile(filepath=str(SOURCE/(name+'-game.blend')),compress=True)
     entry=dict(id=name,source='MPFB 2.0.17 / MakeHuman CC0 system assets',outfit=outfit,hair=hair,skin=skin,triangles=sum(sum(len(p.vertices)-2 for p in o.data.polygons) for o in bpy.context.scene.objects if o.type=='MESH'),bytes=(OUT/(name+'.glb')).stat().st_size)
     manifest.append(entry); print('PEDESTRIAN_RESULT',json.dumps(entry),flush=True)
-if os.environ.get('MPFB_ONLY') and (OUT/'manifest.json').exists():
-    prior=json.loads((OUT/'manifest.json').read_text()); replacement={p['id']:p for p in manifest}
-    manifest=[replacement.get(p['id'],p) for p in prior]
+if (os.environ.get('MPFB_ONLY') or os.environ.get('MPFB_ONE')) and (OUT/'manifest.json').exists():
+    prior=json.loads((OUT/'manifest.json').read_text()); replacement={p['id']:p for p in prior+manifest}
+    manifest=[replacement[p[0]] for p in CATALOG if p[0] in replacement]
+for entry in manifest:
+    recipe=next(p for p in CATALOG if p[0]==entry['id'])
+    entry['physique']=dict(zip(['gender','age','muscle','weight','height'],recipe[1:6]))
+    entry['accessories']=ACCESSORIES.get(entry['id'],[])
 (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')

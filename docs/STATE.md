@@ -1,12 +1,24 @@
 # Session state
 
-## Visible shadows and day/night — JIM-56 — 2026-10-02
+> Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
+
+## Pedestrian variety — milestone 26 refinement / JIM-58 — 2026-10-02
+
+**Implemented, awaiting Chris's playtest.** The roster expands from six to twelve authored MPFB people: student, walker, musician, tourist, pensioner and artist join the existing six. Twelve outfits/skin textures, nine hair assets and a fitted hat; age, height and build change the actual geometry and skeleton. Each has packed editable/game Blender sources and Idle/Walk/Run clips. Maximum asset size is 2.68 MB / 16,991 triangles; new GLBs add 14.23 MB. The active crowd remains capped at 36.
+
+The shortest new body exposed JIM-58 on an uphill run at 120 Hz. Human stride now respects measured leg length, reducing its p95 planted-sole error from 13.2 cm to 3.4 cm. Hip/foot limits and test assertions remain unchanged. All 36 model/rate cases and 36 slope/model cases pass. The final 3 walking + 23 adjacent checks pass, including all 11 ragdoll bodies / 10 joints for every model, no body leaks, streaming/restart, scaring, collection, actual pedestrian traffic braking and the SUV spare. Logs: `pedestrian-stride-green.log`, `pedestrian-variety-adjacent.log`. Build and rendered production smoke pass with no console errors (`pedestrian-variety-build.log`, `pedestrian-variety-smoke.log`). The earlier 21-case run also passed before the narrow stride correction. Existing JIM-03/JIM-48/JIM-49 are not signed off or resolved by this pass.
+
+Inspected Blender/runtime lineups and street captures are under `output/iterate/`: `mpfb-lineup.png`, `pedestrian-variety-game-row-1.png`, `pedestrian-variety-game-row-2.png`, `pedestrian-variety-street-walker.png`, `pedestrian-variety-street-musician.png`, `pedestrian-variety-street-pensioner.png`. Playtest: http://127.0.0.1:4174. New source recipes and rebuild notes are in `assets/blender/people/README.md`.
+
+Next: Chris asked to finish this interrupted pass, then plan draw-distance/performance improvements, soft beach sand and a varied, scattered underwater environment. Planning follows in a separate docs change; those new features are not implemented yet.
 
 ## SUV spare tyre — JIM-57 — 2026-10-02
 
 **Implemented, awaiting Chris's playtest.** The SUV's parented spare was scaled twice during Blender export. Flattening original world transforms before metre conversion fixes its size and mounting point. Original Kenney source remains preserved; editable SUV and runtime GLB rebuilt. Nine spare/heading/grounding/destruction checks pass; build and rendered production smoke pass with no console errors. The spare matches the original within one micrometre, does not move locally during road tilt and remains a separate fifth breakaway wheel. Evidence: `output/iterate/spare-green.log`, `spare-mounted.png`, `spare-smoke.log`.
 
-Next authorized work: expand the MPFB pedestrian roster and verify walking/IK/ragdolls across the new models.
+The expanded roster and its verification are recorded above.
+
+## Visible shadows and day/night — JIM-56 — 2026-10-02
 
 **Implemented, awaiting Chris's playtest.** Chris reported missing shadows and the day/night cycle. The fresh preview's clock already advanced, but the moon did not cast shadows and the Dev slider stayed at its initial value. Sun and moon now share the active shadow workload: one 2,048² local map at a time, five updates per second, with cached maps reused across switches/restart. Bins and voxel rubble cast/receive shadows; detached car parts preserve their source flags. The HUD shows time plus Dawn/Day/Dusk/Night, and the Dev Level slider follows live time while unfocused. The cycle remains 12 minutes.
 

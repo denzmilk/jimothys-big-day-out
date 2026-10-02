@@ -39,6 +39,7 @@ export class FootGrounding {
       return {hip,knee,foot,offset:position(foot).y-floor,l1:position(hip).distanceTo(position(knee)),l2:position(knee).distanceTo(position(foot)),
         rest:root.worldToLocal(position(foot)),neutral:rotation.clone().multiply(foot.getWorldQuaternion(new THREE.Quaternion()))};
     });
+    this.legLength=Math.min(...this.legs.map(leg=>leg.l1+leg.l2));
     this.reset();
   }
   reset(){
@@ -59,7 +60,9 @@ export class FootGrounding {
     if(!moving)velocity.set(0,0,0);
     this.velocity.lerp(velocity, fresh?1:1-Math.exp(-C.VELOCITY_RESPONSE*dt));
     this.previous=rootPosition;
-    const speed=this.velocity.length(),stride=action?.getClip().name==='Run'?C.RUN_STRIDE:C.WALK_STRIDE;
+    // JIM-58: short MPFB physiques need a quicker, shorter running step
+    // to keep the support foot within reach on uphill grades.
+    const speed=this.velocity.length(),stride=Math.min(action?.getClip().name==='Run'?C.RUN_STRIDE:C.WALK_STRIDE,this.legLength*C.STRIDE_LEG_RATIO);
     const direction=this.velocity.clone().normalize();
     for(const leg of this.legs)if(!leg.target)leg.target=this.foothold(leg);
     this.wait=Math.max(0,this.wait-dt);

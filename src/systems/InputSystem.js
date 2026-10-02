@@ -11,6 +11,7 @@ export class InputSystem {
     this.moveX = 0;
     this.moveZ = 0;
     this.scurry = false;
+    this.dive=false;this.ascend=false;
     this.gamepadInfo = null; // surfaced by the DevTools input debug view
     // Liveness flags for the diag strip / keyboard hint: has the page EVER
     // received a key / pointer event? Distinguishes "game broken" from
@@ -118,7 +119,7 @@ export class InputSystem {
     if (this.suppressed) {
       this.moveX = 0;
       this.moveZ = 0;
-      this.scurry = false;
+      this.scurry = false;this.dive=false;this.ascend=false;
       this._hopQueued = false;
       this._headbuttQueued = false;
       this._rollQueued = false;
@@ -132,6 +133,7 @@ export class InputSystem {
     if (this._pressed('FORWARD')) z -= 1;
     if (this._pressed('BACK')) z += 1;
     let scurry = this._pressed('SCURRY');
+    this.dive=this._pressed('DIVE');this.ascend=this._pressed('HOP');
 
     // Keyboard wins while any direction key is held (threejs-game input
     // pattern) — a drifting/stuck gamepad stick must never cancel it.
@@ -147,6 +149,7 @@ export class InputSystem {
         if (Math.abs(gz) > INPUT.DEADZONE) z += gz;
       }
       const hop = !!gp.buttons?.[INPUT.GAMEPAD_HOP_BUTTON]?.pressed;
+      this.ascend ||= hop;this.dive ||= !!gp.buttons?.[INPUT.GAMEPAD_DIVE_BUTTON]?.pressed;
       if (hop && !this._gpHopHeld) this._hopQueued = true;
       this._gpHopHeld = hop;
       if (gp.buttons?.[INPUT.GAMEPAD_SCURRY_BUTTON]?.pressed) scurry = true;

@@ -4,6 +4,9 @@ import { gameState } from '../core/GameState.js';
 
 export class HUD {
   constructor() {
+    const swimHelp=document.getElementById('swim-help');
+    eventBus.on(Events.SWIM_CHANGED,({swimming})=>{if(swimHelp)swimHelp.hidden=!swimming;});
+    eventBus.on(Events.GAME_RESTART,()=>{if(swimHelp)swimHelp.hidden=true;});
     const quality=document.getElementById('graphics-quality');
     for(const [name,preset]of Object.entries(GRAPHICS.PRESETS)){const option=document.createElement('option');option.value=name;option.textContent=`${name[0].toUpperCase()+name.slice(1)} · ${preset.DISTANCE} m`;quality.appendChild(option);}
     quality.value=gameState.world.graphics?.preset||GRAPHICS.DEFAULT;

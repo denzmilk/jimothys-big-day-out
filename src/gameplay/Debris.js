@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
-import { DEBRIS, VOXEL } from '../core/Constants.js';
+import { DEBRIS, VOXEL, TERRAIN, OCEAN } from '../core/Constants.js';
 
 // Pooled, hard-capped voxel debris. One InstancedMesh covers every chunk of
 // flying wall, and bodies are recycled rather than allocated — an uncapped
@@ -82,7 +82,7 @@ export class Debris {
     for (const slot of this.slots) {
       if (!slot.alive) continue;
       slot.ttl -= delta;
-      if (slot.ttl <= 0 || slot.body.position.y < -5) {
+      if (slot.ttl <= 0 || slot.body.position.y < -TERRAIN.SEABED_DEPTH-TERRAIN.DEPTH-OCEAN.DEBRIS_FLOOR_MARGIN) {
         slot.alive = false;
         slot.body.sleep();
         slot.body.position.set(0, -1000, 0);

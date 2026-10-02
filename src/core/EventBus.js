@@ -56,6 +56,9 @@ export const Events = {
   // world:*
   GRAPHICS_CHANGED:'graphics:changed',
   WORLD_TIME_CHANGED: 'world:time-changed',
+  DEV_GOTO_OCEAN: 'dev:goto-ocean',
+  SWIM_CONTACT: 'world:swim-contact',
+  SWIM_CHANGED: 'player:swim-changed',
   WATER_SAMPLE: 'water:sample',
   WATER_DISTURB: 'water:disturb',
   WORLD_IMPACT: 'world:impact',

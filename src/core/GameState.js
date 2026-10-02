@@ -12,6 +12,7 @@ class GameState {
       fatness: 0,
       stunned: false,
       swimming: false,
+      diving: false,
       inTree: false,
       hidden: false,
       // Everything he dug up on his big day out (milestone 18). Deliberately

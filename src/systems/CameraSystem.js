@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {eventBus, Events} from '../core/EventBus.js';
-import { CAMERA, PLAYER_CONFIG } from '../core/Constants.js';
+import { CAMERA, PLAYER_CONFIG, OCEAN } from '../core/Constants.js';
 
 // Two modes. Follow (default) is a pull-cam: yaw derives from the camera→
 // Jimothy line, so it rotates only when he displaces sideways — walking
@@ -69,7 +69,7 @@ export class CameraSystem {
     const dist = this._boom;
     this._desired.set(
       jp.x - Math.sin(this.yaw) * dist,
-      jp.y + CAMERA.FOLLOW_HEIGHT + this._girth * CAMERA.GIRTH_LIFT,
+      jp.y + (this.jimothy.diving?OCEAN.CAMERA_HEIGHT:CAMERA.FOLLOW_HEIGHT) + this._girth * CAMERA.GIRTH_LIFT,
       jp.z - Math.cos(this.yaw) * dist,
     );
     return this._desired;
@@ -158,7 +158,7 @@ export class CameraSystem {
       this.yaw -= d.x * CAMERA.MOUSE_SENS;
       this.pitch = THREE.MathUtils.clamp(
         this.pitch + d.y * CAMERA.MOUSE_SENS,
-        CAMERA.PITCH_MIN,
+        this.jimothy.diving?OCEAN.CAMERA_PITCH_MIN:CAMERA.PITCH_MIN,
         CAMERA.PITCH_MAX,
       );
       this._computeOrbitDesired();

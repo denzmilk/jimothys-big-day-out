@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  COLLECTION, WATER, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -165,7 +165,7 @@ export class JimothyController {
   reset() {
     eventBus.emit(Events.PLAYER_CONTROLLED);this.launched=0;this.launchSpin=0;
     this.idleWait=0;this.idleTime=0;this.idleIndex=0;this.idleAction=null;this.idleBlend=0;this.idleBreath=0;
-    this.swimming=false;gameState.player.swimming=false;
+    this.swimming=false;this.diving=false;gameState.player.swimming=false;gameState.player.diving=false;
     // JIM-52: a held attack must not carry momentum into the next run.
     this.move = null;
     this.moveCooldown = 0;
@@ -369,7 +369,10 @@ export class JimothyController {
     const draft=Math.max(this.radius*WATER.SWIM_DEPTH,bellyHeight-this.radius*WATER.SWIM_OFFSET);
     const threshold=draft+(this.swimming?-WATER.SWIM_HYSTERESIS:WATER.SWIM_HYSTERESIS);
     this.swimming=!!water&&water.depth>threshold&&this.body.position.y<water.height+this.radius*WATER.SWIM_ENTER;
-    gameState.player.swimming=this.swimming;
+    if(!this.swimming)this.diving=false;
+    if(this.swimming&&controllable&&this.input.dive)this.diving=true;
+    if(gameState.player.swimming!==this.swimming)eventBus.emit(Events.SWIM_CHANGED,{swimming:this.swimming});
+    gameState.player.swimming=this.swimming;gameState.player.diving=!!this.diving;
     const speed = this.swimming ? (this.input.scurry?WATER.SWIM_FAST:WATER.SWIM_SPEED)*(1-f*FATNESS.SPEED_PENALTY_MAX) :
       (this.input.scurry ? P.SCURRY_SPEED : P.SPEED) * (1 - f * FATNESS.SPEED_PENALTY_MAX);
     const dvMax = P.ACCEL * delta;
@@ -390,15 +393,23 @@ export class JimothyController {
       this.vy = P.HOP_FORCE;
       this.grounded = false;
     }
-    if (!this.grounded) this.vy -= P.HOP_GRAVITY * delta;
+    if (!this.grounded&&!this.swimming) this.vy -= P.HOP_GRAVITY * delta;
 
     if(this.swimming){
-      this.move=null;this.grounded=false;this.vy=0;
-      // The collision sphere is centred near his feet; flotation follows the
-      // rendered belly so both the lean rig and giant forms sit in the water.
+      this.grounded=false;
       const target=water.height+this.radius-bellyHeight+this.radius*WATER.SWIM_OFFSET;
-      this.body.position.y=THREE.MathUtils.lerp(this.body.position.y,target,1-Math.exp(-WATER.SWIM_RESPONSE*delta));
-      this.input.consumeHeadbutt();this.input.consumeRoll();
+      if(this.diving){
+        const vertical=controllable?Number(this.input.ascend)*OCEAN.ASCEND_SPEED-Number(this.input.dive)*OCEAN.DIVE_SPEED:0;
+        this.vy=THREE.MathUtils.lerp(this.vy,vertical,1-Math.exp(-(vertical===0?OCEAN.DIVE_BRAKE:OCEAN.VERTICAL_RESPONSE)*delta));
+        if(this.body.position.y>=target-OCEAN.SURFACE_SNAP&&this.input.ascend&&!this.input.dive){this.diving=false;gameState.player.diving=false;}
+        this._updateMoves(delta,controllable);
+      }else{
+        this.move=null;this.vy=0;
+        // Float the authored belly, then let the same contact solver take over
+        // on the bank. Diving preserves vertical momentum separately.
+        this.body.position.y=THREE.MathUtils.lerp(this.body.position.y,target,1-Math.exp(-WATER.SWIM_RESPONSE*delta));
+        this.input.consumeHeadbutt();this.input.consumeRoll();
+      }
     }else this._updateMoves(delta, controllable);
 
     this.body.velocity.set(this.vel.x, this.vy, this.vel.z);
@@ -516,6 +527,14 @@ export class JimothyController {
     }
     p.x = THREE.MathUtils.clamp(p.x, -WORLD.BOUNDS, WORLD.BOUNDS);
     p.z = THREE.MathUtils.clamp(p.z, -WORLD.BOUNDS, WORLD.BOUNDS);
+    if(this.diving&&delta>0){
+      const from=this.body.previousPosition,dx=p.x-from.x,dy=p.y-from.y,dz=p.z-from.z,length=Math.hypot(dx,dy,dz);
+      if(length>1e-6){
+        const hit=this.voxels?.raycast(from.x,from.y,from.z,dx,dy,dz,length+rad);
+        if(hit){const travel=Math.max(0,hit.t-rad-OCEAN.CONTACT_MARGIN)/length;p.set(from.x+dx*travel,from.y+dy*travel,from.z+dz*travel);}
+        eventBus.emit(Events.SWIM_CONTACT,{from,to:p,radius:rad,receive:q=>p.copy(q)});
+      }
+    }
     this._resolveVoxels(p);
     // Ground height comes from the voxel slab, so blasted craters are real
     // terrain he can drop into and climb out of. Scanned from his own feet so

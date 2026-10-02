@@ -102,3 +102,7 @@ Procedural Web Audio, zero dependencies. Full meme slop: honks/squeaks for Jimot
 ## Approved military refinement — 2026-10-02
 
 The giant-world pass adds tanks at tier 5 for all sizes, or tier 4 when Jimothy reaches an 8 m collision radius. Jets join at tier 5 for that larger size. Orange ground marks and HUD warnings precede attacks; moving away dodges the marked strike. Shells collide with intervening buildings and Jimothy's outer body. Blasts reset the combo, briefly launch and tumble him, and return control. The net remains the only run-ender. Strong attacks break military vehicles into physical parts that a large rolling Jimothy can collect. Trees and the police cordon remain separate future work in milestone 03.
+
+## Approved coast and underwater extension — 2026-10-02
+
+Five beaches provide dry/wet sand, gradual outer shallows and local compaction from paws, rolls and impacts. The sea remains the existing wave/ripple and buoyancy simulation; sand uses persistent shallow dents with partial settling. Q dives, Space rises, and Shift swims faster. Underwater exploration alternates deliberate open stretches with varied wrecks, ruined structures, plants and wildlife. Breakable wreck pieces, artifacts, plants and ruin rubble participate in physical impacts and rolling collection. Daylight shafts, depth fog and bubbles support the underwater view; night reduces visibility. There is no drowning timer or new run-ending condition.

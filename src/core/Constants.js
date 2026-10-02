@@ -26,6 +26,7 @@ export const PLAYER_CONFIG = {
 export const INPUT = {
   DEADZONE: 0.15,
   GAMEPAD_HOP_BUTTON: 0,
+  GAMEPAD_DIVE_BUTTON: 2,
   GAMEPAD_SCURRY_BUTTON: 7,
 };
 
@@ -37,6 +38,7 @@ export const KEYBINDS = {
   LEFT: ['KeyA', 'ArrowLeft'],
   RIGHT: ['KeyD', 'ArrowRight'],
   HOP: ['Space'],
+  DIVE: ['KeyQ'],
   SCURRY: ['ShiftLeft', 'ShiftRight'],
   POINTER_LOCK: ['KeyL'],
   DEVTOOLS: ['Backquote'],
@@ -1356,3 +1358,65 @@ export const BEACH = {
   GRAIN_SPEED: 1.3, GRAIN_LIFT: 1.7, GRAVITY: 9.8, GRAIN_COLOR: 0xd8c599,
   NOISE_SCALE: 28, NOISE_STRENGTH: .08,
 };
+
+export const OCEAN = {
+  SITE_STEP:180, SITE_JITTER:80, SITE_GAP:145, REPEAT_GAP:300, SITE_DEPTH:5,
+  SITE_SLOPE:.12, EDGE_MARGIN:70, SITE_RADIUS:18, MAX_RUIN_PIECES:72,
+  STREAM_RADIUS:110, DESPAWN_RADIUS:150, MAX_SITES:3, STREAM_INTERVAL:.5,
+  WRECKS:['wreck-rowboat','wreck-sloop','wreck-longboat'],
+  RUINS:['temple','tidal-ring','sunken-quay','broken-gate'],
+  STONE_MATERIALS:[6,10,13], BURIAL_MIN:.2, BURIAL_RANGE:.65, TILT:.8, WRECK_TILT_MIN:.22, WRECK_BURY_FRACTION:.32, WRECK_MISSING:.16, RUIN_MISSING:.18,
+  MAX_PARTS:72, MAX_LOOSE:20, LOOSE_LIFE:28, BREAK_MIN:.35, PART_MIN:.1, PART_BREAK_RATIO:.3, CONTACT_MARGIN:.02,
+  WOOD_DENSITY:180, STONE_DENSITY:2200, PART_SPEED:2, PART_LIFT:1.8, PART_SPIN:1,
+  STONE_CHUNK:.65, ARTIFACTS:5, ARTIFACT_RING:7,
+  DIVE_SPEED:2.7, ASCEND_SPEED:3.2, VERTICAL_RESPONSE:5, DIVE_BRAKE:16, SURFACE_SNAP:.12,
+  CAMERA_HEIGHT:.8, CAMERA_PITCH_MIN:-1.1, CAMERA_WATER_MARGIN:.12,
+  FOG_COLOR:0x205d69, NIGHT_FOG:0x061d2b, FOG_NEAR:2, FOG_FAR:48, NIGHT_FAR:22,
+  DEPTH_DIM:.035, MIN_LIGHT:.28, SURFACE_COLOR:0x36838d, SURFACE_SHIMMER:.025,
+  FISH:['fish-silver','fish-blue','fish-striped','manta','whale'],
+  SCHOOL_COUNT:3, SCHOOL_SIZE:4, FISH_LIMIT:13, SCHOOL_RADIUS:10, FISH_SPEED:1,
+  LARGE_SPEED:.75, FLEE_RADIUS:4, FLEE_SPEED:2.5, FISH_CLEARANCE:1.2, FISH_SURFACE:1,
+  FISH_DESPAWN_RADIUS:60, FISH_BOB:.1, FISH_ANIMATE_DISTANCE:45, FISH_ANIMATE_INTERVAL:.2, FISH_TURN:1.8,
+  PLANT_GRID:5, PLANT_RADIUS:48, PLANT_LIMIT:220, HABITAT_SHARE:.32, PLANT_BREAK_RATIO:.5,
+  PLANT_REFRESH:16, PLANT_SCALE_MIN:.6, PLANT_SCALE_RANGE:1.1,
+  CURRENT_SPEED:.6, CURRENT_BEND:.06, PLANT_BEND:.3,
+  CREATURE_COUNT:10, CRAB_SPEED:.16, CRAB_RANGE:3,
+  BUBBLES:160, BUBBLE_INTERVAL:.15, BUBBLE_SPEED:.65, BUBBLE_LIFE:12,
+  BUBBLE_COLOR:0xb2e4df, BUBBLE_OPACITY:.65, BUBBLE_SCREEN_SCALE:800, BUBBLE_SIZE:.06, BUBBLE_DRIFT:.12, VENT_INTERVAL:.8,
+  RAYS:7, RAY_RADIUS:2.2, RAY_OPACITY:.16, RAY_DAY_MIN:.08,
+  RAY_SPREAD:22, RAY_FORWARD:12, RAY_FLOOR_FADE:1.2, RAY_DEPTH_MAX:14, RAY_LENGTH_MAX:24, RAY_SEGMENTS:32, RAY_COLOR:0x8cbdb7, RAY_START_MARGIN:.1,
+  PREVIEW_OFFSET:12, PREVIEW_DEPTH:4, DEBRIS_FLOOR_MARGIN:2,
+  RUIN_BLOCK:[1.1,.55,.85], COLUMN_RADIUS:.48,COLUMN_HEIGHT:3.6,
+  TEMPLE_SPAN:4,TEMPLE_LENGTH:5, RING_RADIUS:5,QUAY_WIDTH:6, GATE_RADIUS:2.6,
+};
+
+// Authored ruin dimensions live with the other world tuning. Blender reads
+// these same descriptors through OceanLayout rather than a second recipe.
+OCEAN.RUIN_LAYOUTS=Object.fromEntries(OCEAN.RUINS.map(family=>{
+ const site={family},C=OCEAN;
+ const pieces=[],add=(x,y,z,sx,sy,sz,roll=0,shape='box')=>pieces.push({x,y,z,sx,sy,sz,roll,shape});
+ const B=C.RUIN_BLOCK;
+ if(site.family==='temple'){
+  for(const x of [-C.TEMPLE_SPAN,C.TEMPLE_SPAN])for(const z of [-C.TEMPLE_LENGTH,0,C.TEMPLE_LENGTH]){
+   add(x,C.COLUMN_HEIGHT/2,z,C.COLUMN_RADIUS*2,C.COLUMN_HEIGHT,C.COLUMN_RADIUS*2,0,'column');
+   add(x,C.COLUMN_HEIGHT,z,1.5,.45,1.5);
+  }
+  for(const z of [-C.TEMPLE_LENGTH,C.TEMPLE_LENGTH])add(0,C.COLUMN_HEIGHT+.5,z,C.TEMPLE_SPAN*2+1,.7,1.3);
+  for(let i=0;i<3;i++)add(0,.2+i*.25,-C.TEMPLE_LENGTH-1.5+i*.5,5,.4,1.6-i*.35);
+ }else if(site.family==='tidal-ring'){
+  for(let ring=0;ring<2;ring++)for(let i=0;i<18;i++){
+   const a=i/18*Math.PI*2,r=C.RING_RADIUS;add(Math.cos(a)*r,ring*B[1]+B[1]/2,Math.sin(a)*r,B[0],B[1],B[2]);pieces.at(-1).yaw=-a;
+  }
+  for(let i=0;i<5;i++)add(Math.sin(i)*2,.5,Math.cos(i)*2,.7,1,.7,0,'column');
+ }else if(site.family==='sunken-quay'){
+  for(let x=-3;x<=3;x++)for(let level=0;level<3;level++)add(x*B[0],level*B[1]+B[1]/2,3,B[0],B[1],B[2]);
+  for(let z=-2;z<=2;z++)for(const x of [-C.QUAY_WIDTH,C.QUAY_WIDTH])add(x,1.5,z*2,.7,3,.7,0,'column');
+  for(let i=0;i<4;i++)add(0,.2+i*.35,-3+i,6,.4,1.3);
+ }else{
+  const r=C.GATE_RADIUS;
+  for(const x of [-r,r])for(let i=0;i<3;i++)add(x,B[1]/2+i*B[1],0,B[2],B[1],1.2);
+  for(let i=0;i<11;i++){const a=i/10*Math.PI;add(Math.cos(a)*r,3*B[1]+Math.sin(a)*r,0,B[2],B[0],1.2,a-Math.PI/2);}
+  for(const x of [-r-2,r+2])for(let i=0;i<4;i++)add(x,.3+i*.6,0,2,.55,.85);
+ }
+ return [family,pieces];
+}));

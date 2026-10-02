@@ -155,3 +155,13 @@ Military owns bounded AI/projectile/wreck lists. Swept shell segments query voxe
 ## Beach compaction — milestone 35
 
 `SandField` owns sparse persistent compaction and a bounded nearby float texture. The voxel material displaces only intact sand vertices; voxel ground/solid queries sample the same bilinear field and ignore it over destroyed top cells. The terrain bake never changes under cached columns. Fine sand geometry retains visible tracks; ordinary intact ground still uses coarse render tiles. `SandSystem` stamps grounded moving paw contacts, rolls and impacts and manages pooled grains. The water shader samples the same offset for its bottom-depth/foam calculation.
+
+## Underwater exploration — milestone 36
+
+`OceanLayout` places 49 deterministic sites with at least 145 m between centres: three wreck families and four ruin families with seeded missing sections, orientation and burial. Ruins enter the existing yielding voxel generator, so normal damage/edit persistence remains authoritative. `OceanSystem` streams at most three sites; wrecks and artifacts use the existing entity, physics and collection events. Static ship triangles participate in swimming sweeps. Broken plants become loose physical pieces, and permanent damage IDs stop originals returning.
+
+Q descends, Space ascends, and release brakes vertical movement to hold depth. Gamepad X/A provide the same controls. The controller sweeps voxel ceilings/walls and wreck faces while diving, reuses the paddling rig and returns to existing flotation/shore contact at the surface. The camera changes height and permits looking upward. Water's underside has a separate material response; underwater reflection rendering is skipped.
+
+Habitat budgets: 13 animated fish including one larger swimmer, 220 plant instances, ten seabed creatures, 72 registered parts with at most 20 loose, 160 bubbles and seven sunlight shafts. Fish skeletons/mixers are released on removal; nearby schools survive plant-window shifts. Effects and local fog follow camera depth and day/night. Shafts are soft additive geometry, tested against voxel cover, rather than a volumetric fluid renderer. Plants bend in the current and respond to Jimothy. All tuning lives in `OCEAN`.
+
+Blender recipes: `tools/prepare_ocean.py`, `tools/build_ocean_dressing.py`, `tools/export_ocean_layouts.mjs`. Source files/licences, editable deliveries, exact ruin descriptors and runtime GLBs remain under the corresponding `assets/sources/ocean`, `assets/blender/ocean` and `public/assets/models/ocean` folders.

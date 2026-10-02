@@ -328,3 +328,5 @@ body {
 #graphics-quality { padding:8px;background:#253541;color:#fff;border:1px solid #667d8e;border-radius:5px;font:inherit; }
 
 #military-warning { position:fixed;top:20%;left:50%;transform:translateX(-50%);color:#fff2d8;background:#5e211dcc;padding:.6em 1em;border:2px solid #ff925d;border-radius:6px;font-weight:bold;pointer-events:none;z-index:20; }
+
+#swim-help{position:fixed;bottom:3rem;left:50%;transform:translateX(-50%);padding:.5rem .9rem;border-radius:.5rem;background:#12383bcc;color:#def8ee;font:14px system-ui;pointer-events:none}

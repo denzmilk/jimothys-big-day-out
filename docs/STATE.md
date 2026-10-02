@@ -1,5 +1,20 @@
 # Session state
 
+## Underwater exploration and completed world-pass sequence — milestone 36 — 2026-10-02
+
+**Implemented, awaiting Chris’s playtest.** The approved sequence is now implemented: giant shape/continuous rolling/collection repairs → bounded demolition, batching and quality/draw distance → military tanks/jets → deformable beaches → diving and underwater sites. Earlier pedestrian/car/world work remains in place. Unrelated backlog features remain deferred.
+
+Milestone 36 adds Q diving, Space ascent, depth braking, underwater camera/water response and collision against voxel ceilings/walls and wreck faces. There are 49 separated sites using three wreck and four ruin families with seeded damage, tilt and burial. Fine voxel ruins, breakable wrecks, collectible artifacts/kelp/rubble, schooling fish, manta/whale, seabed creatures, currents, sunlight shafts and bubbles use bounded nearby pools. Damage survives travel and clears on restart. Blender sources, export recipes, licences and exact ruin-review descriptors are retained. The Dev Level panel cycles sites.
+
+Verification: all 39 unit checks pass; the combined 29-case ocean/water/beach/footing/environment/graphics/restart run passes. The final school-replacement correction passes all ten underwater cases serially after a parallel run suffered four loading/stepping timeouts. Build and production rendered smoke pass without console errors. Native views of all seven site families, a quiet swim stretch and midnight were inspected. The first species no longer takes every vacated school slot. A visible pillar gap was fixed separately as JIM-65.
+
+Native Chrome/Metal/M5 Pro, 1280×800, Medium, loaded rig, no competing test/build: **160 m daytime swim: 8.3 ms median / 8.9 ms p95 / 12.6 ms worst**, 32 median calls; all species and daylight effects remain present, night removes shafts, and restart is clean. **100 m city route lean/House/Block: 16.0 / 18.7 / 20.3 ms median**, p95 **20.4 / 24.7 / 35.1 ms**, worst **85.3 / 123.9 / 109.4 ms**. Military updates were explicitly disabled for the city comparison; the separate enabled battle is in milestone 34. Block visibly carries 64 objects and removes 18,439 cells. Low Block is **18.1 ms median / 30.5 ms p95 / 92.2 ms worst**. Added world features cost time compared with the M33-only route; giant destruction still hitches and is not a locked 60 fps result. See milestone 36 for the complete comparison.
+
+Evidence under `output/iterate/`: `ocean-final-units.log`, `ocean-final-regression.log`, `ocean-final-serial.log`, `ocean-final-build.log`, `ocean-final-smoke.log`, `ocean-profile-final.log`, `world-final-profile.log`, `world-low-profile.log`, `ocean-*.png`, `world-final-route-*.png`. Production preview: **http://127.0.0.1:4174** (4173 belongs to another project). Q dive / Space surface / Shift faster. Dev → Level has beach and underwater-site shortcuts.
+
+**Next:** Chris's hands-on review of the complete sequence, especially Block-size collection/destruction, military dodge/recovery, shore transitions and underwater variety. No further feature implementation from this approved sequence is queued. Sand is shallow persistent compaction with partial settling; water is the existing surface/ripple/buoyancy model; sunlight shafts are a bounded visual approximation. Those limits remain documented in milestones 35–36 and ADR-0005.
+
+
 ## Structure-to-ground contact — JIM-65 — 2026-10-02
 
 Implemented, awaiting playtest. A meshing gap discovered at underwater pillar bases also affected rigid structures beside smoothed terrain. The exposed fraction of the lowest side face is now retained. The failing geometry ray check passes, all 39 unit checks and 17 terrain/physics/beach cases pass, and build/production rendered smoke are error-free. Native temple inspection confirms the gap is closed. Evidence: `structure-ground-*`, `ocean-temple.png`. Milestone 36 remains in progress; final atmosphere and native travel measurements are next.

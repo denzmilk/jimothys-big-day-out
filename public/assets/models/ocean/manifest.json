@@ -1,0 +1,58 @@
+[
+  {
+    "id": "fish-silver",
+    "bytes": 77396,
+    "animated": true,
+    "forward": "+Z",
+    "source": "Quaternius CC0"
+  },
+  {
+    "id": "fish-blue",
+    "bytes": 66996,
+    "animated": true,
+    "forward": "+Z",
+    "source": "Quaternius CC0"
+  },
+  {
+    "id": "fish-striped",
+    "bytes": 88920,
+    "animated": true,
+    "forward": "+Z",
+    "source": "Quaternius CC0"
+  },
+  {
+    "id": "manta",
+    "bytes": 113224,
+    "animated": true,
+    "forward": "+Z",
+    "source": "Quaternius CC0"
+  },
+  {
+    "id": "whale",
+    "bytes": 74612,
+    "animated": true,
+    "forward": "+Z",
+    "source": "Quaternius CC0"
+  },
+  {
+    "id": "wreck-rowboat",
+    "bytes": 14092,
+    "animated": false,
+    "forward": "+Z",
+    "source": "Quaternius CC0"
+  },
+  {
+    "id": "wreck-sloop",
+    "bytes": 60676,
+    "animated": false,
+    "forward": "+Z",
+    "source": "Quaternius CC0"
+  },
+  {
+    "id": "wreck-longboat",
+    "bytes": 96464,
+    "animated": false,
+    "forward": "+Z",
+    "source": "Quaternius CC0"
+  }
+]

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
-  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT, GRAPHICS,
+  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT, GRAPHICS, OCEAN,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { fatFactor } from './MathUtils.js';
@@ -21,6 +21,7 @@ import {Military} from '../gameplay/Military.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
 import { EnvironmentLife } from '../level/EnvironmentLife.js';
 import { DayNight } from '../level/DayNight.js';
+import {OceanSystem} from '../level/OceanSystem.js';
 import {SandSystem} from '../level/SandSystem.js';
 import { WaterSystem } from '../level/WaterSystem.js';
 import { LevelBuilder } from '../level/LevelBuilder.js';
@@ -134,6 +135,7 @@ class Game {
     this.score = new ScoreSystem();
     this.heat = new HeatSystem();
     this.cameraSystem = new CameraSystem(this.camera, this.jimothy, this.input, this.voxels);
+    this.ocean=new OceanSystem(this.scene,this.jimothy,this.voxels,this.camera,this.level.sky);
     this.flyCamera = new FlyCamera(this.camera, this.input);
     this.hud = new HUD();
     this.gameOverScreen = new GameOverScreen();
@@ -162,6 +164,12 @@ class Game {
 
     // Straight to the nearest stairwell (milestone 20). Inspecting the
     // underground should not require digging to it.
+    eventBus.on(Events.DEV_GOTO_OCEAN,()=>{
+      const site=this.ocean.sites[this.oceanPreviewIndex||0];this.oceanPreviewIndex=((this.oceanPreviewIndex||0)+1)%this.ocean.sites.length;
+      eventBus.emit(Events.DEV_SET_FATNESS,{value:0});this.teleportJimothy(site.x,site.z-OCEAN.PREVIEW_OFFSET);
+      this.jimothy.diving=true;this.jimothy.swimming=true;this.jimothy.body.position.y=-OCEAN.PREVIEW_DEPTH;this.jimothy.vy=0;this.jimothy._prevFeetY=undefined;
+      this.jimothy.postUpdate(0);this.cameraSystem.yaw=0;this.cameraSystem.snapToTarget();this.ocean.stream();
+    });
     eventBus.on(Events.DEV_GOTO_BEACH,()=>{
       this.teleportJimothy(...WATER.BEACH_PREVIEW);this.jimothy.yaw=WATER.BEACH_YAW;this.jimothy.aimYaw=WATER.BEACH_YAW;
       this.cameraSystem.yaw=WATER.BEACH_YAW;this.cameraSystem.snapToTarget();this.jimothy.postUpdate(0);
@@ -191,7 +199,7 @@ class Game {
     eventBus.on(Events.GAME_RESTART, () => {
       this.collector.reset();
       this.ragdolls.reset();
-      this.water.reset();this.sand.reset();
+      this.water.reset();this.sand.reset();this.ocean.reset();
       gameState.reset();
       this.jimothy.reset();
       this.trashCans.reset();
@@ -371,7 +379,7 @@ class Game {
     this.pursuers.update(delta);this.military.update(delta);
     this.pedestrians.update(delta,position=>this.quality.inView(position,GRAPHICS.ACTOR_RADIUS));
     this.level.update(delta, this.camera,jp,this.quality.preset.DETAIL+this.jimothy.radius);
-    this.environmentLife.update(delta);
+    this.environmentLife.update(delta);this.ocean.update(delta);
     this.score.update(delta);
     this.heat.update(delta);
     this.debris.update(delta);
@@ -393,6 +401,7 @@ class Game {
     this.devTools.update(delta);
     this.carExplosions.update(delta);
     this.quality.update(this.flyCamera.active?this.camera.position:jp,this.jimothy.radius,this.underground);
+    this.ocean.afterCamera();
   }
 
   animate() {
@@ -859,6 +868,7 @@ class Game {
       dayNight: this.dayNight.snapshot(),
       water: this.water.snapshot(),
       sand:this.sand.snapshot(),
+      ocean:this.ocean.snapshot(),
       people: this.pedestrians.snapshot(),
       ragdolls: this.ragdolls.snapshot(),
       capture: gameState.capture,

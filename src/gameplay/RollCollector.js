@@ -58,7 +58,7 @@ export class RollCollector {
       for(let attempt=0;attempt<C.CAPACITY;attempt++){
         const angle=(i+attempt)*Math.PI*(3-Math.sqrt(5)),r=j.radius+C.RELEASE_GAP+Math.sqrt(i+attempt)*C.RELEASE_SPACING;
         const candidateX=j.body.position.x+Math.cos(angle)*r,candidateZ=j.body.position.z+Math.sin(angle)*r;
-        if(Layout.Masterplan.classAt(candidateX,candidateZ)===Layout.Masterplan.CLASS.WATER)continue;
+        if(Layout.Masterplan.classAt(candidateX,candidateZ)===Layout.Masterplan.CLASS.WATER&&!j.diving)continue;
         if(Layout.Masterplan.buildingsIn(candidateX,candidateZ,candidateX,candidateZ).some(b=>candidateX>=b.x&&candidateX<=b.x+b.w&&candidateZ>=b.z&&candidateZ<=b.z+b.d))continue;
         const surface=this.voxels.terrainHeightAt(candidateX,candidateZ),candidateY=this.voxels.groundHeightAt(candidateX,candidateZ,surface+C.RELEASE_SCAN);
         if(!this.voxels.solidAtWorld(candidateX,candidateY+C.FALLBACK_Y,candidateZ)){x=candidateX;y=candidateY;z=candidateZ;break;}

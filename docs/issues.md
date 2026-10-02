@@ -29,9 +29,11 @@ The spherical GiantCoat hides the original torso; fixed-size extremities disappe
 
 ### JIM-70 — Giant rolls do not carve continuous ground channels
 
-**Status:** queued in this correction pass · **Reported:** 2026-10-03 (Chris) · Milestone 33 refinement.
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 33 refinement.
 
 Roll damage intentionally excludes implicit terrain and repeats separate spheres. Revise giant rolling to carve a continuous, shallow swept channel with bounded work, persistent ground/collision edits and clean reset. Lean rolling remains a light scrape. This explicitly supersedes the giant ground-protection part of JIM-16/JIM-61. Locations: `Game.onImpact`, `VoxelWorld`, `Constants`.
+
+**Repair:** shallow swept segments carve tapered banks and an actual persistent floor, with the original grade limiting repeat passes. The bounded shared queue preserves travel added at yield boundaries and alternates ground/structure work. Five channel unit checks and 25 unique relevant gameplay cases pass; build/pixel smoke and native views are clean. Block's sampled channel is 1.36–1.66 m deep. Native 100 m Block/Absurd rolls carry 64 objects; median CPU/render submission is 18.4/20.9 ms, with remaining heavy-destruction hitches documented in milestone 33. JIM-48 remains open.
 
 ### JIM-71 — Giant headbutts ignore upward aim against military aircraft
 

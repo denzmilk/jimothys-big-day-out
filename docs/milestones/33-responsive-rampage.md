@@ -35,3 +35,15 @@ Chris plays the acceptance route described in the approved backlog brief and obs
 ## Foundation verification
 
 Six voxel work checks and 29 adjacent world checks pass. Native Block route: observed maximum frame 2,041.9 → 123.3 ms, p95 439.1 → 60.4 ms; render calls remain over budget. Full profiling and visual sign-off remain open. See STATE for conditions and evidence.
+
+## Continuous ground channels — Chris, 2026-10-03 (JIM-70)
+
+Giant rolling now intentionally cuts a shallow channel through ground/roads, replacing the earlier road-protection rule for that move. Headbutt digging remains aimed. This is a bounded voxel cut, with exposed banks/floor and persistent physical contact.
+
+- [x] A held giant roll leaves continuous damage between sampled positions, across chunk seams and on slopes.
+- [x] The centre is deeper than the banks; repeated passes respect an authored-grade depth cap.
+- [x] Work/queued paths/debris stay bounded; damage survives unloading and clears on restart.
+- [x] Airborne/bridge travel leaves remote ground untouched; lean rolling and existing aimed digs still work.
+- [ ] Chris approves channel scale and rolling feel (user playtest).
+
+JIM-70 evidence: all 54 unit checks pass, including two regressions for yielding/queue fairness that failed before repair. Twenty-five unique terrain/aim/voxel/beach gameplay checks pass across `ground-channel-green.log` and `ground-channel-final.log`; the held-roll reproduction first failed in `ground-channel-browser-red.log`. Build and production pixel smoke pass. Native floor views were inspected. A loaded Chrome/Metal 1280×800 Medium 100 m roll, with live work budgets and military disabled, records Block/Absurd update-plus-render submission medians 18.4/20.9 ms, p95 32.5/43.6 ms, worst 667.8/167 ms. Both carry 64 items, queue at most three jobs, and finish ground edits; seven Absurd mesh jobs remain after six settling seconds. Large destruction still hitches (JIM-48); this is not an FPS sign-off. Logs/captures: `output/iterate/ground-channel-{all-units,final,native,build,smoke}.log`, `ground-channel-{roll,floor}-{250,400}.png`.

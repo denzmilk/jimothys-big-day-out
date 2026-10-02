@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
-  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT, GRAPHICS, OCEAN, INTERIORS, COMET,
+  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT, GROUND_CHANNEL, GRAPHICS, OCEAN, INTERIORS, COMET,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { fatFactor } from './MathUtils.js';
@@ -106,6 +106,15 @@ class Game {
       const bodyRadius=this.jimothy.radius,giant=bodyRadius>=GIANT_IMPACT.MIN_RADIUS;
       if(giant&&!digs){
         const rolling=cfg===MOVES.ROLL,offset=rolling?0:bodyRadius*GIANT_IMPACT.HEADBUTT_FORWARD;
+        if(rolling){
+          const move=this.jimothy.move,to={x,y:y-bodyRadius,z},from=move?.carveFrom||to;
+          if(!this.jimothy.grounded){if(move)move.carveFrom=to;}
+          else if(Math.hypot(to.x-from.x,to.z-from.z)>=GROUND_CHANNEL.MIN_TRAVEL){
+            const halfWidth=Math.min(GROUND_CHANNEL.MAX_HALF_WIDTH,bodyRadius*GROUND_CHANNEL.WIDTH_RATIO);
+            const depth=Math.min(GROUND_CHANNEL.MAX_DEPTH,bodyRadius*GROUND_CHANNEL.DEPTH_RATIO);
+            if(this.voxels.queueGroundChannel(from,to,halfWidth,depth)&&move)move.carveFrom=to;
+          }
+        }
         const center={x:x+dir.x*offset,y,z:z+dir.z*offset};
         const radius=bodyRadius*(rolling?GIANT_IMPACT.ROLL_RADIUS:GIANT_IMPACT.HEADBUTT_RADIUS);
         this.voxels.queueDamageSphere(center.x,center.y,center.z,radius,{key:rolling?'roll':null});

@@ -1,5 +1,13 @@
 # Session state
 
+## Ground channels — JIM-70 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Giant rolls now carve continuous shallow channels across ground/roads. Tapered banks, real voxel floors and persistent edits share the existing world; repeated passes respect original grade. A bounded segment queue shares time with building damage and preserves travel appended during yielding. Lean rolls/aimed digging stay intact.
+
+All 54 unit checks and 25 unique adjacent terrain/aim/destruction/beach gameplay checks pass across the final runs. Three reproductions failed first (absent cuts, lost appended segment, starved structure work). Build and production pixel smoke are error-free; native cuts inspected. Loaded Chrome/Metal, 1280×800 Medium, live work budgets, 100 m roll, army disabled: Block/Absurd update-plus-render submission median **18.4/20.9 ms**, p95 **32.5/43.6**, worst **667.8/167**. Both carry 64 objects; at most three damage jobs, with one/three queued path segments. Damage drains; Absurd still has seven mesh jobs after six seconds settling. Heavy destruction still hitches and this is not a locked frame-rate result (JIM-48). See milestone 33 and `output/iterate/ground-channel-*` for exact evidence.
+
+**Next:** JIM-71 upward military headbutts, already reproduced with four failing checks. JIM-69 is pushed as `f5ecfec`.
+
 ## Original giant model — JIM-69 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Removed the spherical outer coat and replacement fur shader. The original 39,991-triangle textured animal grows through proportional anatomy plus extra torso girth; face, paws and tail remain readable. Loaded-model jiggle is bounded and slower at giant scale. Large head/tail tucks are smaller to avoid folding the expanded neck. Attachments now follow three sampled skin vertices, preserving contact through wobble and rolling. Folded-leg/sole reach fixes the larger paws on uphill ground. Original Blender source and export recipe are retained.

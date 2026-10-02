@@ -195,3 +195,7 @@ Ordinary mechanic fixtures set `__SKIP_ARRIVAL__`; dedicated arrival tests and p
 ## Giant identity and contact — JIM-69
 
 `build_jimothy_growth.py` exports only the original continuous animal mesh and its outward growth key. `JimothyRig` combines proportional anatomy scale with extra girth, preserving texture and extremity proportions. No spherical coat or replacement fur shader remains. Geometry/weights/bind data change only when size changes; bounded root squash creates visible jiggle. `RollCollector` binds attachments to triangle barycentric coordinates and samples three posed skin vertices per frame, keeping contact during animation without repeated whole-mesh rays. Growing paw reach includes its folded-leg minimum and sole extent on slopes.
+
+## Swept ground channels — JIM-70
+
+`VoxelWorld.queueGroundChannel` retains bounded swept path segments and removes only the shallow ground interval beneath a parabolic cross-section. Original terrain grade caps depth, preventing repeated rolls from drilling downward. Materialized banks/floors, collision and stream persistence share the existing edit store. A move owns its last accepted contact; failed enqueues retry from there, and airborne contact resets that origin. Up to 64 segments share the four-job damage queue; single-slice work alternates ground and structural damage across updates. Segment-boundary yields recheck newly appended travel before finishing. Renderer and debris budgets remain unchanged.

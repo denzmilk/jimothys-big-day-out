@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {VoxelBatches} from '../core/VoxelBatches.js';
-import { VOXEL, STREAM, TERRAIN, PAVING, VOXEL_BATCH, BEACH, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
+import { VOXEL, STREAM, TERRAIN, PAVING, VOXEL_BATCH, BEACH, GROUND_CHANNEL, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
 
 // Chunked destructible voxel grid (ADR-0003).
 //
@@ -28,6 +28,7 @@ export class VoxelWorld {
     this.renderBatches=new VoxelBatches(scene,[this.material,this.glassMaterial]);
     this.removedCount = 0;
     this.damageQueue = [];
+    this.damageTurn = 0;
     this._colors = new Map(
       Object.entries(VOXEL.MATERIALS).map(([id, m]) => [Number(id), new THREE.Color(m.color)]),
     );
@@ -645,16 +646,60 @@ export class VoxelWorld {
     return true;
   }
 
+  queueGroundChannel(from,to,radius,depth){
+    if(!(radius>0&&depth>0)||!this.terrain)return false;
+    let job=this.damageQueue.find(j=>j.kind==='channel');
+    if(!job){
+      if(this.damageQueue.length>=W.MAX_DAMAGE_QUEUE)return false;
+      job={kind:'channel',segments:[],started:false};this.damageQueue.push(job);
+    }
+    if(job.segments.length>=GROUND_CHANNEL.MAX_SEGMENTS)return false;
+    job.segments.push({from:{...from},to:{...to},radius,depth});
+    Object.assign(job,{cx:to.x,cy:to.y,cz:to.z});return true;
+  }
+
+  *_groundChannelTask(job){
+    const s=VOXEL.SIZE;let removed=[],visited=0;
+    while(job.segments.length){
+      const {from,to,radius,depth}=job.segments[0],dx=to.x-from.x,dz=to.z-from.z,length2=dx*dx+dz*dz,r2=radius*radius;
+      const minX=Math.floor((Math.min(from.x,to.x)-radius)/s),maxX=Math.floor((Math.max(from.x,to.x)+radius)/s);
+      const minZ=Math.floor((Math.min(from.z,to.z)-radius)/s),maxZ=Math.floor((Math.max(from.z,to.z)+radius)/s);
+      for(let x=minX;x<=maxX;x++)for(let z=minZ;z<=maxZ;z++){
+        if(++visited%W.DAMAGE_BATCH===0){yield removed;removed=[];}
+        const wx=(x+.5)*s,wz=(z+.5)*s,t=length2?Math.max(0,Math.min(1,((wx-from.x)*dx+(wz-from.z)*dz)/length2)):0;
+        const distance2=(wx-from.x-dx*t)**2+(wz-from.z-dz*t)**2;if(distance2>=r2)continue;
+        const surface=this.terrain.surfaceHeight(wx,wz),feet=from.y+(to.y-from.y)*t;
+        if(Math.abs(surface-feet)>depth+s)continue;
+        // The original grade caps excavation. Repeated trips deepen neither
+        // the trench nor the queue, and the banks taper into untouched ground.
+        const bottom=Math.ceil((surface-depth*(1-distance2/r2))/s-.5),top=this.terrain.topSolidVoxelY(wx,wz);
+        for(let y=top;y>=bottom;y--){
+          if(++visited%W.DAMAGE_BATCH===0){yield removed;removed=[];}
+          const mat=this.get(x,y,z);if(mat===VOXEL.BEDROCK)break;if(!mat)continue;
+          this.setEdit(x,y,z,0);this._materialiseAround(x,y,z);this.removedCount++;
+          removed.push({x:wx,y:(y+.5)*s,z:wz,mat});
+        }
+      }
+      job.segments.shift();
+      if(removed.length){yield removed;removed=[];}
+    }
+  }
+
   processDamage({maxMilliseconds=Infinity,maxSlices=Infinity}={}){
     const started=performance.now(),reports=[];let slices=0;
     while(this.damageQueue.length&&slices<maxSlices&&performance.now()-started<maxMilliseconds){
-      const job=this.damageQueue[0];job.started=true;job.task??=this._damageSphereTask(job);
+      // Alternate ground and structural work so a large building cannot
+      // postpone the physical rolling floor until several streets later.
+      const channel=this.damageQueue.findIndex(j=>j.kind==='channel');
+      const structure=this.damageQueue.findIndex(j=>j.kind!=='channel');
+      const index=channel>=0&&(this.damageTurn++%2===0||structure<0)?channel:Math.max(0,structure);
+      const job=this.damageQueue[index];job.started=true;job.task??=job.kind==='channel'?this._groundChannelTask(job):this._damageSphereTask(job);
       const batch=job.task.next();slices++;
       if(batch.value?.length){
         let report=reports.find(r=>r.job===job);if(!report){report={job,cells:[]};reports.push(report);}
         report.cells.push(...batch.value);
       }
-      if(batch.done)this.damageQueue.shift();
+      if(batch.done)this.damageQueue.splice(index,1);
     }
     this.lastDamageMs=performance.now()-started;return reports;
   }
@@ -1068,7 +1113,7 @@ export class VoxelWorld {
 
   clear() {
     this.renderBatches.clear();
-    this._meshWork=null;this._columnWork.clear();this.damageQueue=[];
+    this._meshWork=null;this._columnWork.clear();this.damageQueue=[];this.damageTurn=0;
     for (const chunk of this.chunks.values()) {
       if (chunk.mesh) {
         this.scene.remove(chunk.mesh);
@@ -1097,6 +1142,7 @@ export class VoxelWorld {
       edits,
       batches:this.renderBatches.stats(),
       pendingDamage:this.damageQueue.length,
+      pendingChannelSegments:this.damageQueue.find(j=>j.kind==='channel')?.segments.length||0,
       damageMs:this.lastDamageMs||0,
       pendingColumns:this._columnWork.size,
       generationMs:this.lastGenerationMs||0,

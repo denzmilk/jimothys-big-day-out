@@ -460,7 +460,8 @@ export class JimothyController {
         // this is the only moment it can happen, and the 0.12 s of rearing
         // back covers the turn.
         this.yaw = yaw;
-      } else if (this.input.consumeRoll()) this.move = { kind: 'roll', t: 0, ticks: 0 };
+      } else if (this.input.consumeRoll()) this.move = { kind: 'roll', t: 0, ticks: 0,
+        carveFrom:{x:this.body.position.x,y:this.body.position.y-this.radius,z:this.body.position.z} };
     }
     // Queued presses are deliberately NOT drained while busy — a press during
     // a cooldown fires the moment it lifts, which feels responsive instead of

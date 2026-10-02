@@ -43,7 +43,7 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
 
 ## Giant identity correction — 2026-10-03
 
-The original textured model remains visible at every size. Proportional anatomy growth keeps the face, paws and tail readable while the belly gains more girth. The giant jiggles and tumbles continuously; an added ball must not replace his torso. Carried objects follow the actual animated skin.
+The original textured model remains visible at every size. Proportional anatomy growth keeps the face, paws and tail readable while the belly gains more girth. The giant jiggles and tumbles continuously; an added ball must not replace his torso. Carried objects follow the actual animated skin. Giant rolls carve continuous shallow ground/road channels with tapered banks; repeated passes respect a nominal 2.2 m depth cap relative to the original grade. Lean rolls keep their lighter scrape.
 
 ## Scale and shape
 

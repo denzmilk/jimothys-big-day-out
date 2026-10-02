@@ -48,9 +48,9 @@ Given a loaded rig and C held for 1.5 seconds, movement continues but `rollSpin`
 
 ### JIM-59 — Shoreline reads as a hard edge instead of a beach
 
-**Status:** open · **Reported:** 2026-10-02 (Chris)
+**Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris)
 
-Chris requests a softer shore and deformable sand. `Terrain.bake` has a smooth 34 m shore ramp, but `Terrain.materialAtVoxel` selects sand only at/below sea level and dry land remains topsoil. That is a concrete presentation gap; the exact reported hard edge needs a coast survey before choosing the final shape fix. The deferred beach proposal in `docs/backlog.md` covers varied dry/wet sand bands, walkable shallows, local deformation and matching ground/water contact. This is planned, not implemented.
+Milestone 35 adds five beach regions, blended dry/wet sand, gentler outer shallows and modest dunes. Nearby feet, rolls and impacts compact sand; the visible field and physical support agree, tracks persist through travel, and full digging removes the skin. Dune grass is sparse and the wet band stays clear. Four sand/contact unit checks, fifteen beach/water/terrain cases and three final beach/grounding cases pass. Native captures, build and rendered smoke pass; see `output/iterate/beach-*` and milestone 35. Chris still needs to judge the shore and sand feel.
 
 ### JIM-58 — Short pedestrians overreach while running uphill
 

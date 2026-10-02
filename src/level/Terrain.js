@@ -1,5 +1,5 @@
 import plan from './islandPlan.js';
-import { TERRAIN, VOXEL } from '../core/Constants.js';
+import { TERRAIN, VOXEL, BEACH } from '../core/Constants.js';
 import { inPolygon, polygonBounds, smoothstep } from '../core/MathUtils.js';
 
 // The island's shape and its third dimension (milestone 17).
@@ -194,9 +194,10 @@ export function bake() {
   height = new Float32Array(SIZE * SIZE);
   for (let i = 0; i < height.length; i++) {
     const d = shore[i];
+    const x=toWorld(i%SIZE),z=toWorld(Math.floor(i/SIZE)),beach=beachWeight(x,z);
     if (d < 0) {
       height[i] = TERRAIN.SEA_LEVEL
-        - TERRAIN.SEABED_DEPTH * smoothstep(-d / TERRAIN.SHORE_RUN);
+        - TERRAIN.SEABED_DEPTH * smoothstep((Math.min(-d,BEACH.INNER_SHALLOWS)+Math.max(0,-d-BEACH.INNER_SHALLOWS)*(1-beach*(1-BEACH.OUTER_GRADE))) / TERRAIN.SHORE_RUN);
       continue;
     }
     let h = TERRAIN.SEA_LEVEL + TERRAIN.LAND_GRADE * smoothstep(d / TERRAIN.SHORE_RUN);
@@ -206,6 +207,7 @@ export function bake() {
       h += rise[i] * smoothstep(d / TERRAIN.HILL_COAST_RUN)
         * smoothstep((fromFlat[i] * CELL) / TERRAIN.FLATTEN_RUN);
     }
+    h += beach*BEACH.DUNE_HEIGHT*smoothstep(d/BEACH.DUNE_START)*(1-smoothstep((d-BEACH.DUNE_START)/(BEACH.DUNE_END-BEACH.DUNE_START)))*(1+Math.sin(x*BEACH.BAND_FREQUENCY+Math.cos(z*BEACH.BAND_FREQUENCY)))/2;
     height[i] = h;
   }
 
@@ -322,7 +324,7 @@ export function materialAtVoxel(vx, vy, vz) {
   if (depth < TERRAIN.TOPSOIL_DEPTH) {
     // Underwater the top band is sand, not soil — the beach has to read as a
     // beach from the moment it leaves the grass.
-    return surface <= TERRAIN.SEA_LEVEL ? SAND : TOPSOIL;
+    return sandAt(wx,wz) || (surface <= TERRAIN.SEA_LEVEL ? SAND : TOPSOIL);
   }
   if (depth < TERRAIN.CLAY_DEPTH) return CLAY;
   if (depth < TERRAIN.ROCK_DEPTH) return ROCK;
@@ -355,4 +357,17 @@ export function assertSameGrid(size, half, cell) {
       `terrain grid ${SIZE}/${HALF}/${CELL} does not match caller ${size}/${half}/${cell}`,
     );
   }
+}
+
+export function beachWeight(x,z) {
+  let weight=0;
+  for(const [cx,cz,r]of BEACH.REGIONS) weight=Math.max(weight,1-smoothstep(Math.hypot(x-cx,z-cz)/r));
+  return weight;
+}
+export function sandAt(x,z) {
+  const h=surfaceHeight(x,z),d=shoreDistance(x,z);
+  if(h<=TERRAIN.SEA_LEVEL)return BEACH.WET_MATERIAL;
+  const band=BEACH.BAND+Math.sin(x*BEACH.BAND_FREQUENCY+Math.cos(z*BEACH.BAND_FREQUENCY))*BEACH.BAND_VARIATION;
+  if(beachWeight(x,z)<BEACH.REGION_MIN||h>BEACH.MAX_HEIGHT||d>band||isDeck(x,z))return 0;
+  return h<BEACH.WET_HEIGHT?BEACH.WET_MATERIAL:BEACH.DRY_MATERIAL;
 }

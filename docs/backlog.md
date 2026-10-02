@@ -226,7 +226,7 @@ Chris subsequently reported the giant form, attachment, destruction and performa
 
 ### Soft beaches and deformable sand (milestone 35)
 
-- [ ] Replace the hard shore transition with varied dry sand, wet sand and shallow seabed profiles. **Size: L; value: L. Depends on:** performance budgets / milestone 33, existing water and ground-contact systems. **Blocks:** placement of underwater sites near shore.
+- [x] Implemented in milestone 35, awaiting playtest: replace the hard shore transition with varied dry sand, wet sand and shallow seabed profiles. **Size: L; value: L. Depends on:** performance budgets / milestone 33, existing water and ground-contact systems. **Blocks:** placement of underwater sites near shore.
 - Source: Chris, “softbody sand and a beach — too much of a hard edge on the shore.” Logged as JIM-59. Current terrain has a mathematical shore ramp, but its sand top material is selected only at/below sea level; dry land is topsoil. The exact reported hard edge still needs a coast survey and rendered reproduction.
 - Approved AC: broad curved sand bands, dunes and flatter shallows appear at suitable beaches, with wet/dry material transitions and foam following the actual shoreline. Retain intentional rocky bluffs and harbour edges; avoid flattening the island's hills or roads.
 - Approved AC: nearby sand yields into footprints, roll tracks and impact craters, with small bounded grain/sand effects and local settling. Jimothy's size changes the deformation. Ground sampling, visible terrain, feet, objects and water agree after deformation; there are no floating feet or invisible ledges.

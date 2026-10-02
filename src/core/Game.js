@@ -21,6 +21,7 @@ import {Military} from '../gameplay/Military.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
 import { EnvironmentLife } from '../level/EnvironmentLife.js';
 import { DayNight } from '../level/DayNight.js';
+import {SandSystem} from '../level/SandSystem.js';
 import { WaterSystem } from '../level/WaterSystem.js';
 import { LevelBuilder } from '../level/LevelBuilder.js';
 import { VoxelWorld } from '../level/VoxelWorld.js';
@@ -119,7 +120,8 @@ class Game {
     this.level.registerEntities();
     this.streetLife = new StreetLife(this.scene, this.jimothy, this.voxels);
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
-    this.water=new WaterSystem(this.scene,this.jimothy,this.voxels,this.level.sky);
+    this.sand=new SandSystem(this.scene,this.jimothy,this.voxels);
+    this.water=new WaterSystem(this.scene,this.jimothy,this.voxels,this.level.sky,this.sand.uniforms);
     this.ragdolls = new HumanRagdolls(this.jimothy,this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
     this.military=new Military(this.scene,this.jimothy,this.voxels);
@@ -189,7 +191,7 @@ class Game {
     eventBus.on(Events.GAME_RESTART, () => {
       this.collector.reset();
       this.ragdolls.reset();
-      this.water.reset();
+      this.water.reset();this.sand.reset();
       gameState.reset();
       this.jimothy.reset();
       this.trashCans.reset();
@@ -361,7 +363,7 @@ class Game {
     this.streetLife.update(delta);
     this.physics.update(delta);
     this.jimothy.postUpdate(delta);
-    this.water.afterUpdate(delta);
+    this.water.afterUpdate(delta);this.sand.update(delta);
     this.trashCans.update(delta);
     this.ragdolls.update(delta);
     this.collector.update(delta);
@@ -856,6 +858,7 @@ class Game {
       environment: this.environmentLife.snapshot(),
       dayNight: this.dayNight.snapshot(),
       water: this.water.snapshot(),
+      sand:this.sand.snapshot(),
       people: this.pedestrians.snapshot(),
       ragdolls: this.ragdolls.snapshot(),
       capture: gameState.capture,

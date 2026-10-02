@@ -836,7 +836,8 @@ export const VOXEL = {
     9: { name: 'clay', color: 0xa06a3c },
     10: { name: 'rock', color: 0x7d7b76 },
     11: { name: 'deeprock', color: 0x4c4a4f },
-    12: { name: 'sand', color: 0xc9b184 },
+    12: { name: 'dry sand', color: 0xdfc995 },
+    25: { name: 'wet sand', color: 0x9e9276 },
     13: { name: 'ivory trim', color: 0xf2e7ce },
     14: { name: 'sage siding', color: 0x829986 },
     15: { name: 'blue siding', color: 0x688a9c },
@@ -1338,4 +1339,20 @@ export const MILITARY={
  GROUND_SCAN:5,DESPAWN_DISTANCE:560,MASS:8000,WRECK_LIFE:24,MAX_WRECKAGE:24,
  PART_MIN:.12,PART_SPEED:5,PART_LIFT:6,PART_SPIN:2,PART_ANGLE:2.399963,
  LAUNCH_SPEED:18,LAUNCH_UP:12,LAUNCH_SECONDS:2.2,LAUNCH_SPIN:5,SIZE_RESISTANCE:.035,PLAYER_MASS:35,HIT_IMMUNITY:2.5,
+};
+
+// Milestone 35: shallow compaction keeps fine voxel destruction beneath it.
+export const BEACH = {
+  REGIONS: [[70,-700,180],[-420,580,180],[145,820,210],[660,90,210],[-590,-580,200]],
+  REGION_MIN: .1, BAND: 32, BAND_VARIATION: 5, BAND_FREQUENCY: .025, MAX_HEIGHT: 4.5,
+  WET_HEIGHT: .5, WET_BLEND_LOW: .1, WET_BLEND_HIGH: .9, TRACK_DARKEN: .28, DUNE_GRASS_SHARE: .12, DRY_MATERIAL: 12, WET_MATERIAL: 25,
+  INNER_SHALLOWS: 12, OUTER_GRADE: .55, DUNE_HEIGHT: .35, DUNE_START: 12, DUNE_END: 38,
+  CELL: .22, TEXTURE_SIZE: 256, RECENTER_MARGIN: 48,
+  MAX_DEPTH: .16, MAX_RADIUS: 12, MAX_CELLS: 131072, MAX_JOBS: 8,
+  WORK_CELLS: 768, SETTLE_CELLS: 256, SETTLE_RATE: .6, PERMANENCE: .72,
+  FOOT_RADIUS: .23, FOOT_DEPTH: .045, FOOT_INTERVAL: .15,
+  ROLL_DEPTH: .09, IMPACT_DEPTH: .16, MIN_SPEED: .3,
+  GRAINS: 160, GRAINS_PER_STAMP: 4, GRAIN_SIZE: .023, GRAIN_LIFE: .55,
+  GRAIN_SPEED: 1.3, GRAIN_LIFT: 1.7, GRAVITY: 9.8, GRAIN_COLOR: 0xd8c599,
+  NOISE_SCALE: 28, NOISE_STRENGTH: .08,
 };

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone} from 'three/addons/utils/SkeletonUtils.js';
-import {ENVIRONMENT as C} from '../core/Constants.js';
+import {ENVIRONMENT as C,BEACH} from '../core/Constants.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 import * as Layout from './Layout.js';
@@ -45,6 +45,7 @@ export class EnvironmentLife {
   });
  }
  _clear(x,z){
+  if(Layout.terrain.sandAt(x,z)&&(this.voxels.terrainHeightAt(x,z)<BEACH.WET_BLEND_HIGH||hash(Math.floor(x),Math.floor(z))>BEACH.DUNE_GRASS_SHARE))return false;
   const cls=Layout.Masterplan.classAt(x,z),K=Layout.Masterplan.CLASS;
   return (cls===K.LAND||cls===K.PARK)&&!this.buildings.some(b=>x>b.x-C.WALL_GAP&&x<b.x+b.w+C.WALL_GAP&&z>b.z-C.WALL_GAP&&z<b.z+b.d+C.WALL_GAP);
  }
@@ -55,7 +56,7 @@ export class EnvironmentLife {
    const h=hash(ix,iz),x=(ix+h)*S,z=(iz+hash(iz,ix))*S;
    if(this.plants.length>=C.PLANT_LIMIT||Math.hypot(x-j.x,z-j.z)>R||!this._clear(x,z))continue;
    const y=this.voxels.terrainHeightAt(x,z),key=`${ix},${iz}`;
-   const kind=h<C.GRASS_SHARE?(h<C.GRASS_SHARE/2?0:1):2+Math.min(C.PLANTS.length-3,Math.floor((h-C.GRASS_SHARE)/(1-C.GRASS_SHARE)*(C.PLANTS.length-2)));
+   const kind=Layout.terrain.sandAt(x,z)?(h<C.GRASS_SHARE/2?0:1):h<C.GRASS_SHARE?(h<C.GRASS_SHARE/2?0:1):2+Math.min(C.PLANTS.length-3,Math.floor((h-C.GRASS_SHARE)/(1-C.GRASS_SHARE)*(C.PLANTS.length-2)));
    this.plants.push({x,y,z,key,kind,yaw:h*Math.PI*2,scale:C.SCALE_MIN+h*C.SCALE_RANGE,flat:this.flattened.has(key)?1:0});
   }
   for(const b of this.batches){b.items=this.plants.filter(p=>p.kind===b.index);b.mesh.count=b.items.length;}

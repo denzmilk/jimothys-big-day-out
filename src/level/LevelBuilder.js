@@ -102,7 +102,7 @@ export class LevelBuilder {
         // from up there — and the shoreline needs to be sand rather than a hard
         // green-to-blue edge.
         if (h < TERRAIN.SEA_LEVEL) c.setHex(HORIZON.DEEP);
-        else if (h < TERRAIN.SEA_LEVEL + 1.6) c.setHex(HORIZON.SAND);
+        else if (Terrain.sandAt(x,z)&&!Masterplan.isRoad(x,z)) c.setHex(VOXEL.MATERIALS[Terrain.sandAt(x,z)].color);
         else c.setHex(Masterplan.isRoad(x, z) ? HORIZON.ROAD : HORIZON.LAND);
         // A touch of height shading, so hills have relief at a distance the
         // directional sun cannot give a mesh this coarse.

@@ -1,5 +1,12 @@
 # Session state
 
+## Deformable beaches — milestone 35 / JIM-59 — 2026-10-02
+
+Implemented, awaiting Chris’s playtest. Five beach regions have dry/wet sand, blended tidelines, longer outer shallows and modest dunes; roads and hills remain intact. Moving paws, rolls and impacts compact a sparse persistent sand field with partial settling and pooled grains. Rendering and contact use the same field; real craters disable the skin. Four sand/contact unit cases, fifteen beach/water/terrain cases three final beach/grounding cases and all three living-environment regressions pass. Build and production rendered smoke pass without console errors. Native beach/track captures were inspected (`beach-overview.png`, `beach-tracks.png`); the close view is for shallow paw dents, not large granular piles.
+
+**Next:** authorised milestone 36 diving and sparse underwater sites. Three CC0 boat hulls and five animated Quaternius sea creatures are prepared in editable Blender and GLB deliveries; runtime integration remains next.
+
+
 ## Military response — milestone 34 — 2026-10-02
 
 Implemented, awaiting Chris’s playtest. Licensed Blender tank/jet deliveries, road-following tanks, aimed turrets, telegraphed jet passes, swept shell collision, bounded destruction, physical breakaway parts and giant collection are integrated. Tanks arrive at tier 5, or tier 4 for giants; jets require tier 5 and giant size. Hits reset combo and launch/tumble Jimothy, with a brief camera kick and control recovery. Only the net ends runs. Six final military cases, twelve contact/physics cases, unit sphere sweep, build and production rendered smoke pass. Native 12-second loaded Block battle: median 14 ms, p95 16.8 ms, worst 35.4 ms, no errors; clean restart. See milestone 34 for evidence and asset credits.

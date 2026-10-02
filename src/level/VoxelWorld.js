@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {VoxelBatches} from '../core/VoxelBatches.js';
-import { VOXEL, STREAM, TERRAIN, PAVING, VOXEL_BATCH, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
+import { VOXEL, STREAM, TERRAIN, PAVING, VOXEL_BATCH, BEACH, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
 
 // Chunked destructible voxel grid (ADR-0003).
 //
@@ -415,8 +415,18 @@ export class VoxelWorld {
     return this.generated.has(this._colKey(Math.floor(x / C), Math.floor(z / C)));
   }
 
+  sandOffsetAt(x,z) {
+    const offset=this.sand?.sample(x,z)||0;
+    if(!offset||!this.terrain?.sandAt?.(x,z))return 0;
+    const s=VOXEL.SIZE,vx=Math.floor(x/s),vz=Math.floor(z/s),top=this.terrain.topSolidVoxelY((vx+.5)*s,(vz+.5)*s);
+    const mat=this.get(vx,top,vz);
+    return (mat===BEACH.DRY_MATERIAL||mat===BEACH.WET_MATERIAL)&&!this.get(vx,top+1,vz)?offset:0;
+  }
+
   solidAtWorld(x, y, z) {
     this._ensureAtWorld(x, z);
+    const surface=this.terrainHeightAt(x,z),offset=this.sandOffsetAt(x,z);
+    if(offset && Math.abs(y-surface)<=VOXEL.SIZE+BEACH.MAX_DEPTH)return y<=surface+offset;
     const [vx, vy, vz] = this.worldToVoxel(x, y, z);
     return this.get(vx, vy, vz) !== 0;
   }
@@ -429,7 +439,7 @@ export class VoxelWorld {
    *  him into the sky). `stepUp` is the small lip he's allowed to mount. */
   groundHeightAt(x, z, fromY = 0, stepUp = VOXEL.SIZE * 0.75) {
     this._ensureAtWorld(x, z);
-    const surface = this.terrain ? this.terrain.surfaceHeight(x, z) : 0;
+    const surface = (this.terrain ? this.terrain.surfaceHeight(x, z) : 0)+this.sandOffsetAt(x,z);
     // Too far out to be worth building: report the terrain's own answer rather
     // than the dug-through-to-bedrock one the scan below would give for empty
     // space. A pedestrian out there would otherwise sink through the floor —
@@ -833,7 +843,9 @@ export class VoxelWorld {
     }
     const surfaceCorner=(lx,lz,ox,oz)=>sided
       ?surfaceCorners[((lz+1)*P+lx+1)*4+oz*2+ox]:corner(lx+ox,lz+oz);
-    const emitQuad=(quad,color,normal=null)=>{
+    const sandWeights=[];
+    const emitQuad=(quad,color,normal=null,sand=false)=>{
+
       for (const ids of [[0,1,2],[0,2,3]]) {
         let n=normal;
         if (!n) {
@@ -841,7 +853,7 @@ export class VoxelWorld {
           n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
           const length=Math.hypot(...n)||1;n=n.map(v=>v/length);
         }
-        for (const i of ids) {pos.push(...quad[i]);norm.push(...n);col.push(color.r,color.g,color.b);}
+        for (const i of ids) {if(sand)sandWeights[pos.length/3]=1;pos.push(...quad[i]);norm.push(...n);col.push(color.r,color.g,color.b);}
       }
     };
     const nrm = [0, 1, 0];
@@ -871,7 +883,7 @@ export class VoxelWorld {
       const top=tops[(z+1)*P+x+1],ly=top-base[1];
       if(ly<0||ly>=CY)continue;
       const mat=chunk.data[x+CX*(ly+CY*z)];
-      if(!mat||[PAVING.SLAB_MATERIAL,PAVING.SLAB_VARIANT,PAVING.KERB_MATERIAL].includes(mat))continue;
+      if(!mat||[BEACH.DRY_MATERIAL,BEACH.WET_MATERIAL,PAVING.SLAB_MATERIAL,PAVING.SLAB_VARIANT,PAVING.KERB_MATERIAL].includes(mat))continue;
       const sample=(dx,dz)=>surfaceCorner(x+Math.min(stride-1,dx),z+Math.min(stride-1,dz),dx===stride?1:0,dz===stride?1:0);
       const h00=sample(0,0),h10=sample(stride,0),h01=sample(0,stride),h11=sample(stride,stride);
       let safe=true;
@@ -917,6 +929,7 @@ export class VoxelWorld {
           const vz = base[2] + lz;
           const color = this._colors.get(mat) || this._colors.get(1);
           const smooth = isTerrainTop(lx, ly, lz);
+          const sand=smooth&&(mat===BEACH.DRY_MATERIAL||mat===BEACH.WET_MATERIAL);
           for (let fi = 0; fi < FACES.length; fi++) {
             if(fi===2&&coarse[lz*CX+lx]&&isTerrainTop(lx,ly,lz))continue;
             const f = FACES[fi];
@@ -934,7 +947,7 @@ export class VoxelWorld {
                   if(top>adjacent+1e-6)exposed=true;
                   return [(vx+ox)*s,oy?top:Math.min(top,adjacent),(vz+oz)*s];
                 });
-                if(exposed)emitQuad(wall,color,f.d);
+                if(exposed)emitQuad(wall,color,f.d,sand);
               }
               continue;
             }
@@ -967,7 +980,7 @@ export class VoxelWorld {
             // Terrain slopes keep their sampled corners; only genuinely planar
             // faces merge, so reducing cells cannot flatten a hill (JIM-34).
             const flat = smooth && fi === 2 && quad.every(q => Math.abs(q[1] - quad[0][1]) < 1e-6);
-            if (!smooth || flat) {
+            if (!smooth || (flat&&!sand)) {
               mergeFace(fi, lx, ly, lz, mat, flat ? quad[0][1] : null);
               continue;
             }
@@ -975,6 +988,7 @@ export class VoxelWorld {
             const lit = smooth && f.d[1] === 1;
             for (const [a, b, c] of [[0, 1, 2], [0, 2, 3]]) {
               for (const idx of [a, b, c]) {
+                if(sand&&f.v[idx][1]===1)sandWeights[pos.length/3]=1;
                 pos.push(quad[idx][0], quad[idx][1], quad[idx][2]);
                 if (lit) {
                   slopeNormal(lx + f.v[idx][0], lz + f.v[idx][2], nrm);
@@ -1024,6 +1038,7 @@ export class VoxelWorld {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setAttribute('sandWeight',new THREE.Float32BufferAttribute(Array.from({length:pos.length/3},(_,i)=>sandWeights[i]||0),1));
     geo.computeBoundingSphere();
     return geo;
   }

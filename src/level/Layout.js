@@ -1,4 +1,4 @@
-import { VOXEL, CONTAINERS, BUILDINGS, HIDE_SPOTS, PAVING } from '../core/Constants.js';
+import { VOXEL, CONTAINERS, BUILDINGS, HIDE_SPOTS, PAVING, BEACH } from '../core/Constants.js';
 import * as Masterplan from './CityPlanner.js';
 import * as TerrainField from './Terrain.js';
 import * as StreetPaving from './StreetPaving.js';
@@ -98,6 +98,7 @@ const terraceTop=(x,z)=>Math.floor(streetHeight(x,z)/VOXEL.SIZE-0.5);
 
 export const terrain = {
   surfaceHeight: streetHeight,
+  sandAt: (x,z)=>StreetPaving.isPaved(x,z)?0:TerrainField.sandAt(x,z),
   // One-sided corners retain a real vertical kerb at a surface boundary.
   cornerHeight,
   topSolidVoxelY: terraceTop,
@@ -108,7 +109,7 @@ export const terrain = {
     const wx=(vx+0.5)*VOXEL.SIZE,wz=(vz+0.5)*VOXEL.SIZE;
     const shift=terraceTop(wx,wz)-TerrainField.topSolidVoxelY(wx,wz);
     const m = TerrainField.materialAtVoxel(vx, vy-shift, vz);
-    if (m !== TerrainField.TOPSOIL) return m;
+    if (m !== TerrainField.TOPSOIL && m!==BEACH.DRY_MATERIAL && m!==BEACH.WET_MATERIAL) return m;
     // The visible skin follows the masterplan's classes, so a park is grass, an
     // alley is scruffier than a street, and the road network you SEE is the one
     // the city was designed with. Same rule the flat world's buildGround had —
@@ -121,7 +122,7 @@ export const terrain = {
     if (cls === C.FOOTPATH) return StreetPaving.materialAt(x,z);
     if (cls === C.PLAZA) return CONCRETE;
     if (cls === C.ALLEY) return BRICK;
-    return MOSS;
+    return TerrainField.sandAt(x,z)||MOSS;
   },
 };
 

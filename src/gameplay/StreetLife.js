@@ -40,7 +40,9 @@ export class StreetLife {
           if(!o.isMesh)return;
           const glass=Array.isArray(o.material)?o.material.some(m=>m.transmission):o.material.transmission;
           for(const m of glass?splitGlassPanes(o):[o.clone()]){
-            m.applyMatrix4(o.parent.matrixWorld);m.userData.section=o.name.includes('wheel')?2+g.children.length:0;g.add(m);
+            m.applyMatrix4(o.parent.matrixWorld);
+            m.applyMatrix4(new THREE.Matrix4().makeRotationY(C.CAR.MODEL_YAW));
+            m.userData.section=o.name.includes('wheel')?2+g.children.length:0;g.add(m);
           }
         });
       }

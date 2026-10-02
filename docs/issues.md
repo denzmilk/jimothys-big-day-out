@@ -10,6 +10,12 @@
 
 ## Open
 
+### JIM-54 — Some cars drive backwards
+
+**Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris)
+
+Chris observes cars travelling backwards. All six preserved Blender exports have their front axle along -Z, while `StreetLife` drives along +Z. The template now normalizes every imported mesh by `STREET.CAR.MODEL_YAW` before centring, preserving glass, wheels and breakaway geometry. The baseline front/rear axle difference was -2.112 m for the sedan; the regression measures the actual front/rear wheels against travel direction. Eight orientation/grounding/destruction checks pass (`output/iterate/traffic-heading-green.log`), build and rendered smoke pass with no console errors, and all six corrected models were inspected in `traffic-car-directions.png`. Junction turning and regular streetlights follow in milestone 32.
+
 ### JIM-53 — Jimothy does not participate in the new world shadows
 
 **Status:** fixed in code, awaiting Chris’s playtest — 2026-10-02 · **Found:** 2026-10-02

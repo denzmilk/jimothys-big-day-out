@@ -1146,6 +1146,8 @@ export const STREET = {
       [1.2,.9,1.5,-.8,3.6,.2,0x819b50,2]]},
   },
   CAR: {
+    // JIM-54: the preserved Blender exports have their front axle along -Z.
+    MODEL_YAW: Math.PI,
     MASS: 180, BREAK_RADIUS: 1.2, EXPLODE_RADIUS: 3.5,
     PANEL_ROOF: .76, PANEL_FLOOR: .28, PANEL_FRONT: .7, PANEL_REAR: .24,
     PANEL_SIDE: .3, PANEL_BUMPER: .38, COLLIDER_MIN: .035,

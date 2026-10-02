@@ -2,6 +2,10 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Backwards cars — JIM-54 — 2026-10-02
+
+**Implemented, awaiting Chris's playtest.** Every imported car had its front axle along -Z while traffic drove along +Z. `StreetLife` now rotates the imported meshes once during template normalization, controlled by `STREET.CAR.MODEL_YAW`. Eight orientation/grounding/destruction checks pass in `output/iterate/traffic-heading-green.log`; production build and rendered smoke pass without console errors. All six models were visually inspected in `traffic-car-directions.png`. Actual travel now leads with the front axle. The user's requested streetlights and controlled traffic are next in milestone 32; sharp junction steering remains part of that work.
+
 ## Jimothy idle animation and planted paws — milestone 11 / JIM-22 — 2026-10-02
 
 **Implemented, awaiting Chris's playtest.** Chris reported sliding feet and requested idle scratches and small movements. The loaded model now uses four world-space paw contacts, two-bone IK, lifted diagonal steps and a smooth crouched support height. Idle breathing, head glances, tail movement and a face scratch interrupt on movement/actions; rolls, hops and swimming release contacts. The corrected Blender rig keeps paw movement out of the torso while preserving the original shape, textures and 12 bones.

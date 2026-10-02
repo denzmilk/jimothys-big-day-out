@@ -10,6 +10,12 @@
 
 ## Open
 
+### JIM-52 — Restart carries an unfinished attack into the next run
+
+**Status:** fixed in code, awaiting Chris’s playtest — 2026-10-02 · **Reported:** 2026-10-02 (agent live check)
+
+After a short C-key roll, restart resets position and velocity but leaves `JimothyController.move` alive. The new run immediately continues rolling: a capture-camera setup moved from z=25 to z=22.125 before any new input. Repro: `output/iterate/ragdoll-roll-check.log`, `net-capture.log`; location: `JimothyController.reset`. `reset()` now clears the active attack and its cooldown. The failing regression reproduced the retained roll; the corrected test passes and confirms no movement after restart (`restart-move-red.log`, `restart-move-green.log`).
+
 ### JIM-51 — Streets blend into the hills without physical footpaths
 
 **Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 28

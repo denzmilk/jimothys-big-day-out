@@ -149,6 +149,9 @@ export class JimothyController {
   }
 
   reset() {
+    // JIM-52: a held attack must not carry momentum into the next run.
+    this.move = null;
+    this.moveCooldown = 0;
     this.body.position.set(0, this._spawnY(), 0);
     this.body.velocity.set(0, 0, 0);
     this.vel.set(0, 0, 0);

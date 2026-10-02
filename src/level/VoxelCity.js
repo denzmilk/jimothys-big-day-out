@@ -16,7 +16,7 @@ const CLAPBOARD = 1, SHINGLE = 2, BRICK = 3, GLASS = 4, MOSS = 5, CONCRETE = 6;
 // All facade detail is measured in metres (JIM-45). Sparse perimeter writes
 // keep finer cells affordable; iterating every empty room voxel did cubic work.
 const cell = metres => Math.max(1, Math.round(metres / VOXEL.SIZE));
-function building(world, ox, oy, oz, width, depth, h, b = {}, type = 'craftsman') {
+function* building(world, ox, oy, oz, width, depth, h, b = {}, type = 'craftsman') {
   const C = BUILDINGS, front = b.front || 0;
   const rotate = front % 2 === 1;
   const w = rotate ? depth : width, d = rotate ? width : depth;
@@ -48,6 +48,7 @@ function building(world, ox, oy, oz, width, depth, h, b = {}, type = 'craftsman'
     return wall;
   };
   for(let y=0;y<h;y++) {
+    yield;
     for(let x=0;x<w;x++) {
       const doorway=x>=left && x<left+door && y<dh;
       if(!doorway) put(x,y,porch,facade(x,y,w));
@@ -61,12 +62,13 @@ function building(world, ox, oy, oz, width, depth, h, b = {}, type = 'craftsman'
   if(home) {
     const pitch=C.ROOF_PITCH[style];
     const hip=style===2;
-    for(let x=0;x<w;x++) for(let z=porch;z<d;z++) {
+    for(let x=0;x<w;x++) {yield;for(let z=porch;z<d;z++) {
       const rise=Math.min(x,w-1-x,hip?z-porch:Infinity,hip?d-1-z:Infinity)*pitch;
       const top=h+Math.floor(rise);
       put(x,top,z,roof);
       if(z===porch||z===d-1) for(let y=h;y<top;y++) put(x,y,z,wall);
       if(x===0||x===w-1||z===porch||z===d-1) put(x,top,z,13);
+    }
     }
     if(type==='craftsman') {
       const pw=Math.min(w-cell(C.TRIM)*2,cell(C.PORCH_WIDTH)), pl=middle-Math.floor(pw/2), ph=cell(C.PORCH_HEIGHT);
@@ -143,11 +145,12 @@ export function buildTrashCanDen(world, ox, oy, oz, length = 9, radius = 4) {
  *  first frame and is what JIM-01 measured at 19 s / 3.5 GB. Then it became one
  *  column of a flat plane (milestone 12). Now it follows a height field, and
  *  costs the same as it did flat. */
-function buildGroundColumn(world, cx, cz) {
+function* buildGroundColumn(world, cx, cz) {
   const C = VOXEL.CHUNK_XZ;
   const x0 = cx * C;
   const z0 = cz * C;
   for (let x = x0; x < x0 + C; x++) {
+    yield;
     for (let z = z0; z < z0 + C; z++) {
       const wx = (x + 0.5) * VOXEL.SIZE;
       const wz = (z + 0.5) * VOXEL.SIZE;
@@ -171,8 +174,9 @@ function buildGroundColumn(world, cx, cz) {
  *  gap, and only the walls can be seen through — so only the perimeter is
  *  filled. Cheap, and it reads as the retaining walls a hilly city is full of.
  */
-function buildFoundation(world, b) {
+function* buildFoundation(world, b) {
   for (let x = 0; x < b.vw; x++) {
+    yield;
     for (let z = 0; z < b.vd; z++) {
       if (x !== 0 && x !== b.vw - 1 && z !== 0 && z !== b.vd - 1) continue;
       const top = Layout.terrain.topSolidVoxelY(
@@ -194,11 +198,12 @@ function buildFoundation(world, b) {
  *  `VOXEL.EMPTY`, not 0, for the bore. Below the stored skin a 0 means "nothing
  *  here, ask the height field", which fills the tunnel back in with rock the
  *  instant anything looks at it. */
-function buildSewers(world, cx, cz) {
+function* buildSewers(world, cx, cz) {
   const C = VOXEL.CHUNK_XZ;
   const s = VOXEL.SIZE;
   const halfW = SEWER.WIDTH / 2;
   for (let x = cx * C; x < cx * C + C; x++) {
+    yield;
     for (let z = cz * C; z < cz * C + C; z++) {
       const wx = (x + 0.5) * s;
       const wz = (z + 0.5) * s;
@@ -283,20 +288,20 @@ function buildStairwell(world, e) {
  *  generated. That is what keeps the builders chunk-unaware, and it is why a
  *  house on a seam comes out whole instead of sliced — every column it touches
  *  writes its own share of the same deterministic footprint. */
-export function generateColumn(world, cx, cz) {
-  buildGroundColumn(world, cx, cz);
+export function* generateColumn(world, cx, cz) {
+  yield*buildGroundColumn(world, cx, cz);
 
   const C = VOXEL.CHUNK_XZ * VOXEL.SIZE;
   for (const b of Layout.buildingsIntersecting(cx * C, cz * C, (cx + 1) * C, (cz + 1) * C)) {
     const build = BUILDERS[b.type] || buildCraftsman;
-    buildFoundation(world, b);
-    build(world, b.vx, b.vy, b.vz, b.vw, b.vd, b.vh, b);
+    yield*buildFoundation(world, b);
+    yield*build(world, b.vx, b.vy, b.vz, b.vw, b.vd, b.vh, b);
   }
 
   // The underground, after the buildings: a house planted on the street above
   // must not have its foundation punched through the tunnel, and writing the
   // sewer second means the tunnel wins wherever they meet.
-  buildSewers(world, cx, cz);
+  yield*buildSewers(world, cx, cz);
   const pad = SEWER.SHAFT * VOXEL.SIZE + 2;
   for (const e of Layout.Masterplan.sewerNetwork()) {
     for (const entrance of e.entrances) {
@@ -359,4 +364,5 @@ export function installCity(world, spawnX = 0, spawnZ = 0) {
     }
   }
   world.remeshDirty();
+  world.incrementalStreaming=true;
 }

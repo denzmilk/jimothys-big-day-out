@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned; approved by Chris, 2026-10-02 (“these as well — go for it”).
+In progress; approved by Chris, 2026-10-02 (“these as well — go for it”). Generation/mesh scheduling is implemented and verified; demolition and rendering work continue.
 
 ## Objective
 
@@ -31,3 +31,7 @@ Unrelated backlog features and changing the net-only loss rule.
 ## Exit condition
 
 Chris plays the acceptance route described in the approved backlog brief and observes the behaviours above without errors or lost world state.
+
+## Foundation verification
+
+Six voxel work checks and 29 adjacent world checks pass. Native Block route: observed maximum frame 2,041.9 → 123.3 ms, p95 439.1 → 60.4 ms; render calls remain over budget. Full profiling and visual sign-off remain open. See STATE for conditions and evidence.

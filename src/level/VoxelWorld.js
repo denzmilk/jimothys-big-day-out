@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { VOXEL, STREAM, TERRAIN, PAVING, GLAZING as G } from '../core/Constants.js';
+import { VOXEL, STREAM, TERRAIN, PAVING, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
 
 // Chunked destructible voxel grid (ADR-0003).
 //
@@ -59,6 +59,10 @@ export class VoxelWorld {
     this._writeColumn = null;
     // Last streamAround centres, in columns. Bounds where an on-demand query
     // is allowed to build the world — see _ensureAtWorld.
+    this._meshWork = null;
+    this._columnWork = new Map();
+    this.lastMeshSlices = 0;
+    this.lastMeshMs = 0;
     this._centers = null;
   }
 
@@ -74,30 +78,53 @@ export class VoxelWorld {
   /** Build a column if it has not been built yet, then re-apply any damage
    *  done to it before it was unloaded. */
   ensureColumn(cx, cz) {
-    const key = this._colKey(cx, cz);
-    if (this.generated.has(key) || !this.generator) return false;
-    // Marked BEFORE generating: the generator queries the world as it writes,
-    // and re-entering here would recurse forever.
-    this.generated.add(key);
-    this._writeColumn = { cx, cz };
-    try {
-      this.generator(this, cx, cz);
-    } finally {
-      this._writeColumn = null;
-    }
-    this._replayEdits(cx, cz);
-    // A neighbour's seam faces were culled against air that is now solid (or
-    // exposed against solid that is now gone), so its mesh is stale.
-    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      for (const key of this.columnChunks.get(this._colKey(cx + dx, cz + dz)) || []) {
-        const n = this.chunks.get(key);
-        if (n) n.dirty = true;
-      }
-    }
+    if(this.generated.has(this._colKey(cx,cz))||!this.generator)return false;
+    const work=this.queueColumn(cx,cz);
+    while(work&&!this.generated.has(work.key))this._stepColumn(work);
     return true;
   }
 
-  _replayEdits(cx, cz) {
+  queueColumn(cx,cz){
+    const key=this._colKey(cx,cz);
+    if(this.generated.has(key)||!this.generator)return null;
+    if(this._columnWork.has(key))return this._columnWork.get(key);
+    const work={cx,cz,key,phase:'generate'};
+    work.task=this._columnTask(work);this._columnWork.set(key,work);return work;
+  }
+
+  *_columnTask(work){
+    const generated=this.generator(this,work.cx,work.cz);
+    if(generated?.next)yield*generated;
+    work.phase='edits';this._writeColumn=null;yield;
+    yield*this._replayEditsTask(work.cx,work.cz);
+    for(const [dx,dz]of [[1,0],[-1,0],[0,1],[0,-1]])for(const key of this.columnChunks.get(this._colKey(work.cx+dx,work.cz+dz))||[]){
+      const neighbour=this.chunks.get(key);if(neighbour)this._markDirty(neighbour);
+    }
+  }
+
+  _stepColumn(work){
+    this._writeColumn=work.phase==='generate'?{cx:work.cx,cz:work.cz}:null;
+    let result;
+    try{result=work.task.next();}finally{this._writeColumn=null;}
+    if(result.done){this.generated.add(work.key);this._columnWork.delete(work.key);}
+    return result.done;
+  }
+
+  processGeneration({maxMilliseconds=Infinity,maxSlices=Infinity}={}){
+    const started=performance.now();let slices=0;
+    while(slices<maxSlices&&performance.now()-started<maxMilliseconds&&this._columnWork.size){
+      let work=null,distance=Infinity;
+      for(const candidate of this._columnWork.values()){
+        const d=this._centers?.length?Math.min(...this._centers.map(c=>(candidate.cx-c.cx)**2+(candidate.cz-c.cz)**2)):0;
+        if(d<distance){distance=d;work=candidate;}
+      }
+      this._stepColumn(work);slices++;
+    }
+    this.lastGenerationMs=performance.now()-started;return slices;
+  }
+
+  *_replayEditsTask(cx, cz) {
+
     const keys = this.editChunks.get(this._colKey(cx, cz));
     if (!keys) return;
     for (const key of keys) {
@@ -105,8 +132,9 @@ export class VoxelWorld {
       if (!edits) continue;
       const [ex, ey, ez] = key.split(',').map(Number);
       const chunk = this.chunks.get(key) || this._createChunk(ex, ey, ez);
-      for (const [idx, mat] of edits) chunk.data[idx] = mat;
-      chunk.dirty = true;
+      let replayed=0;
+      for (const [idx,mat]of edits){chunk.data[idx]=mat;if(++replayed%W.REPLAY_BATCH===0)yield;}
+      this._markDirty(chunk);
     }
     // A hole is a hole because of what SURROUNDS it. Below the stored skin the
     // rock is implicit — solid to every query, invisible to the mesher — so
@@ -116,7 +144,9 @@ export class VoxelWorld {
       const edits = this.edits.get(key);
       if (!edits) continue;
       const [ex, ey, ez] = key.split(',').map(Number);
+      let revealed=0;
       for (const [idx, mat] of edits) {
+        if(++revealed%W.REPLAY_BATCH===0)yield;
         if (mat !== VOXEL.EMPTY) continue;
         const CX = VOXEL.CHUNK_XZ;
         const lx = idx % CX;
@@ -130,7 +160,8 @@ export class VoxelWorld {
   /** Drop a column's geometry and data. Its edits are deliberately kept. */
   unloadColumn(cx, cz) {
     const col = this._colKey(cx, cz);
-    if (!this.generated.delete(col)) return false;
+    const resident=this.generated.delete(col),pending=this._columnWork.delete(col);
+    if(!resident&&!pending)return false;
     for (const key of this.columnChunks.get(col) || []) {
       const chunk = this.chunks.get(key);
       if (!chunk) continue;
@@ -171,7 +202,7 @@ export class VoxelWorld {
       for (let dx = -R; dx <= R; dx++) {
         for (let dz = -R; dz <= R; dz++) {
           const key = this._colKey(cx + dx, cz + dz);
-          if (this.generated.has(key) || seen.has(key)) continue;
+          if (this.generated.has(key) || this._columnWork.has(key) || seen.has(key)) continue;
           seen.add(key);
           wanted.push([dx * dx + dz * dz, cx + dx, cz + dz]);
         }
@@ -180,14 +211,17 @@ export class VoxelWorld {
     wanted.sort((a, b) => a[0] - b[0]);
     for (const [, cx, cz] of wanted) {
       if (budget-- <= 0) break;
-      this.ensureColumn(cx, cz);
+      if(this.incrementalStreaming){
+        if(this._columnWork.size>=W.MAX_COLUMN_QUEUE)break;
+        this.queueColumn(cx,cz);
+      }else this.ensureColumn(cx, cz);
     }
 
     // Hysteresis is a MARGIN on each centre's own radius, not a fixed ring:
     // with a fixed one, the fly camera's wider load disc would be unloaded the
     // frame after it was built, and the streamer would thrash forever.
     const margin = STREAM.UNLOAD_RADIUS - STREAM.LOAD_RADIUS;
-    for (const key of [...this.generated]) {
+    for (const key of new Set([...this.generated,...this._columnWork.keys()])) {
       const [cx, cz] = key.split(',').map(Number);
       const near = centers.some(
         (c) => Math.abs(cx - c.cx) <= c.radius + margin
@@ -200,7 +234,7 @@ export class VoxelWorld {
   _createChunk(cx, cy, cz) {
     const CX = VOXEL.CHUNK_XZ;
     const chunk = {
-      cx, cy, cz, data: new Uint8Array(CX * VOXEL.CHUNK_Y * CX), mesh: null, dirty: true,
+      cx, cy, cz, data: new Uint8Array(CX * VOXEL.CHUNK_Y * CX), mesh: null, dirty: true, revision: 0,
     };
     const key = this._key(cx, cy, cz);
     this.chunks.set(key, chunk);
@@ -210,6 +244,8 @@ export class VoxelWorld {
     set.add(key);
     return chunk;
   }
+
+  _markDirty(chunk) { chunk.dirty = true; chunk.revision = (chunk.revision || 0) + 1; }
 
   _chunkFor(vx, vy, vz, create = false) {
     const CX = VOXEL.CHUNK_XZ;
@@ -241,7 +277,14 @@ export class VoxelWorld {
     const chunk = this._chunkFor(vx, vy, vz, true);
     if (!chunk) return; // outside the column currently being generated
     chunk.data[this._localIndex(vx, vy, vz)] = mat;
-    chunk.dirty = true;
+    this._markDirty(chunk);
+    if(!this._writeColumn){
+      const local=[((vx%VOXEL.CHUNK_XZ)+VOXEL.CHUNK_XZ)%VOXEL.CHUNK_XZ,((vy%VOXEL.CHUNK_Y)+VOXEL.CHUNK_Y)%VOXEL.CHUNK_Y,((vz%VOXEL.CHUNK_XZ)+VOXEL.CHUNK_XZ)%VOXEL.CHUNK_XZ];
+      for(const [dx,dy,dz]of NEIGHBOURS){
+        if((dx<0&&local[0]!==0)||(dx>0&&local[0]!==VOXEL.CHUNK_XZ-1)||(dy<0&&local[1]!==0)||(dy>0&&local[1]!==VOXEL.CHUNK_Y-1)||(dz<0&&local[2]!==0)||(dz>0&&local[2]!==VOXEL.CHUNK_XZ-1))continue;
+        const neighbour=this.chunks.get(this._key(chunk.cx+dx,chunk.cy+dy,chunk.cz+dz));if(neighbour)this._markDirty(neighbour);
+      }
+    }
   }
 
   /** A player-made change: written to the world AND recorded, so it survives
@@ -270,8 +313,14 @@ export class VoxelWorld {
   /** The raw stored value: 0 means "nothing here", which is NOT the same as
    *  "empty" — see `get`. VOXEL.EMPTY means the player took it out. */
   storedAt(vx, vy, vz) {
-    const chunk = this._chunkFor(vx, vy, vz);
-    return chunk ? chunk.data[this._localIndex(vx, vy, vz)] : 0;
+    const chunk=this._chunkFor(vx,vy,vz),index=this._localIndex(vx,vy,vz);
+    // Saved holes remain real while a streamed column is only partly rebuilt.
+    // Deferring this overlay until generation finishes briefly heals craters.
+    if(this.edits.size){
+      const key=chunk?this._key(chunk.cx,chunk.cy,chunk.cz):this._key(Math.floor(vx/VOXEL.CHUNK_XZ),Math.floor(vy/VOXEL.CHUNK_Y),Math.floor(vz/VOXEL.CHUNK_XZ));
+      const edit=this.edits.get(key)?.get(index);if(edit!==undefined)return edit;
+    }
+    return chunk?chunk.data[index]:0;
   }
 
   get(vx, vy, vz) {
@@ -336,6 +385,7 @@ export class VoxelWorld {
     if (this._centers && !this._centers.some(
       (c) => Math.abs(cx - c.cx) <= c.radius && Math.abs(cz - c.cz) <= c.radius,
     )) return false;
+    if(this.incrementalStreaming){if(this._columnWork.size<W.MAX_COLUMN_QUEUE)this.queueColumn(cx,cz);return false;}
     return this.ensureColumn(cx, cz);
   }
 
@@ -372,7 +422,8 @@ export class VoxelWorld {
     // space. A pedestrian out there would otherwise sink through the floor —
     // and before the height field existed this returned a literal 0, which
     // silently meant "grade" and is now only true at the waterline.
-    if (!this.isLoadedAtWorld(x, z)) return surface;
+    const column=this.columnOf(Math.floor(x/VOXEL.SIZE),Math.floor(z/VOXEL.SIZE));
+    if(!this.isLoadedAtWorld(x,z)&&!this.editChunks.has(this._colKey(column.cx,column.cz)))return surface;
     const s = VOXEL.SIZE;
     const [vx, , vz] = this.worldToVoxel(x, 0, z);
     const top = Math.floor((fromY + stepUp) / s);
@@ -598,21 +649,37 @@ export class VoxelWorld {
 
   // --- meshing ---
 
-  /** Rebuild dirty chunks. Only faces touching air are emitted, which is the
-   *  bulk of the win over naive voxel meshes and is far simpler than full
-   *  greedy merging. */
-  remeshDirty() {
-    let rebuilt = 0;
-    for (const chunk of this.chunks.values()) {
-      if (!chunk.dirty) continue;
-      this._buildChunk(chunk);
-      chunk.dirty = false;
-      rebuilt++;
+  /** Yield inside a chunk: limiting chunk count alone still allowed a single
+   *  160-cell column to stall the frame for hundreds of milliseconds (M33).
+   *  Old geometry stays visible until its replacement is complete. */
+  remeshDirty({maxMilliseconds = Infinity, maxSlices = Infinity} = {}) {
+    const started=performance.now();let rebuilt=0,slices=0;
+    while(slices<maxSlices && performance.now()-started<maxMilliseconds){
+      let work=this._meshWork;
+      if(work && this.chunks.get(work.key)!==work.chunk){this._meshWork=null;work=null;}
+      if(!work){
+        let nearest=null,distance=Infinity;
+        for(const chunk of this.chunks.values()){
+          if(!chunk.dirty||this._columnWork.has(this._colKey(chunk.cx,chunk.cz)))continue;
+          const d=this._centers?.length?Math.min(...this._centers.map(c=>(chunk.cx-c.cx)**2+(chunk.cz-c.cz)**2)):0;
+          if(d<distance){nearest=chunk;distance=d;}
+        }
+        if(!nearest)break;
+        const snapshot={...nearest,data:nearest.data.slice()};
+        work=this._meshWork={chunk:nearest,key:this._key(nearest.cx,nearest.cy,nearest.cz),revision:nearest.revision,task:this._buildChunkTask(snapshot)};
+      }
+      const result=work.task.next();slices++;
+      if(result.done){
+        this._applyChunk(work.chunk,result.value);
+        work.chunk.dirty=work.chunk.revision!==work.revision;
+        this._meshWork=null;rebuilt++;
+      }
     }
+    this.lastMeshSlices=slices;this.lastMeshMs=performance.now()-started;
     return rebuilt;
   }
 
-  _buildChunk(chunk) {
+  *_buildChunkTask(chunk) {
     const CX = VOXEL.CHUNK_XZ;
     const CY = VOXEL.CHUNK_Y;
     const s = VOXEL.SIZE;
@@ -633,6 +700,7 @@ export class VoxelWorld {
     const tops = new Int32Array(P * P);
     if (this.terrain) {
       for (let lz = -1; lz <= CX; lz++) {
+        yield;
         for (let lx = -1; lx <= CX; lx++) {
           tops[(lz + 1) * P + (lx + 1)] = this.terrain.topSolidVoxelY(
             (base[0] + lx + 0.5) * s, (base[2] + lz + 0.5) * s,
@@ -651,6 +719,7 @@ export class VoxelWorld {
     const intact = new Uint8Array(P * P);
     if (this.terrain) {
       for (let lz = -1; lz <= CX + 1; lz++) {
+        yield;
         for (let lx = -1; lx <= CX + 1; lx++) {
           // LATTICE corners, not voxel centres — that is what makes the value
           // shared between the voxels either side of it.
@@ -660,6 +729,7 @@ export class VoxelWorld {
         }
       }
       for (let lz = -1; lz <= CX; lz++) {
+        yield;
         for (let lx = -1; lx <= CX; lx++) {
           const top = tops[(lz + 1) * P + (lx + 1)];
           const here = this.storedAt(base[0] + lx, top, base[2] + lz);
@@ -691,12 +761,13 @@ export class VoxelWorld {
     };
     const sided = this.terrain?.cornerHeight;
     const surfaceCorners = new Float32Array(P * P * 4);
-    if (sided) for (let lz=-1;lz<=CX;lz++) for (let lx=-1;lx<=CX;lx++) {
+    if (sided) for (let lz=-1;lz<=CX;lz++) {yield;for (let lx=-1;lx<=CX;lx++) {
       if (!intact[(lz+1)*P+lx+1]) continue;
       for (let oz=0;oz<=1;oz++) for (let ox=0;ox<=1;ox++) {
         surfaceCorners[((lz+1)*P+lx+1)*4+oz*2+ox]=sided(
           (base[0]+lx+ox)*s,(base[2]+lz+oz)*s,(base[0]+lx+.5)*s,(base[2]+lz+.5)*s);
       }
+    }
     }
     const surfaceCorner=(lx,lz,ox,oz)=>sided
       ?surfaceCorners[((lz+1)*P+lx+1)*4+oz*2+ox]:corner(lx+ox,lz+oz);
@@ -748,6 +819,7 @@ export class VoxelWorld {
     };
     for (let lz = 0; lz < CX; lz++) {
       for (let ly = 0; ly < CY; ly++) {
+        yield;
         for (let lx = 0; lx < CX; lx++) {
           const mat = chunk.data[lx + CX * (ly + CY * lz)];
           // EMPTY is a hole the player made, not a material to draw.
@@ -830,6 +902,7 @@ export class VoxelWorld {
     }
 
     for (const plane of planes.values()) {
+      yield;
       const {mask,width,height,u,v,axis,slice,fi,flatHeight} = plane;
       const f = FACES[fi];
       for (let row=0; row<height; row++) for (let colIdx=0; colIdx<width;) {
@@ -853,14 +926,9 @@ export class VoxelWorld {
       }
     }
 
-    if (chunk.mesh) {
-      this.scene.remove(chunk.mesh);
-      chunk.mesh.geometry.dispose();
-      chunk.mesh = null;
-    }
     const opaqueCount=pos.length/3;
     for(const v of glassPos)pos.push(v);for(const v of glassNorm)norm.push(v);for(const v of glassCol)col.push(v);
-    if (!pos.length) return;
+    if (!pos.length) return null;
     const geo = new THREE.BufferGeometry();
     geo.addGroup(0,opaqueCount,0);
     if(glassPos.length)geo.addGroup(opaqueCount,glassPos.length/3,1);
@@ -868,12 +936,20 @@ export class VoxelWorld {
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     geo.computeBoundingSphere();
+    return geo;
+  }
+
+  _applyChunk(chunk,geo){
+    chunk.meshed=true;
+    if(chunk.mesh){this.scene.remove(chunk.mesh);chunk.mesh.geometry.dispose();chunk.mesh=null;}
+    if(!geo)return;
     chunk.mesh = new THREE.Mesh(geo, [this.material,this.glassMaterial]);
     chunk.mesh.castShadow=true;chunk.mesh.receiveShadow=true;
     this.scene.add(chunk.mesh);
   }
 
   clear() {
+    this._meshWork=null;this._columnWork.clear();
     for (const chunk of this.chunks.values()) {
       if (chunk.mesh) {
         this.scene.remove(chunk.mesh);
@@ -900,6 +976,11 @@ export class VoxelWorld {
       removed: this.removedCount,
       columns: this.generated.size,
       edits,
+      pendingColumns:this._columnWork.size,
+      generationMs:this.lastGenerationMs||0,
+      pendingMeshes:[...this.chunks.values()].filter(c=>c.dirty).length,
+      meshSlices:this.lastMeshSlices,
+      meshMs:this.lastMeshMs,
     };
   }
 }

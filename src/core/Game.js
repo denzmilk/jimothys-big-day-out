@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
-  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER,
+  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { fatFactor } from './MathUtils.js';
@@ -330,7 +330,8 @@ class Game {
         : [[jp.x, jp.z]],
       this.flyCamera.active ? STREAM.FLY_COLUMNS_PER_FRAME : STREAM.COLUMNS_PER_FRAME,
     );
-    this.voxels.remeshDirty();
+    this.voxels.processGeneration(this.manualTime?{maxSlices:WORK_BUDGET.GENERATION_SLICES}:{maxMilliseconds:WORK_BUDGET.GENERATION_MS});
+    this.voxels.remeshDirty(this.manualTime?{maxSlices:WORK_BUDGET.MESH_SLICES}:{maxMilliseconds:WORK_BUDGET.MESH_MS});
     // Containers stay tied to HIM, never to the camera: streaming them around a
     // free-flying viewpoint would despawn and respawn the cans he is standing
     // next to, losing which ones he had already tipped.
@@ -653,7 +654,6 @@ class Game {
       pos.x, pos.y, pos.z, this.blastRadius(fatShare) * radiusScale, { digsTerrain },
     );
     if (!removed.length) return 0;
-    this.voxels.remeshDirty();
     this.debris.spawnBurst(removed.filter(cell=>cell.mat!==GLAZING.MATERIAL_ID));
     const glass=removed.filter(cell=>cell.mat===GLAZING.MATERIAL_ID);
     if(glass.length)eventBus.emit(Events.GLASS_SHATTER,{points:glass,origin:pos});

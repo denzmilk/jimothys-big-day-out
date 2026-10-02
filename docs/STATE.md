@@ -2,6 +2,16 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Responsive world work — milestone 33 foundation — 2026-10-02
+
+**Implemented, awaiting playtest; milestone 33 remains in progress.** Streaming generation and mesh rebuilding now yield within a column/chunk. Live updates budget 3 ms for generation and 4 ms for meshing; deterministic inspection uses fixed work slices. Previous geometry remains visible until replacement is complete, and the coarse island stays hidden beneath it. Saved edits remain authoritative while columns are unloaded or partly rebuilt. Boundary damage now exposes the adjoining chunk face (JIM-62).
+
+Six focused voxel tests pass; all 29 relevant streaming, paving, destruction and underground checks pass (`voxel-work-green.log`, `staged-world-green.log`). Two existing renderer-call budget cases were excluded from this stage and remain tracked by JIM-48; they were not loosened. Build and production rendered smoke pass with no console errors (`staged-world-build.log`, `staged-world-smoke.log`).
+
+Native Metal / Apple M5 Pro, 1280 × 800, 240-frame Block roll: observed worst frame fell from 2,041.9 to 123.3 ms; p95 fell from 439.1 to 60.4 ms. Mean frame time fell from 87.7 to 33.6 ms, while median rose from 23.6 to 29.8 ms because generation/meshing work is now distributed. The staged capture overlapped the separate smoke process, so this is a diagnostic improvement, not a final FPS sign-off. Logs: `native-before-block.log`, `native-staged-block.log`. Median calls are still 1,617. Native lean/House baseline is in `native-before.log` (its first Block attempt hit the harness timeout and was rerun separately).
+
+**Next:** bounded giant surface demolition (JIM-61), then render batching/draw-distance/LOD and CPU work. Military, beaches and underwater content remain fully authorised after this milestone.
+
 ## Giant form and rolling contact — milestones 23–24 — 2026-10-02
 
 **Implemented, awaiting Chris's playtest.** The original Blender raccoon/12-bone rig now grows through an authored radial field with a smooth coat merged into the same skinned draw. The giant torso measures 36.79 × 36.79 × 36.79 m at Block size and 72.43 m on each axis at Absurd. Head, tail and paws retain their original dimensions. Animation influence transfers to the torso outside each tiny socket, avoiding long creases when a giant tucks. The coat uses filtered fur colour and roughness instead of stretching the original photo atlas.

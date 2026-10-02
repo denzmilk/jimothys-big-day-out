@@ -10,6 +10,12 @@
 
 ## Open
 
+### JIM-62 — Chunk-boundary damage leaves the adjoining face missing
+
+**Status:** implemented, awaiting world playtest · **Found:** 2026-10-02 while testing staged meshing
+
+Removing a voxel exactly across a chunk seam only dirtied the removed cell's chunk. Its neighbour kept the old hidden face (30 vertices instead of the required 36 for an exposed cube). `tests/voxel-work.test.mjs` reproduces this; `output/iterate/voxel-seam-red.log` records the failure. Boundary edits now invalidate both sides. Six focused voxel checks and 29 adjacent world checks pass, along with build/rendered smoke (`voxel-work-green.log`, `staged-world-green.log`).
+
 ### JIM-61 — Giant attacks pass above buildings
 
 **Status:** open · **Reported:** 2026-10-02 (Chris)
@@ -119,6 +125,9 @@ Milestone 32's final production smoke records 1,720 whole-renderer calls with re
 Chris reported poor frame rate on 2026-10-02 and requested draw-distance controls and less out-of-view work. The latest twelve-model production smoke reports 1,731 whole-renderer calls after two simulated seconds (`output/iterate/pedestrian-variety-smoke.log`). No native-GPU frame-time baseline has been recorded for this report. `EnvironmentLife` disables frustum culling on vegetation batches and particles; `StreetLife` does so for road markings, and `WaterSystem` for local water/splashes. These are investigation points, not a confirmed complete diagnosis. Proposed milestone 33 in `docs/backlog.md` prioritises measurements, per-pass culling/bounds, batching/LOD, quality controls and bounded simulation before more world content.
 
 The giant audit adds a confirmed CPU bottleneck: synchronous `remeshDirty()` calls peak at 475 ms at Block and 1,938 ms at Absurd during 90 rolling updates. Total meshing time is 2.84 / 5.08 seconds respectively. The one-column streaming budget does not bound the expensive chunk rebuilds. Loaded rendering reports up to 3,831 calls after the largest roll. These are headless SwiftShader CPU/draw measurements, not native-GPU FPS; fixed-distance native profiling remains open. `output/iterate/giant-audit.log` and [the audit](giant-audit-2026-10-02.md) record methodology and limitations. Budget meshing/destruction before scaling impact volumes (JIM-61).
+
+
+**Milestone 33 foundation, 2026-10-02:** generation/meshing now yield within chunks; existing geometry stays visible and damage persists during regeneration. The 240-frame native Block route's worst observed frame falls from 2,041.9 to 123.3 ms, with calls still around 1,617 median. The follow-up overlapped smoke, so final controlled profiling remains required. Rendering, distant work and giant demolition continue; this issue remains open. See the newest STATE entry.
 
 ### JIM-47 — Feet and wheels need contact with the visible ground
 

@@ -148,7 +148,10 @@ export class LevelBuilder {
   updateHorizonCoverage(){
     if(!this.voxels)return;
     const coverage=this.horizonCoverage;
-    const ready=[...this.voxels.generated].filter(key=>[...(this.voxels.columnChunks.get(key)||[])].every(k=>!this.voxels.chunks.get(k)?.dirty));
+    // Keep coverage while replacement geometry is pending. Otherwise the coarse
+    // island rises through intact streets whenever a nearby chunk is dirty.
+    const ready=[...this.voxels.generated].filter(key=>coverage.ready?.has(key)||[...(this.voxels.columnChunks.get(key)||[])].every(k=>this.voxels.chunks.get(k)?.meshed));
+    coverage.ready=new Set(ready);
     const key=ready.join(';');if(key===coverage.key)return;
     coverage.key=key;coverage.data.fill(0);
     for(const column of ready){

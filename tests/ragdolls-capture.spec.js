@@ -46,9 +46,11 @@ test('net swing is telegraphed, escapable and slower to capture a larger Jimothy
   await setup(0);await adv(page,4);expect((await state(page)).game.netted).toBe(true);
 });
 
-test('rolling knocks people down and ragdoll capacity remains bounded through collection and restart',async({page})=>{
+test('grown rolling knocks people down and ragdoll capacity remains bounded through collection and restart',async({page})=>{
   await boot(page);
-  await page.evaluate(()=>{const g=window.__game,p=g.pedestrians.people[0];window.teleportJimothy(p.x,p.z-1);window.faceJimothy(0);});
+  // JIM-68: the lean resistance cases live in contact-weight.spec.js. This
+  // check retains its knockdown/recovery contract at a size that can shove.
+  await page.evaluate(()=>{const g=window.__game,p=g.pedestrians.people[0];window.setFatness(8);window.teleportJimothy(p.x,p.z-1);window.faceJimothy(0);});
   await page.keyboard.down('c');await adv(page,.3);await page.keyboard.up('c');
   expect((await state(page)).ragdolls?.count).toBeGreaterThan(0);
   const result=await page.evaluate(()=>{

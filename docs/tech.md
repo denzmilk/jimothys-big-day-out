@@ -116,6 +116,12 @@ MPFB 2.0.17 in Blender 5.2 creates varied clothed pedestrian rigs. Preserve sour
 - Clean traffic leaving the active radius is replaced even while Jimothy stands still; damaged cars keep their saved transforms and glazing state.
 - Route geometry and shared materials are reused across restart; reservations, signal damage and time reset. `streetLife` snapshots include junction phases/holders and per-car speed, road and stopping reason.
 
+### People and car contact weight (JIM-68)
+
+- `player:contact` checks controlled movement before Cannon integrates it. PhysicsSystem supplies nearby intact car boxes; HumanRagdolls supplies standing people, excluding attached/down actors. Shared swept contact math preserves sideways motion, allows backing away and excludes other floors. The player remains kinematic under ADR-0002.
+- `BODY_CONTACT` holds effective player mass/growth, resistance ratios, contact dimensions and lean attack strength. Intact cars use a 1,100 kg body and need sufficient pushing strength before a body shove or rolling collection; their lift/spin is lower than small props. Destruction keeps its separate impact-radius thresholds.
+- Player impacts carry a `source` so lean rolling can leave people upright and lean headbutts can deliver smaller knockdowns with `player:recoil`. External blasts keep their existing force. Contacts add no new Cannon bodies; the existing registration/removal and ragdoll lifecycle remain authoritative.
+
 ### Raised footpaths (milestone 28 / JIM-51)
 
 - `CityPlanner` reserves the footpath class before packing building lots. `StreetPaving` derives street grades from each district's road frame: short planar runs, level junctions and level cross-sections. District joins taper back to the shared terrain height so differently angled grids cannot meet in cliffs. Surrounding land meets the back of the pavement, then blends into the plots.

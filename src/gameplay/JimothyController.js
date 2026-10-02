@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -151,6 +151,11 @@ export class JimothyController {
       if (!gameState.game.isPlaying) return;
       this.stunTimer = seconds;
       gameState.player.stunned = true;
+    });
+    eventBus.on(Events.PLAYER_RECOIL,({strength})=>{
+      if(this.move?.kind!=='headbutt')return;
+      this.vel.multiplyScalar(strength);
+      this.move.t=Math.max(this.move.t,MOVES.HEADBUTT.WINDUP+MOVES.HEADBUTT.LUNGE);
     });
     eventBus.on(Events.PLAYER_PICKUP, ({ fat }) => {
       this.jiggleAmp += fat >= FOODS.FEAST.FAT ? FATNESS.KICK_FEAST : FATNESS.KICK_SCRAP;
@@ -425,6 +430,15 @@ export class JimothyController {
     }else this._updateMoves(delta, controllable);
 
     this.body.velocity.set(this.vel.x, this.vy, this.vel.z);
+    const contact={position:this.body.position,velocity:this.body.velocity,radius:this.radius,
+      fatness:gameState.player.fatness,dt:delta,blocked:false};
+    eventBus.emit(Events.PLAYER_CONTACT,contact);
+    if(contact.blocked){
+      this.vel.x=this.body.velocity.x;this.vel.z=this.body.velocity.z;
+      // A lean charge spends its momentum at the obstacle. Continuing the
+      // lunge would immediately overwrite the contact response next frame.
+      if(this.move){this.move=null;this.moveCooldown=Math.max(this.moveCooldown,BODY_CONTACT.RECOVERY);}
+    }
   }
 
   /** Headbutt and roll. Both drive Jimothy forward and land their damage

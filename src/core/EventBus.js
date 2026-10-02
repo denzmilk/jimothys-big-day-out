@@ -50,6 +50,8 @@ export const Events = {
   PLAYER_LAUNCHED: 'player:launched',
   PLAYER_BODY_READY:'player:body-ready',
   PLAYER_CONTROLLED:'player:controlled',
+  PLAYER_CONTACT:'player:contact',
+  PLAYER_RECOIL:'player:recoil',
   PLAYER_NETTED: 'player:netted',
   // can:*
   CAN_TIPPED: 'can:tipped',

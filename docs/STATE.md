@@ -1,5 +1,13 @@
 # Session state
 
+## People and cars have weight — JIM-68 — 2026-10-03
+
+**Implemented, awaiting Chris's playtest.** Zero-fatness scurries and rolls stop against standing people and intact cars. Swept contact preserves sliding/backing away; low-strength charges end on contact. Lean headbutts can topple a person with reduced force and recoil. Growth earns rolling knockdowns, heavier car shoves and car collection. Cars now use 1,100 kg bodies with lower shove lift/spin. All tuning is in `BODY_CONTACT`/`STREET`; no new physics bodies are allocated for contact.
+
+Verification: six weight cases pass after the resistance/recoil reproductions failed; 42 unique targeted behaviour cases pass across the regression/final/control runs, including keyboard/gamepad movement and bin tipping. One old zero-fatness roll fixture was updated to the requested grown-roll rule, preserving its capacity/recovery assertions. All 49 unit checks, build and production pixel smoke pass; native full-rig car/person views and state were inspected with no console errors. Evidence: `output/iterate/contact-weight-{red,green,regression,final,controls,units,build,smoke,native}.log`, `contact-headbutt-red.log`, `contact-weight-{car,person}.png`.
+
+**Next:** playtest lean scurry/roll/headbutt contact and compare with grown rolling at **http://127.0.0.1:4174**. The separate collectibles/Seattle proposal below remains pending; Chris's farm/food-market extension is being recorded with distinct foods and risk/reward. New locations are not implemented by this fix.
+
 ## Collectibles and Seattle landmarks — planning — 2026-10-03
 
 Chris requested usable pickups (power washers, bubble guns and related tools) plus Seattle-inspired landmarks built into the world. Audited the current tool/input state and island planner, researched Seattle references, and recorded the request/sources in `docs/backlog.md`. Proposed next work: equipped-tool lifecycle with a power washer, bubble capture/release, then a market/tower/bridge-troll route. **Scope/order confirmation is pending; no new milestone files or gameplay changes yet.** The one-equipped-tool recommendation and later landmark/tool roster are proposals, not accepted decisions.

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import * as Layout from '../level/Layout.js';
-import {COLLECTION as C} from '../core/Constants.js';
+import {COLLECTION as C,BODY_CONTACT} from '../core/Constants.js';
+import {canPush} from '../core/BodyContact.js';
+import {gameState} from '../core/GameState.js';
 import {eventBus,Events} from '../core/EventBus.js';
 
 // Ownership stays with each source system. The registry only borrows a visual
@@ -13,7 +15,8 @@ export class RollCollector {
     eventBus.on(Events.ENTITY_REGISTER,e=>this.entities.set(e.id,e));
     eventBus.on(Events.ENTITY_UNREGISTER,({id})=>{this.entities.delete(id);const i=this.attached.findIndex(e=>e.id===id);if(i>=0)this.attached.splice(i,1);});
   }
-  eligible(e){return this.jimothy.move?.kind==='roll'&&this.jimothy.radius>=C.MIN_RADIUS&&e.size<=this.jimothy.radius*2*C.SIZE_RATIO;}
+  eligible(e){return this.jimothy.move?.kind==='roll'&&this.jimothy.radius>=C.MIN_RADIUS&&e.size<=this.jimothy.radius*2*C.SIZE_RATIO&&
+    (e.kind!=='car'||canPush(gameState.player.fatness,e.mass||0,BODY_CONTACT.CAR_PUSH_RATIO));}
   update(dt){
     this.cooldown=Math.max(0,this.cooldown-dt);
     if(this.jimothy.move?.kind!=='roll'){if(this.attached.length)this.release();return;}

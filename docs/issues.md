@@ -19,6 +19,14 @@
 
 ## Open
 
+### JIM-68 — Lean Jimothy charges through people and cars without resistance
+
+**Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-03 (Chris)
+
+At zero fatness, scurrying/rolling through a person or car should cost momentum; cars should hold their position, and deliberate lean headbutts should give modest human knockdowns. Before the repair, `StreetLife.update/loosen` assigned the same velocity to a car and a small prop above 1.3 m/s, independent of mass. Kinematic player movement had no standing-human/car contact resolution, and `HumanRagdolls` gave every roll full launch speed. Repair the controlled contact path, mass-dependent shove/collection eligibility and lean knockdown strength while preserving giant rolling, glass, destruction and recovery. Relevant code: `JimothyController`, `PhysicsSystem`, `StreetLife`, `HumanRagdolls`, `RollCollector`, `Constants`.
+
+**Repair:** swept standing-person/car contact clips inward controlled motion before physics, preserves sideways/escape movement and ends a blocked charge. Effective player mass grows with fatness; intact 1,100 kg cars resist weak shoves and collection. Cars have lower lift/spin, lean headbutts give reduced human launch with recoil, and lean rolls leave standing people upright. No new physics bodies. The four original resistance reproductions and a separate lunge-recoil reproduction failed before their fixes (`contact-weight-red.log`, `contact-headbutt-red.log`). Six weight checks now pass, including grown knockdowns and giant car collection. The 35-case regression passed 34; its older lean-roll knockdown expectation was superseded by Chris's requested size progression, documented in milestone 29, and the fixture now uses fatness 8 with unchanged recovery/capacity assertions. All seven final ragdoll/glass checks pass, giving 39 unique passing behaviour checks across these runs; three final keyboard/gamepad/bin checks also pass (42 total). All 49 unit checks, build and production pixel smoke pass without console errors. Native full-rig car/person captures show stopped lean contact; the car remains fixed with 0.035 m collider clearance. Evidence under `output/iterate/contact-weight-*`; visible feel remains unapproved.
+
 ### JIM-65 — Stone structures show a narrow gap above smoothed ground
 
 **Status:** implemented, awaiting playtest · **Found:** 2026-10-02 during underwater visual review

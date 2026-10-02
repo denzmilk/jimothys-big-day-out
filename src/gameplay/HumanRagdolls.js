@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import {RAGDOLL as C} from '../core/Constants.js';
+import {RAGDOLL as C,BODY_CONTACT} from '../core/Constants.js';
+import {canPush,restrictMotion} from '../core/BodyContact.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 
@@ -10,6 +11,12 @@ export class HumanRagdolls {
     this.jimothy=jimothy;this.voxels=voxels;this.people=new Map();this.active=new Map();this.time=0;
     eventBus.on(Events.HUMAN_REGISTER,p=>this.people.set(p.id,p));
     eventBus.on(Events.HUMAN_UNREGISTER,({id})=>{this.stop(id);this.people.delete(id);});
+    eventBus.on(Events.PLAYER_CONTACT,m=>{
+      if(canPush(m.fatness,BODY_CONTACT.HUMAN_MASS,BODY_CONTACT.HUMAN_PUSH_RATIO))return;
+      for(const p of this.people.values())if(!p.attached&&!this.active.has(p.id))restrictMotion(m,{
+        id:p.id,position:p.group.position,radius:BODY_CONTACT.HUMAN_RADIUS,
+        bottom:p.group.position.y,top:p.group.position.y+BODY_CONTACT.HUMAN_HEIGHT});
+    });
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{this.stop(id);const p=this.people.get(id);if(p)p.attached=true;});
     eventBus.on(Events.ENTITY_RELEASE,({id})=>{const p=this.people.get(id);if(p){p.attached=false;p.immune=this.time+C.IMMUNITY;}});
     eventBus.on(Events.WORLD_IMPACT,hit=>{
@@ -21,6 +28,7 @@ export class HumanRagdolls {
   }
   knock(p,hit){
     if(p.attached||this.active.has(p.id)||p.immune>this.time)return;
+    if(hit.source==='roll'&&!canPush(gameState.player.fatness,BODY_CONTACT.HUMAN_MASS,BODY_CONTACT.HUMAN_PUSH_RATIO))return;
     if(this.active.size>=C.CAPACITY)return;
     p.group.updateMatrixWorld(true);
     const saved=[];p.visual.traverse(b=>{if(b.isBone)saved.push({bone:b,position:b.position.clone(),quaternion:b.quaternion.clone()});});
@@ -38,11 +46,13 @@ export class HumanRagdolls {
     for(const part of parts){let parent=part.bone.parent;while(parent&&!parts.some(p=>p.bone===parent))parent=parent.parent;part.parent=parts.findIndex(p=>p.bone===parent);}
     const d=p.group.position.clone().sub(new THREE.Vector3(hit.x,p.group.position.y,hit.z));
     if(d.lengthSq()===0)d.set(Math.sin(this.jimothy.yaw),0,Math.cos(this.jimothy.yaw));d.normalize();
-    const speed=Math.min(C.MAX_SPEED,C.IMPULSE+hit.radius*C.POWER_GAIN);
+    const strength=hit.source?THREE.MathUtils.lerp(BODY_CONTACT.LEAN_HIT_SCALE,1,Math.min(1,gameState.player.fatness/BODY_CONTACT.FULL_HIT_FATNESS)):1;
+    const speed=Math.min(C.MAX_SPEED,C.IMPULSE+hit.radius*C.POWER_GAIN)*strength;
     const rag={...p,parts,saved,age:0,rootOffset:parts[0].start.clone().sub(p.group.position),recovery:0};
-    eventBus.emit(Events.RAGDOLL_CREATE,{id:p.id,parts,velocity:[d.x*speed,C.LIFT,d.z*speed],receive:physics=>rag.physics=physics});
+    eventBus.emit(Events.RAGDOLL_CREATE,{id:p.id,parts,velocity:[d.x*speed,C.LIFT*strength,d.z*speed],receive:physics=>rag.physics=physics});
     if(!rag.physics)return;
     this.active.set(p.id,rag);eventBus.emit(Events.HUMAN_DOWN,{id:p.id,active:true});
+    if(hit.source==='headbutt'&&strength<1)eventBus.emit(Events.PLAYER_RECOIL,{strength});
   }
   stop(id){
     const r=this.active.get(id);if(!r)return;
@@ -56,7 +66,7 @@ export class HumanRagdolls {
     const j=this.jimothy;
     if(j.move?.kind==='roll')for(const p of this.people.values()){
       const center=p.group.position.clone();center.y+=C.HIT_HEIGHT;
-      if(center.distanceTo(j.body.position)<j.radius+C.CONTACT_PADDING)this.knock(p,{x:j.body.position.x,z:j.body.position.z,radius:j.radius});
+      if(center.distanceTo(j.body.position)<j.radius+C.CONTACT_PADDING)this.knock(p,{x:j.body.position.x,z:j.body.position.z,radius:j.radius,source:'roll'});
     }
     for(const r of this.active.values()){
       r.age+=dt;

@@ -21,6 +21,7 @@ Roll or headbutt a civilian or pursuer → their jointed body tumbles, settles a
 
 ## Acceptance criteria
 
+- [x] JIM-68 refinement (Chris, 2026-10-03): zero-fatness scurries/rolls stop against standing people; a deliberate lean headbutt gives a modest knockdown and loses lunge momentum. Growth enables rolling knockdowns. — `tests/contact-weight.spec.js`; the older roll/recovery fixture must use grown Jimothy.
 - [x] Jointed, bounded cannon-es ragdolls for civilians and both pursuer types; attacks apply outward impulses and suspend AI/IK while down. — tests: `tests/ragdolls-capture.spec.js`
 - [x] People recover alive, can still be collected during giant rolling, and release/restart removes every temporary body and constraint. — tests: `tests/ragdolls-capture.spec.js`
 - [x] Animal control visibly winds up and swings; contact fills a visible capture meter. Growth slows capture while the existing lean movement advantage remains. — tests: `tests/ragdolls-capture.spec.js`

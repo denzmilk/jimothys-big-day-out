@@ -1,5 +1,6 @@
 import * as CANNON from 'cannon-es';
-import { WORLD, PHYSICS, VOXEL, STREET, RAGDOLL, WATER, TERRAIN } from '../core/Constants.js';
+import { WORLD, PHYSICS, VOXEL, STREET, RAGDOLL, WATER, TERRAIN, BODY_CONTACT } from '../core/Constants.js';
+import {canPush,restrictMotion} from '../core/BodyContact.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
 // Owns the cannon-es world (ADR-0002). Fixed-step accumulator keeps
@@ -40,7 +41,7 @@ export class PhysicsSystem {
       if(p.collisionFilterMask!==undefined)body.collisionFilterMask=p.collisionFilterMask;
       if(p.collisionFilterGroup!==undefined)body.collisionFilterGroup=p.collisionFilterGroup;
       body.sleepSpeedLimit=STREET.SLEEP_SPEED;body.sleepTimeLimit=STREET.SLEEP_TIME;
-      this.props.set(p.id,{body,mesh:p.mesh,active:true});this.add(body,p.mesh);
+      this.props.set(p.id,{body,mesh:p.mesh,active:true,entity:p});this.add(body,p.mesh);
     });
     eventBus.on(Events.PROP_REMOVE, ({id}) => {const p=this.props.get(id);if(p){if(p.active)this.remove(p.body,p.mesh);this.props.delete(id);}});
     eventBus.on(Events.PROP_POSE, ({id,position,quaternion}) => {const p=this.props.get(id);if(p?.active){p.body.position.copy(position);p.body.quaternion.copy(quaternion);p.body.aabbNeedsUpdate=true;this.resetSweep(p.body);}});
@@ -60,6 +61,16 @@ export class PhysicsSystem {
 
 
     eventBus.on(Events.PLAYER_BODY_READY,({body})=>{this.playerBody=body;});
+    eventBus.on(Events.PLAYER_CONTACT,m=>{
+      for(const {body,entity:p,active} of this.props.values()){
+        if(!active||p.kind!=='car'||p.fragment||canPush(m.fatness,p.mass,BODY_CONTACT.CAR_PUSH_RATIO))continue;
+        if(Math.hypot(m.position.x-body.position.x,m.position.z-body.position.z)>
+          m.radius+Math.hypot(p.half[0],p.half[1],p.half[2])+Math.hypot(m.velocity.x,m.velocity.z)*m.dt+BODY_CONTACT.SKIN)continue;
+        const support=this._support(body),forward=body.quaternion.vmult(new CANNON.Vec3(0,0,1));
+        restrictMotion(m,{id:p.id,position:body.position,half:p.half,yaw:Math.atan2(forward.x,forward.z),
+          bottom:body.position.y-support.y,top:body.position.y+support.y});
+      }
+    });
     eventBus.on(Events.PLAYER_LAUNCHED,({velocity,mass})=>{
       const body=this.playerBody;if(!body)return;
       // Jimothy keeps his swept voxel contact solver while Cannon owns flight.

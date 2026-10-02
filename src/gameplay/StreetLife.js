@@ -4,7 +4,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { groundVehicle } from '../core/Grounding.js';
 import {splitGlassPanes,paneHit,panePoints} from '../core/GlassGeometry.js';
 import {buildCarFragments} from '../core/CarFragments.js';
-import {STREET as C, VOXEL, CAR_EXPLOSION, DAY_NIGHT, TRAFFIC as T} from '../core/Constants.js';
+import {STREET as C, VOXEL, CAR_EXPLOSION, DAY_NIGHT, TRAFFIC as T, BODY_CONTACT} from '../core/Constants.js';
+import {canPush,pushingMass} from '../core/BodyContact.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 import * as Layout from '../level/Layout.js';
@@ -181,7 +182,7 @@ export class StreetLife {
     const p={id,kind,mesh,seed:node.seed,size:mesh.userData.size,half,mass:kind==='car'?C.CAR.MASS:C.TYPES[kind].mass,driving,loose:!!saved?.loose,attached:false,node:node.key,previous:null,target:null,fragment:false,brokenWindows,junction:saved?.junction??node.junction,axis:saved?.axis??node.axis};
     this.install(p);return p;
   }
-  install(p){this.items.push(p);this.scene.add(p.mesh);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:p.kind,size:p.size});}
+  install(p){this.items.push(p);this.scene.add(p.mesh);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:p.kind,size:p.size,mass:p.mass});}
   remove(p){this.flow.release(p.id);eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});eventBus.emit(Events.PROP_REMOVE,{id:p.id});p.mesh.removeFromParent();this.items.splice(this.items.indexOf(p),1);}
   update(dt){
     const night=1-(gameState.world.daylight??1),lightCenter=this.jimothy.body.position;
@@ -226,7 +227,13 @@ export class StreetLife {
     }
   }
 
-  loosen(p,dx,dz){this.disableControl(p);this.flow.release(p.id);p.driving=false;p.loose=true;const d=Math.hypot(dx,dz)||1;eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity:[dx/d*C.IMPULSE,C.LIFT,dz/d*C.IMPULSE],spin:C.SPIN});}
+  loosen(p,dx,dz){
+    const car=p.kind==='car'&&!p.fragment,mass=pushingMass(gameState.player.fatness);
+    if(car&&!canPush(gameState.player.fatness,p.mass,BODY_CONTACT.CAR_PUSH_RATIO))return;
+    this.disableControl(p);this.flow.release(p.id);p.driving=false;p.loose=true;
+    const d=Math.hypot(dx,dz)||1,speed=car?Math.min(C.IMPULSE,this.jimothy.speed*mass/(mass+p.mass)):C.IMPULSE;
+    eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity:[dx/d*speed,car?BODY_CONTACT.CAR_LIFT:C.LIFT,dz/d*speed],spin:car?BODY_CONTACT.CAR_SPIN:C.SPIN});
+  }
   impact({x,y,z,radius}){
     const point=new THREE.Vector3(x,y,z);
     for(const p of [...this.items])if(!p.attached&&!p.fragment&&p.mesh.position.distanceTo(point)<radius+p.size/2){

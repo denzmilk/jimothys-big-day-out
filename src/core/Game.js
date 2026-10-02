@@ -111,10 +111,10 @@ class Game {
         this.voxels.queueDamageSphere(center.x,center.y,center.z,radius,{key:rolling?'roll':null});
         // Body contact already loosens collectibles. A demolition impulse on
         // every roll tick would explode cars before they can stick to his coat.
-        if(!rolling)eventBus.emit(Events.WORLD_IMPACT,{...center,radius});
+        if(!rolling)eventBus.emit(Events.WORLD_IMPACT,{...center,radius,source:'headbutt'});
         this.onBlast?.(center);return;
       }
-      this.blastAt(at, cfg.RADIUS_SCALE, { fatShare: cfg.FAT_BLAST_SHARE, digsTerrain: digs });
+      this.blastAt(at, cfg.RADIUS_SCALE, { fatShare: cfg.FAT_BLAST_SHARE, digsTerrain: digs,source:cfg===MOVES.ROLL?'roll':'headbutt' });
       this.onBlast?.(at);
     };
     this.collector = new RollCollector(this.scene, this.jimothy, this.voxels);
@@ -700,8 +700,8 @@ class Game {
   /** Damage the world at an exact world position. Callers aim it themselves —
    *  this used to add its own vertical offset, which stacked with the move's
    *  aim and lifted the sphere clear of the ground it was meant to hit. */
-  blastAt(pos, radiusScale = 1, { fatShare = 1, digsTerrain = true } = {}) {
-    eventBus.emit(Events.WORLD_IMPACT, {x:pos.x,y:pos.y,z:pos.z,radius:this.blastRadius(fatShare)*radiusScale});
+  blastAt(pos, radiusScale = 1, { fatShare = 1, digsTerrain = true, source = null } = {}) {
+    eventBus.emit(Events.WORLD_IMPACT, {x:pos.x,y:pos.y,z:pos.z,radius:this.blastRadius(fatShare)*radiusScale,source});
     const removed = this.voxels.damageSphere(
       pos.x, pos.y, pos.z, this.blastRadius(fatShare) * radiusScale, { digsTerrain },
     );

@@ -23,6 +23,16 @@ export const PLAYER_CONFIG = {
   WADDLE_BOB_AMPLITUDE: 0.08,
 };
 
+// JIM-68: controlled bodies need finite pushing strength even though Cannon
+// integrates Jimothy as kinematic. Growth earns the heavy-object shove.
+export const BODY_CONTACT = {
+  BASE_MASS: 9, MASS_PER_FAT: 12, CAR_PUSH_RATIO: .5,
+  HUMAN_MASS: 77, HUMAN_PUSH_RATIO: .65, HUMAN_RADIUS: .4, HUMAN_HEIGHT: 1.75,
+  SKIN: .035, EPSILON: .000001, RECOVERY: .3,
+  LEAN_HIT_SCALE: .24, FULL_HIT_FATNESS: 18,
+  CAR_LIFT: .2, CAR_SPIN: .2,
+};
+
 export const INPUT = {
   DEADZONE: 0.15,
   GAMEPAD_HOP_BUTTON: 0,
@@ -1175,7 +1185,7 @@ export const STREET = {
   CAR: {
     // JIM-54: the preserved Blender exports have their front axle along -Z.
     MODEL_YAW: Math.PI,
-    MASS: 180, BREAK_RADIUS: 1.2, EXPLODE_RADIUS: 3.5,
+    MASS: 1100, BREAK_RADIUS: 1.2, EXPLODE_RADIUS: 3.5,
     PANEL_ROOF: .76, PANEL_FLOOR: .28, PANEL_FRONT: .7, PANEL_REAR: .24,
     PANEL_SIDE: .3, PANEL_BUMPER: .38, COLLIDER_MIN: .035,
     PART_GROUP: 2, PART_MASK: 1, PART_SPEED: 5.5, PART_LIFT: 3.2, PART_SPIN: 4,

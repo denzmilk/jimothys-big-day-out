@@ -359,11 +359,13 @@ Adding one more ring of voxel columns to see 35 m further costs far more than th
 
 ### JIM-35 — One headbutt is a five-star wanted level
 
-**Status:** open (balance — needs Chris's judgement, not a fix) · **Severity:** low · **Found:** 2026-08-07, milestone 19
+**Status:** implemented, awaiting Chris's balance playtest · **Severity:** low · **Found:** 2026-08-07, milestone 19
 
 `HEAT.PER_DEMOLITION` is 0.4 *per voxel destroyed*. A single fat headbutt into open ground removes about **1,075 voxels**, which is **430 heat points** — against a tier-5 threshold of 100. So one swing at maximum fatness takes the run from calm to the army.
 
 It may well be intended ("levelling a house is chaos", and the constant is commented as exactly that). But it was written when a blast was small, and `FATNESS.BLAST_PER_FAT` has been raised since. Worth a decision rather than a discovery: either heat scales sub-linearly with the size of a blast, or the per-voxel rate comes down.
+
+**2026-10-02:** demolition heat now uses destroyed cubic metres. A thousand 0.22 m cells produce 4.2592 points instead of 400; doubling voxel resolution preserves the same heat for the same volume. The deterministic volume test, aiming/destruction regressions and rendered smoke pass. The coefficient still needs playtesting.
 
 Found while writing the pursuer noise spec, which raised the tier to 5 by accident and spawned three paparazzi into the middle of the test.
 

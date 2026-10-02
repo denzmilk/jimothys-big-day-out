@@ -396,7 +396,7 @@ export const HEAT = {
   PER_CAN_TIPPED: 5,
   PER_TREE_LOOT: 3,
   PER_SCARED_LOCAL: 3,
-  PER_DEMOLITION: 0.4, // per voxel destroyed — levelling a house is chaos
+  PER_DEMOLITION: 0.4, // per cubic metre: changing voxel detail must not change wanted level
 };
 
 // Tuned down after playtest (2026-07-23: "a bit aggressive/hard to deal

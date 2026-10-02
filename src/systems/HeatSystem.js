@@ -1,4 +1,4 @@
-import { HEAT } from '../core/Constants.js';
+import { HEAT, VOXEL } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 
@@ -24,7 +24,7 @@ export class HeatSystem {
     // the flat per-event table above.
     eventBus.on(Events.WORLD_DEMOLISHED, ({ voxels }) => {
       if (!gameState.game.isPlaying) return;
-      gameState.heat.points += voxels * HEAT.PER_DEMOLITION;
+      gameState.heat.points += voxels * VOXEL.SIZE ** 3 * HEAT.PER_DEMOLITION;
       this._retier();
     });
   }

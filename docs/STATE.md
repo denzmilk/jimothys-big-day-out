@@ -1,5 +1,9 @@
 # Session state
 
+## Demolition heat — JIM-35 — 2026-10-02
+
+Implemented, awaiting balance playtest. Demolition now awards 0.4 heat per cubic metre, preserving wanted-level behaviour when voxel resolution changes. `tests/heat-volume.test.mjs` verifies equal-volume invariance and that a small hole no longer produces five stars. Build and rendered smoke pass (`giant-damage-build.log`, `giant-damage-smoke.log`); giant demolition/rendering work continues under milestone 33.
+
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
 ## Responsive world work — milestone 33 foundation — 2026-10-02

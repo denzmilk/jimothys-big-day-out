@@ -6,7 +6,7 @@
 
 Verification: six weight cases pass after the resistance/recoil reproductions failed; 42 unique targeted behaviour cases pass across the regression/final/control runs, including keyboard/gamepad movement and bin tipping. One old zero-fatness roll fixture was updated to the requested grown-roll rule, preserving its capacity/recovery assertions. All 49 unit checks, build and production pixel smoke pass; native full-rig car/person views and state were inspected with no console errors. Evidence: `output/iterate/contact-weight-{red,green,regression,final,controls,units,build,smoke,native}.log`, `contact-headbutt-red.log`, `contact-weight-{car,person}.png`.
 
-**Next:** playtest lean scurry/roll/headbutt contact and compare with grown rolling at **http://127.0.0.1:4174**. The separate collectibles/Seattle proposal below remains pending; Chris's farm/food-market extension is being recorded with distinct foods and risk/reward. New locations are not implemented by this fix.
+**Next:** playtest lean scurry/roll/headbutt contact and compare with grown rolling at **http://127.0.0.1:4174**. Fix committed as `90612fa`. The separate collectibles/Seattle proposal below now includes Chris's farm/food-market extension, recorded in the backlog with distinct foods, risk/reward and proposed district placements. That content plan remains pending; new locations are not implemented by this fix.
 
 ## Collectibles and Seattle landmarks — planning — 2026-10-03
 

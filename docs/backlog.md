@@ -6,6 +6,13 @@
 
 ## Gameplay & features
 
+- [ ] **Farms and distinct food markets with greater risk/reward.** Extend the pending Seattle/collectible content proposal with food destinations that differ in food, layout and exposure.
+  - Source: 2026-10-03 Chris ("need some farms and markets too for differnt food types/locations with freater risk/reward").
+  - Rough size: L · Rough value: L
+  - Proposed direction, pending content-plan confirmation: allotments/orchards for scattered fruit and vegetables with exposed rows; farmyards/barns for eggs, produce crates and larger harvest meals behind fences and residents; produce markets for dense small pickups amid vendors; fish markets for valuable seafood feasts in busy, narrow aisles; bakery/night-market stalls for cakes and prepared feasts with long eating commitments. Distinct silhouettes/names/payouts; full meals keep the existing interruptible eating action. Risk comes from witnesses, pursuit access, time exposed and escape routes, while the net remains the only run-ender. Quiet edge scraps provide an alternative to the busiest central rewards.
+  - Dependencies: existing food identities, inhabited interiors, pedestrian reactions, destructible props and streaming; shared site reservations with the pending landmark route. Per-run depletion must survive leaving/re-entering to prevent unlimited food from streaming resets. New food assets need sourced references, editable Blender preparation and in-game inspection.
+  - Proposed siting: Rummage Valley's outer edge for farm plots/barns, Bandit Bay for a neighbourhood produce market, and Trashattan's waterfront market for seafood and prepared-food stalls. Keep cheap edge scraps, richer central stashes and at least two escape routes at each site. Small Jimothy can use narrow gaps; giant Jimothy can break fences and stalls, attracting the existing escalating response. Eating alone remains heat-neutral; disturbing people and damaging the site creates heat. These are proposed placements, not validated/generated parcels yet.
+
 - [ ] **Usable collectibles and Seattle landmark placement — renewed request, 2026-10-03.** Plan things Jimothy can pick up and use, explicitly **power washers and bubble guns**, and build Seattle-inspired landmarks into the island. Extends the existing silly-powerup, temporary-weapon, Seattle-landmark and island park/plaza entries below; those remain the source for earlier ideas.
   - Source: Chris ("need to plan out collectables too - things that jimothy can pickup and use, power washers, bubble guns etc. then as well landmarks based on seattle ... build those into the world").
   - Rough size: L · Rough value: L

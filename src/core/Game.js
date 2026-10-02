@@ -22,6 +22,7 @@ import { installCity } from '../level/VoxelCity.js';
 import * as Layout from '../level/Layout.js';
 import { Debris } from '../gameplay/Debris.js';
 import { GlassShards } from '../gameplay/GlassShards.js';
+import { CarExplosions } from '../gameplay/CarExplosions.js';
 import { StreetLife } from '../gameplay/StreetLife.js';
 import { RollCollector } from '../gameplay/RollCollector.js';
 import { Pedestrians } from '../gameplay/Pedestrians.js';
@@ -100,6 +101,7 @@ class Game {
     };
     this.collector = new RollCollector(this.scene, this.jimothy, this.voxels);
     this.glassShards = new GlassShards(this.scene);
+    this.carExplosions = new CarExplosions(this.scene,this.camera);
     this.level.registerEntities();
     this.streetLife = new StreetLife(this.scene, this.jimothy, this.voxels);
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
@@ -167,6 +169,7 @@ class Game {
       this.crabs.reset();
       this.debris.reset();
       this.glassShards.reset();
+      this.carExplosions.reset();
       this.voxels.clear();
       installCity(this.voxels);
       this.streetLife.reset();
@@ -348,6 +351,7 @@ class Game {
     // everything worth looking at. He fades himself; this is the measurement.
     this.jimothy.cameraDist = this.flyCamera.active ? Infinity : this.cameraSystem.distance;
     this.devTools.update(delta);
+    this.carExplosions.update(delta);
   }
 
   animate() {
@@ -806,6 +810,7 @@ class Game {
       people: this.pedestrians.snapshot(),
       streetLife: this.streetLife.snapshot(),
       glass: this.glassShards.snapshot(),
+      explosions: this.carExplosions.snapshot(),
       collection: this.collector.snapshot(),
       world: { voxelSize: VOXEL.SIZE, atmosphereTime: this.level.time },
       voxels: {

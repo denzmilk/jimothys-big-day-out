@@ -54,6 +54,7 @@ export const Events = {
   // world:*
   WORLD_IMPACT: 'world:impact',
   GLASS_SHATTER: 'glass:shatter',
+  CAR_EXPLODED: 'car:exploded',
   ENTITY_LIST: 'entity:list',
   ENTITY_REGISTER: 'entity:register',
   ENTITY_UNREGISTER: 'entity:unregister',

@@ -41,6 +41,7 @@ export class PhysicsSystem {
         shape:new CANNON.Box(new CANNON.Vec3(...p.half)),linearDamping:STREET.DAMPING,angularDamping:STREET.DAMPING});
       body.position.copy(p.mesh.position);body.quaternion.copy(p.mesh.quaternion);
       if(p.collisionFilterMask!==undefined)body.collisionFilterMask=p.collisionFilterMask;
+      if(p.collisionFilterGroup!==undefined)body.collisionFilterGroup=p.collisionFilterGroup;
       body.sleepSpeedLimit=STREET.SLEEP_SPEED;body.sleepTimeLimit=STREET.SLEEP_TIME;
       this.props.set(p.id,{body,mesh:p.mesh,active:true});this.add(body,p.mesh);
     });

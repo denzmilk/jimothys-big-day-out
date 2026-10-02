@@ -36,6 +36,16 @@ Chris confirmed “yes glass with shatter”.
 - [x] Glass becomes thin triangular physical shards, with a bounded count and lifetime. Shards settle, can attach to a giant rolling Jimothy, and release; restart removes their bodies and registry entries. `glass.spec.js`: physical shard lifecycle and collection.
 - [ ] Chris judges the glass appearance and shatter readability in play (verified by user playtest).
 
+### Approved powered car destruction refinement — 2026-10-02
+
+Chris requested car destruction at a bigger size/power level, with explosion effects and car parts breaking away. Reuse the imported Kenney geometry. Keep lean glass damage and the existing body-break threshold; a Chunky (25) headbutt reaches the new explosion threshold.
+
+- [x] Stronger hits break the imported body into distinct roof, bonnet/rear, side and chassis sections, plus separate wheels; preserve original appearance before impact. `car-destruction.spec.js`: all six models preserve their opaque triangles; intact meshes remain unchanged.
+- [x] A blast radius of 3.5 m or more triggers one fireball/flash, sparks and fading smoke per destroyed car. Weaker hits produce no explosion. Effect size and fragment impulses scale with power within caps. `car-destruction.spec.js`: power gate and repeated impacts.
+- [x] Parts move apart, fall onto terrain, support rolling collection/release, and expire. Car-fragment collision filtering prevents overlapping fragment boxes from flinging each other upward. `car-destruction.spec.js`: landed parts and collection/release.
+- [x] Destroyed cars stay gone after streaming; repeated impacts cannot re-explode a wreck. Fragments/effects have hard caps and restart clears bodies and registry entries; geometry/material caches and effect buffers are bounded and reused. `car-destruction.spec.js`: streaming, repeated reset and 18-car stress case.
+- [ ] Chris judges the threshold, explosion and breakaway readability in play (verified by user playtest).
+
 ## Dependencies
 
 Depends on: milestones 12, 17, 22; uses the existing in-progress milestone 23 scale work. Delivery order: 25 → 26 → 27. Milestone 27 implements the collection/release portion of milestone 24.
@@ -69,6 +79,12 @@ For glass, aim a lean headbutt at a car window, then try a building window. Chec
 The focused glass/grounding/street/voxel run passed 17/19 cases. The two draw-call failures reproduce on the previous commit and are tracked as JIM-48. Glass-specific red/green evidence: `glass-red.log`, `glass-refinement-red.log`, `glass-adjacent.log`. The stress test exposed glass overlapping coarse vehicle colliders; the final implementation excludes prop contacts while retaining gravity and voxel collision. This is a deliberate approximation, not mesh-accurate vehicle collision.
 
 ## Final checks
+
+Powered car destruction: four new checks pass (`output/iterate/car-destruction-green.log`). The first adjacent run passed 12/13; the timer stress case correctly froze on game over after mass destruction summoned animal control. The final test clears that chase before measuring elapsed cleanup, and asserts the run remains active. Production build and rendered smoke pass. A real E-key headbutt at fatness 25 produces one explosion with ten fire particles, twelve smoke puffs and eighteen sparks; state is in `car-destruction-headbutt-state.log`. Captures: `car-destruction-before.png`, `car-destruction-explosion.png`, `car-destruction-parts.png`, `car-destruction-headbutt.png`. Visual feel awaits Chris's playtest.
+
+Full car-refinement regression run: **151/156 passed**, including all new destruction and adjacent world checks (`output/iterate/car-destruction-full-suite.log`). The five failures match the previous baseline: JIM-03 interrupted feast, two JIM-49 rig growth checks, and two JIM-48 draw-call budget checks. Draw calls remain 900 in those budget checks.
+
+Car playtest: **Dev panel → Jimothy → Chunky (25)**, approach a parked car and press **E** toward it. Try a stronger preset, then roll through the loose parts with **C**. Compare the initial flash, outward scatter and fading smoke. Normal weaker hits still shatter glass or break the body without the high-power explosion effect.
 
 Glass refinement: full suite **147/152 passed** in `output/iterate/glass-full-suite.log`. Five pre-existing failures remain: interrupted feast (JIM-03), two rig growth assertions (JIM-49, reproduced exactly on `723c993`), and two renderer-budget assertions (JIM-48, also failing on `723c993`). All four new glass cases, all grounding/street-life/world-detail checks, production build and real rendered smoke pass. Captured car/building shatters produce no console errors. Glass appearance and feel await Chris's playtest.
 

@@ -3,7 +3,8 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { groundVehicle } from '../core/Grounding.js';
 import {splitGlassPanes,paneHit,panePoints} from '../core/GlassGeometry.js';
-import {STREET as C, VOXEL} from '../core/Constants.js';
+import {buildCarFragments} from '../core/CarFragments.js';
+import {STREET as C, VOXEL, CAR_EXPLOSION} from '../core/Constants.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 import * as Layout from '../level/Layout.js';
@@ -16,6 +17,7 @@ export class StreetLife {
     this.scene=scene;this.jimothy=jimothy;this.voxels=voxels;
     this.items=[];this.saved=new Map();this.destroyed=new Set();this.center=null;this.graph=new Map();this.serial=0;
     this.materials=new Map();this.geometries=new Map();this.templates=new Map();
+    this.carFragments=new Map();
     eventBus.on(Events.WORLD_IMPACT,e=>this.impact(e));
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.items.find(p=>p.id===id);if(p){p.attached=true;p.driving=false;eventBus.emit(Events.PROP_SUSPEND,{id});}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.items.find(p=>p.id===id);if(p){p.attached=false;p.loose=true;p.mesh.position.set(position.x,ground+p.half[1]+C.CLEARANCE,position.z);eventBus.emit(Events.PROP_RELEASE,{id,position:p.mesh.position});}});
@@ -151,7 +153,7 @@ export class StreetLife {
     const point=new THREE.Vector3(x,y,z);
     for(const p of [...this.items])if(!p.attached&&!p.fragment&&p.mesh.position.distanceTo(point)<radius+p.size/2){
       const hit=this.shatterWindows(p,point,radius);
-      if(radius>=(p.kind==='car'?C.CAR.BREAK_RADIUS:C.BREAK_RADIUS))this.fracture(p,x,z);else if(!hit)this.loosen(p,p.mesh.position.x-x,p.mesh.position.z-z);
+      if(radius>=(p.kind==='car'?C.CAR.BREAK_RADIUS:C.BREAK_RADIUS))this.fracture(p,x,z,radius);else if(!hit)this.loosen(p,p.mesh.position.x-x,p.mesh.position.z-z);
     }
   }
   shatterWindows(p,origin,radius=Infinity){
@@ -163,19 +165,41 @@ export class StreetLife {
     }
     return hit;
   }
-  fracture(p,x,z){
-    if(this.items.filter(p=>p.fragment).length>=C.FRAGMENT_LIMIT){this.loosen(p,p.mesh.position.x-x,p.mesh.position.z-z);return;}
+  carParts(seed){
+    const key=`car-${seed%this.vehicles.length}`;
+    if(!this.carFragments.has(key))this.carFragments.set(key,buildCarFragments(this.templates.get(key)));
+    return this.carFragments.get(key);
+  }
+  fracture(p,x,z,radius=C.BREAK_RADIUS){
     this.shatterWindows(p,new THREE.Vector3(x,p.mesh.position.y,z));
     p.mesh.updateMatrixWorld(true);const sections=new Map();
-    for(const child of p.mesh.children){const key=child.userData.section||0;if(!sections.has(key))sections.set(key,new THREE.Group());const part=child.clone();part.applyMatrix4(p.mesh.matrixWorld);sections.get(key).add(part);}
+    const isCar=p.kind==='car',children=isCar?this.carParts(p.seed):p.mesh.children;
+    for(const [i,child] of children.entries()){
+      const key=isCar?(child.userData.part==='wheel'?`wheel-${i}`:child.userData.part):child.userData.section||0;
+      if(!sections.has(key)){const group=new THREE.Group();group.userData.part=child.userData.part;sections.set(key,group);}
+      const part=child.clone();part.applyMatrix4(p.mesh.matrixWorld);sections.get(key).add(part);
+    }
+    const origin=p.mesh.position.clone(),power=Math.min(CAR_EXPLOSION.POWER_CAP,Math.max(1,radius/C.CAR.EXPLODE_RADIUS));
     this.destroyed.add(p.id);this.saved.delete(p.id);this.remove(p);
+    if(isCar&&radius>=C.CAR.EXPLODE_RADIUS)eventBus.emit(Events.CAR_EXPLODED,{id:p.id,x:origin.x,y:origin.y,z:origin.z,radius});
     for(const mesh of sections.values()){
+      // Recycle loose rubble, never something already carried by Jimothy.
+      // Destroying another car must still work when the debris budget is full.
+      if(this.items.filter(p=>p.fragment).length>=C.FRAGMENT_LIMIT){const oldest=this.items.find(p=>p.fragment&&!p.attached);if(!oldest)break;this.remove(oldest);}
       const box=new THREE.Box3().setFromObject(mesh),center=box.getCenter(new THREE.Vector3()),half=box.getSize(new THREE.Vector3()).multiplyScalar(.5);
+      if(isCar)half.max(new THREE.Vector3().setScalar(C.CAR.COLLIDER_MIN));
       for(const part of mesh.children)part.position.sub(center);mesh.position.copy(center);
-      const q={id:`fragment-${this.serial++}`,kind:p.kind,mesh,half:half.toArray(),mass:p.mass/sections.size,size:Math.max(...half.toArray())*2,fragment:true,life:C.FRAGMENT_LIFE,loose:true,driving:false,attached:false};
-      this.install(q);this.loosen(q,center.x-x,center.z-z);
+      const q={id:`fragment-${this.serial++}`,kind:p.kind,mesh,half:half.toArray(),mass:p.mass/sections.size,size:Math.max(...half.toArray())*2,fragment:true,life:C.FRAGMENT_LIFE,loose:true,driving:false,attached:false,sourceId:p.id,part:mesh.userData.part};
+      if(isCar){q.collisionFilterGroup=C.CAR.PART_GROUP;q.collisionFilterMask=C.CAR.PART_MASK;}
+      this.install(q);
+      if(isCar){
+        const direction=center.clone().sub(origin);direction.y=0;
+        if(direction.lengthSq()===0)direction.set(Math.cos(this.serial),0,Math.sin(this.serial));direction.normalize().multiplyScalar(C.CAR.PART_SPEED*power);
+        direction.y=C.CAR.PART_LIFT*power;
+        eventBus.emit(Events.PROP_IMPULSE,{id:q.id,velocity:direction.toArray(),spin:C.CAR.PART_SPIN*power*(this.serial%2?1:-1)});
+      }else this.loosen(q,center.x-x,center.z-z);
     }
   }
   reset(){for(const p of [...this.items])this.remove(p);this.saved.clear();this.destroyed.clear();this.serial=0;this.center=null;this.populate();}
-  snapshot(){return {ready:this.ready,models:this.vehicles.length,traffic:this.items.filter(p=>p.driving).length,parked:this.items.filter(p=>p.kind==='car'&&!p.driving&&!p.loose).length,fragments:this.items.filter(p=>p.fragment).length,items:this.items.map(p=>({id:p.id,kind:p.kind,x:+p.mesh.position.x.toFixed(2),y:+p.mesh.position.y.toFixed(2),z:+p.mesh.position.z.toFixed(2),model:p.kind==='car'?C.VEHICLES[p.seed%this.vehicles.length]:null,driving:p.driving,loose:p.loose,attached:p.attached,windows:p.mesh.children.filter(m=>m.userData.glassPane!==undefined).length,brokenWindows:p.brokenWindows?.length||0}))};}
+  snapshot(){return {ready:this.ready,models:this.vehicles.length,traffic:this.items.filter(p=>p.driving).length,parked:this.items.filter(p=>p.kind==='car'&&!p.driving&&!p.loose).length,fragments:this.items.filter(p=>p.fragment).length,items:this.items.map(p=>({id:p.id,kind:p.kind,x:+p.mesh.position.x.toFixed(2),y:+p.mesh.position.y.toFixed(2),z:+p.mesh.position.z.toFixed(2),model:p.kind==='car'&&!p.fragment?C.VEHICLES[p.seed%this.vehicles.length]:null,driving:p.driving,loose:p.loose,attached:p.attached,windows:p.mesh.children.filter(m=>m.userData.glassPane!==undefined).length,brokenWindows:p.brokenWindows?.length||0,sourceId:p.sourceId,part:p.part}))};}
 }

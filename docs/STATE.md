@@ -2,6 +2,18 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Powered car destruction — 2026-10-02
+
+**Milestone 27 refinement is implemented, awaiting Chris's playtest.** Chris requested car destruction at bigger size/power with explosions and breakaway parts. Chunky (fatness 25) reaches a 3.5 m headbutt blast and now triggers a fireball/flash, sparks and fading smoke. Weaker hits keep the previous glass/body damage tiers. Imported Kenney car geometry supplies separate roof, bonnet/rear, side, bumper, chassis and wheel pieces; all six models preserve every opaque triangle and their intact appearance.
+
+Parts receive outward impulses, land, can attach during giant rolling and release, and expire after 24 active seconds. Car-fragment boxes ignore each other to avoid overlap explosions; they retain collisions with ordinary props and voxel terrain/walls. At most 72 street fragments and four effect bursts coexist. Old loose rubble is recycled when needed, held pieces are preserved, destroyed cars remain gone across streaming, and restart restores them. Shared cached geometry/materials and instanced effect buffers are reused.
+
+Four new checks pass in `output/iterate/car-destruction-green.log`. The first 13-case adjacent run passed 12, with a stress timer case stopped by animal control ending the run; the final test isolates active cleanup time and asserts the run stays active. Production build and rendered smoke pass with no console errors. `car-destruction-headbutt-state.log` and `car-destruction-headbutt.png` show a real E-key headbutt at fatness 25, one explosion and detached parts. Additional captures: `car-destruction-before.png`, `car-destruction-explosion.png`, `car-destruction-parts.png`.
+
+Full suite: **151/156 passed** (`STATE_ONLY_TEST=1 npx playwright test --workers=3 --timeout=240000 --reporter=line`, `output/iterate/car-destruction-full-suite.log`). The five failures match the previous baseline: interrupted feast (JIM-03), two rig growth checks (JIM-49), and two draw-call budget checks (JIM-48, still 900 draws against the legacy limit of 300). All four new destruction checks and adjacent glass, grounding, street-life, pedestrian and world-detail checks pass.
+
+Playtest: **http://127.0.0.1:4174 → Dev panel → Jimothy → Chunky (25)**. Headbutt a parked car with **E**, then try stronger power and roll through its parts with **C**. Explosion appearance, threshold and feel await Chris's sign-off. Existing JIM-03, JIM-48 and JIM-49 failures remain separate work.
+
 ## Glass shatter refinement — 2026-10-02
 
 **Milestone 27 glass shattering is implemented, awaiting Chris's playtest.** His “yes glass with shatter” confirmation extended the world pass: connected building panes clear together, imported car panes break independently, and both emit thin triangular shards. Lean hits break car glazing; a blast radius of 1.2 m or more also breaks the body. Broken panes persist across streaming; restart restores them.

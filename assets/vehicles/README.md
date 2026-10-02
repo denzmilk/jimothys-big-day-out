@@ -14,3 +14,5 @@ Rebuild:
 ```
 
 The runtime retains separate wheels and window/body pieces for terrain alignment and physical breakage. Car geometry is sourced from Kenney; the game's movement, glass and destruction integration are local changes.
+
+`src/core/CarFragments.js` derives cached roof, bonnet/rear, side, bumper and chassis pieces from these imported triangles. Original GLBs and intact meshes stay unchanged; palette UVs and every opaque triangle are retained. Wheels detach separately, glazing uses the glass-shatter system, and sufficiently powerful headbutts emit the local explosion effect. No replacement car models were authored for destruction.

@@ -6,6 +6,13 @@
 
 ## Gameplay & features
 
+- [ ] **Usable collectibles and Seattle landmark placement — renewed request, 2026-10-03.** Plan things Jimothy can pick up and use, explicitly **power washers and bubble guns**, and build Seattle-inspired landmarks into the island. Extends the existing silly-powerup, temporary-weapon, Seattle-landmark and island park/plaza entries below; those remain the source for earlier ideas.
+  - Source: Chris ("need to plan out collectables too - things that jimothy can pickup and use, power washers, bubble guns etc. then as well landmarks based on seattle ... build those into the world").
+  - Rough size: L · Rough value: L
+  - Status: proposal presented; scope/order confirmation pending. No new milestone or implementation is claimed. Keep the existing imaginary-Seattle direction and physical/destructible world contracts.
+  - Audit: `GameState`/`InputSystem` have no equipped-tool lifecycle. `islandPlan.js` has districts, hills, water and bridges; the unimported `cityPlan.js` still holds the old Space Noodle/plaza entries. Landmark work needs reserved sites in the active island plan, not another decoration overlay on generated houses.
+  - Research: [Ballard origin reporting](https://www.geekwire.com/2026/8-bit-jimothy-viral-sensation-raids-trash-cans-eludes-paparazzi-in-seattle-creators-video-game/), [Space Needle history](https://www.spaceneedle.com/history), [Pike Place Market](https://www.pikeplacemarket.org/market-history/), [Troll's Knoll](https://www.seattle.gov/parks/parks/trolls-knoll-park), [Gas Works Park](https://www.seattle.gov/parks/parks/gas-works-park), [Ballard Locks fish ladder](https://www.nws.usace.army.mil/Missions/Civil-Works/Locks-and-Dams/Chittenden-Locks/Fish/), [Seattle ferry terminal](https://www.wsdot.com/Ferries/VesselWatch/TerminalDetail.aspx?terminalid=7), [monorail route](https://www.seattlemonorail.com/faq/). References checked 2026-10-03; new game names and interactions are design proposals, not historical claims.
+
 - [x] Fatness growth system — every snack visibly fattens Jimothy (body scale from the existing `snacksEaten` counter); fat IS the score. Trade-offs open: slower / bigger catch-target / can't fit in hide spots. Possibly display score as weight ("14.2 kg"). → milestone 05-fatness-and-food.md (visual growth + jiggle + two-tier food economy; trade-offs and weight display still open)
   - Source: 2026-07-23 Chris ("the more food you eat, the fatter jimothy gets… a game about getting big and fat without getting captured"; "distort and wobble jimothys body to make him big a jiggly as he eats"; "some you gotta stop to eat vs. just kind of scooping as you go")
   - Rough size: M · Rough value: L

@@ -1,5 +1,11 @@
 # Session state
 
+## Collectibles and Seattle landmarks — planning — 2026-10-03
+
+Chris requested usable pickups (power washers, bubble guns and related tools) plus Seattle-inspired landmarks built into the world. Audited the current tool/input state and island planner, researched Seattle references, and recorded the request/sources in `docs/backlog.md`. Proposed next work: equipped-tool lifecycle with a power washer, bubble capture/release, then a market/tower/bridge-troll route. **Scope/order confirmation is pending; no new milestone files or gameplay changes yet.** The one-equipped-tool recommendation and later landmark/tool roster are proposals, not accepted decisions.
+
+**Next:** resolve the pending proposal choice, then write the confirmed milestones after 39 and follow the development pipeline. Existing comet/world/food/interior work remains implemented and awaiting Chris's playtest. This session changed documentation only; runtime checks were not rerun.
+
 ## Comet entrance — milestone 39 — 2026-10-03
 
 **Implemented, awaiting Chris's playtest.** Each new run waits for its visible character/assets, then drops Jimothy 82 m through flame, embers and a smoky wake. A three-second descent ends in a flash, boom, shockwave, dust and pooled debris; a shallow voxel crater persists. The camera settles and normal grounded control returns at about 4.55 s. Score/heat start at zero. Restart replaces the whole sequence, and effect/audio resources have explicit bounds and cleanup. Click once while loading to unlock browser audio.

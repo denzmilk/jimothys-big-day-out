@@ -10,6 +10,14 @@
 
 ## Open
 
+### JIM-53 — Jimothy does not participate in the new world shadows
+
+**Status:** fixed in code, awaiting Chris’s playtest — 2026-10-02 · **Found:** 2026-10-02
+
+The environment and human models cast/receive the new daylight shadows, but the loaded Jimothy mesh retained both flags as false. This left the main character without a ground shadow or building shade. Live production inspection: `output/iterate/jimothy-shadow-before.log` (`Mesh_0`, casts false, receives false). `JimothyController` now enables both flags when the rig loads.
+
+Verification after the full-suite run: production build and rendered smoke pass with no console errors. The same-frame shadow comparison changes 5,684 ground pixels outside the player bounds; both mesh flags are true (`output/iterate/jimothy-shadow-after.log`). Inspected `jimothy-shadow-on.png` confirms the ground shadow. This small follow-up was checked separately from the 170/175 regression run.
+
 ### JIM-52 — Restart carries an unfinished attack into the next run
 
 **Status:** fixed in code, awaiting Chris’s playtest — 2026-10-02 · **Reported:** 2026-10-02 (agent live check)

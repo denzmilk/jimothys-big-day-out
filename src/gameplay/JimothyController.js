@@ -76,6 +76,10 @@ export class JimothyController {
       // one today, but a re-export that splits them would silently leave most
       // of him refusing to fade.
       for (const p of this.rig.pieces) {
+        // JIM-53: missing shadow participation made him look suspended above
+        // the ground and kept him bright when a building shaded the street.
+        p.castShadow = true;
+        p.receiveShadow = true;
         if (p.material && !this.materials.includes(p.material)) this.materials.push(p.material);
       }
       // Force the fade state to re-apply: the model loads asynchronously, so

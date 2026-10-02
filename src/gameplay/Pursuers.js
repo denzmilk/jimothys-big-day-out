@@ -180,6 +180,7 @@ export class Pursuers {
     const model=this.models[PEDESTRIANS.MODELS.indexOf(p.type==='animal-control'?'worker':'commuter')];
     p.visual=clone(model.scene);const box=new THREE.Box3().setFromObject(p.visual);p.visual.position.y-=box.min.y;p.group.add(p.visual);
     for(const child of [...p.group.children])if(child.userData.placeholder)p.group.remove(child);
+    p.visual.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
     p.mixer=new THREE.AnimationMixer(p.visual);p.actions={};for(const clip of model.animations)p.actions[clip.name]=p.mixer.clipAction(clip);
     eventBus.emit(Events.HUMAN_REGISTER,{id:`pursuer-${p.id}`,group:p.group,visual:p.visual});
     p.grounding=new FootGrounding(p.group,p.visual,(x,z)=>this._groundY(x,z));

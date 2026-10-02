@@ -16,6 +16,8 @@ import { HeatSystem } from '../systems/HeatSystem.js';
 import { JimothyController } from '../gameplay/JimothyController.js';
 import { TrashCans } from '../gameplay/TrashCans.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
+import { EnvironmentLife } from '../level/EnvironmentLife.js';
+import { DayNight } from '../level/DayNight.js';
 import { LevelBuilder } from '../level/LevelBuilder.js';
 import { VoxelWorld } from '../level/VoxelWorld.js';
 import { installCity } from '../level/VoxelCity.js';
@@ -108,6 +110,8 @@ class Game {
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
     this.ragdolls = new HumanRagdolls(this.jimothy,this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
+    this.dayNight=new DayNight(this.scene,this.renderer,this.level,this.sun,this.ambient,this.jimothy);
+    this.environmentLife=new EnvironmentLife(this.scene,this.jimothy,this.voxels);
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
     this.treasures = new Treasures(this.scene, this.jimothy, this.voxels);
     this.crabs = new CrabPeople(this.scene, this.jimothy, this.voxels);
@@ -180,6 +184,7 @@ class Game {
       gameState.game.started = true;
       gameState.game.isPlaying = true;
       this.pedestrians.reset();
+      this.dayNight.reset();this.environmentLife.reset();
     });
 
     gameState.game.started = true;
@@ -337,6 +342,7 @@ class Game {
     this.pursuers.update(delta);
     this.pedestrians.update(delta);
     this.level.update(delta, this.camera);
+    this.environmentLife.update(delta);
     this.score.update(delta);
     this.heat.update(delta);
     this.debris.update(delta);
@@ -346,6 +352,7 @@ class Game {
     // Underground is a property of DEPTH BELOW THIS COLUMN, not of a y value —
     // grade stopped being a constant when the island got hills (milestone 17).
     this._setUnderground(this.voxels.terrainHeightAt(jp.x, jp.z) - jp.y > SEWER.BELOW);
+    this.dayNight.update(delta,this.underground);
     this.lamp.position.set(jp.x, jp.y + 1.6, jp.z);
     this.updateReticle();
     if (this.flyCamera.active) this.flyCamera.update(delta);
@@ -811,6 +818,8 @@ class Game {
         finds: gameState.player.finds,
       },
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
+      environment: this.environmentLife.snapshot(),
+      dayNight: this.dayNight.snapshot(),
       people: this.pedestrians.snapshot(),
       ragdolls: this.ragdolls.snapshot(),
       capture: gameState.capture,

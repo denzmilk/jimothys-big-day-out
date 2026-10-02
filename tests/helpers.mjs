@@ -14,7 +14,7 @@ export async function boot(page, { withRig = false } = {}) {
     if (!rig) window.__SKIP_RIG__ = true;
   }, withRig);
   await page.goto('/');
-  await page.waitForFunction((rig) => typeof window.render_game_to_text === 'function' && window.__game.pedestrians.ready && window.__game.streetLife.ready && (!rig || window.__game.jimothy.rig?.loaded), withRig);
+  await page.waitForFunction((rig) => typeof window.render_game_to_text === 'function' && window.__game.pedestrians.ready && window.__game.streetLife.ready && (!window.__game.environmentLife || window.__game.environmentLife.ready) && (!rig || window.__game.jimothy.rig?.loaded), withRig);
   await adv(page, 0.1);
   if(process.env.STATE_ONLY_TEST==='1')await page.evaluate(()=>{window.__STATE_ONLY_TEST__=true;});
 }

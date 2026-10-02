@@ -869,6 +869,7 @@ export class VoxelWorld {
     geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     geo.computeBoundingSphere();
     chunk.mesh = new THREE.Mesh(geo, [this.material,this.glassMaterial]);
+    chunk.mesh.castShadow=true;chunk.mesh.receiveShadow=true;
     this.scene.add(chunk.mesh);
   }
 

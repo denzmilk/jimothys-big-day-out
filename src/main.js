@@ -1,3 +1,4 @@
+import {eventBus,Events} from './core/EventBus.js';
 import './style.css';
 import Game from './core/Game.js';
 import { gameState } from './core/GameState.js';
@@ -127,3 +128,5 @@ window.debugCamera = (x, y, z, lx = 0, ly = 0, lz = 0) => {
   game.camera.lookAt(lx, ly, lz);
   game.renderer.render(game.scene, game.camera);
 };
+
+window.setTimeOfDay=hour=>eventBus.emit(Events.DEV_SET_TIME,{hour});

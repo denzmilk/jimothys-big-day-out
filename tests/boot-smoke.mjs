@@ -9,8 +9,11 @@ const page = await browser.newPage();
 page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
 page.on('pageerror', (err) => errors.push(String(err)));
 
+// Keep asset loading independent of repeated software-rendered frames. The
+// explicit advanceTime below still renders and exercises the loaded scene.
+await page.addInitScript(() => { window.__MANUAL_TIME__ = true; });
 await page.goto(URL, { waitUntil: 'networkidle' });
-await page.waitForFunction(() => window.__game?.pedestrians.ready && window.__game?.streetLife.ready && window.__game?.jimothy.rig?.loaded);
+await page.waitForFunction(() => window.__game?.pedestrians.ready && window.__game?.streetLife.ready && window.__game?.jimothy.rig?.loaded && (!window.__game.environmentLife || window.__game.environmentLife.ready));
 await page.waitForTimeout(1500);
 
 const state = await page.evaluate(() => window.render_game_to_text());

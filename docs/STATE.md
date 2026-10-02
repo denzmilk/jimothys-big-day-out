@@ -4,7 +4,7 @@
 
 ## Living-world continuation — 2026-10-02
 
-Development: milestones 29–31 capture Chris's next pass. Milestone 29 is implemented, awaiting playtest: bounded 11-body ragdolls, recovery and collection, a telegraphed net swing and size-resistant capture meter. Its three final checks pass; full regression passed 162/167 with only the five known JIM-03/JIM-48/JIM-49 failures. Build, rendered smoke and capture inspection passed. JIM-52 restart carry-over is fixed in 340e64e. Next: reactive environment/day-night lighting, then water physics/swimming. Each milestone is verified and committed separately. Milestone 28 remains awaiting playtest.
+Development: milestones 29–31 capture Chris's next pass. Milestone 29 is implemented, awaiting playtest: bounded 11-body ragdolls, recovery and collection, a telegraphed net swing and size-resistant capture meter. Its three final checks pass; full regression passed 162/167 with only the five known JIM-03/JIM-48/JIM-49 failures. Build, rendered smoke and capture inspection passed. JIM-52 restart carry-over is fixed in 340e64e. Milestone 29 is pushed as 836bd41. Milestone 30 now adds wind-reactive grass/flowers, animated cats/dogs/birds, pollen, a 12-minute sun/moon cycle and nearby lamp lighting. Its 9/9 focused checks, 3/3 final environment/lamps checks and rendered smoke pass; source assets and Blender rebuild recipe are preserved under assets/wildlife and tools. Appearance and feel still await Chris’s playtest. Next: water physics/swimming, followed by the combined regression run. Each milestone is verified and committed separately. Milestone 28 remains awaiting playtest.
 
 ## Raised footpaths — milestone 28 / JIM-51 — 2026-10-02
 

@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { groundVehicle } from '../core/Grounding.js';
 import {splitGlassPanes,paneHit,panePoints} from '../core/GlassGeometry.js';
 import {buildCarFragments} from '../core/CarFragments.js';
-import {STREET as C, VOXEL, CAR_EXPLOSION} from '../core/Constants.js';
+import {STREET as C, VOXEL, CAR_EXPLOSION, DAY_NIGHT} from '../core/Constants.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 import * as Layout from '../level/Layout.js';
@@ -18,6 +18,7 @@ export class StreetLife {
     this.items=[];this.saved=new Map();this.destroyed=new Set();this.center=null;this.graph=new Map();this.serial=0;
     this.materials=new Map();this.geometries=new Map();this.templates=new Map();
     this.carFragments=new Map();
+    this.streetLights=Array.from({length:DAY_NIGHT.STREET_LIGHT_COUNT},()=>{const l=new THREE.PointLight(DAY_NIGHT.STREET_LIGHT_COLOR,0,DAY_NIGHT.STREET_LIGHT_RANGE);scene.add(l);return l;});
     eventBus.on(Events.WORLD_IMPACT,e=>this.impact(e));
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.items.find(p=>p.id===id);if(p){p.attached=true;p.driving=false;eventBus.emit(Events.PROP_SUSPEND,{id});}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.items.find(p=>p.id===id);if(p){p.attached=false;p.loose=true;p.mesh.position.set(position.x,ground+p.half[1]+C.CLEARANCE,position.z);eventBus.emit(Events.PROP_RELEASE,{id,position:p.mesh.position});}});
@@ -62,6 +63,7 @@ export class StreetLife {
       const box=new THREE.Box3().setFromObject(g),center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());
       for(const m of g.children)m.position.sub(center);
       g.userData={half:size.multiplyScalar(.5).toArray(),size:Math.max(size.x,size.y,size.z)*2};
+      g.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
       this.templates.set(key,g);
     }
     return this.templates.get(key).clone();
@@ -126,6 +128,13 @@ export class StreetLife {
     });return options[0];
   }
   update(dt){
+    const night=1-(gameState.world.daylight??1),lightCenter=this.jimothy.body.position;
+    const bulbs=this.items.filter(p=>p.kind==='lamp'&&!p.fragment&&!p.loose&&!p.attached).map(p=>p.mesh.children.find(m=>m.userData.section===2)).filter(Boolean);
+    bulbs.forEach(m=>m.getWorldPosition(m.userData.lightPosition??=new THREE.Vector3()));
+    bulbs.sort((a,b)=>a.userData.lightPosition.distanceToSquared(lightCenter)-b.userData.lightPosition.distanceToSquared(lightCenter));
+    this.streetLights.forEach((l,i)=>{const bulb=bulbs[i];l.intensity=bulb?night*DAY_NIGHT.STREET_LIGHT_INTENSITY:0;if(bulb)l.position.copy(bulb.userData.lightPosition);});
+    const bulbMaterial=this.material(C.TYPES.lamp.parts.at(-1)[6]);bulbMaterial.emissive.set(DAY_NIGHT.STREET_LIGHT_COLOR);bulbMaterial.emissiveIntensity=night*DAY_NIGHT.STREET_GLOW;
+
     if(!gameState.game.isPlaying)return;
     const j=this.jimothy.body.position;
     if(!this.center||Math.hypot(j.x-this.center.x,j.z-this.center.z)>C.REFRESH)this.populate();

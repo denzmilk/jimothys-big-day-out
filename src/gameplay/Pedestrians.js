@@ -76,6 +76,7 @@ export class Pedestrians {
     visual.position.y-=box.min.y;
     const mesh=new THREE.Group();mesh.add(visual);this.scene.add(mesh);
     mesh.name=`pedestrian-${this.serial}`;
+    visual.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
     const mixer=new THREE.AnimationMixer(visual),actions={};
     for(const clip of source.animations) actions[clip.name]=mixer.clipAction(clip);
     const p={id:`ped-${this.serial++}`,x:node.x,z:node.z,y:0,yaw:0,node:node.key,previous:null,target:null,mesh,visual,mixer,actions,animation:null,model:PED.MODELS[modelIndex],flee:0,scaredRecently:false,steps:index,pause:0,attached:false};

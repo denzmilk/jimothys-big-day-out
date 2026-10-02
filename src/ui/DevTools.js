@@ -300,6 +300,10 @@ export class DevTools {
 
   _buildLevelTab() {
     const root = this.sections.level;
+    const timeLabel=document.createElement('label');timeLabel.textContent='Time of day';
+    const time=document.createElement('input');time.type='range';time.min='0';time.max='24';time.step='.25';time.value=String(gameState.world.hour??17);
+    time.addEventListener('input',()=>eventBus.emit(Events.DEV_SET_TIME,{hour:Number(time.value)}));
+    timeLabel.appendChild(time);root.appendChild(timeLabel);
     const mk = (id, label, fn) => {
       const btn = document.createElement('button');
       btn.id = id;

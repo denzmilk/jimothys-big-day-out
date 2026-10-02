@@ -21,15 +21,18 @@ export class LevelBuilder {
     };
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(A.SKY_RADIUS, 32, 16), new THREE.ShaderMaterial({
       side: THREE.BackSide, depthWrite: false,
-      uniforms: { ...common, cloudColor: {value:new THREE.Color(A.CLOUD)}, cloudSpeed:{value:A.CLOUD_SPEED}, cloudScale:{value:A.CLOUD_SCALE} },
+      uniforms: { ...common, night:{value:0}, cloudColor: {value:new THREE.Color(A.CLOUD)}, cloudSpeed:{value:A.CLOUD_SPEED}, cloudScale:{value:A.CLOUD_SCALE} },
       vertexShader: `varying vec3 direction; void main(){direction=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader: `varying vec3 direction; uniform float uTime,cloudSpeed,cloudScale; uniform vec3 topColor,horizonColor,cloudColor,sunDir;
+      fragmentShader: `varying vec3 direction; uniform float uTime,cloudSpeed,cloudScale,night; uniform vec3 topColor,horizonColor,cloudColor,sunDir;
         float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
         float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+1.),f.x),f.y);}
         void main(){vec3 d=normalize(direction);float height=max(0.,d.y);vec3 c=mix(horizonColor,topColor,pow(height,.45));
           vec2 p=d.xz/(height+.25)*cloudScale+vec2(uTime*cloudSpeed,0.);float n=noise(p)*.6+noise(p*2.1)*.3+noise(p*4.3)*.1;
           float cloud=smoothstep(.53,.72,n)*smoothstep(.02,.22,height);c=mix(c,cloudColor,cloud*.75);
           float sun=max(0.,dot(d,sunDir));c+=vec3(1.,.68,.32)*(pow(sun,500.)*.8+pow(sun,24.)*.12);
+          float moon=max(0.,dot(d,-sunDir));c+=vec3(.62,.75,1.)*pow(moon,1800.)*night;
+          vec2 stars=floor(d.xz/max(.08,d.y)*340.);float star=step(.997,hash(stars))*pow(max(0.,d.y),.5)*night;
+          c+=vec3(star)*(.55+.45*sin(uTime*.8+hash(stars)*6.28));
           gl_FragColor=vec4(c,1.);
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
@@ -54,7 +57,7 @@ export class LevelBuilder {
     this.sea.position.y=TERRAIN.SEA_LEVEL;
     this.sea.renderOrder=1;
     scene.add(this.sea);
-    scene.add(new THREE.HemisphereLight(A.SKY_TOP,A.GROUND_LIGHT,A.HEMISPHERE));
+    this.hemisphere=new THREE.HemisphereLight(A.SKY_TOP,A.GROUND_LIGHT,A.HEMISPHERE);scene.add(this.hemisphere);
 
     this.buildHorizon();
 

@@ -136,6 +136,8 @@ export class JimothyLegs {
     // A changed body shape moves the hips even at zero simulated time. Old
     // support history otherwise drags the new giant mesh back to lean height.
     if(this.previousRadius!==c.radius){this.reset();this.previousRadius=c.radius;}
+    root.updateMatrixWorld(true);
+    for(const paw of this.paws)paw.supportOffset=Math.max(0,paw.end.getWorldPosition(new THREE.Vector3()).y-this.sole(paw).y);
     for(let i=0;i<4;i++){rig.pose(LEG_NAMES[i]);rig.pose(SHIN_NAMES[i]);}
     rig.root.position.y=rig.baseY;
     if(!c.grounded||c.swimming||c.move?.kind==='roll'){
@@ -190,14 +192,18 @@ export class JimothyLegs {
         if(s.t===1)paw.swing=null;
       }else paw.target.y=this.ground(paw.target.x,paw.target.z)+LEGS.PAW_CLEARANCE;
     }
-    let drop=LEGS.CROUCH;
+    let drop=LEGS.CROUCH,maxDrop=Infinity;
     for(const paw of this.paws){
       if(paw.scratch||paw.swing||paw.transferring)continue;
       const h=paw.hip.getWorldPosition(new THREE.Vector3()),k=paw.knee.getWorldPosition(new THREE.Vector3()),f=paw.end.getWorldPosition(new THREE.Vector3());
       const reach=(h.distanceTo(k)+k.distanceTo(f))*LEGS.MAX_REACH,horizontal=Math.hypot(h.x-paw.target.x,h.z-paw.target.z);
       drop=Math.max(drop,h.y-paw.target.y-Math.sqrt(Math.max(0,reach*reach-horizontal*horizontal)));
+      // Grown legs also have a minimum reach. Lowering the body onto an
+      // uphill paw can fold it past that limit and leave the sole underground.
+      const minimum=Math.abs(h.distanceTo(k)-k.distanceTo(f))/LEGS.MAX_REACH+paw.supportOffset;
+      if(horizontal<minimum)maxDrop=Math.min(maxDrop,h.y-paw.target.y-Math.sqrt(minimum*minimum-horizontal*horizontal));
     }
-    const desired=root.position.y-Math.min(LEGS.MAX_DROP,drop)+c.idleBreath;
+    const desired=root.position.y-Math.min(LEGS.MAX_DROP,drop,maxDrop)+c.idleBreath;
     if(fresh)this.bodyY=desired;
     else{
       // Follow a continuous grade without the persistent height lag that

@@ -111,12 +111,15 @@ export class JimothyRig {
 
   // The Blender growth key expands along a spherical field, with a shared
   // direction over each extremity. Rebinding at each size keeps animation
-  // pivots on the new surface without scaling heads or shearing bent limbs.
+  // pivots on the new surface without shearing bent limbs.
   grow(width,round) {
-    this.furBlend.value=round;this.skinned.material.normalScale.copy(this.baseNormalScale).multiplyScalar(1-round);
+    // Anatomy grows more slowly than girth, preserving the original raccoon
+    // surface and readable features instead of hiding it under a sphere.
+    this.anatomyScale=1+(width-1)*RIG.ANATOMY_GROWTH;
+    this.root.scale.setScalar(this.baseScale*this.anatomyScale);
     if(width===this.growthWidth)return;
     this.growthWidth=width;
-    const mesh=this.skinned,a=mesh.geometry.attributes,positions=a.position,amount=width-1;
+    const mesh=this.skinned,a=mesh.geometry.attributes,positions=a.position,amount=(width-this.anatomyScale)/this.anatomyScale;
     const bodyIndex=mesh.skeleton.bones.indexOf(this.bones.body);
     for(let v=0;v<positions.count;v++){
       const indices=[],weights=[];let transferred=0;
@@ -133,15 +136,7 @@ export class JimothyRig {
       for(let k=0;k<4;k++){a.skinIndex.setComponent(v,k,indices[k]);a.skinWeight.setComponent(v,k,weights[k]);}
     }
     a.skinIndex.needsUpdate=true;a.skinWeight.needsUpdate=true;
-    for(let i=0;i<positions.array.length;i++)positions.array[i]=this.growthBase[i]+this.growthDelta[i]*(amount+(i>=this.coatStart*3?round:0));
-    const coatRadius=this.growthDelta.slice(this.coatStart*3,this.coatStart*3+3).reduce((a,v)=>a+v*v,0)**.5*(amount+round);
-    const pointOnCoat=new THREE.Vector3();
-    for(let v=0;v<this.coatStart;v++){
-      if(this.detailWeight[v]>=RIG.FUR_DETAIL_START)continue;
-      pointOnCoat.fromBufferAttribute(positions,v).sub(this.coatCenter);
-      const distance=pointOnCoat.length(),inside=Math.max(0,coatRadius-Math.max(RIG.COAT_INSET,coatRadius*RIG.COAT_INSET_FRACTION));
-      if(distance>inside){pointOnCoat.multiplyScalar((distance+(inside-distance)*round)/distance).add(this.coatCenter);positions.setXYZ(v,pointOnCoat.x,pointOnCoat.y,pointOnCoat.z);}
-    }
+    for(let i=0;i<positions.array.length;i++)positions.array[i]=this.growthBase[i]+this.growthDelta[i]*amount;
     positions.needsUpdate=true;mesh.geometry.computeBoundingBox();mesh.geometry.computeBoundingSphere();
     const posed={};
     for(const [name,bone] of Object.entries(this.bones)){
@@ -153,12 +148,8 @@ export class JimothyRig {
     const box=new THREE.Box3(),point=new THREE.Vector3();
     for(const v of this.torsoVertices)box.expandByPoint(point.fromBufferAttribute(a.position,v));
     const toRoot=new THREE.Matrix4().copy(this.root.matrixWorld).invert().multiply(mesh.matrixWorld);
-    const center=box.getCenter(new THREE.Vector3()),normal=new THREE.Vector3(),radial=new THREE.Vector3(),normals=a.normal;
-    for(let v=0;v<positions.count;v++){
-      radial.fromBufferAttribute(positions,v).sub(center).normalize();
-      normal.fromArray(this.growthNormals,v*3).lerp(radial,round*this.furMask[v]).normalize();normals.setXYZ(v,normal.x,normal.y,normal.z);
-    }
-    normals.needsUpdate=true;
+    if(amount===0)a.normal.array.set(this.growthNormals);else mesh.geometry.computeVertexNormals();
+    a.normal.needsUpdate=true;
     this.grownBox=box.applyMatrix4(toRoot);
     for(const [name,bone]of Object.entries(this.bones))bone.quaternion.copy(posed[name]);
   }
@@ -166,26 +157,7 @@ export class JimothyRig {
   _prepareGrowth() {
     const mesh=this.skinned;
     this.root.parent.updateMatrixWorld(true);
-    const coat=this.root.getObjectByName('GiantCoat'),original=mesh.geometry;
-    this.coatStart=original.attributes.position.count;
-    const coatGeometry=coat.geometry.clone(),toMeshCoat=new THREE.Matrix4().copy(mesh.matrixWorld).invert().multiply(coat.matrixWorld);
-    coatGeometry.applyMatrix4(toMeshCoat);
-    // GLTF's morph positions are offsets: only the linear transform applies.
-    const coatDelta=coat.geometry.morphAttributes.position[coat.morphTargetDictionary.GiantGrowth].clone();
-    coatDelta.applyMatrix3(new THREE.Matrix3().setFromMatrix4(toMeshCoat));
-    const merged=new THREE.BufferGeometry(),bodyIndex=mesh.skeleton.bones.indexOf(this.bones.body),count=coatGeometry.attributes.position.count;
-    for(const [name,a]of Object.entries(original.attributes)){
-      const array=new a.array.constructor((this.coatStart+count)*a.itemSize);array.set(a.array);
-      if(coatGeometry.attributes[name])array.set(coatGeometry.attributes[name].array,a.array.length);
-      else if(name==='skinIndex'||name==='skinWeight')for(let v=0;v<count;v++)array[(this.coatStart+v)*a.itemSize]=name==='skinIndex'?bodyIndex:1;
-      merged.setAttribute(name,new THREE.BufferAttribute(array,a.itemSize,a.normalized));
-    }
-    const indices=[...original.index.array,...Array.from(coatGeometry.index.array,n=>n+this.coatStart)];merged.setIndex(indices);
-    const delta=new Float32Array(merged.attributes.position.array.length);delta.set(original.morphAttributes.position[mesh.morphTargetDictionary.GiantGrowth].array);delta.set(coatDelta.array,this.coatStart*3);
-    merged.morphAttributes.position=[new THREE.BufferAttribute(delta,3)];merged.morphTargetsRelative=true;
-    mesh.geometry=merged;original.dispose();coatGeometry.dispose();coat.removeFromParent();coat.geometry.dispose();
-    const geometry=mesh.geometry,index=0;
-    this.coatCenter=new THREE.Vector3().setFromMatrixPosition(toMeshCoat);
+    const geometry=mesh.geometry,index=mesh.morphTargetDictionary.GiantGrowth;
     this.growthBase=geometry.attributes.position.array.slice();this.growthNormals=geometry.attributes.normal.array.slice();
     this.growthDelta=geometry.morphAttributes.position[index].array.slice();
     // Positions are baked only when food changes size. This lets normals,
@@ -195,51 +167,14 @@ export class JimothyRig {
     this.bindBellyLocal=this.bellyLocalBox(this.root.parent).getCenter(new THREE.Vector3());
     this.surfaceMesh=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
     this.surfaceMesh.matrixAutoUpdate=false;this.surfaceRay=new THREE.Raycaster();
+    this._contactVertex=new THREE.Vector3();this._contactInverse=new THREE.Matrix4();
     this.growthAnchors={};
     for(const [name,direction] of Object.entries(RIG.GROWTH_ANCHORS)){
       const parent=this.bones[name].parent;
       const transform=new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().copy(parent.matrixWorld).invert().multiply(this.root.parent.matrixWorld));
       this.growthAnchors[name]=new THREE.Vector3(...direction).normalize().multiplyScalar(PLAYER_CONFIG.RADIUS).applyMatrix3(transform);
     }
-    this.furBlend={value:0};this.baseNormalScale=mesh.material.normalScale.clone();
-    const a=geometry.attributes;this.furMask=new Float32Array(a.position.count);this.detailWeight=new Float32Array(a.position.count);
-    for(let v=0;v<a.position.count;v++){
-      let detail=0;
-      for(let k=0;k<4;k++){
-        const name=mesh.skeleton.bones[a.skinIndex.getComponent(v,k)].name;
-        if(name==='head'||name==='tail'||name.startsWith('shin_'))detail=Math.max(detail,a.skinWeight.getComponent(v,k));
-      }
-      this.detailWeight[v]=detail;this.furMask[v]=1-THREE.MathUtils.smoothstep(detail,RIG.FUR_DETAIL_START,RIG.FUR_DETAIL_END);
-    }
-    // A triangle bridging the tiny face and a city-sized belly stretches its
-    // UVs even when one endpoint belongs wholly to the head. Coat that entire
-    // transition; keep the original texture only on rigid detail triangles.
-    const gi=geometry.index,direction=new THREE.Vector3(),other=new THREE.Vector3();
-    for(let i=0;i<gi.count;i+=3){
-      const ids=[gi.getX(i),gi.getX(i+1),gi.getX(i+2)];direction.fromArray(this.growthDelta,ids[0]*3);
-      if(ids.some(v=>other.fromArray(this.growthDelta,v*3).distanceTo(direction)>RIG.FUR_STRETCH_DISTANCE))for(const v of ids)this.furMask[v]=1;
-    }
-    geometry.setAttribute('growthFur',new THREE.BufferAttribute(this.furMask,1));
-    mesh.material.onBeforeCompile=shader=>{
-      Object.assign(shader.uniforms,{furBlend:this.furBlend,furDark:{value:new THREE.Color(RIG.FUR_DARK)},furLight:{value:new THREE.Color(RIG.FUR_LIGHT)},furDensity:{value:RIG.FUR_DENSITY},coatRoughness:{value:RIG.COAT_ROUGHNESS}});
-      shader.vertexShader='attribute float growthFur; varying float vGrowthFur; varying vec3 vGrowthPosition;\n'+shader.vertexShader;
-      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n vGrowthFur=growthFur;vGrowthPosition=position;');
-      shader.fragmentShader=`uniform float furBlend,furDensity,coatRoughness;uniform vec3 furDark,furLight;varying float vGrowthFur;varying vec3 vGrowthPosition;
-        float growthHash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
-        float growthNoise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
-          return mix(mix(mix(growthHash(i),growthHash(i+vec3(1,0,0)),f.x),mix(growthHash(i+vec3(0,1,0)),growthHash(i+vec3(1,1,0)),f.x),f.y),
-          mix(mix(growthHash(i+vec3(0,0,1)),growthHash(i+vec3(1,0,1)),f.x),mix(growthHash(i+vec3(0,1,1)),growthHash(i+vec3(1,1,1)),f.x),f.y),f.z);}
-        `+shader.fragmentShader;
-      shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
-        vec3 fibrePosition=vGrowthPosition*furDensity*vec3(3.,.65,3.);
-        float footprint=clamp(length(fwidth(fibrePosition)),0.0,1.0);
-        float fibre=mix(growthNoise(fibrePosition),0.5,footprint);
-        float clump=growthNoise(vGrowthPosition*furDensity*.2);
-        diffuseColor.rgb=mix(diffuseColor.rgb,mix(furDark,furLight,.25+clump*.35+fibre*.4),furBlend*vGrowthFur);`);
-      shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\n roughnessFactor=mix(roughnessFactor,coatRoughness,furBlend*vGrowthFur);');
-      shader.fragmentShader=shader.fragmentShader.replace('#include <metalnessmap_fragment>','#include <metalnessmap_fragment>\n metalnessFactor*=1.-furBlend*vGrowthFur;');
-    };
-    mesh.material.customProgramCacheKey=()=> 'jimothy-growth-fur';
+    const a=geometry.attributes;
     this.baseSkinIndex=a.skinIndex.array.slice();this.baseSkinWeight=a.skinWeight.array.slice();this.socketDistance=new Float32Array(a.position.count*4);
     const toMesh=new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().copy(mesh.matrixWorld).invert().multiply(this.root.parent.matrixWorld));
     const anchorDelta=mesh.skeleton.bones.map(b=>{
@@ -258,13 +193,25 @@ export class JimothyRig {
     }
   }
 
-  surfaceRatio(direction,center,radii){
+  surfaceContact(direction,center,radii){
     const surface=this.surfaceMesh;
     surface.matrixWorld.copy(this.root.parent.matrixWorld).invert().multiply(this.skinned.matrixWorld);
     const shell=direction.clone().multiply(radii),origin=center.clone().addScaledVector(shell,2);
     this.surfaceRay.set(origin,shell.clone().normalize().negate());
     const hit=this.surfaceRay.intersectObject(surface,false)[0];
-    return hit?hit.point.sub(center).divide(radii).length():1;
+    if(!hit)return null;
+    const ids=[hit.face.a,hit.face.b,hit.face.c],positions=this.skinned.geometry.attributes.position;
+    const point=hit.point.clone().applyMatrix4(surface.matrixWorld.clone().invert());
+    const weights=THREE.Triangle.getBarycoord(point,...ids.map(i=>new THREE.Vector3().fromBufferAttribute(positions,i)),new THREE.Vector3());
+    return {ids,weights:weights.toArray()};
+  }
+
+  contactPosition(contact,out){
+    // Three sampled skin vertices follow the original belly and its animation;
+    // a cached spherical radius left attachments behind when the skin jiggled.
+    out.set(0,0,0);
+    for(let i=0;i<3;i++)out.addScaledVector(this.skinned.getVertexPosition(contact.ids[i],this._contactVertex),contact.weights[i]);
+    return out.applyMatrix4(this.skinned.matrixWorld).applyMatrix4(this._contactInverse.copy(this.root.parent.matrixWorld).invert());
   }
 
   /** Where each animated part's flesh sits, in the frame of `origin` — pass
@@ -347,6 +294,7 @@ export class JimothyRig {
     // themselves are only scaffolding for the placeholder now.
     this.slots.body.parent.add(root);
     this.root = root;
+    this.baseScale = scale;
     this.baseY = root.position.y;
     this.bodyPiece = this.skinned;
     this._indexRestParts();

@@ -26,7 +26,7 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
   - **3** — animal-control chaser with the net spawns. The net is lethal to the run; nothing else is.
   - **4** — police cordon: more/faster pursuers, roadblocks.
   - **5** — **the ARMY.** Tanks roll in and fire shells at Jimothy. Shells ragdoll-launch him (dropping the combo, comedic knockback — possibly across the map) but never end the run. Shells can blast him out of trees.
-- **Fatness:** every snack makes Jimothy visibly fatter and jigglier — body distortion grows (wide-load blob, tiny head) with a springy wobble kicked by every bite. Score = points × combo; fatness = raw fat eaten (the body, and the capture screen's headline number). Fatness trade-offs (decided 2026-07-23): the fatter he is, the SLOWER he waddles and the harder he is to hide — bushes stop fitting entirely past a width threshold. Getting fat is winning and losing at the same time.
+- **Fatness:** every snack makes Jimothy visibly fatter and jigglier — body distortion grows (a rounded version of the original raccoon, with readable head, paws and tail) with a springy wobble kicked by every bite. Score = points × combo; fatness = raw fat eaten (the body, and the capture screen's headline number). Fatness trade-offs (decided 2026-07-23): the fatter he is, the SLOWER he waddles and the harder he is to hide — bushes stop fitting entirely past a width threshold. Getting fat is winning and losing at the same time.
 - **Food comes in two tiers** (2026-07-23 playtest feedback): **scraps** scoop instantly at full waddle (fat 1, 10 pts); **feasts** (WHOLE PIZZA, TURKEY LEG…) demand standing still to chomp through a channel (fat 5, 50 pts) — a deliberate risk commitment at high heat. Interrupting the chomp loses the progress.
 - **Chaos raises heat** (not eating itself): tipping cans, wrecking/making a mess, **smashing the neighbourhood apart**, scaring locals, blasting powerups at people. Heat drains slowly while hidden and out of sight.
 - **Everything breaks** (ADR-0003): the city is voxel-based and destructible — walls, fences, shopfronts, landmarks. Tank shells at tier 5 level the place; rubble is real geometry that piles up, blocks pursuers, and can bury food. Destruction is a chaos source, so wrecking things is itself a route up the heat ladder.
@@ -40,6 +40,10 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
 - **Trees:** Jimothy can climb; paparazzi and animal control cannot. Trees hold weird loot (bird nests, eggs, pants, other finds — "JIMOTHY ACQUIRES PANTS"). Pursuers wait below, so heat does not drain in a tree — and at tier 5, tank shells can dislodge him.
 - Combo multiplier resets if no pickup for a few seconds (or when a shell sends him flying).
 - Best score persists in localStorage.
+
+## Giant identity correction — 2026-10-03
+
+The original textured model remains visible at every size. Proportional anatomy growth keeps the face, paws and tail readable while the belly gains more girth. The giant jiggles and tumbles continuously; an added ball must not replace his torso. Carried objects follow the actual animated skin.
 
 ## Scale and shape
 

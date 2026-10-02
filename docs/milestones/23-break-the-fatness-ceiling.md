@@ -95,3 +95,12 @@ User eats until Jimothy is taller than the houses, rolls across the island in a 
 `tests/scale.spec.js` covers continued growth, reachable block size, unchanged saturating penalties, camera framing, movement and held rolling. Adjacent aim, physics, fatness and dev-panel checks were run with the world pass. A separate loaded-rig measurement projected the bounds of every posed body part into the camera at fatness 0, 90 and 250: maximum vertical screen extent 0.263, 0.500 and 0.695, all within the frame. Evidence: `output/iterate/actual-rig-camera-check.log`. The visual feel still needs Chris's playtest.
 
 Final repair evidence: `giant-coat-checks.log` (20 pass), `giant-final.log` (3 pass), `giant-adjacent.log` (27 pass before final coat refinement), native Metal street capture/release in `giant-street-final.log`. The original body-bone-scale assertion was replaced by actual torso growth and unchanged extremity-geometry assertions because growth is now a field baked into vertices. No tolerance was widened.
+
+## Revised giant identity — Chris, 2026-10-03 (JIM-69)
+
+The original model must remain recognisable as a round, fat, jiggly raccoon. This replaces the exact spherical coat and fixed-size extremity criteria above. Preserve the original mesh topology/textures; grow the anatomy enough to remain readable while the torso gains more girth. Keep travel-driven rolling, grounded movement and visible surface collection.
+
+- [x] The delivery uses the original continuous animal surface without an added sphere, and face/paws/tail stay readable through House, Block and Absurd growth.
+- [x] Jiggle moves the loaded model with stable geometry and bounded amplitude.
+- [x] Existing grounding, rolling, collection, camera and reset checks pass.
+- [ ] Chris approves the round raccoon silhouette and weight in motion (user playtest).

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -793,12 +793,16 @@ export class JimothyController {
       const bob = Math.abs(Math.sin(this.elapsed * P.WADDLE_BOB_HZ + 0.9)) * 0.12 * speedNorm;
       const resting=this.speed<IDLE.MIN_SPEED&&!this.move&&!this.swimming&&this.grounded;
       const look=this.idleAction==='look'?this.idleBlend:0,scratch=this.idleAction==='scratch'?this.idleBlend:0;
+      const round=fatRoundness(gameState.player.fatness),skinTuck=tuck*THREE.MathUtils.lerp(1,RIG.GIANT_TUCK,round);
       this.rig.pose('head', -bodyPitch * MOVES.HEADBUTT.HEAD_PITCH_GAIN
-        + tuck * MOVES.ROLL.TUCK_HEAD + (resting?Math.sin(this.elapsed*IDLE.BREATH_HZ*Math.PI*2)*IDLE.HEAD_PITCH:bob)
+        + skinTuck * MOVES.ROLL.TUCK_HEAD + (resting?Math.sin(this.elapsed*IDLE.BREATH_HZ*Math.PI*2)*IDLE.HEAD_PITCH:bob)
         + look*IDLE.LOOK_PITCH, 0, look*Math.sin(this.idleTime*Math.PI)*IDLE.LOOK_YAW+scratch*IDLE.HEAD_SCRATCH);
-      this.rig.pose('tail', tuck * MOVES.ROLL.TUCK_TAIL, 0,
+      this.rig.pose('tail', skinTuck * MOVES.ROLL.TUCK_TAIL, 0,
         resting?Math.sin(this.elapsed*IDLE.TAIL_HZ*Math.PI*2)*IDLE.TAIL_ANGLE:Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck));
-      this.rig.grow(width, fatRoundness(gameState.player.fatness));
+      this.rig.grow(width, round);
+      const hz=THREE.MathUtils.lerp(FATNESS.JIGGLE_HZ,RIG.GIANT_JIGGLE_HZ,round);
+      const skinWobble=Math.sin(this.elapsed*hz*Math.PI*2)*Math.min(RIG.JIGGLE_MAX,this.jiggleAmp+jelly);
+      this.rig.root.scale.multiply(new THREE.Vector3(1+skinWobble,1-skinWobble*RIG.JIGGLE_HEIGHT,1-skinWobble*RIG.JIGGLE_LENGTH));
     }
 
     // Tumble about his MIDDLE, not his toes. The group's origin sits at ground

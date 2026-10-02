@@ -19,6 +19,26 @@
 
 ## Open
 
+### JIM-69 — Giant form loses Jimothy's original model and visible jiggle
+
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 23 refinement.
+
+The spherical GiantCoat hides the original torso; fixed-size extremities disappear at Block/Absurd size. The wobble only scales the hidden placeholder. Retain the original continuous mesh, photographic markings and readable head/paws/tail at every size, with a round swollen body and visible jiggle during sustained rolling. This supersedes the old exact-sphere/fixed-extremity giant treatment. Locations: `JimothyRig`, `JimothyController`, `build_jimothy_growth.py`.
+
+**Repair:** the original textured mesh now supplies the whole surface; proportional anatomy growth preserves readable features, and bounded root squash supplies jiggle. Attachments follow posed triangle coordinates, and IK handles minimum folded-leg/sole reach. The identity/jiggle regressions first failed; 25 model/footing/arrival checks pass across final runs, including the unchanged skin-contact checks. Build/rendered smoke and native size/roll views are clean. See the current STATE entry for evidence and the intermediate failures.
+
+### JIM-70 — Giant rolls do not carve continuous ground channels
+
+**Status:** queued in this correction pass · **Reported:** 2026-10-03 (Chris) · Milestone 33 refinement.
+
+Roll damage intentionally excludes implicit terrain and repeats separate spheres. Revise giant rolling to carve a continuous, shallow swept channel with bounded work, persistent ground/collision edits and clean reset. Lean rolling remains a light scrape. This explicitly supersedes the giant ground-protection part of JIM-16/JIM-61. Locations: `Game.onImpact`, `VoxelWorld`, `Constants`.
+
+### JIM-71 — Giant headbutts ignore upward aim against military aircraft
+
+**Status:** queued in this correction pass · **Reported:** 2026-10-03 (Chris) · Milestone 34 refinement.
+
+Giant headbutt centres offset only x/z, discarding the aim direction's y component; military units only receive a nearby sphere impact. Verify and repair upward aimed reach against low attack passes and ground army units while keeping net-only endings and existing lean controls. Locations: `Game.onImpact`, aiming/reticle, `Military`.
+
 ### JIM-68 — Lean Jimothy charges through people and cars without resistance
 
 **Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-03 (Chris)

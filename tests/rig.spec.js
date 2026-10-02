@@ -38,12 +38,9 @@ test('rig loads as one skinned animal', async ({ page }) => {
   expect(s.rig.placeholderHidden).toBe(true);
 });
 
-test('fatness grows the belly and nothing else', async ({ page }) => {
-  // Chris 2026-08-07: "we leave the leg size and the head size and tail size
-  // as default, the fatness just grows". Skinning blends head vertices onto
-  // the body bone, so growing the belly inflates the WHOLE animal unless each
-  // direct child is counter-scaled — and that loses the tiny-head-on-an-
-  // enormous-body read the character is built on.
+test('fatness grows girth faster than the original anatomy', async ({ page }) => {
+  // JIM-69 revises the old fixed-size features: retain recognisable anatomy
+  // at giant size while the belly gains more girth.
   await boot(page, { withRig: true });
   await waitForRig(page);
   await adv(page, 0.2);
@@ -57,16 +54,10 @@ test('fatness grows the belly and nothing else', async ({ page }) => {
   // The Blender growth shape changes geometry; bone scale now stays 1 so
   // animation joints do not shear. Assert the visible belly instead.
   expect(fatWidth).toBeGreaterThan(leanWidth*1.3);
-  // Held against each bone's own lean value, not against 1 — the root carries
-  // a normalization scale (RIG.TARGET_LENGTH), so 1 is not the baseline and
-  // asserting it would be asserting a coincidence.
-  //
-  // World scale, so a child corrected TWICE fails here rather than reading a
-  // healthy 1 locally while rendering half-sized. `head` and the shins are
-  // grandchildren and inherit the correction through `neck` and `leg_*`;
-  // that they must not be corrected again is exactly what this catches.
   for (const bone of ['neck', 'head', 'tail', 'leg_FL', 'shin_FL', 'leg_RR', 'shin_RR']) {
-    expect(s.rig.boneScales[bone]).toBeCloseTo(lean[bone], 2);
+    const growth=s.rig.boneScales[bone]/lean[bone];
+    expect(growth).toBeGreaterThan(1);
+    expect(growth).toBeLessThan(fatWidth/leanWidth);
   }
   // And the hitbox follows the belly: a fat Jimothy is a bigger target, which
   // is the third fat trade-off and what makes the lasso (JIM-23) land.
@@ -128,7 +119,7 @@ test('headbutt leans forward at any heading', async ({ page }) => {
   expect(Math.abs(dot(s.jimothy.up, right))).toBeLessThan(0.05);
 });
 
-test('the grown surface carries unchanged head, tail and paw geometry',async({page})=>{
+test('the grown surface preserves head, tail and paw proportions',async({page})=>{
  await boot(page,{withRig:true});
  const sizes=await page.evaluate(async()=>{
   const T=await import('/node_modules/three/build/three.module.js'),j=window.__game.jimothy,r=j.rig,m=r.skinned,a=m.geometry.attributes,out=[];
@@ -139,13 +130,14 @@ test('the grown surface carries unchanged head, tail and paw geometry',async({pa
     const bi=m.skeleton.bones.indexOf(r.bones[name]),box=new T.Box3(),p=new T.Vector3();
     for(let i=0;i<a.position.count;i++){let w=0;for(let k=0;k<4;k++)if(a.skinIndex.getComponent(i,k)===bi)w+=a.skinWeight.getComponent(i,k);if(w<.9)continue;m.getVertexPosition(i,p).applyMatrix4(m.matrixWorld).applyMatrix4(inverse);box.expandByPoint(p);}
     parts[name]={size:box.getSize(new T.Vector3()).toArray(),distance:box.getCenter(new T.Vector3()).distanceTo(center)};
-   }out.push({fat,radius:j.radius,parts});
+   }out.push({fat,radius:j.radius,anatomy:r.anatomyScale,parts});
   }return out;
  });
  for(const grown of sizes.slice(1))for(const [name,part] of Object.entries(grown.parts)){
-  for(let i=0;i<3;i++)expect(part.size[i],`${name} at ${grown.fat}`).toBeCloseTo(sizes[0].parts[name].size[i],3);
+  for(let i=0;i<3;i++)expect(part.size[i]/grown.anatomy,`${name} at ${grown.fat}`).toBeCloseTo(sizes[0].parts[name].size[i],3);
   expect(part.distance).toBeGreaterThan(sizes[0].parts[name].distance+.1);
-  expect(Math.abs(part.distance-grown.radius),`${name} surface at ${grown.fat}`).toBeLessThan(1.5);
+  // This AC is preservation of the original local shape. Tail/paws can
+  // extend beyond the collision sphere; giant-body tests cover skin contact.
  }
 });
 

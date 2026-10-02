@@ -1,5 +1,13 @@
 # Session state
 
+## Original giant model — JIM-69 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Removed the spherical outer coat and replacement fur shader. The original 39,991-triangle textured animal grows through proportional anatomy plus extra torso girth; face, paws and tail remain readable. Loaded-model jiggle is bounded and slower at giant scale. Large head/tail tucks are smaller to avoid folding the expanded neck. Attachments now follow three sampled skin vertices, preserving contact through wobble and rolling. Folded-leg/sole reach fixes the larger paws on uphill ground. Original Blender source and export recipe are retained.
+
+The two new identity/jiggle reproductions failed before repair. All 25 model, footing, collection and comet checks pass across the final runs, plus eight earlier scale/dev-growth checks. The final five giant checks pass; an intermediate support change was corrected, and two loading timeouts during an extended machine pause passed on repeat. Build and production rendered smoke pass with no console errors. Native five-size and rolling captures were inspected; the roll carries 64 items. Evidence: `giant-identity-red.log`, `giant-model-verified.log`, `giant-support-final.log`, `giant-centre-final.log`, `giant-final-checks.log`, `giant-model-{build,smoke}-final.log`, `giant-identity-native-final.log`, `giant-identity-final-*.png` under `output/iterate/`.
+
+**Next in this authorised correction:** JIM-70 continuous shallow ground channels, then JIM-71 upward military headbutts. The latter defaults to a body lunge at low jet passes; an optional shockwave preference is pending. Collectibles/farms/landmark planning remains recorded below.
+
 ## People and cars have weight — JIM-68 — 2026-10-03
 
 **Implemented, awaiting Chris's playtest.** Zero-fatness scurries and rolls stop against standing people and intact cars. Swept contact preserves sliding/backing away; low-strength charges end on contact. Lean headbutts can topple a person with reduced force and recoil. Growth earns rolling knockdowns, heavier car shoves and car collection. Cars now use 1,100 kg bodies with lower shove lift/spin. All tuning is in `BODY_CONTACT`/`STREET`; no new physics bodies are allocated for contact.

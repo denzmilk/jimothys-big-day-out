@@ -290,10 +290,8 @@ export const FATNESS = {
   // UNIFORMLY — which preserves proportions, so a raccoon at x32 is a 64 m
   // raccoon. Long, not round.
   //
-  // Small, he keeps the short-spine shape, because that silhouette is the whole
-  // character. Big, he converges on a sphere, because that is what a thing that
-  // rolls has to be. Measured against the growth term, so it is the same clock:
-  // The coat and pivot reach their spherical treatment around House size.
+  // Blend the physical pivot toward the grown torso around House size.
+  // JIM-69 retains the original textured animal and proportionate anatomy.
   ROUNDNESS_FULL_GROWTH: 8,
   // Height gains far less than width: he is a short-spine raccoon, and the
   // silhouette has to stay a wide low blob rather than becoming a cube. Kept at
@@ -776,15 +774,12 @@ export const ASSET_PATHS = {
 // head/body/tail at load time — no Blender, no rigging.
 export const RIG = {
   TORSO_WEIGHT: 0.8,
-  FUR_DETAIL_START: .9,
-  FUR_DETAIL_END: .99,
-  FUR_STRETCH_DISTANCE: .001,
-  COAT_INSET: .04,
-  COAT_INSET_FRACTION: .006,
-  COAT_ROUGHNESS: .94,
-  FUR_DARK: 0x45484b,
-  FUR_LIGHT: 0x9a9d9c,
-  FUR_DENSITY: 8,
+  ANATOMY_GROWTH: .45,
+  JIGGLE_MAX: .06,
+  JIGGLE_HEIGHT: .6,
+  JIGGLE_LENGTH: .3,
+  GIANT_JIGGLE_HZ: 2.4,
+  GIANT_TUCK: .3,
   SOCKET_BLEND_IN: .15,
   SOCKET_BLEND_OUT: .6,
   GROWTH_ANCHORS: {

@@ -1,4 +1,4 @@
-"""Author a spherical growth direction on the original continuous Jimothy mesh.
+"""Author a rounded growth direction on the original continuous Jimothy mesh.
 
 Blender --background --python-exit-code 1 --python tools/build_jimothy_growth.py
 The basis and skin weights stay intact; GiantGrowth stores one unit of growth.
@@ -33,15 +33,6 @@ for v,p,k in zip(mesh.data.vertices,world,key.data):
  k.co=v.co+linear@(direction*radius)
 mesh['growth_recipe']='build_jimothy_growth.py: spherical torso, rigid extremity directions'
 mesh['growth_radius']=radius
-# A smooth coat fills the concave angular fans around tiny sockets at giant
-# scale. Its lean basis is hidden inside the original torso. Runtime joins it
-# into the same skinned draw, retaining the original animated detail above it.
-bpy.ops.mesh.primitive_uv_sphere_add(segments=64,ring_count=40,radius=radius*.0001,location=center)
-coat=bpy.context.object;coat.name='GiantCoat'
-for face in coat.data.polygons:face.use_smooth=True
-coat.shape_key_add(name='Basis');growth=coat.shape_key_add(name='GiantGrowth')
-for v,k in zip(coat.data.vertices,growth.data):k.co=v.co+v.co.normalized()*radius
-coat['growth_coat']=True
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'assets/blender/jimothy/jimothy-growth.blend'))
 bpy.ops.export_scene.gltf(filepath=str(ROOT/'public/assets/models/jimothy-skinned.glb'),export_format='GLB',export_yup=True,export_apply=False,export_skins=True,export_morph=True,export_morph_normal=False,export_extras=True)
 print('GIANT_GROWTH '+json.dumps(dict(vertices=len(world),radius=radius,core=len(core))))

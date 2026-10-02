@@ -37,22 +37,15 @@ same triangles and surface. See `output/iterate/jimothy-asset-integrity.log`.
 /Applications/Blender.app/Contents/MacOS/Blender --background --python-exit-code 1 --python tools/build_jimothy_growth.py
 ```
 
-The key stores one unit of radial growth; strong head/tail/paw regions share
-an attachment direction so they translate without expanding. Runtime growth
-bakes the key into positions only when size changes, moves animation sockets,
-and rebinds the same twelve-bone skeleton. Lean normalization uses the basis,
-not the morph envelope. A growth-dependent coat shader avoids stretching the
-original animal's photographic fur over a city block; face/tail/paw details
-retain the original texture. All pose, coat and contact parameters are in
-`Constants.js`; original static and footing sources remain preserved.
+The key stores outward torso growth on the original 39,991 triangles. Runtime
+combines slower proportional anatomy growth with extra girth, preserving the
+photographic face, fur, paws and tail. The original static and footing sources,
+textures and twelve-bone skeleton remain intact. Positions and normals are
+rebuilt only on size changes; animated root squash supplies the visible jiggle.
+All runtime growth/jiggle values live in `RIG` in `Constants.js`.
 
-At large sizes, skin influences outside each moving socket transfer smoothly
-to the torso. This prevents a tiny limb rotation from dragging a distant patch
-of belly. Coat treatment also covers stretched socket triangles; rigid face,
-tail and paw detail retains its original texture.
-
-`GiantCoat` is an authored spherical surface, collapsed inside the torso at
-lean size. Runtime merges it into the original skinned draw with body weights.
-It fills angular fans around sockets at extreme growth; the original continuous
-mesh and its small animated details remain. Coat roughness is independent of
-the photographic material atlas.
+JIM-69 (2026-10-03) removes the earlier `GiantCoat` sphere completely. It had
+hidden the animal's original shape. Enlarged head, tail and paws now preserve
+their local proportions while growing more slowly than the torso. Collection
+samples three skin vertices per attachment so objects follow its actual pose
+and wobble. IK accounts for the minimum folded-leg reach and paw size uphill.

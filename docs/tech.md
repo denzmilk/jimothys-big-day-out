@@ -191,3 +191,7 @@ Residents clone the existing twelve MPFB templates through `HUMAN_MODELS_READY`,
 The crash uses the existing voxel queue, debris and explosion systems. Its 3.2 m cutting sphere sits above grade to make a roughly one-metre-deep crater. Simulation starts after the intro, so the entrance does not grant score or starting heat. Four fixed billboard pools, one expanding ring and a permanently registered unshadowed light provide the fire, wake, dust and flash. Restart reuses these resources. Procedural Web Audio starts after a user gesture. All effect, camera, audio and crater tuning lives in `COMET` in Constants.js.
 
 Ordinary mechanic fixtures set `__SKIP_ARRIVAL__`; dedicated arrival tests and production smoke retain the full opening. No production preference skips the entrance.
+
+## Giant identity and contact — JIM-69
+
+`build_jimothy_growth.py` exports only the original continuous animal mesh and its outward growth key. `JimothyRig` combines proportional anatomy scale with extra girth, preserving texture and extremity proportions. No spherical coat or replacement fur shader remains. Geometry/weights/bind data change only when size changes; bounded root squash creates visible jiggle. `RollCollector` binds attachments to triangle barycentric coordinates and samples three posed skin vertices per frame, keeping contact during animation without repeated whole-mesh rays. Growing paw reach includes its folded-leg minimum and sole extent on slopes.

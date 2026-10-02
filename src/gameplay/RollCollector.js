@@ -28,12 +28,11 @@ export class RollCollector {
     const place=e=>{
       this.normal.copy(e.direction).divide(this.radii).normalize();
       e.mesh.quaternion.setFromUnitVectors(this.up,this.normal);
-      e.mesh.position.copy(e.direction).multiply(this.radii).multiplyScalar(e.surfaceRatio).add(local).addScaledVector(this.normal,e.baseOffset+C.SKIN_CLEARANCE);
+      if(e.skinContact)j.rig.contactPosition(e.skinContact,e.mesh.position);
+      else e.mesh.position.copy(e.direction).multiply(this.radii).add(local);
+      e.mesh.position.addScaledVector(this.normal,e.baseOffset+C.SKIN_CLEARANCE);
     };
-    for(const e of this.attached){
-      if(e.surfaceWidth!==j.widthScale&&projections>0&&j.rig?.surfaceRatio){e.surfaceRatio=j.rig.surfaceRatio(e.direction,local,this.radii);e.surfaceWidth=j.widthScale;projections--;}
-      place(e);
-    }
+    for(const e of this.attached)place(e);
     if(this.cooldown>0)return;
     for(const e of this.entities.values()){
       if(this.attached.length>=C.CAPACITY||projections<=0)break;
@@ -49,7 +48,7 @@ export class RollCollector {
       eventBus.emit(Events.ENTITY_ATTACH,{id:e.id});
       e.attached=true;e.direction=j.group.worldToLocal(this.point.clone()).sub(local).divide(this.radii).normalize();
       if(e.direction.lengthSq()===0)e.direction.set(0,-1,0);
-      e.surfaceRatio=j.rig?.surfaceRatio?j.rig.surfaceRatio(e.direction,local,this.radii):1;e.surfaceWidth=j.widthScale;projections--;
+      e.skinContact=j.rig?.surfaceContact?.(e.direction,local,this.radii);projections--;
       j.group.attach(e.mesh);place(e);this.attached.push(e);
     }
   }

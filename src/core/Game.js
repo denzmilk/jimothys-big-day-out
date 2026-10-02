@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
-  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET,
+  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { fatFactor } from './MathUtils.js';
@@ -86,12 +86,6 @@ class Game {
     this.scene.environment=this.environment.texture;pmrem.dispose();
     this.debris = new Debris(this.scene, this.physics);
     this.jimothy = new JimothyController(this.scene, this.physics, this.input, this.voxels);
-    // Moves land their damage ahead of him (headbutt/roll), never underfoot.
-    // The offset is the blast radius itself plus the move's own reach, so a
-    // wrecking-ball Jimothy carves the wall in front rather than the floor
-    // beneath (playtest 2026-07-23: "he gets stuck in a hole").
-    // The move hands over its own config, so its demolition policy travels
-    // with it instead of being re-derived here from positional arguments.
     this.jimothy.onImpact = (x, y, z, dir, cfg, reach, aim = 0) => {
       const from = { x, y, z };
       // ONE march, feeding all three answers: what the swing strikes, whether
@@ -100,6 +94,17 @@ class Game {
       const hit = this.aimHit(from, dir, this.blastReach(cfg, reach));
       const digs = this.digsTerrain(cfg, aim, from, hit);
       const at = this.impactPoint(from, dir, cfg, reach, {}, digs, hit);
+      const bodyRadius=this.jimothy.radius,giant=bodyRadius>=GIANT_IMPACT.MIN_RADIUS;
+      if(giant&&!digs){
+        const rolling=cfg===MOVES.ROLL,offset=rolling?0:bodyRadius*GIANT_IMPACT.HEADBUTT_FORWARD;
+        const center={x:x+dir.x*offset,y,z:z+dir.z*offset};
+        const radius=bodyRadius*(rolling?GIANT_IMPACT.ROLL_RADIUS:GIANT_IMPACT.HEADBUTT_RADIUS);
+        this.voxels.queueDamageSphere(center.x,center.y,center.z,radius,{key:rolling?'roll':null});
+        // Body contact already loosens collectibles. A demolition impulse on
+        // every roll tick would explode cars before they can stick to his coat.
+        if(!rolling)eventBus.emit(Events.WORLD_IMPACT,{...center,radius});
+        this.onBlast?.(center);return;
+      }
       this.blastAt(at, cfg.RADIUS_SCALE, { fatShare: cfg.FAT_BLAST_SHARE, digsTerrain: digs });
       this.onBlast?.(at);
     };
@@ -330,6 +335,7 @@ class Game {
         : [[jp.x, jp.z]],
       this.flyCamera.active ? STREAM.FLY_COLUMNS_PER_FRAME : STREAM.COLUMNS_PER_FRAME,
     );
+    for(const {job,cells}of this.voxels.processDamage(this.manualTime?{maxSlices:WORK_BUDGET.DAMAGE_SLICES}:{maxMilliseconds:WORK_BUDGET.DAMAGE_MS}))this.demolitionEffects(cells,{x:job.cx,y:job.cy,z:job.cz});
     this.voxels.processGeneration(this.manualTime?{maxSlices:WORK_BUDGET.GENERATION_SLICES}:{maxMilliseconds:WORK_BUDGET.GENERATION_MS});
     this.voxels.remeshDirty(this.manualTime?{maxSlices:WORK_BUDGET.MESH_SLICES}:{maxMilliseconds:WORK_BUDGET.MESH_MS});
     // Containers stay tied to HIM, never to the camera: streaming them around a
@@ -653,7 +659,12 @@ class Game {
     const removed = this.voxels.damageSphere(
       pos.x, pos.y, pos.z, this.blastRadius(fatShare) * radiusScale, { digsTerrain },
     );
-    if (!removed.length) return 0;
+    this.demolitionEffects(removed,pos);
+    return removed.length;
+  }
+
+  demolitionEffects(removed,pos){
+    if(!removed.length)return;
     this.debris.spawnBurst(removed.filter(cell=>cell.mat!==GLAZING.MATERIAL_ID));
     const glass=removed.filter(cell=>cell.mat===GLAZING.MATERIAL_ID);
     if(glass.length)eventBus.emit(Events.GLASS_SHATTER,{points:glass,origin:pos});

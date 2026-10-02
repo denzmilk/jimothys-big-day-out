@@ -25,6 +25,7 @@ export class VoxelWorld {
     this.material = new THREE.MeshStandardMaterial({ vertexColors: true });
     this.glassMaterial = new THREE.MeshPhysicalMaterial({color:G.COLOR,roughness:G.ROUGHNESS,transmission:G.TRANSMISSION,thickness:G.THICKNESS,ior:G.IOR,side:THREE.DoubleSide});
     this.removedCount = 0;
+    this.damageQueue = [];
     this._colors = new Map(
       Object.entries(VOXEL.MATERIALS).map(([id, m]) => [Number(id), new THREE.Color(m.color)]),
     );
@@ -133,7 +134,7 @@ export class VoxelWorld {
       const [ex, ey, ez] = key.split(',').map(Number);
       const chunk = this.chunks.get(key) || this._createChunk(ex, ey, ez);
       let replayed=0;
-      for (const [idx,mat]of edits){chunk.data[idx]=mat;if(++replayed%W.REPLAY_BATCH===0)yield;}
+      for (const [idx,mat]of edits){chunk.data[idx]=mat;this._updateOccupancy(chunk,idx,mat);if(++replayed%W.REPLAY_BATCH===0)yield;}
       this._markDirty(chunk);
     }
     // A hole is a hole because of what SURROUNDS it. Below the stored skin the
@@ -234,7 +235,7 @@ export class VoxelWorld {
   _createChunk(cx, cy, cz) {
     const CX = VOXEL.CHUNK_XZ;
     const chunk = {
-      cx, cy, cz, data: new Uint8Array(CX * VOXEL.CHUNK_Y * CX), mesh: null, dirty: true, revision: 0,
+      cx, cy, cz, data: new Uint8Array(CX * VOXEL.CHUNK_Y * CX), damageColumns:new Map(),terrainTops:new Int32Array(CX*CX).fill(-2147483648), mesh: null, dirty: true, revision: 0,
     };
     const key = this._key(cx, cy, cz);
     this.chunks.set(key, chunk);
@@ -243,6 +244,15 @@ export class VoxelWorld {
     if (!set) this.columnChunks.set(col, set = new Set());
     set.add(key);
     return chunk;
+  }
+
+  _updateOccupancy(chunk,index,mat){
+    const C=VOXEL.CHUNK_XZ,CY=VOXEL.CHUNK_Y,x=index%C,row=Math.floor(index/C),y=row%CY,z=Math.floor(row/CY),column=x+C*z;
+    let floor=chunk.terrainTops[column];
+    if(floor===-2147483648){floor=this.terrain?this.terrain.topSolidVoxelY((chunk.cx*C+x+.5)*VOXEL.SIZE,(chunk.cz*C+z+.5)*VOXEL.SIZE):-2147483647;chunk.terrainTops[column]=floor;}
+    let bits=chunk.damageColumns.get(column)||0;
+    if(mat&&mat!==VOXEL.EMPTY&&chunk.cy*CY+y>floor)bits|=1<<y;else bits&=~(1<<y);
+    if(bits)chunk.damageColumns.set(column,bits>>>0);else chunk.damageColumns.delete(column);
   }
 
   _markDirty(chunk) { chunk.dirty = true; chunk.revision = (chunk.revision || 0) + 1; }
@@ -276,7 +286,7 @@ export class VoxelWorld {
   set(vx, vy, vz, mat) {
     const chunk = this._chunkFor(vx, vy, vz, true);
     if (!chunk) return; // outside the column currently being generated
-    chunk.data[this._localIndex(vx, vy, vz)] = mat;
+    const index=this._localIndex(vx,vy,vz);chunk.data[index]=mat;this._updateOccupancy(chunk,index,mat);
     this._markDirty(chunk);
     if(!this._writeColumn){
       const local=[((vx%VOXEL.CHUNK_XZ)+VOXEL.CHUNK_XZ)%VOXEL.CHUNK_XZ,((vy%VOXEL.CHUNK_Y)+VOXEL.CHUNK_Y)%VOXEL.CHUNK_Y,((vz%VOXEL.CHUNK_XZ)+VOXEL.CHUNK_XZ)%VOXEL.CHUNK_XZ];
@@ -589,46 +599,77 @@ export class VoxelWorld {
    *  floor is now the column's OWN surface, which is what the constant always
    *  meant. (Third constant of this family — see docs/STATE.md.) */
   damageSphere(cx, cy, cz, radius, { digsTerrain = true } = {}) {
-    const s = VOXEL.SIZE;
-    const r = Math.ceil(radius / s);
-    // A blast can straddle a seam into a column that has not been built yet;
-    // without this the far half of the crater silently does nothing.
-    for (const dx of [-radius, radius]) {
-      for (const dz of [-radius, radius]) this._ensureAtWorld(cx + dx, cz + dz);
+    const result=[];
+    for(const batch of this._damageSphereTask({cx,cy,cz,radius,digsTerrain}))result.push(...batch);
+    return result;
+  }
+
+  queueDamageSphere(cx,cy,cz,radius,{digsTerrain=false,key=null}={}){
+    if(!(radius>0))return false;
+    const job={cx,cy,cz,radius,digsTerrain,key,started:false};
+    const replacement=key?this.damageQueue.findIndex(j=>j.key===key&&!j.started):-1;
+    if(replacement>=0)this.damageQueue[replacement]=job;
+    else if(this.damageQueue.length<W.MAX_DAMAGE_QUEUE)this.damageQueue.push(job);
+    else return false;
+    return true;
+  }
+
+  processDamage({maxMilliseconds=Infinity,maxSlices=Infinity}={}){
+    const started=performance.now(),reports=[];let slices=0;
+    while(this.damageQueue.length&&slices<maxSlices&&performance.now()-started<maxMilliseconds){
+      const job=this.damageQueue[0];job.started=true;job.task??=this._damageSphereTask(job);
+      const batch=job.task.next();slices++;
+      if(batch.value?.length){
+        let report=reports.find(r=>r.job===job);if(!report){report={job,cells:[]};reports.push(report);}
+        report.cells.push(...batch.value);
+      }
+      if(batch.done)this.damageQueue.shift();
     }
-    const [bx, by, bz] = this.worldToVoxel(cx, cy, cz);
-    const removed = [];
-    for (let x = bx - r; x <= bx + r; x++) {
-      for (let z = bz - r; z <= bz + r; z++) {
-        // One height lookup per COLUMN of the blast, not per voxel.
-        const floor = digsTerrain || !this.terrain
-          ? -Infinity
-          : this.terrain.topSolidVoxelY((x + 0.5) * s, (z + 0.5) * s);
-        const wx = (x + 0.5) * s;
-        const wz = (z + 0.5) * s;
-        for (let y = Math.max(by - r, floor + 1); y <= by + r; y++) {
-          const mat = this.get(x, y, z);
-          if (mat === 0 || mat === VOXEL.BEDROCK) continue;
-          const wy = (y + 0.5) * s;
-          if (Math.hypot(wx - cx, wy - cy, wz - cz) > radius) continue;
-          // Recorded, not just written: this hole has to still be here when
-          // the player walks away and comes back.
-          if (mat === G.MATERIAL_ID) this.shatterPane(x, y, z, removed);
-          else {
-            this.setEdit(x, y, z, 0);
-            removed.push({ x: wx, y: wy, z: wz, mat });
+    this.lastDamageMs=performance.now()-started;return reports;
+  }
+
+  *_damageSphereTask({cx,cy,cz,radius,digsTerrain}){
+    const s=VOXEL.SIZE,r2=radius*radius;let removed=[],visited=0;
+    const remove=(x,y,z,mat)=>{
+      const first=removed.length;
+      if(mat===G.MATERIAL_ID)this.shatterPane(x,y,z,removed);
+      else{this.setEdit(x,y,z,0);removed.push({x:(x+.5)*s,y:(y+.5)*s,z:(z+.5)*s,mat});}
+      this.removedCount+=removed.length-first;
+      if(digsTerrain)for(let i=first;i<removed.length;i++)this._materialiseAround(...this.worldToVoxel(removed[i].x,removed[i].y,removed[i].z));
+    };
+    if(!digsTerrain){
+      // Occupied Y bits skip empty rooms and implicit ground. Giant contact
+      // costs stored surfaces, rather than a cubic scan of a 70-metre ball.
+      const CX=VOXEL.CHUNK_XZ,CY=VOXEL.CHUNK_Y;
+      for(const chunk of [...this.chunks.values()]){
+        const bx=chunk.cx*CX,by=chunk.cy*CY,bz=chunk.cz*CX;
+        if((bx+CX)*s<cx-radius||bx*s>cx+radius||(bz+CX)*s<cz-radius||bz*s>cz+radius||(by+CY)*s<cy-radius||by*s>cy+radius)continue;
+        for(const [column,bits]of chunk.damageColumns){
+          if(++visited%W.DAMAGE_BATCH===0){yield removed;removed=[];}
+          if(this.chunks.get(this._key(chunk.cx,chunk.cy,chunk.cz))!==chunk)break;
+          let mask=bits;const x=column%CX,z=Math.floor(column/CX);
+          const wx=(bx+x+.5)*s,wz=(bz+z+.5)*s,flat=(wx-cx)**2+(wz-cz)**2;if(flat>r2)continue;
+          while(mask){
+            if(++visited%W.DAMAGE_BATCH===0){yield removed;removed=[];}
+            const bit=mask&-mask;mask=(mask&~bit)>>>0;const y=31-Math.clz32(bit),vy=by+y;
+            if(flat+((vy+.5)*s-cy)**2>r2)continue;
+            const mat=this.get(bx+x,vy,bz+z);if(!mat||mat===VOXEL.BEDROCK)continue;
+            remove(bx+x,vy,bz+z,mat);
           }
         }
       }
+    }else{
+      const [bx,by,bz]=this.worldToVoxel(cx,cy,cz),r=Math.ceil(radius/s);
+      for(let x=bx-r;x<=bx+r;x++)for(let z=bz-r;z<=bz+r;z++){
+        const flat=((x+.5)*s-cx)**2+((z+.5)*s-cz)**2;if(flat>r2)continue;
+        for(let y=by-r;y<=by+r;y++){
+          if(++visited%W.DAMAGE_BATCH===0){yield removed;removed=[];}
+          if(flat+((y+.5)*s-cy)**2>r2)continue;
+          const mat=this.get(x,y,z);if(!mat||mat===VOXEL.BEDROCK)continue;remove(x,y,z,mat);
+        }
+      }
     }
-    // Only after every removal, or a face exposed by one voxel would be
-    // re-materialised and then removed again by the next.
-    for (const cell of removed) {
-      const [vx, vy, vz] = this.worldToVoxel(cell.x, cell.y, cell.z);
-      this._materialiseAround(vx, vy, vz);
-    }
-    this.removedCount += removed.length;
-    return removed;
+    if(removed.length)yield removed;
   }
 
   shatterPane(x, y, z, removed) {
@@ -949,7 +990,7 @@ export class VoxelWorld {
   }
 
   clear() {
-    this._meshWork=null;this._columnWork.clear();
+    this._meshWork=null;this._columnWork.clear();this.damageQueue=[];
     for (const chunk of this.chunks.values()) {
       if (chunk.mesh) {
         this.scene.remove(chunk.mesh);
@@ -976,6 +1017,8 @@ export class VoxelWorld {
       removed: this.removedCount,
       columns: this.generated.size,
       edits,
+      pendingDamage:this.damageQueue.length,
+      damageMs:this.lastDamageMs||0,
       pendingColumns:this._columnWork.size,
       generationMs:this.lastGenerationMs||0,
       pendingMeshes:[...this.chunks.values()].filter(c=>c.dirty).length,

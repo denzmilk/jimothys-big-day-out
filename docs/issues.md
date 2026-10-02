@@ -18,9 +18,11 @@ Removing a voxel exactly across a chunk seam only dirtied the removed cell's chu
 
 ### JIM-61 — Giant attacks pass above buildings
 
-**Status:** open · **Reported:** 2026-10-02 (Chris)
+**Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris)
 
 Flat headbutts at the same wall remove 56 voxels at fatness 0, 538 at 90, and zero at 250/400. All four ordinary E presses fire. At Block size the blast centre is y=55.92 with radius 5.75 over ground y=39.56; the collision body grows upward while blast radius saturates. Roll damage is only a 1.24 m sphere at this size. There is no giant surface-contact demolition path. Fix impact/contact geometry with bounded voxel work; simply enlarging the existing cubic loop would worsen JIM-48. Locations: `JimothyController._updateMoves`, `Game.blastRadius/impactPoint/blastAt`, `VoxelWorld.damageSphere`. Evidence: `output/iterate/giant-headbutt-audit.log`; [audit](giant-audit-2026-10-02.md). Proposed responsive-destruction work is in the backlog; no fix is claimed.
+
+**Repair, 2026-10-02:** giant surface contact uses the physical sphere; headbutts reach farther than rolling. A sparse above-ground occupancy index skips implicit terrain and empty rooms. Work yields at a fixed candidate count/time budget; repeated roll contacts coalesce and restart cancels pending work. The reproduced E failure (zero cells) now removes 22,375 cells at Block size in the native loaded scene, preserving terrain and producing debris/glass with no errors. Three giant and four glazing regressions pass, plus nine voxel-work checks. The 18 adjacent aiming/ordinary-destruction cases passed before the sparse-index refinement. Build/rendered smoke and before/after native captures pass. Evidence: `giant-impact-red.log`, `giant-index-green.log`, `giant-impact-native.log`, `giant-impact-before.png`, `giant-impact-after.png`. Rendering remains JIM-48.
 
 ### JIM-60 — Held rolling stops tumbling after 0.9 seconds
 

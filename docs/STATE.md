@@ -1,5 +1,13 @@
 # Session state
 
+## Giant demolition — JIM-61 / milestone 33 — 2026-10-02
+
+Implemented, awaiting Chris's playtest. Giant headbutts and continuous rolling damage the buildings their physical sphere reaches. Surface damage uses sparse above-ground occupancy, with bounded work and coalesced roll contacts. Roads remain protected; deliberately aimed digs retain their existing smaller footprint. Debris and glass stay pooled; reset cancels queued damage.
+
+Evidence: the new E regression first removed zero cells at Block size (`giant-impact-red.log`). All three giant and four glass cases now pass (`giant-index-green.log`), nine voxel work/damage unit cases pass, and 18 adjacent aiming/ordinary destruction checks passed before the sparse-index refinement (`giant-impact-green.log`; its obsolete raised-foundation assertion failed and was corrected to check authored terrain). Native loaded capture removes 22,375 cells, drains the queue and rebuilds all dirty meshes, with errors empty (`giant-impact-native.log`, before/after PNGs). Build and rendered smoke pass.
+
+**Next:** rendering batches, draw-distance/quality controls, distant silhouettes, CPU work and final native route measurements. Continue military → beaches → underwater afterwards; all are approved.
+
 ## Demolition heat — JIM-35 — 2026-10-02
 
 Implemented, awaiting balance playtest. Demolition now awards 0.4 heat per cubic metre, preserving wanted-level behaviour when voxel resolution changes. `tests/heat-volume.test.mjs` verifies equal-volume invariance and that a small hole no longer produces five stars. Build and rendered smoke pass (`giant-damage-build.log`, `giant-damage-smoke.log`); giant demolition/rendering work continues under milestone 33.

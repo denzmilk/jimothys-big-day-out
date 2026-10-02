@@ -29,6 +29,7 @@ export class CarExplosions {
     this.light=new THREE.PointLight(C.FIRE_COLOR,0,C.LIGHT_DISTANCE);this.light.visible=true;scene.add(this.light);
     this.dummy=new THREE.Object3D();this.rotation=new THREE.Quaternion();this.color=new THREE.Color();
     eventBus.on(Events.CAR_EXPLODED,e=>this.spawn(e));
+    eventBus.on(Events.EXPLOSION_SPAWN,e=>this.spawn(e));
   }
   spawn({x,y,z,radius}){
     if(this.bursts.length>=C.MAX)this.bursts.shift();

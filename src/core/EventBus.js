@@ -46,6 +46,8 @@ export const Events = {
   PLAYER_EATING: 'player:eating',
   PLAYER_STUNNED: 'player:stunned',
   PLAYER_LAUNCHED: 'player:launched',
+  PLAYER_BODY_READY:'player:body-ready',
+  PLAYER_CONTROLLED:'player:controlled',
   PLAYER_NETTED: 'player:netted',
   // can:*
   CAN_TIPPED: 'can:tipped',
@@ -57,6 +59,9 @@ export const Events = {
   WATER_SAMPLE: 'water:sample',
   WATER_DISTURB: 'water:disturb',
   WORLD_IMPACT: 'world:impact',
+  WORLD_BLAST:'world:blast',
+  EXPLOSION_SPAWN:'explosion:spawn',
+  MILITARY_WARNING:'military:warning',
   GLASS_SHATTER: 'glass:shatter',
   CAR_EXPLODED: 'car:exploded',
   TRAFFIC_OBSTACLES: 'traffic:obstacles',

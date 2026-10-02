@@ -1,5 +1,12 @@
 # Session state
 
+## Military response — milestone 34 — 2026-10-02
+
+Implemented, awaiting Chris’s playtest. Licensed Blender tank/jet deliveries, road-following tanks, aimed turrets, telegraphed jet passes, swept shell collision, bounded destruction, physical breakaway parts and giant collection are integrated. Tanks arrive at tier 5, or tier 4 for giants; jets require tier 5 and giant size. Hits reset combo and launch/tumble Jimothy, with a brief camera kick and control recovery. Only the net ends runs. Six final military cases, twelve contact/physics cases, unit sphere sweep, build and production rendered smoke pass. Native 12-second loaded Block battle: median 14 ms, p95 16.8 ms, worst 35.4 ms, no errors; clean restart. See milestone 34 for evidence and asset credits.
+
+**Next:** authorised milestone 35 beaches/deformable sand, then milestone 36 diving and underwater sites. Sand tests have been written first and currently fail because the implementation is absent.
+
+
 ## First-explosion shader stall — JIM-64 — 2026-10-02
 
 Implemented, awaiting playtest. Keep the explosion PointLight visible with zero intensity between flashes: toggling its visibility changed shader light-count defines across the entire world. The stable-light regression passes. Matched native 12-second Block battle worst frame **4,432.9 → 50.2 ms**, with final median 16.2 ms / p95 18.9 ms, two shots/impacts, one launch and no errors. Reset clears military objects and restores kinematic control. Build/rendered smoke pass. Logs: `military-native-stable-lights.log`, `explosion-light-green.log`, `explosion-light-smoke.log`. Military work remains uncommitted; projectile collision refinement is next, then beaches/underwater.

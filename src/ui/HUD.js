@@ -8,6 +8,8 @@ export class HUD {
     for(const [name,preset]of Object.entries(GRAPHICS.PRESETS)){const option=document.createElement('option');option.value=name;option.textContent=`${name[0].toUpperCase()+name.slice(1)} · ${preset.DISTANCE} m`;quality.appendChild(option);}
     quality.value=gameState.world.graphics?.preset||GRAPHICS.DEFAULT;
     quality.addEventListener('change',()=>eventBus.emit(Events.GRAPHICS_CHANGED,{preset:quality.value}));
+    const military=document.getElementById('military-warning');
+    eventBus.on(Events.MILITARY_WARNING,({warning})=>{military.textContent=warning;military.hidden=!warning;});
     this.scoreEl = document.getElementById('score');
     this.fatEl = document.getElementById('fat');
     this.heatEl = document.getElementById('heat');
@@ -32,6 +34,7 @@ export class HUD {
     eventBus.on(Events.PLAYER_PICKUP, ({ name }) => this.stinger(`JIMOTHY ACQUIRES ${name}`));
     eventBus.on(Events.PLAYER_EATING, () => this.stinger('NOM NOM NOM…'));
     eventBus.on(Events.PLAYER_STUNNED, () => this.cameraFlash());
+    eventBus.on(Events.PLAYER_LAUNCHED, () => this.cameraFlash());
   }
 
   render() {

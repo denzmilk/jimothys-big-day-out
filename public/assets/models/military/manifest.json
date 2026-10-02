@@ -1,0 +1,31 @@
+[
+  {
+    "id": "tank",
+    "length": 7.2,
+    "parts": [
+      "barrel",
+      "hull",
+      "turret",
+      "track-right",
+      "track-left"
+    ],
+    "bytes": 507236,
+    "triangles": 6612,
+    "forward": "+Z",
+    "ground": "minimum Y = 0"
+  },
+  {
+    "id": "jet",
+    "length": 13.0,
+    "parts": [
+      "tail",
+      "wing-right",
+      "wing-left",
+      "fuselage"
+    ],
+    "bytes": 163860,
+    "triangles": 1434,
+    "forward": "+Z",
+    "ground": "minimum Y = 0"
+  }
+]

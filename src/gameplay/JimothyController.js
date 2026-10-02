@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  COLLECTION, WATER, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  COLLECTION, WATER, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -100,6 +100,7 @@ export class JimothyController {
     // The player must never sleep; cans still may (perf).
     this.body.allowSleep = false;
     physics.add(this.body);
+    eventBus.emit(Events.PLAYER_BODY_READY,{body:this.body});
 
     this.vel = new THREE.Vector3();
     this.vy = 0;
@@ -110,7 +111,7 @@ export class JimothyController {
     this.group.rotation.y = this.yaw;
     this.elapsed = 0;
     this.idleWait=0;this.idleTime=0;this.idleIndex=0;this.idleAction=null;this.idleBlend=0;this.idleBreath=0;
-    this.stunTimer = 0;
+    this.stunTimer = 0;this.launched=0;this.launchSpin=0;
     // Damped jiggle spring: every bite kicks it, big bites kick it harder.
     this.jiggleAmp = 0;
     this.widthScale = 1;
@@ -136,6 +137,9 @@ export class JimothyController {
     this._bellyBox = new THREE.Box3();
     this.onImpact = null; // set by Game: (x, y, z, radiusScale) => void
 
+    eventBus.on(Events.PLAYER_LAUNCHED,({velocity,seconds})=>{
+      this.launched=seconds;this.launchSpin=0;this.move=null;this.stunTimer=0;this.grounded=false;gameState.player.stunned=true;this.vel.set(velocity[0],0,velocity[2]);this.vy=velocity[1];
+    });
     eventBus.on(Events.PLAYER_STUNNED, ({ seconds }) => {
       if (!gameState.game.isPlaying) return;
       this.stunTimer = seconds;
@@ -159,6 +163,7 @@ export class JimothyController {
   }
 
   reset() {
+    eventBus.emit(Events.PLAYER_CONTROLLED);this.launched=0;this.launchSpin=0;
     this.idleWait=0;this.idleTime=0;this.idleIndex=0;this.idleAction=null;this.idleBlend=0;this.idleBreath=0;
     this.swimming=false;gameState.player.swimming=false;
     // JIM-52: a held attack must not carry momentum into the next run.
@@ -344,6 +349,12 @@ export class JimothyController {
     // so nobody aiming means this is where he was pointed anyway.
     this.aimYaw = cameraYaw;
     this.elapsed += delta;
+    if(this.launched>0){
+      this.launched=Math.max(0,this.launched-delta);this.launchSpin+=delta*MILITARY.LAUNCH_SPIN;
+      this.vel.set(this.body.velocity.x,0,this.body.velocity.z);this.vy=this.body.velocity.y;
+      if(!this.launched){eventBus.emit(Events.PLAYER_CONTROLLED);gameState.player.stunned=false;this.launchSpin=0;}
+      return;
+    }
     if (this.stunTimer > 0) {
       this.stunTimer -= delta;
       if (this.stunTimer <= 0) gameState.player.stunned = false;
@@ -538,6 +549,7 @@ export class JimothyController {
       // Preserve upward motion so the first frames of a hop remain free.
       if (this.vy <= 0) { p.y = standY; this.vy = 0; }
     }
+    if(this.launched&&this.grounded)this.body.velocity.y=0;
     // Last line of defence: whatever happened above, he is never below the
     // surface of his own column. Cheap, and it makes falling out of the world
     // impossible rather than merely unlikely.
@@ -688,7 +700,7 @@ export class JimothyController {
     this.headSlot.rotation.x =
       -bodyPitch * MOVES.HEADBUTT.HEAD_PITCH_GAIN + tuck * MOVES.ROLL.TUCK_HEAD;
     // Single owner of the body's pitch: headbutt lean + roll tumble.
-    this.group.rotation.x = bodyPitch * 0.5 + this.rollSpin;
+    this.group.rotation.x = bodyPitch * 0.5 + this.rollSpin + this.launchSpin;
     anchor(this.tailSlot.userData.base, this.tailSlot.position);
     this.tailSlot.rotation.y = Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck);
     this.tailSlot.rotation.x = tuck * MOVES.ROLL.TUCK_TAIL; // curls in for the roll

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {eventBus, Events} from '../core/EventBus.js';
 import { CAMERA, PLAYER_CONFIG } from '../core/Constants.js';
 
 // Two modes. Follow (default) is a pull-cam: yaw derives from the camera→
@@ -9,6 +10,11 @@ import { CAMERA, PLAYER_CONFIG } from '../core/Constants.js';
 export class CameraSystem {
   constructor(camera, jimothy, input, voxels = null) {
     this.camera = camera;
+    this.shake = 0;
+    this.kick = new THREE.Euler();
+    this.kickQuaternion = new THREE.Quaternion();
+    eventBus.on(Events.PLAYER_LAUNCHED, () => { this.shake = CAMERA.BLAST_SHAKE_TIME; });
+    eventBus.on(Events.GAME_RESTART, () => { this.shake = 0; });
     this.jimothy = jimothy;
     this.input = input;
     // Only so the boom can stop before it reaches solid (JIM-41). Read-only —
@@ -170,5 +176,13 @@ export class CameraSystem {
     this.camera.position.lerp(this._desired, 1 - Math.exp(-CAMERA.FOLLOW_LERP * delta));
     this._pullIn(this.camera.position);
     this.camera.lookAt(this._lookTarget());
+    if (this.shake > 0) {
+      this.shake = Math.max(0, this.shake - delta);
+      const strength = CAMERA.BLAST_SHAKE_ANGLE * this.shake / CAMERA.BLAST_SHAKE_TIME;
+      const phase = this.shake * CAMERA.BLAST_SHAKE_FREQUENCY;
+      // Reapply after lookAt so impact feedback never changes the input bearing.
+      this.kick.set(Math.sin(phase) * strength, 0, Math.cos(phase) * strength);
+      this.camera.quaternion.multiply(this.kickQuaternion.setFromEuler(this.kick));
+    }
   }
 }

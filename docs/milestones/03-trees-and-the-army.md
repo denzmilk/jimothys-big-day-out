@@ -2,7 +2,7 @@
 
 ## Status
 
-planned
+Planned for trees, loot and the police cordon. Tank/shell work was extracted into [milestone 34](34-military-response.md) under the approved giant-world pass (2026-10-02). Tree-specific shell interactions remain here.
 
 ## Objective
 
@@ -34,8 +34,8 @@ Deliver the two signature absurdities: climbable trees full of weird loot that g
 - [ ] Looting a tree find awards `TREE_LOOT × combo` points and raises heat — test: `tests/escalation.spec.js::tree loot scores`
 - [ ] Heat does not decay while in a tree — test: `tests/escalation.spec.js::no decay in tree`
 - [ ] Tier 4 increases pursuer count/speed per Constants — test: `tests/escalation.spec.js::police cordon`
-- [ ] Tier 5 spawns a tank that fires shells on cooldown — test: `tests/escalation.spec.js::tank fires`
-- [ ] Shell hit launches Jimothy (kinematic→dynamic→recovered), resets combo, never sets `game.netted` — test: `tests/escalation.spec.js::shells launch but never kill`
+- [x] Tier 5 tanks and cooldowns implemented in milestone 34 — `tests/military.spec.js` (awaiting playtest).
+- [x] Shell launch, recovery, combo reset and net-only endings implemented in milestone 34 — `tests/military.spec.js` (awaiting playtest).
 - [ ] Shell hit while perched knocks Jimothy out of the tree — test: `tests/escalation.spec.js::shelled out of tree`
 - [ ] Getting blasted across the block is funny, not frustrating (launch arc, recovery time) — verified by user playtest
 
@@ -50,5 +50,5 @@ Failing Playwright specs first (`tests/escalation.spec.js`); shell trajectories 
 ## Notes
 
 - Raycast-assisted shell hits per ADR-0002 (tunneling mitigation).
-- Tank/shell models are placeholder boxes this milestone; real CC0 models arrive with the asset milestone.
+- Milestone 34 imports the Quaternius CC0 tank and an attributed CC BY jet.
 - Backlog candidates surfaced by this design: pants cosmetic, tree score-banking, shell knock-over of cans for bonus chaos.

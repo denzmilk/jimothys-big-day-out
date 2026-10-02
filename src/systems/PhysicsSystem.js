@@ -59,6 +59,16 @@ export class PhysicsSystem {
     });
 
 
+    eventBus.on(Events.PLAYER_BODY_READY,({body})=>{this.playerBody=body;});
+    eventBus.on(Events.PLAYER_LAUNCHED,({velocity,mass})=>{
+      const body=this.playerBody;if(!body)return;
+      // Jimothy keeps his swept voxel contact solver while Cannon owns flight.
+      body.type=CANNON.Body.DYNAMIC;body.mass=mass;body.updateMassProperties();body.velocity.set(...velocity);body.wakeUp();
+    });
+    eventBus.on(Events.PLAYER_CONTROLLED,()=>{
+      const body=this.playerBody;if(!body)return;body.type=CANNON.Body.KINEMATIC;body.mass=0;body.updateMassProperties();body.angularVelocity.setZero();body.quaternion.set(0,0,0,1);this.resetSweep(body);
+    });
+
     this.ragdolls=new Map();
     eventBus.on(Events.RAGDOLL_CREATE,({id,parts,velocity,receive})=>{
       const C=RAGDOLL,bodies=parts.map(p=>{

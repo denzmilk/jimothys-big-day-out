@@ -6,6 +6,11 @@ export class ScoreSystem {
   constructor() {
     this.comboTimer = 0;
     eventBus.on(Events.GAME_RESTART, () => { this.comboTimer = 0; });
+    eventBus.on(Events.PLAYER_LAUNCHED, () => {
+      this.comboTimer = 0;
+      gameState.player.combo = 1;
+      eventBus.emit(Events.COMBO_CHANGED, { combo: 1 });
+    });
     eventBus.on(Events.PLAYER_PICKUP, ({ points, fat }) => {
       if (!gameState.game.isPlaying) return;
       const p = gameState.player;

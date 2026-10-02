@@ -17,6 +17,7 @@ import { ScoreSystem } from '../systems/ScoreSystem.js';
 import { HeatSystem } from '../systems/HeatSystem.js';
 import { JimothyController } from '../gameplay/JimothyController.js';
 import { TrashCans } from '../gameplay/TrashCans.js';
+import {Military} from '../gameplay/Military.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
 import { EnvironmentLife } from '../level/EnvironmentLife.js';
 import { DayNight } from '../level/DayNight.js';
@@ -121,6 +122,8 @@ class Game {
     this.water=new WaterSystem(this.scene,this.jimothy,this.voxels,this.level.sky);
     this.ragdolls = new HumanRagdolls(this.jimothy,this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
+    this.military=new Military(this.scene,this.jimothy,this.voxels);
+    eventBus.on(Events.WORLD_BLAST,({x,y,z,radius,digsTerrain})=>this.voxels.queueDamageSphere(x,y,z,radius,{digsTerrain}));
     this.dayNight=new DayNight(this.scene,this.renderer,this.level,this.sun,this.ambient,this.jimothy);
     this.environmentLife=new EnvironmentLife(this.scene,this.jimothy,this.voxels);
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
@@ -190,7 +193,7 @@ class Game {
       gameState.reset();
       this.jimothy.reset();
       this.trashCans.reset();
-      this.pursuers.reset();
+      this.pursuers.reset();this.military.reset();
       this.treasures.reset();
       this.crabs.reset();
       this.debris.reset();
@@ -363,7 +366,7 @@ class Game {
     this.ragdolls.update(delta);
     this.collector.update(delta);
     this.streetLife.afterUpdate();
-    this.pursuers.update(delta);
+    this.pursuers.update(delta);this.military.update(delta);
     this.pedestrians.update(delta,position=>this.quality.inView(position,GRAPHICS.ACTOR_RADIUS));
     this.level.update(delta, this.camera,jp,this.quality.preset.DETAIL+this.jimothy.radius);
     this.environmentLife.update(delta);
@@ -841,6 +844,7 @@ class Game {
       },
       game: gameState.game,
       pursuers: this.pursuers.snapshot(),
+      military:this.military.snapshot(),
       underground: {
         below: this.underground,
         depth: +(this.voxels.terrainHeightAt(jp.x, jp.z) - jp.y).toFixed(2),

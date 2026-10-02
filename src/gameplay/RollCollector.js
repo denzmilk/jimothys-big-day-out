@@ -8,7 +8,7 @@ import {eventBus,Events} from '../core/EventBus.js';
 export class RollCollector {
   constructor(scene,jimothy,voxels){
     this.scene=scene;this.jimothy=jimothy;this.voxels=voxels;this.entities=new Map();this.attached=[];this.cooldown=0;
-    this.point=new THREE.Vector3();this.center=new THREE.Vector3();this.box=new THREE.Box3();this.radii=new THREE.Vector3();
+    this.point=new THREE.Vector3();this.center=new THREE.Vector3();this.box=new THREE.Box3();this.radii=new THREE.Vector3();this.normal=new THREE.Vector3();this.up=new THREE.Vector3(0,1,0);this.objectBox=new THREE.Box3();
     eventBus.on(Events.ENTITY_LIST,({receive})=>receive(this.entities.values()));
     eventBus.on(Events.ENTITY_REGISTER,e=>this.entities.set(e.id,e));
     eventBus.on(Events.ENTITY_UNREGISTER,({id})=>{this.entities.delete(id);const i=this.attached.findIndex(e=>e.id===id);if(i>=0)this.attached.splice(i,1);});
@@ -21,20 +21,33 @@ export class RollCollector {
     const local=j.group.worldToLocal(this.center.copy(j.body.position).clone());this.radii.setScalar(r);
     if(j.rig?.loaded&&!j.rig.bellyLocalBox(j.group,this.box).isEmpty()){this.box.getCenter(local);this.box.getSize(this.radii).multiplyScalar(.5);this.center.copy(local);j.group.localToWorld(this.center);}
     if(!Number.isFinite(this.center.lengthSq()))return;
-    for(const e of this.attached)e.mesh.position.copy(e.direction).multiply(this.radii).multiplyScalar(C.SURFACE).add(local);
+    let projections=C.CONTACTS_PER_FRAME;
+    const place=e=>{
+      this.normal.copy(e.direction).divide(this.radii).normalize();
+      e.mesh.quaternion.setFromUnitVectors(this.up,this.normal);
+      e.mesh.position.copy(e.direction).multiply(this.radii).multiplyScalar(e.surfaceRatio).add(local).addScaledVector(this.normal,e.baseOffset+C.SKIN_CLEARANCE);
+    };
+    for(const e of this.attached){
+      if(e.surfaceWidth!==j.widthScale&&projections>0&&j.rig?.surfaceRatio){e.surfaceRatio=j.rig.surfaceRatio(e.direction,local,this.radii);e.surfaceWidth=j.widthScale;projections--;}
+      place(e);
+    }
     if(this.cooldown>0)return;
     for(const e of this.entities.values()){
-      if(this.attached.length>=C.CAPACITY)break;
+      if(this.attached.length>=C.CAPACITY||projections<=0)break;
       if(e.attached||!this.eligible(e))continue;
       e.mesh.getWorldPosition(this.point);
       if(!Number.isFinite(this.point.lengthSq()))continue;
       // Ground-level objects touch the bottom hemisphere; a planar radius
       // would also pull people from roofs and rooms several storeys above.
       if(this.point.distanceTo(this.center)>r*C.CONTACT+e.size/2)continue;
+      e.mesh.updateWorldMatrix(true,true);
+      this.objectBox.setFromObject(e.mesh).applyMatrix4(new THREE.Matrix4().copy(e.mesh.matrixWorld).invert());
+      e.baseOffset=Math.max(0,-this.objectBox.min.y);
       eventBus.emit(Events.ENTITY_ATTACH,{id:e.id});
       e.attached=true;e.direction=j.group.worldToLocal(this.point.clone()).sub(local).divide(this.radii).normalize();
       if(e.direction.lengthSq()===0)e.direction.set(0,-1,0);
-      j.group.attach(e.mesh);e.mesh.position.copy(e.direction).multiply(this.radii).multiplyScalar(C.SURFACE).add(local);this.attached.push(e);
+      e.surfaceRatio=j.rig?.surfaceRatio?j.rig.surfaceRatio(e.direction,local,this.radii):1;e.surfaceWidth=j.widthScale;projections--;
+      j.group.attach(e.mesh);place(e);this.attached.push(e);
     }
   }
   release(){

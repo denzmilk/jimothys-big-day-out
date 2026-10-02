@@ -59,7 +59,7 @@ export class CameraSystem {
   }
 
   _computeFollowDesired() {
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const dist = this._boom;
     this._desired.set(
       jp.x - Math.sin(this.yaw) * dist,
@@ -70,7 +70,7 @@ export class CameraSystem {
   }
 
   _computeOrbitDesired() {
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const dist = this._boom;
     const horiz = Math.cos(this.pitch) * dist;
     this._desired.set(
@@ -82,7 +82,7 @@ export class CameraSystem {
   }
 
   _lookTarget() {
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     return this._look.set(jp.x, jp.y + this._lookHeight, jp.z);
   }
 
@@ -101,7 +101,7 @@ export class CameraSystem {
    *  when it is most visible. */
   _pullIn(point) {
     if (!this.voxels) return point;
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const ox = jp.x;
     const oy = jp.y + this._lookHeight;
     const oz = jp.z;
@@ -128,7 +128,7 @@ export class CameraSystem {
   /** How far the eye ended up from him. Drives his fade: a boom that has been
    *  cut to a metre means you are looking at the back of his skull. */
   get distance() {
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     return Math.hypot(
       this.camera.position.x - jp.x,
       this.camera.position.y - (jp.y + this._lookHeight),
@@ -158,7 +158,7 @@ export class CameraSystem {
       this._computeOrbitDesired();
     } else {
       this.mode = 'follow';
-      const jp = this.jimothy.group.position;
+      const jp = this.jimothy.position;
       // Still off the camera's OWN position — the pull-cam depends on it. Safe
       // with a colliding boom because `_pullIn` scales the offset vector, which
       // shortens the boom without rotating it: the bearing it reads here is the

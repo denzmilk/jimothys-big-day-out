@@ -49,7 +49,7 @@ export class EnvironmentLife {
   return (cls===K.LAND||cls===K.PARK)&&!this.buildings.some(b=>x>b.x-C.WALL_GAP&&x<b.x+b.w+C.WALL_GAP&&z>b.z-C.WALL_GAP&&z<b.z+b.d+C.WALL_GAP);
  }
  _populate(){
-  const j=this.jimothy.group.position,R=C.RADIUS,S=C.GRID;this.center={x:j.x,z:j.z};this.plants=[];
+  const j=this.jimothy.position,R=C.RADIUS,S=C.GRID;this.center={x:j.x,z:j.z};this.plants=[];
   this.buildings=Layout.Masterplan.buildingsIn(j.x-R,j.z-R,j.x+R,j.z+R);
   for(let iz=Math.floor((j.z-R)/S);iz<Math.ceil((j.z+R)/S);iz++)for(let ix=Math.floor((j.x-R)/S);ix<Math.ceil((j.x+R)/S);ix++){
    const h=hash(ix,iz),x=(ix+h)*S,z=(iz+hash(iz,ix))*S;
@@ -78,7 +78,7 @@ export class EnvironmentLife {
  }
  update(dt){
   if(!this.ready||!gameState.game.isPlaying)return;this.time+=dt;
-  const j=this.jimothy.group.position;
+  const j=this.jimothy.position;
   if(!this.center||Math.hypot(j.x-this.center.x,j.z-this.center.z)>C.REFRESH)this._populate();
   this.wind.set(C.WIND_X*(1+C.GUST*Math.sin(this.time*C.GUST_HZ)),C.WIND_Z*(1+C.GUST*Math.cos(this.time*C.GUST_HZ)));
   gameState.world.wind=[this.wind.x,this.wind.y];this.uniforms.lifeTime.value=this.time;this.uniforms.lifePlayer.value.copy(j);this.uniforms.lifeRadius.value=this.jimothy.radius+C.BEND_RADIUS;

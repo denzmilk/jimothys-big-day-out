@@ -43,7 +43,8 @@ export function fatGrowth(fatness) {
  *  shape has to CHANGE as he grows, not just the size. */
 export function fatRoundness(fatness) {
   const g = fatGrowth(fatness);
-  return g / (g + FATNESS.ROUNDNESS_SOFTCAP);
+  const t=Math.min(1,g/FATNESS.ROUNDNESS_FULL_GROWTH);
+  return t*t*(3-2*t);
 }
 
 /** The same curve, gaining far less: he is a short-spine raccoon, so growing

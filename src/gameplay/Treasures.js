@@ -67,7 +67,7 @@ export class Treasures {
   update(delta) {
     if (!gameState.game.isPlaying) return;
     this.elapsed += delta;
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const R = STREAM.LOAD_RADIUS * VOXEL.CHUNK_XZ * VOXEL.SIZE;
 
     // Stream the ones near him, skipping anything already in the book.

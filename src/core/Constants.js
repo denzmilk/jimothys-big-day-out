@@ -281,8 +281,8 @@ export const FATNESS = {
   // Small, he keeps the short-spine shape, because that silhouette is the whole
   // character. Big, he converges on a sphere, because that is what a thing that
   // rolls has to be. Measured against the growth term, so it is the same clock:
-  // ~0.11 round at fatness 25, 0.46 at 90, 0.80 at 250.
-  ROUNDNESS_SOFTCAP: 8,
+  // The coat and pivot reach their spherical treatment around House size.
+  ROUNDNESS_FULL_GROWTH: 8,
   // Height gains far less than width: he is a short-spine raccoon, and the
   // silhouette has to stay a wide low blob rather than becoming a cube. Kept at
   // the same RATIO to width the old constants had (0.25 / 0.9).
@@ -761,6 +761,22 @@ export const ASSET_PATHS = {
 // Runtime model splitter (milestone 06): one full Meshy GLB cut into
 // head/body/tail at load time — no Blender, no rigging.
 export const RIG = {
+  TORSO_WEIGHT: 0.8,
+  FUR_DETAIL_START: .9,
+  FUR_DETAIL_END: .99,
+  FUR_STRETCH_DISTANCE: .001,
+  COAT_INSET: .04,
+  COAT_INSET_FRACTION: .006,
+  COAT_ROUGHNESS: .94,
+  FUR_DARK: 0x45484b,
+  FUR_LIGHT: 0x9a9d9c,
+  FUR_DENSITY: 8,
+  SOCKET_BLEND_IN: .15,
+  SOCKET_BLEND_OUT: .6,
+  GROWTH_ANCHORS: {
+    head:[0,.08,1],tail:[0,.15,-1],
+    leg_FL:[-.1,-1,.1],leg_FR:[.1,-1,.1],leg_RL:[-.1,-1,-.1],leg_RR:[.1,-1,-.1],
+  },
   // One continuous mesh on an armature instead of seven separate solids
   // (ADR-0004). The split model could not deform across a joint, so every
   // animation showed a seam and each fix capped how far a move was allowed to
@@ -1177,8 +1193,10 @@ export const TRAFFIC = {
   DASH_LENGTH: 3, DASH_SPACING: 10, DASH_WIDTH: .11, DASH_COLOR: 0xdcba59,
 };
 export const COLLECTION = {
+  CONTACTS_PER_FRAME: 6,
+  SKIN_CLEARANCE: 0.02,
   MIN_RADIUS: 2.2, SIZE_RATIO: .72, CAPACITY: 64, CONTACT: 1.15,
-  PERSON_SIZE: 1.8, FOOD_SIZE: .3, SURFACE: .94,
+  PERSON_SIZE: 1.8, FOOD_SIZE: .3,
   RELEASE_GAP: 2, RELEASE_SPACING: 1.2, RELEASE_SCAN: 5,
   RELEASE_IMMUNITY: 1.5, FALLBACK_Y: .8,
 };

@@ -2,6 +2,16 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Giant form and rolling contact — milestones 23–24 — 2026-10-02
+
+**Implemented, awaiting Chris's playtest.** The original Blender raccoon/12-bone rig now grows through an authored radial field with a smooth coat merged into the same skinned draw. The giant torso measures 36.79 × 36.79 × 36.79 m at Block size and 72.43 m on each axis at Absurd. Head, tail and paws retain their original dimensions. Animation influence transfers to the torso outside each tiny socket, avoiding long creases when a giant tucks. The coat uses filtered fur colour and roughness instead of stretching the original photo atlas.
+
+Held giant roll rotation follows travel beyond the first tumble; lean rolling retains its flop. Gameplay, streaming and the camera follow physical feet instead of the rotating render origin. Carried objects project onto the real grown surface, preserve their scale, revolve with Jimothy, and release through their owners' physics/AI. Surface projection has a six-contact-per-update budget.
+
+Verification: 20 loaded-rig/body/footing checks pass (`giant-coat-checks.log`), including all limb size checks; all three giant tests pass again after the final coat material/inset change (`giant-final.log`). The preceding 27-case adjacent run passed walking, scratching, swimming, pursuit, loaded-rig recovery, collection/release and restart (`giant-adjacent.log`). Build and production rendered smoke pass, including pixel readback and an empty error log (`giant-build.log`, `giant-smoke.log`). The native Metal capture at `output/iterate/giant-street-carry.png` shows a giant carrying cars/street objects; release returns the count to zero with no page errors (`giant-street-final.log`). These checks do not sign off visual feel or establish performance.
+
+**Next already authorised:** milestone 33's bounded demolition, generation/meshing, draw distance and native-GPU profiling. JIM-48/JIM-61 remain open. Then military, beaches and underwater exploration in milestones 34–36. The audit entries below describe the baseline before this repair.
+
 ## Approved full continuation — 2026-10-02
 
 Chris approved the complete pass, explicitly including draw-distance optimisation, deformable sand/beaches and varied underwater ruins/wrecks/fauna/rays/bubbles. Proceed in order: existing milestones 23–24 giant repairs → 33 responsive destruction/performance → 34 military → 35 beaches → 36 underwater. Keep net-only run endings; use local deformable sand with bounded settling as the stated defaults. No repeat approval is needed for this sequence. Each coherent issue is tested, documented, committed and pushed separately; visual sign-off remains Chris’s.

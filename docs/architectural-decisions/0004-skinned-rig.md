@@ -56,3 +56,7 @@ Bone placement reuses the anatomy landmarks the split already calibrated (`NECK_
 - JIM-21 (the request), JIM-10, JIM-11, JIM-15, JIM-18 in `docs/issues.md`
 - Milestone 06 (the split), milestone 09 (socket caps), milestone 10 (this work)
 - `tools/rig_jimothy.py`
+
+## Giant growth refinement — 2026-10-02
+
+Milestones 23–24 replace body-bone scaling with a Blender-authored radial growth field. The original continuous mesh, armature and lean basis stay intact. A smooth coat surface joins the same skinned geometry to fill the large angular fans that otherwise appear around tiny sockets at block scale. Growth moves and rebinds animation sockets; distant limb influence transfers to the torso. This preserves small animated extremities without applying world-box proportions in bone-local axes. Rebuild and source records are in `assets/blender/jimothy/README.md`.

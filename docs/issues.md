@@ -18,9 +18,12 @@ Flat headbutts at the same wall remove 56 voxels at fatness 0, 538 at 90, and ze
 
 ### JIM-60 — Held rolling stops tumbling after 0.9 seconds
 
-**Status:** open · **Found:** 2026-10-02 while reproducing Chris's giant/collection report
+**Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-02 while reproducing Chris's giant/collection report
 
 Given a loaded rig and C held for 1.5 seconds, movement continues but `rollSpin` reaches 2π at 0.9 seconds and stays there. The animation clamps normalized move time to 1; extending the move to held traversal did not extend the tumble. This also stops collected objects revolving with Jimothy. Preserve the lean flop while making giant rotation follow travel continuously. Location: `JimothyController.postUpdate`. Evidence: `output/iterate/giant-audit.log`; [audit](giant-audit-2026-10-02.md). Milestone 23 is reopened.
+
+
+**Repair, 2026-10-02:** Blender radial growth and a smooth coat keep the giant torso spherical while preserving original head/tail/paw dimensions. Held roll spin follows distance; attachments meet the grown surface. Twenty loaded-rig/footing checks and three final giant checks pass, alongside the 27-case adjacent run. See the latest STATE entry and `output/iterate/giant-street-carry.png`. Performance/destruction remain JIM-48/JIM-61.
 
 ### JIM-59 — Shoreline reads as a hard edge instead of a beach
 
@@ -94,11 +97,14 @@ World-space planted contacts now transfer through bounded swing arcs; trailing-f
 
 ### JIM-49 — Giant rig proportions and child scales disagree with the intended ball
 
-**Status:** open · **Found:** 2026-10-02 during full regression verification
+**Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-02 during full regression verification
 
 Both failures reproduce unchanged on isolated pre-shatter commit `723c993`: `rig.spec.js::fatness grows the belly and nothing else` reports a non-body bone scale of 0.858 versus a lean 0.849 (tolerance 0.005); `::the belly carries head, tail and legs outward as it grows` reports leg height 0.596 versus 0.647 (tolerance 0.05). Investigate posed bone measurements and growth correction before deciding whether these represent visible model drift or outdated invariant checks. No rig code or assertion tolerance was changed in the glass pass. Evidence: `output/iterate/glass-rig-baseline.log`, `glass-rig-offset-baseline.log`; code: `JimothyRig`, `JimothyController`, `tests/rig.spec.js`.
 
 Chris's 2026-10-02 playtest confirms a visible shape failure. Actual posed mesh bounds at Block size are 33.14 × 15.03 × 50.10 m; the collector's proxy is 40.83 × 28.93 × 62.47 m. `bindAspect()` caches world-space proportions but growth applies them in body-bone axes (Y is the spine); uniform child correction remains inaccurate. The pivot also misses the large longitudinal offset. This requires a visible-body/contact repair, not wider test tolerances. See [the audit](giant-audit-2026-10-02.md), `output/iterate/giant-audit.log` and `giant-before-250.png`. JIM-24 and milestone 23 are reopened.
+
+
+**Repair, 2026-10-02:** Blender radial growth and a smooth coat keep the giant torso spherical while preserving original head/tail/paw dimensions. Held roll spin follows distance; attachments meet the grown surface. Twenty loaded-rig/footing checks and three final giant checks pass, alongside the 27-case adjacent run. See the latest STATE entry and `output/iterate/giant-street-carry.png`. Performance/destruction remain JIM-48/JIM-61.
 
 ### JIM-48 — Populated world exceeds the legacy draw-call budget
 
@@ -491,7 +497,7 @@ Still open:
 
 ### JIM-24 — Jimothy should be able to get as big as a house — no, bigger than that
 
-**Status:** reopened after giant-form playtest (milestone 23, 2026-10-02; JIM-49/JIM-60) · **Severity:** high (it is the core fantasy) · **Reported:** 2026-08-07 (Chris), **escalated 2026-08-08**
+**Status:** giant form/rotation implemented, awaiting Chris's playtest (milestone 23, 2026-10-02; JIM-49/JIM-60) · **Severity:** high (it is the core fantasy) · **Reported:** 2026-08-07 (Chris), **escalated 2026-08-08**
 
 > "Speed slow down can be more aggressive, the idea is that Jimothy can get as big as a house if he keeps eating."
 
@@ -620,6 +626,9 @@ Three systems were anchored to the old map. Two were fixed in milestone 12 becau
 **This is a whole loop, not a move.** It resolves the fat-slowness problem the bigger map created (a successful run ends taking **12m 12s** to cross a world built for exploring) by converting the penalty into a *mode*: on foot fat is slow, but rolling it is fast, and rolling is also how you harvest. Fat stops being a tax and becomes a change of gear.
 
 **2026-10-02 reproduction:** Block/Absurd register 64 attachments, but visible contact is wrong. Rays from attached people to the belly first hit the actual skinned surface 3.63–14.25 m away at Block and 8.97–31.19 m at Absurd. Proxy placement uses an approximate bone-owned box, while pickup proximity uses the smaller, offset collider. Counts/parenting tests miss this. JIM-60 also stops rotation after one tumble. See `RollCollector.update`, `JimothyRig.bellyLocalBox`, `output/iterate/giant-contact-audit.log` and [the audit](giant-audit-2026-10-02.md). Milestone 24 remains unaccepted.
+
+
+**Surface repair, 2026-10-02:** collection now projects onto the grown skin, preserves entity scale and continues revolving during held rolling. Loaded-skin contact and owner release tests pass; native rendered evidence is in `giant-street-final.log` / `giant-street-carry.png`. Awaiting playtest; the broader stash/sifting loop remains open.
 
 ### The loop
 

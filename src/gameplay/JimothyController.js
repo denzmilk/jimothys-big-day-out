@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  WATER, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  COLLECTION, WATER, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -127,8 +127,11 @@ export class JimothyController {
     this.cameraDist = Infinity;
     // Scratch for the tumble-pivot compensation in postUpdate; allocating
     // these per frame would churn the GC on the hot path.
+    this._groundPosition = new THREE.Vector3();
+    this._rollPosition = new THREE.Vector3();
     this._pivot = new THREE.Vector3();
     this._pivotRotated = new THREE.Vector3();
+    this._bindOffset = new THREE.Vector3();
     this._bellyC = new THREE.Vector3();
     this._bellyBox = new THREE.Box3();
     this.onImpact = null; // set by Game: (x, y, z, radiusScale) => void
@@ -147,6 +150,8 @@ export class JimothyController {
    *  (milestone 17), so the literal `P.RADIUS` this replaced would have put him
    *  40 m inside a hill — recoverable only via postUpdate's anti-stuck lift,
    *  and only after a frame of being underground. */
+  get position(){return this._groundPosition.set(this.body.position.x,this.body.position.y-this.radius,this.body.position.z);}
+
   _spawnY() {
     if (!this.voxels) return P.RADIUS;
     const surface = this.voxels.terrainHeightAt(0, 0);
@@ -602,19 +607,20 @@ export class JimothyController {
       const R = MOVES.ROLL;
       const p = Math.min(1, this.move.t / R.DURATION);
       const eased = p < 0.5 ? 2 * p * p : 1 - ((-2 * p + 2) ** 2) / 2;
-      this.rollSpin = eased * Math.PI * 2 * R.SPINS;
+      if(rad>=COLLECTION.MIN_RADIUS){
+        if(this.move.t<=delta)this.rollSpin=0;
+        else this.rollSpin+=Math.hypot(this.body.position.x-this._rollPosition.x,this.body.position.z-this._rollPosition.z)/rad;
+      }else this.rollSpin=eased*Math.PI*2*R.SPINS;
       // Fades in and out so he doesn't snap upright on landing.
       rollWobble = Math.sin(p * Math.PI * 2 * R.WOBBLE_HZ) * R.WOBBLE * Math.sin(p * Math.PI);
       // Gather up before the tumble, sprawl out after it. Trapezoid rather
       // than a bell so he holds the balled-up pose through the flop itself.
-      this.rollTuck = Math.min(
-        1,
-        Math.min(p / R.TUCK_IN, (1 - p) / R.TUCK_OUT),
-      );
+      this.rollTuck = rad>=COLLECTION.MIN_RADIUS?Math.min(1,this.move.t/(R.DURATION*R.TUCK_IN)):Math.min(1,Math.min(p/R.TUCK_IN,(1-p)/R.TUCK_OUT));
     } else {
       this.rollSpin = 0;
       this.rollTuck = 0;
     }
+    this._rollPosition.copy(p);
     this.group.rotation.z = rollWobble;
     const tuck = Math.max(0, this.rollTuck || 0);
     this._updateIdle(delta);
@@ -731,53 +737,7 @@ export class JimothyController {
         + look*IDLE.LOOK_PITCH, 0, look*Math.sin(this.idleTime*Math.PI)*IDLE.LOOK_YAW+scratch*IDLE.HEAD_SCRATCH);
       this.rig.pose('tail', tuck * MOVES.ROLL.TUCK_TAIL, 0,
         resting?Math.sin(this.elapsed*IDLE.TAIL_HZ*Math.PI*2)*IDLE.TAIL_ANGLE:Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck));
-      // Fatness grows the BELLY ONLY. Head, tail and legs keep their own size
-      // (Chris 2026-08-07) — tiny head on an enormous body is the meme, and
-      // skinning would otherwise inflate the whole animal, since head vertices
-      // blend onto the body bone.
-      //
-      // Uniform scale, then the inverse on each direct child. Uniform is
-      // deliberate: a non-uniform parent scale through a rotated child bone
-      // shears the geometry, and the extremities are all rotated relative to
-      // the spine. Each child's own vertices come back to 1× while its
-      // POSITION still rides outward on the growing belly — which is exactly
-      // what the split path's anchoring code did by hand (JIM-15), now free.
-      // Non-uniform, blending toward a SPHERE as he grows (playtest
-      // 2026-08-09). Uniform scale preserves proportions, and a raccoon is far
-      // longer than he is wide — so x32 uniform is a 64 m sausage, which is
-      // exactly what Chris saw: *"he just kind of gets really long — but he
-      // should grow out in a big circle so the rolling makes sense."*
-      //
-      // Each axis is pushed toward 1/aspect, which equalises his bind
-      // proportions; `round` decides how far. Small, that is nearly 1 and he
-      // keeps the short-spine silhouette the whole character rests on. Huge, he
-      // is a ball, which is the only shape a thing that rolls can be.
-      //
-      // The counter-scale below stays UNIFORM even though this is not, so a
-      // child's size no longer comes back to exactly 1x — measured at ~1 % off
-      // at the fatness `rig.spec` checks, which is why two of its assertions
-      // currently fail. A per-axis inverse was tried and did NOT fix them, so
-      // the cause is not simply the inverse; it is left uniform, which is the
-      // shape the shear warning above was written for, until that is understood
-      // rather than guessed at.
-      const round = fatRoundness(gameState.player.fatness);
-      const aspect = this.rig.bindAspect();
-      const axis = (a) => 1 + (1 / a - 1) * round;
-      const belly = width * (1 + wobble) * (1 + squash);
-      this.rig.scaleBone(
-        'body', belly * axis(aspect.x), belly * axis(aspect.y), belly * axis(aspect.z),
-      );
-      const inv = 1 / belly;
-      // `head` and the shins are grandchildren — they inherit the correction
-      // through `neck` and `leg_*`, so scaling them again would shrink them.
-      for (const n of ['neck', 'tail', 'leg_FL', 'leg_FR', 'leg_RL', 'leg_RR']) {
-        this.rig.scaleBone(n, inv, inv, inv);
-      }
-      // The counter-scale fixes each child's SIZE; it does not stop the belly
-      // dragging its POSITION. For the head that drag is the point — it rides
-      // forward on a bigger animal. For the legs it walked his feet out past
-      // his own nose and down under the road, so they only splay sideways.
-      for (const n of ['leg_FL', 'leg_FR', 'leg_RL', 'leg_RR']) this.rig.splayLeg(n, belly);
+      this.rig.grow(width, fatRoundness(gameState.player.fatness));
     }
 
     // Tumble about his MIDDLE, not his toes. The group's origin sits at ground
@@ -801,22 +761,18 @@ export class JimothyController {
     // lag, it is a feedback loop. Measured mid-roll past π it diverged
     // (0.21 → 2.21 → 0.39) and threw the belly under the road. Refreshed, the
     // reads agree with each other and the height holds steady at 1.056.
-    if (this.rig.skinned) {
+    if(this.rig.skinned){
       this.group.updateMatrixWorld(true);
-      this._pivot.set(
-        0,
-        this.group.worldToLocal(this.rig.bellyBox(this._bellyBox).getCenter(this._bellyC)).y,
-        0,
-      );
-    } else {
-      this._pivot.set(0, this.bodySlot.position.y + this.bodyRender.position.y * this.bodySlot.scale.y, 0);
+      this.rig.bellyLocalBox(this.group,this._bellyBox).getCenter(this._pivot);
+      const round=fatRoundness(gameState.player.fatness),bind=this.rig.bindBellyLocal;
+      this._pivotRotated.copy(this._pivot).applyEuler(this.group.rotation);
+      this._bindOffset.set(bind.x,0,bind.z).applyAxisAngle(THREE.Object3D.DEFAULT_UP,this.yaw).multiplyScalar(1-round);
+      this.group.position.set(p.x-this._pivotRotated.x+this._bindOffset.x,p.y-this._pivotRotated.y+(bind.y-P.RADIUS)*(1-round),p.z-this._pivotRotated.z+this._bindOffset.z);
+    }else{
+      this._pivot.set(0,this.bodySlot.position.y+this.bodyRender.position.y*this.bodySlot.scale.y,0);
+      this._pivotRotated.copy(this._pivot).applyEuler(this.group.rotation);
+      this.group.position.set(p.x-this._pivotRotated.x,(p.y-rad)+this._pivot.y-this._pivotRotated.y,p.z-this._pivotRotated.z);
     }
-    this._pivotRotated.copy(this._pivot).applyEuler(this.group.rotation);
-    this.group.position.set(
-      p.x - this._pivotRotated.x,
-      (p.y - rad) + this._pivot.y - this._pivotRotated.y,
-      p.z - this._pivotRotated.z,
-    );
 
     if(this.swimming&&this.rig.skinned){
       this.legs.reset();

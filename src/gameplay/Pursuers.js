@@ -111,7 +111,7 @@ export class Pursuers {
   _spawnPoint() {
     const p = PURSUER_SPAWN_POINTS[this.spawnIndex % PURSUER_SPAWN_POINTS.length];
     this.spawnIndex += 1;
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const B = WORLD.BOUNDS;
     return [
       THREE.MathUtils.clamp(jp.x + p[0], -B, B),
@@ -139,7 +139,7 @@ export class Pursuers {
     group.position.set(x, this._groundY(x, z), z);
     this.scene.add(group);
 
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     this._nextId = (this._nextId || 0) + 1;
     const person = {
       attached:false,
@@ -240,7 +240,7 @@ export class Pursuers {
   /** Cone, then range, then geometry — cheapest test first, because the DDA
    *  march is the only expensive one. */
   _canSee(p) {
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const pos = p.group.position;
     const dx = jp.x - pos.x;
     const dz = jp.z - pos.z;
@@ -310,7 +310,7 @@ export class Pursuers {
   }
 
   _think(p, delta) {
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     p.sees = gameState.game.isPlaying && this._canSee(p);
 
     if (p.sees) {
@@ -388,7 +388,7 @@ export class Pursuers {
     if (p.state === 'patrol') return base * PATROL.SPEED_SCALE;
     // Photographers stop at photo range and loiter rather than dogpiling.
     if (p.type === 'paparazzo' && p.sees) {
-      const jp = this.jimothy.group.position;
+      const jp = this.jimothy.position;
       const pos = p.group.position;
       const d = Math.hypot(jp.x - pos.x, jp.y - pos.y, jp.z - pos.z);
       if (d <= PAPARAZZI.FLASH_RANGE * 0.8) return 0;
@@ -510,7 +510,7 @@ export class Pursuers {
       p.group.rotation.y = Math.atan2(dx, dz);
     }
     pos.y = this._groundY(pos.x, pos.z);
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     // Three dimensions, for the same reason the vision check uses them: this
     // number gates the NET and the flash, and a flat one nets him through a
     // sewer ceiling from the street above (milestone 18).
@@ -583,7 +583,7 @@ export class Pursuers {
   }
 
   _net(ac,dt,d){
-    const C=CAPTURE,bar=gameState.capture,j=this.jimothy.group.position,pos=ac.group.position;
+    const C=CAPTURE,bar=gameState.capture,j=this.jimothy.position,pos=ac.group.position;
     const reach=ANIMAL_CONTROL.NET_RANGE+Math.max(0,this.jimothy.radius-PLAYER_CONFIG.RADIUS);
     ac.netPhase ||= 'idle';ac.netTimer=(ac.netTimer||0)+dt;
     const phase=s=>{ac.netPhase=s;ac.netTimer=0;};

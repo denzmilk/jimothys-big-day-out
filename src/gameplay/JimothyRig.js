@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { ASSET_PATHS, RIG } from '../core/Constants.js';
+import { ASSET_PATHS, RIG, PLAYER_CONFIG } from '../core/Constants.js';
 
 import { eventBus, Events } from '../core/EventBus.js';
 
@@ -96,34 +96,175 @@ export class JimothyRig {
   }
 
   bellyLocalBox(space,out=new THREE.Box3()) {
+    if(this.grownBox){
+      const transform=new THREE.Matrix4().copy(space.matrixWorld).invert().multiply(this.root.matrixWorld);
+      return out.copy(this.grownBox).applyMatrix4(transform);
+    }
     const rest=this.restParts.body;if(!rest)return out.makeEmpty();
     const transform=new THREE.Matrix4().copy(space.matrixWorld).invert().multiply(this._skinMatrix('body'));
     return out.copy(rest.box).applyMatrix4(transform);
   }
 
-  bellyBox(out = new THREE.Box3()) {
-    return this.partBox('body', out);
+  bellyBox(out=new THREE.Box3()) {
+    return this.grownBox?out.copy(this.grownBox).applyMatrix4(this.root.matrixWorld):this.partBox('body',out);
   }
 
-  /** The belly's BIND proportions, normalised so the longest axis is 1.
-   *
-   *  Measured once, at rest, before fatness has scaled anything — a raccoon is
-   *  much longer than he is wide or tall, and that ratio is what has to be
-   *  cancelled for a giant to read as a ball rather than a bus (milestone 23).
-   *  Cached because it is a property of the model, not of the frame. */
-  bindAspect() {
-    if (!this._bindAspect) {
-      const size = this.bellyBox(new THREE.Box3()).getSize(new THREE.Vector3());
-      const longest = Math.max(size.x, size.y, size.z) || 1;
-      // Guard every axis: a degenerate box on one axis would divide by zero and
-      // send the whole animal to infinity.
-      this._bindAspect = {
-        x: Math.max(size.x / longest, 0.05),
-        y: Math.max(size.y / longest, 0.05),
-        z: Math.max(size.z / longest, 0.05),
-      };
+  // The Blender growth key expands along a spherical field, with a shared
+  // direction over each extremity. Rebinding at each size keeps animation
+  // pivots on the new surface without scaling heads or shearing bent limbs.
+  grow(width,round) {
+    this.furBlend.value=round;this.skinned.material.normalScale.copy(this.baseNormalScale).multiplyScalar(1-round);
+    if(width===this.growthWidth)return;
+    this.growthWidth=width;
+    const mesh=this.skinned,a=mesh.geometry.attributes,positions=a.position,amount=width-1;
+    const bodyIndex=mesh.skeleton.bones.indexOf(this.bones.body);
+    for(let v=0;v<positions.count;v++){
+      const indices=[],weights=[];let transferred=0;
+      for(let k=0;k<4;k++){
+        const offset=v*4+k,index=this.baseSkinIndex[offset],original=this.baseSkinWeight[offset];
+        const keep=1-THREE.MathUtils.smoothstep(this.socketDistance[offset]*amount,RIG.SOCKET_BLEND_IN,RIG.SOCKET_BLEND_OUT);
+        indices.push(index);weights.push(original*keep);transferred+=original*(1-keep);
+      }
+      if(transferred>0){
+        let slot=indices.indexOf(bodyIndex);
+        if(slot<0){slot=weights.indexOf(Math.min(...weights));transferred+=weights[slot];weights[slot]=0;indices[slot]=bodyIndex;}
+        weights[slot]+=transferred;
+      }
+      for(let k=0;k<4;k++){a.skinIndex.setComponent(v,k,indices[k]);a.skinWeight.setComponent(v,k,weights[k]);}
     }
-    return this._bindAspect;
+    a.skinIndex.needsUpdate=true;a.skinWeight.needsUpdate=true;
+    for(let i=0;i<positions.array.length;i++)positions.array[i]=this.growthBase[i]+this.growthDelta[i]*(amount+(i>=this.coatStart*3?round:0));
+    const coatRadius=this.growthDelta.slice(this.coatStart*3,this.coatStart*3+3).reduce((a,v)=>a+v*v,0)**.5*(amount+round);
+    const pointOnCoat=new THREE.Vector3();
+    for(let v=0;v<this.coatStart;v++){
+      if(this.detailWeight[v]>=RIG.FUR_DETAIL_START)continue;
+      pointOnCoat.fromBufferAttribute(positions,v).sub(this.coatCenter);
+      const distance=pointOnCoat.length(),inside=Math.max(0,coatRadius-Math.max(RIG.COAT_INSET,coatRadius*RIG.COAT_INSET_FRACTION));
+      if(distance>inside){pointOnCoat.multiplyScalar((distance+(inside-distance)*round)/distance).add(this.coatCenter);positions.setXYZ(v,pointOnCoat.x,pointOnCoat.y,pointOnCoat.z);}
+    }
+    positions.needsUpdate=true;mesh.geometry.computeBoundingBox();mesh.geometry.computeBoundingSphere();
+    const posed={};
+    for(const [name,bone] of Object.entries(this.bones)){
+      posed[name]=bone.quaternion.clone();bone.quaternion.copy(this.rest[name]);bone.position.copy(this.restPos[name]);
+      if(this.growthAnchors[name])bone.position.addScaledVector(this.growthAnchors[name],amount);
+    }
+    this.root.parent.updateMatrixWorld(true);mesh.bind(mesh.skeleton);
+    this._indexRestParts();
+    const box=new THREE.Box3(),point=new THREE.Vector3();
+    for(const v of this.torsoVertices)box.expandByPoint(point.fromBufferAttribute(a.position,v));
+    const toRoot=new THREE.Matrix4().copy(this.root.matrixWorld).invert().multiply(mesh.matrixWorld);
+    const center=box.getCenter(new THREE.Vector3()),normal=new THREE.Vector3(),radial=new THREE.Vector3(),normals=a.normal;
+    for(let v=0;v<positions.count;v++){
+      radial.fromBufferAttribute(positions,v).sub(center).normalize();
+      normal.fromArray(this.growthNormals,v*3).lerp(radial,round*this.furMask[v]).normalize();normals.setXYZ(v,normal.x,normal.y,normal.z);
+    }
+    normals.needsUpdate=true;
+    this.grownBox=box.applyMatrix4(toRoot);
+    for(const [name,bone]of Object.entries(this.bones))bone.quaternion.copy(posed[name]);
+  }
+
+  _prepareGrowth() {
+    const mesh=this.skinned;
+    this.root.parent.updateMatrixWorld(true);
+    const coat=this.root.getObjectByName('GiantCoat'),original=mesh.geometry;
+    this.coatStart=original.attributes.position.count;
+    const coatGeometry=coat.geometry.clone(),toMeshCoat=new THREE.Matrix4().copy(mesh.matrixWorld).invert().multiply(coat.matrixWorld);
+    coatGeometry.applyMatrix4(toMeshCoat);
+    // GLTF's morph positions are offsets: only the linear transform applies.
+    const coatDelta=coat.geometry.morphAttributes.position[coat.morphTargetDictionary.GiantGrowth].clone();
+    coatDelta.applyMatrix3(new THREE.Matrix3().setFromMatrix4(toMeshCoat));
+    const merged=new THREE.BufferGeometry(),bodyIndex=mesh.skeleton.bones.indexOf(this.bones.body),count=coatGeometry.attributes.position.count;
+    for(const [name,a]of Object.entries(original.attributes)){
+      const array=new a.array.constructor((this.coatStart+count)*a.itemSize);array.set(a.array);
+      if(coatGeometry.attributes[name])array.set(coatGeometry.attributes[name].array,a.array.length);
+      else if(name==='skinIndex'||name==='skinWeight')for(let v=0;v<count;v++)array[(this.coatStart+v)*a.itemSize]=name==='skinIndex'?bodyIndex:1;
+      merged.setAttribute(name,new THREE.BufferAttribute(array,a.itemSize,a.normalized));
+    }
+    const indices=[...original.index.array,...Array.from(coatGeometry.index.array,n=>n+this.coatStart)];merged.setIndex(indices);
+    const delta=new Float32Array(merged.attributes.position.array.length);delta.set(original.morphAttributes.position[mesh.morphTargetDictionary.GiantGrowth].array);delta.set(coatDelta.array,this.coatStart*3);
+    merged.morphAttributes.position=[new THREE.BufferAttribute(delta,3)];merged.morphTargetsRelative=true;
+    mesh.geometry=merged;original.dispose();coatGeometry.dispose();coat.removeFromParent();coat.geometry.dispose();
+    const geometry=mesh.geometry,index=0;
+    this.coatCenter=new THREE.Vector3().setFromMatrixPosition(toMeshCoat);
+    this.growthBase=geometry.attributes.position.array.slice();this.growthNormals=geometry.attributes.normal.array.slice();
+    this.growthDelta=geometry.morphAttributes.position[index].array.slice();
+    // Positions are baked only when food changes size. This lets normals,
+    // collision queries and the rendered skin agree on exactly one shape.
+    geometry.morphAttributes={};mesh.morphTargetInfluences=[];
+    this.root.parent.updateMatrixWorld(true);
+    this.bindBellyLocal=this.bellyLocalBox(this.root.parent).getCenter(new THREE.Vector3());
+    this.surfaceMesh=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
+    this.surfaceMesh.matrixAutoUpdate=false;this.surfaceRay=new THREE.Raycaster();
+    this.growthAnchors={};
+    for(const [name,direction] of Object.entries(RIG.GROWTH_ANCHORS)){
+      const parent=this.bones[name].parent;
+      const transform=new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().copy(parent.matrixWorld).invert().multiply(this.root.parent.matrixWorld));
+      this.growthAnchors[name]=new THREE.Vector3(...direction).normalize().multiplyScalar(PLAYER_CONFIG.RADIUS).applyMatrix3(transform);
+    }
+    this.furBlend={value:0};this.baseNormalScale=mesh.material.normalScale.clone();
+    const a=geometry.attributes;this.furMask=new Float32Array(a.position.count);this.detailWeight=new Float32Array(a.position.count);
+    for(let v=0;v<a.position.count;v++){
+      let detail=0;
+      for(let k=0;k<4;k++){
+        const name=mesh.skeleton.bones[a.skinIndex.getComponent(v,k)].name;
+        if(name==='head'||name==='tail'||name.startsWith('shin_'))detail=Math.max(detail,a.skinWeight.getComponent(v,k));
+      }
+      this.detailWeight[v]=detail;this.furMask[v]=1-THREE.MathUtils.smoothstep(detail,RIG.FUR_DETAIL_START,RIG.FUR_DETAIL_END);
+    }
+    // A triangle bridging the tiny face and a city-sized belly stretches its
+    // UVs even when one endpoint belongs wholly to the head. Coat that entire
+    // transition; keep the original texture only on rigid detail triangles.
+    const gi=geometry.index,direction=new THREE.Vector3(),other=new THREE.Vector3();
+    for(let i=0;i<gi.count;i+=3){
+      const ids=[gi.getX(i),gi.getX(i+1),gi.getX(i+2)];direction.fromArray(this.growthDelta,ids[0]*3);
+      if(ids.some(v=>other.fromArray(this.growthDelta,v*3).distanceTo(direction)>RIG.FUR_STRETCH_DISTANCE))for(const v of ids)this.furMask[v]=1;
+    }
+    geometry.setAttribute('growthFur',new THREE.BufferAttribute(this.furMask,1));
+    mesh.material.onBeforeCompile=shader=>{
+      Object.assign(shader.uniforms,{furBlend:this.furBlend,furDark:{value:new THREE.Color(RIG.FUR_DARK)},furLight:{value:new THREE.Color(RIG.FUR_LIGHT)},furDensity:{value:RIG.FUR_DENSITY},coatRoughness:{value:RIG.COAT_ROUGHNESS}});
+      shader.vertexShader='attribute float growthFur; varying float vGrowthFur; varying vec3 vGrowthPosition;\n'+shader.vertexShader;
+      shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n vGrowthFur=growthFur;vGrowthPosition=position;');
+      shader.fragmentShader=`uniform float furBlend,furDensity,coatRoughness;uniform vec3 furDark,furLight;varying float vGrowthFur;varying vec3 vGrowthPosition;
+        float growthHash(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+        float growthNoise(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+          return mix(mix(mix(growthHash(i),growthHash(i+vec3(1,0,0)),f.x),mix(growthHash(i+vec3(0,1,0)),growthHash(i+vec3(1,1,0)),f.x),f.y),
+          mix(mix(growthHash(i+vec3(0,0,1)),growthHash(i+vec3(1,0,1)),f.x),mix(growthHash(i+vec3(0,1,1)),growthHash(i+vec3(1,1,1)),f.x),f.y),f.z);}
+        `+shader.fragmentShader;
+      shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+        vec3 fibrePosition=vGrowthPosition*furDensity*vec3(3.,.65,3.);
+        float footprint=clamp(length(fwidth(fibrePosition)),0.0,1.0);
+        float fibre=mix(growthNoise(fibrePosition),0.5,footprint);
+        float clump=growthNoise(vGrowthPosition*furDensity*.2);
+        diffuseColor.rgb=mix(diffuseColor.rgb,mix(furDark,furLight,.25+clump*.35+fibre*.4),furBlend*vGrowthFur);`);
+      shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\n roughnessFactor=mix(roughnessFactor,coatRoughness,furBlend*vGrowthFur);');
+      shader.fragmentShader=shader.fragmentShader.replace('#include <metalnessmap_fragment>','#include <metalnessmap_fragment>\n metalnessFactor*=1.-furBlend*vGrowthFur;');
+    };
+    mesh.material.customProgramCacheKey=()=> 'jimothy-growth-fur';
+    this.baseSkinIndex=a.skinIndex.array.slice();this.baseSkinWeight=a.skinWeight.array.slice();this.socketDistance=new Float32Array(a.position.count*4);
+    const toMesh=new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().copy(mesh.matrixWorld).invert().multiply(this.root.parent.matrixWorld));
+    const anchorDelta=mesh.skeleton.bones.map(b=>{
+      const name=b.name.startsWith('shin_')?b.name.replace('shin_','leg_'):b.name,dir=RIG.GROWTH_ANCHORS[name];
+      return dir?new THREE.Vector3(...dir).normalize().multiplyScalar(PLAYER_CONFIG.RADIUS).applyMatrix3(toMesh):null;
+    });
+    const growthDirection=new THREE.Vector3(),meshScale=mesh.getWorldScale(new THREE.Vector3()).x;
+    for(let v=0;v<a.position.count;v++)for(let k=0;k<4;k++){
+      const anchor=anchorDelta[this.baseSkinIndex[v*4+k]];
+      if(anchor)this.socketDistance[v*4+k]=growthDirection.fromArray(this.growthDelta,v*3).distanceTo(anchor)*meshScale;
+    }
+    const torso=new Set(['body','neck'].map(n=>mesh.skeleton.bones.indexOf(this.bones[n])));this.torsoVertices=[];
+    for(let v=0;v<a.position.count;v++){
+      let weight=0;for(let k=0;k<4;k++)if(torso.has(a.skinIndex.getComponent(v,k)))weight+=a.skinWeight.getComponent(v,k);
+      if(weight>=RIG.TORSO_WEIGHT)this.torsoVertices.push(v);
+    }
+  }
+
+  surfaceRatio(direction,center,radii){
+    const surface=this.surfaceMesh;
+    surface.matrixWorld.copy(this.root.parent.matrixWorld).invert().multiply(this.skinned.matrixWorld);
+    const shell=direction.clone().multiply(radii),origin=center.clone().addScaledVector(shell,2);
+    this.surfaceRay.set(origin,shell.clone().normalize().negate());
+    const hit=this.surfaceRay.intersectObject(surface,false)[0];
+    return hit?hit.point.sub(center).divide(radii).length():1;
   }
 
   /** Where each animated part's flesh sits, in the frame of `origin` — pass
@@ -167,51 +308,16 @@ export class JimothyRig {
     return out;
   }
 
-  /** Let a leg splay outward with the belly without sliding forward or sinking.
-   *
-   *  Scaling `body` multiplies every direct child's local position by the same
-   *  factor, in the BODY BONE's own frame. Measured from the four hips' bind
-   *  positions, that frame is:
-   *
-   *    x  lateral   — flips sign between the L and R legs
-   *    y  spine     — differs between the front and rear pairs, and is the
-   *                   only non-zero component on `neck` and `head`
-   *    z  drop      — spine down to the hip; identical on all four legs
-   *
-   *  Only x should ride out: a fat Jimothy standing wider is the bow-legged
-   *  waddle. Letting y ride sent his front feet 1.25 out past a nose at 1.04,
-   *  and letting z ride put them 0.2 UNDER the road at the current fatness
-   *  ceiling — both measured. Undo those two, keep the splay.
-   *
-   *  `tail` needs none of this: its bind position is exactly [0,0,0], the body
-   *  bone's own origin, so the belly grows forward and outward around it while
-   *  the tail stays on the rump where it belongs. */
-  splayLeg(name, belly) {
-    const b = this.bones[name];
-    const r = this.restPos[name];
-    if (b && r) b.position.set(r.x, r.y / belly, r.z / belly);
-  }
-
-  /** Uniform-ish scale on a bone, from its bind scale. Used for fatness: the
-   *  mesh is continuous, so scaling the body bone carries head, tail and legs
-   *  with it — which is why the split path's anchoring code is deleted, not
-   *  ported (JIM-15 cannot recur here). */
-  scaleBone(name, x, y, z) {
-    const b = this.bones[name];
-    if (b) b.scale.set(x, y, z);
-  }
-
-  /** Skinned path (ADR-0004): the model arrives as one SkinnedMesh plus an
-   *  armature, and must be mounted WHOLE — reparenting the mesh away from its
-   *  skeleton root breaks the bind. The game then poses bones by name where it
-   *  used to rotate slots. */
   _mountSkinned(gltf) {
     const root = gltf.scene;
     root.updateMatrixWorld(true);
 
     // Same normalization the split path uses: scale to nose-to-tail length
     // and sit him on the ground.
-    const box = new THREE.Box3().setFromObject(root);
+    // Morph envelopes include a grown shape even when its weight is zero.
+    // Normalise the untouched basis, or adding growth shrinks lean Jimothy.
+    const box=new THREE.Box3();
+    root.traverse(o=>{if(o.isMesh)box.union(new THREE.Box3().setFromBufferAttribute(o.geometry.attributes.position).applyMatrix4(o.matrixWorld));});
     const size = box.getSize(new THREE.Vector3());
     const scale = RIG.TARGET_LENGTH / Math.max(size.x, size.y, size.z);
     root.scale.setScalar(scale);
@@ -244,6 +350,7 @@ export class JimothyRig {
     this.baseY = root.position.y;
     this.bodyPiece = this.skinned;
     this._indexRestParts();
+    this._prepareGrowth();
   }
 
   /** Bucket every vertex under the bone that dominates it, and keep each

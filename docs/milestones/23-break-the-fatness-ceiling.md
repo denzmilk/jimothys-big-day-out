@@ -2,7 +2,7 @@
 
 ## Status
 
-**Reopened after Chris's playtest, 2026-10-02.** Growth and held movement exist, but the giant form does not read as a ball and the tumble stops after 0.9 seconds while translation continues (JIM-24/JIM-49/JIM-60). See [the loaded-model audit](../giant-audit-2026-10-02.md). Previous size/camera checks below do not establish correct shape or continuous rotation. Giant destruction is separately recorded as JIM-61.
+**Giant form/rotation repair implemented, awaiting Chris's playtest, 2026-10-02.** Loaded body, sockets and carried objects now share a spherical growth surface; held rotation follows distance. JIM-61 demolition and JIM-48 performance continue in milestone 33.
 
 Depends on: milestone 22 (things land on the ground) · Blocks: milestone 24 (katamari roll)
 
@@ -71,9 +71,9 @@ So the on-foot penalty **stays exactly as signed off** — a fat raccoon waddlin
 
 ## Giant repair acceptance — approved 2026-10-02
 
-- [ ] Loaded torso becomes round at Block/Absurd size, with small head/limbs and collision/visual centres aligned at multiple headings.
-- [ ] Held giant rolling continues rotating with travelled distance past the first second; lean flop remains intact.
-- [ ] Attached props and people meet the visible skin across several rotations and release with owner physics/AI restored.
+- [x] Loaded torso becomes round at Block/Absurd size, with small head/limbs and collision/visual centres aligned at multiple headings.
+- [x] Held giant rolling continues rotating with travelled distance past the first second; lean flop remains intact.
+- [x] Attached props and people meet the visible skin across several rotations and release with owner physics/AI restored.
 
 ## Acceptance criteria
 
@@ -93,3 +93,5 @@ User eats until Jimothy is taller than the houses, rolls across the island in a 
 ## Verification — 2026-10-02
 
 `tests/scale.spec.js` covers continued growth, reachable block size, unchanged saturating penalties, camera framing, movement and held rolling. Adjacent aim, physics, fatness and dev-panel checks were run with the world pass. A separate loaded-rig measurement projected the bounds of every posed body part into the camera at fatness 0, 90 and 250: maximum vertical screen extent 0.263, 0.500 and 0.695, all within the frame. Evidence: `output/iterate/actual-rig-camera-check.log`. The visual feel still needs Chris's playtest.
+
+Final repair evidence: `giant-coat-checks.log` (20 pass), `giant-final.log` (3 pass), `giant-adjacent.log` (27 pass before final coat refinement), native Metal street capture/release in `giant-street-final.log`. The original body-bone-scale assertion was replaced by actual torso growth and unchanged extremity-geometry assertions because growth is now a field baked into vertices. No tolerance was widened.

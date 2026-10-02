@@ -48,11 +48,15 @@ test('fatness grows the belly and nothing else', async ({ page }) => {
   await waitForRig(page);
   await adv(page, 0.2);
   const lean = (await state(page)).rig.boneScales;
+  const leanWidth=await page.evaluate(()=>{const b=window.__game.jimothy.rig.bellyBox();return b.max.x-b.min.x;});
   await page.evaluate(() => window.setFatness(90));
   await adv(page, 0.5);
   const s = await state(page);
 
-  expect(s.rig.boneScales.body).toBeGreaterThan(lean.body * 1.3);
+  const fatWidth=await page.evaluate(()=>{const b=window.__game.jimothy.rig.bellyBox();return b.max.x-b.min.x;});
+  // The Blender growth shape changes geometry; bone scale now stays 1 so
+  // animation joints do not shear. Assert the visible belly instead.
+  expect(fatWidth).toBeGreaterThan(leanWidth*1.3);
   // Held against each bone's own lean value, not against 1 — the root carries
   // a normalization scale (RIG.TARGET_LENGTH), so 1 is not the baseline and
   // asserting it would be asserting a coincidence.
@@ -124,48 +128,25 @@ test('headbutt leans forward at any heading', async ({ page }) => {
   expect(Math.abs(dot(s.jimothy.up, right))).toBeLessThan(0.05);
 });
 
-test('the belly carries head, tail and legs outward as it grows', async ({ page }) => {
-  // This replaces "parts stay attached as he fattens". That spec measured each
-  // detached piece's distance from the belly, because seven rigid solids could
-  // genuinely float off a ballooning body (JIM-15) — a failure mode one
-  // continuous mesh makes impossible. What still has to be true, and is the
-  // milestone's actual claim, is that growing the belly CARRIES the extremities
-  // with it rather than swallowing them.
-  await boot(page, { withRig: true });
-  await waitForRig(page);
-  await adv(page, 0.2);
-  const lean = (await state(page)).rig.parts;
-  await page.evaluate(() => window.setFatness(90));
-  await adv(page, 0.5);
-  const fat = (await state(page)).rig.parts;
-
-  // All measured in Jimothy's own frame, so this is a part moving along the
-  // body, not him walking.
-
-  // The head rides forward on a longer, bigger animal.
-  expect(fat.head.z).toBeGreaterThan(lean.head.z + 0.1);
-
-  // The legs splay SIDEWAYS only — the bow-legged waddle of a fat raccoon.
-  // Riding forward walked his front feet out past his own nose; riding down
-  // put them under the road. Both are asserted here because both happened.
-  for (const leg of ['leg_FL', 'leg_FR', 'leg_RL', 'leg_RR']) {
-    expect(Math.abs(fat[leg].x)).toBeGreaterThan(Math.abs(lean[leg].x) + 0.05);
-    expect(fat[leg].y).toBeCloseTo(lean[leg].y, 1);
-    expect(fat[leg].z).toBeCloseTo(lean[leg].z, 1);
-  }
-  for (const shin of ['shin_FL', 'shin_FR', 'shin_RL', 'shin_RR']) {
-    // Feet on the road, not under it. y is height above his own ground plane.
-    expect(fat[shin].y).toBeGreaterThan(0);
-    expect(fat[shin].z).toBeLessThan(fat.head.z);
-  }
-
-  // The tail is the exception, and by construction rather than by oversight:
-  // its bind position IS the body bone's origin, the point the belly scales
-  // about, so the belly grows around it and leaves it on the rump.
-  expect(fat.tail.z).toBeCloseTo(lean.tail.z, 1);
-
-  // Nothing here is allowed to be true merely because he never got fat.
-  expect((await state(page)).jimothy.widthScale).toBeGreaterThan(1.3);
+test('the grown surface carries unchanged head, tail and paw geometry',async({page})=>{
+ await boot(page,{withRig:true});
+ const sizes=await page.evaluate(async()=>{
+  const T=await import('/node_modules/three/build/three.module.js'),j=window.__game.jimothy,r=j.rig,m=r.skinned,a=m.geometry.attributes,out=[];
+  for(const fat of [0,90,250]){
+   setFatness(fat);teleportJimothy(60,10);j.postUpdate(0);for(const n of Object.keys(r.bones))r.pose(n);j.group.updateMatrixWorld(true);m.skeleton.update();
+   const inverse=new T.Matrix4().copy(j.group.matrixWorld).invert(),center=j.group.worldToLocal(r.bellyBox().getCenter(new T.Vector3())),parts={};
+   for(const name of ['head','tail','shin_FL','shin_FR','shin_RL','shin_RR']){
+    const bi=m.skeleton.bones.indexOf(r.bones[name]),box=new T.Box3(),p=new T.Vector3();
+    for(let i=0;i<a.position.count;i++){let w=0;for(let k=0;k<4;k++)if(a.skinIndex.getComponent(i,k)===bi)w+=a.skinWeight.getComponent(i,k);if(w<.9)continue;m.getVertexPosition(i,p).applyMatrix4(m.matrixWorld).applyMatrix4(inverse);box.expandByPoint(p);}
+    parts[name]={size:box.getSize(new T.Vector3()).toArray(),distance:box.getCenter(new T.Vector3()).distanceTo(center)};
+   }out.push({fat,radius:j.radius,parts});
+  }return out;
+ });
+ for(const grown of sizes.slice(1))for(const [name,part] of Object.entries(grown.parts)){
+  for(let i=0;i<3;i++)expect(part.size[i],`${name} at ${grown.fat}`).toBeCloseTo(sizes[0].parts[name].size[i],3);
+  expect(part.distance).toBeGreaterThan(sizes[0].parts[name].distance+.1);
+  expect(Math.abs(part.distance-grown.radius),`${name} surface at ${grown.fat}`).toBeLessThan(1.5);
+ }
 });
 
 test('every animated bone actually moves', async ({ page }) => {

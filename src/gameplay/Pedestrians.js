@@ -103,7 +103,7 @@ export class Pedestrians {
   }
 
   _populate() {
-    const jp=this.jimothy.group.position;
+    const jp=this.jimothy.position;
     const candidates=[...this.graph.values()].filter(n=>Math.hypot(n.x-jp.x,n.z-jp.z)>PED.SPAWN_MIN)
       .sort((a,b)=>hash(a.ix,a.iz)-hash(b.ix,b.iz));
     for(const n of candidates) {
@@ -116,7 +116,7 @@ export class Pedestrians {
   update(delta) {
     if(!this.ready||!gameState.game.isPlaying)return;
     this.elapsed+=delta;
-    const jp=this.jimothy.group.position;
+    const jp=this.jimothy.position;
     if(!this.center||Math.hypot(jp.x-this.center.x,jp.z-this.center.z)>PED.REFRESH_DISTANCE) {
       this._graphAround(jp.x,jp.z);
       for(const p of [...this.people])if(!p.attached&&Math.hypot(p.x-jp.x,p.z-jp.z)>PED.RADIUS)this._remove(p);
@@ -172,11 +172,11 @@ export class Pedestrians {
     if(!this.ready)return;
     for(const p of [...this.people])this._remove(p);
     this.serial=0;this.center=null;
-    this._graphAround(this.jimothy.group.position.x,this.jimothy.group.position.z);this._populate();
+    this._graphAround(this.jimothy.position.x,this.jimothy.position.z);this._populate();
     for(const p of this.people)p.y=this.voxels.terrainHeightAt(p.x,p.z);
     this.update(0);
   }
 
   get fleeingCount(){return this.people.filter(p=>p.flee>0).length;}
-  snapshot(){const j=this.jimothy.group.position;return {ready:this.ready,models:this.models.length,count:this.people.length,nearby:this.people.filter(p=>Math.hypot(p.x-j.x,p.z-j.z)<PED.NEAR_DISTANCE).length,fleeing:this.fleeingCount,items:this.people.map(p=>({id:p.id,model:p.model,x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2),animation:p.animation,attached:p.attached,ragdoll:!!p.ragdoll,feet:p.grounding.contacts}))};}
+  snapshot(){const j=this.jimothy.position;return {ready:this.ready,models:this.models.length,count:this.people.length,nearby:this.people.filter(p=>Math.hypot(p.x-j.x,p.z-j.z)<PED.NEAR_DISTANCE).length,fleeing:this.fleeingCount,items:this.people.map(p=>({id:p.id,model:p.model,x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2),animation:p.animation,attached:p.attached,ragdoll:!!p.ragdoll,feet:p.grounding.contacts}))};}
 }

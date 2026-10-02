@@ -150,7 +150,7 @@ class Game {
       this.cameraSystem.yaw=WATER.BEACH_YAW;this.cameraSystem.snapToTarget();this.jimothy.postUpdate(0);
     });
     eventBus.on(Events.DEV_GOTO_SEWER, () => {
-      const jp = this.jimothy.group.position;
+      const jp = this.jimothy.position;
       const near = this.sewerEntrances().reduce(
         (a, c) => (Math.hypot(c.x - jp.x, c.z - jp.z) < Math.hypot(a.x - jp.x, a.z - jp.z) ? c : a),
       );
@@ -322,7 +322,7 @@ class Game {
     // Two centres while flying: the camera needs ground under it to be worth
     // looking at, and dropping HIS column to pay for that would put the raccoon
     // over a void the moment you land.
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const cp = this.camera.position;
     this.voxels.streamAroundPoints(
       this.flyCamera.active
@@ -395,7 +395,7 @@ class Game {
     this.diagTimer -= delta;
     if (this.diagTimer > 0) return;
     this.diagTimer = 0.15;
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const gp = this.input.gamepadInfo;
     this.diagEl.textContent =
       `f:${this.frames} dt:${(this.lastDelta * 1000).toFixed(1)} ` +
@@ -803,7 +803,7 @@ class Game {
   }
 
   renderToText() {
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const cp = this.camera.position;
     return JSON.stringify({
       score: gameState.player.score,

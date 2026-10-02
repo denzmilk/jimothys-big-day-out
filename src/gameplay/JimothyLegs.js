@@ -133,6 +133,9 @@ export class JimothyLegs {
   // so a supporting leg is never forced to trail beyond its physical reach.
   _updateBones(delta) {
     const c=this.controller,rig=this.rig,root=c.group;
+    // A changed body shape moves the hips even at zero simulated time. Old
+    // support history otherwise drags the new giant mesh back to lean height.
+    if(this.previousRadius!==c.radius){this.reset();this.previousRadius=c.radius;}
     for(let i=0;i<4;i++){rig.pose(LEG_NAMES[i]);rig.pose(SHIN_NAMES[i]);}
     rig.root.position.y=rig.baseY;
     if(!c.grounded||c.swimming||c.move?.kind==='roll'){

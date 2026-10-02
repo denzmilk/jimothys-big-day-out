@@ -53,7 +53,7 @@ export class CrabPeople {
 
   /** Somewhere on the sewer centreline near him, at tunnel-floor height. */
   _spawnSpot(seed) {
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const R = STREAM.LOAD_RADIUS * VOXEL.CHUNK_XZ * VOXEL.SIZE;
     for (let n = 0; n < 24; n++) {
       let h = (Math.imul(seed + n, 374761393) ^ 0x9e3779b9) >>> 0;
@@ -70,7 +70,7 @@ export class CrabPeople {
   update(delta) {
     if (!gameState.game.isPlaying) return;
     this.elapsed += delta;
-    const jp = this.jimothy.group.position;
+    const jp = this.jimothy.position;
     const R = STREAM.LOAD_RADIUS * VOXEL.CHUNK_XZ * VOXEL.SIZE;
     // Only while he is down there. They have their own lives when he isn't, and
     // simulating them from the surface would be a draw call and a lie.

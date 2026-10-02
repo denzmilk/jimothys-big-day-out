@@ -19,7 +19,7 @@ export class DayNight {
  update(dt,underground){
   if(gameState.game.isPlaying)this.hour=(this.hour+dt*24/C.PERIOD)%24;
   const angle=(this.hour-6)/24*Math.PI*2,elevation=Math.sin(angle),day=THREE.MathUtils.smoothstep(elevation,C.TWILIGHT_LOW,C.TWILIGHT_HIGH),high=THREE.MathUtils.smoothstep(elevation,0,C.NOON_BLEND);
-  this.direction.set(Math.cos(angle),elevation,C.SUN_AZIMUTH).normalize();const j=this.jimothy.group.position;
+  this.direction.set(Math.cos(angle),elevation,C.SUN_AZIMUTH).normalize();const j=this.jimothy.position;
   this.sun.position.copy(j).addScaledVector(this.direction,C.LIGHT_DISTANCE);this.sun.target.position.copy(j);
   this.moon.position.copy(j).addScaledVector(this.direction,-C.LIGHT_DISTANCE);this.moon.target.position.copy(j);
   this.sun.color.set(C.SUNSET_COLOR).lerp(this.color.set(C.NOON_COLOR),high);this.sun.intensity=underground?C.UNDERGROUND_SUN:C.SUN_INTENSITY*day;

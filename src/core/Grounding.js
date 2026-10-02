@@ -63,14 +63,19 @@ export class FootGrounding {
     const direction=this.velocity.clone().normalize();
     for(const leg of this.legs)if(!leg.target)leg.target=this.foothold(leg);
     this.wait=Math.max(0,this.wait-dt);
-    if(moving&&speed>C.MIN_SPEED&&!this.legs.some(l=>l.swing)&&this.wait===0){
+    const lag=leg=>this.foothold(leg).sub(leg.target).dot(direction);
+    const recovery=this.legs.every(leg=>lag(leg)>stride*C.FOOT_LEAD);
+    if(moving&&speed>C.MIN_SPEED&&!this.legs.some(l=>l.swing)&&(this.wait===0||recovery)){
       // After a reversal the last foot to land may already be the trailing
       // one. Blind alternation would leave it a full extra stride behind.
-      const leg=this.legs.reduce((a,b)=>this.foothold(a).sub(a.target).dot(direction)>this.foothold(b).sub(b.target).dot(direction)?a:b);
-      const duration=THREE.MathUtils.clamp(stride/(2*Math.max(speed,velocity.length()))*C.SWING_SHARE,C.SWING_MIN,C.SWING_MAX);
-      const end=this.foothold(leg).addScaledVector(this.velocity,duration).addScaledVector(direction,stride*C.FOOT_LEAD);
+      const leg=this.legs.reduce((a,b)=>lag(a)>lag(b)?a:b);
+      // JIM-55: after a turn both feet can trail the hips. Take a short
+      // catch-up step; a full forward stride leaves the support leg behind.
+      const duration=recovery?C.SWING_MIN:THREE.MathUtils.clamp(stride/(2*Math.max(speed,velocity.length()))*C.SWING_SHARE,C.SWING_MIN,C.SWING_MAX);
+      const end=this.foothold(leg);
+      if(!recovery)end.addScaledVector(this.velocity,duration).addScaledVector(direction,stride*C.FOOT_LEAD);
       end.y=this.ground(end.x,end.z)+leg.offset+C.FOOT_CLEARANCE;
-      leg.swing={start:leg.target.clone(),end,elapsed:0,duration,gap:duration*(1-C.SWING_SHARE)/C.SWING_SHARE};
+      leg.swing={start:leg.target.clone(),end,elapsed:0,duration,gap:duration*(1-C.SWING_SHARE)/C.SWING_SHARE,recovery};
     }
     for(const leg of this.legs){
       const swing=leg.swing;
@@ -78,7 +83,8 @@ export class FootGrounding {
         swing.elapsed=Math.min(swing.duration,swing.elapsed+dt);
         // A late navigation turn must not yank a nearly planted foot sideways.
         if(moving&&swing.elapsed/swing.duration<C.LANDING_LOCK){
-          const end=this.foothold(leg).addScaledVector(this.velocity,swing.duration-swing.elapsed).addScaledVector(direction,stride*C.FOOT_LEAD);
+          const end=this.foothold(leg);
+          if(!swing.recovery)end.addScaledVector(this.velocity,swing.duration-swing.elapsed).addScaledVector(direction,stride*C.FOOT_LEAD);
           end.y=this.ground(end.x,end.z)+leg.offset+C.FOOT_CLEARANCE;
           const correction=end.sub(swing.end).multiplyScalar(1-Math.exp(-C.LANDING_RESPONSE*dt));
           correction.clampLength(0,C.LANDING_SPEED*dt);swing.end.add(correction);

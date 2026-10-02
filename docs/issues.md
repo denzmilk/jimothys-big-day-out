@@ -10,6 +10,12 @@
 
 ## Open
 
+### JIM-55 — Downhill turns leave a pedestrian's support foot out of reach
+
+**Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-02 during milestone 32 regression
+
+The changed street obstacle layout exposes a long recovery step after a downhill turn. In `tests/walking-ik.spec.js`, neighbour `ped-19` near (-3, 22.05, 41.98) leaves a foot anchored more than a metre behind a leg with 0.747 m reach. Maximum planted-sole error is 0.197 m, above the existing 0.15 m limit; hip/frame and foot/frame displacement remain within their limits. Evidence: `output/iterate/traffic-full-suite.log`, `traffic-ik-probe.log`. Location: `FootGrounding.update`. When a turn leaves both feet behind, the grounder now takes a short catch-up step before returning to its normal stride. Foot speed and hip smoothing stay bounded; no assertion limit changed. All three walking checks pass, with maximum planted error reduced to 0.114 m and p95 to 0.0315 m. All 31 adjacent grounding, character, pursuit, ragdoll and traffic checks pass (`traffic-ik-recovery.log`, `traffic-ik-adjacent.log`). Build and rendered smoke pass without console errors. The captured support foot stays 0.018 m above the rendered pavement; raycast surface heights agree with the grounding query within two micrometres (`traffic-ik-skin-probe.log`, `traffic-ik-recovery-313.png`, `traffic-ik-recovery-339.png`). Walking feel still needs Chris's playtest.
+
 ### JIM-54 — Some cars drive backwards
 
 **Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris)

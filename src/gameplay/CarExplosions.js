@@ -26,7 +26,7 @@ export class CarExplosions {
       for(let i=0;i<count*C.MAX;i++)mesh.setColorAt(i,new THREE.Color(color));
       scene.add(mesh);this.layers[name]={mesh,alpha,count,color:new THREE.Color(color)};
     }
-    this.light=new THREE.PointLight(C.FIRE_COLOR,0,C.LIGHT_DISTANCE);this.light.visible=false;scene.add(this.light);
+    this.light=new THREE.PointLight(C.FIRE_COLOR,0,C.LIGHT_DISTANCE);this.light.visible=true;scene.add(this.light);
     this.dummy=new THREE.Object3D();this.rotation=new THREE.Quaternion();this.color=new THREE.Color();
     eventBus.on(Events.CAR_EXPLODED,e=>this.spawn(e));
   }
@@ -68,8 +68,9 @@ export class CarExplosions {
     }
     // One unshadowed flash keeps a crowded chain of explosions bounded.
     const flash=this.bursts.findLast(b=>b.age<C.FIRE_LIFE);
-    this.light.visible=!!flash;
-    if(flash){this.light.position.set(flash.x,flash.y,flash.z);this.light.intensity=C.LIGHT_INTENSITY*(1-flash.age/C.FIRE_LIFE)**2;}
+    // JIM-64: changing light count recompiles every lit world material mid-blast.
+    this.light.intensity=flash?C.LIGHT_INTENSITY*(1-flash.age/C.FIRE_LIFE)**2:0;
+    if(flash)this.light.position.set(flash.x,flash.y,flash.z);
   }
   reset(){this.bursts=[];this.total=0;this.update(0);}
   snapshot(){return {active:this.bursts.length,total:this.total,fire:this.layers.fire.mesh.count,smoke:this.layers.smoke.mesh.count,sparks:this.layers.sparks.mesh.count};}

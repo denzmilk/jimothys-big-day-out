@@ -1,5 +1,9 @@
 # Session state
 
+## First-explosion shader stall — JIM-64 — 2026-10-02
+
+Implemented, awaiting playtest. Keep the explosion PointLight visible with zero intensity between flashes: toggling its visibility changed shader light-count defines across the entire world. The stable-light regression passes. Matched native 12-second Block battle worst frame **4,432.9 → 50.2 ms**, with final median 16.2 ms / p95 18.9 ms, two shots/impacts, one launch and no errors. Reset clears military objects and restores kinematic control. Build/rendered smoke pass. Logs: `military-native-stable-lights.log`, `explosion-light-green.log`, `explosion-light-smoke.log`. Military work remains uncommitted; projectile collision refinement is next, then beaches/underwater.
+
 ## Size-slider ground preservation — JIM-63 — 2026-10-02
 
 Implemented, awaiting playtest. Abrupt size changes now preserve physical feet by moving the collision centre with the radius. The test hook follows the real slider event. The failing 17.84 m foot drop is fixed; the actual dev control passes Block/Absurd/lean checks, and build/rendered smoke pass with the in-progress military code present. Military runtime/asset work remains uncommitted and continues next.

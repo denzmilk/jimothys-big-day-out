@@ -10,6 +10,12 @@
 
 ## Open
 
+### JIM-64 — First explosion recompiles the lit world and freezes a frame
+
+**Status:** implemented, awaiting playtest · **Found:** 2026-10-02 during native military profiling
+
+The explosion flash toggled a PointLight's visibility. That changes the shader light-count defines for every lit material, causing a 4,432.9 ms frame despite a 34.7 ms maximum simulation update. The light now remains registered with zero intensity between flashes. A failing light-layout regression now passes. In the same native 12-second Block battle, worst frame becomes 50.2 ms, p95 18.9 ms, median 16.2 ms; two shots/impacts and one launch occur, then restart returns to zero military objects and kinematic control. No errors. Evidence: `military-native.log`, `military-native-stable-lights.log`, `explosion-light-red.log`, `explosion-light-green.log`; build/rendered smoke pass in `explosion-light-build.log`/`explosion-light-smoke.log`. These checks include the in-progress military feature.
+
 ### JIM-63 — Size slider drops physical feet into the ground
 
 **Status:** implemented, awaiting playtest · **Found:** 2026-10-02 during military inspection

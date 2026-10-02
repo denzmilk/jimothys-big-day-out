@@ -2,6 +2,18 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Raised footpaths — milestone 28 / JIM-51 — 2026-10-02
+
+**Implemented, awaiting Chris's playtest.** Streets have reserved 2 m pedestrian strips, 22 cm kerbs and 1.1 m concrete slabs with 18 mm recessed geometric joints. Paving remains part of the 22 cm voxel world. Street runs have level cross-sections and short planar grades; surrounding land and differently angled district grids meet them through gradual transitions. Civilian routes now use footpath cell centres while traffic stays on roads.
+
+The coarse island backdrop now discards fragments over fully meshed voxel columns. This prevents it from covering a street cut or appearing inside a crater. Kerb faces preserve underground tunnel walls. Stairwell bases open into their adjoining bores, and grounded Jimothy settles onto the floor without stationary auto-stepping. Ground queries and meshing choose the same side of class boundaries.
+
+Verification: the full 164-case run passed 156 checks and exposed three regressions, now fixed, alongside five existing failures. The final affected rerun passed 65/68, including all five footpath checks and the corrected aiming, sewer and landing cases. Its remaining failures are the existing interrupted feast (JIM-03) and two draw-call checks (JIM-48); two existing rig failures (JIM-49) remain in the full run. Logs: `output/iterate/footpaths-full-suite.log`, `footpaths-final-regression.log`.
+
+Grade samples: 469 footpath points around spawn, 449 interior cross-sections with zero lateral height difference; 776 district joins checked. Production build and rendered smoke pass with no console errors, 36 people, eight moving cars and ten parked cars. The captured paving blast removes 79 cells and produces 14 live debris pieces. A real E-key headbutt separately removes 104 paving cells; normal movement crosses the kerb and remains grounded (`footpaths-headbutt.log`, `footpaths-kerb-crossing.log`). Captures: `output/iterate/footpaths-production-street.png`, `footpaths-production-slabs.png`, `footpaths-production-broken.png`.
+
+Playtest at **http://127.0.0.1:4174**: inspect paving scale and kerb height, cross from road to footpath, watch a person turn on a slope, then aim down and headbutt paving with **E**. Chris's judgement is still required.
+
 ## Smooth pedestrian walking — JIM-50 — 2026-10-02
 
 **Implemented, awaiting Chris's playtest.** Chris reported pedestrian walking jitter and jumping on angles. The old support switch released a large pelvis correction instantly: the reproduced hip jump was 0.555 m in one 60 Hz frame while the terrain rose only 0.012 m. `FootGrounding` now keeps world-space foot contacts, transfers through bounded swing arcs, selects the trailing foot after turns, and smooths pelvis height and foot rotation. Pedestrians turn toward a route before translating along it. Civilian and pursuer grounding reset when released from rolling collection.

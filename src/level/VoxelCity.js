@@ -242,6 +242,7 @@ function buildStairwell(world, e) {
   // Hollow the shaft from the street down to the tunnel.
   for (let x = 0; x < N; x++) {
     for (let z = 0; z < N; z++) {
+      world.set(ox+x,floor-1,oz+z,CONCRETE);
       for (let y = floor; y <= top + 1; y++) world.set(ox + x, y, oz + z, VOXEL.EMPTY);
     }
   }
@@ -249,7 +250,17 @@ function buildStairwell(world, e) {
   for (let x = -1; x <= N; x++) {
     for (let z = -1; z <= N; z++) {
       if (x >= 0 && x < N && z >= 0 && z < N) continue;
-      for (let y = floor - 1; y <= top; y++) world.set(ox + x, y, oz + z, CONCRETE);
+      // The lining must open into the bore. Depending on a sloping surface
+      // to expose an accidental exit seals the stairs after street grading.
+      const outsideX=(ox+x+.5+(x===-1?-1:x===N?1:0))*s;
+      const outsideZ=(oz+z+.5+(z===-1?-1:z===N?1:0))*s;
+      const meetsTunnel=Layout.Masterplan.sewerDistance(outsideX,outsideZ,SEWER.WIDTH)<=SEWER.WIDTH/2;
+      const boreFloor=Layout.terrain.topSolidVoxelY(outsideX,outsideZ)-Math.round(SEWER.DEPTH/s);
+      const boreCeiling=boreFloor+Math.round(SEWER.HEIGHT/s);
+      for (let y = floor - 1; y <= top; y++) {
+        const portal=meetsTunnel&&y>=Math.max(floor,boreFloor)&&y<=boreCeiling;
+        world.set(ox+x,y,oz+z,portal?VOXEL.EMPTY:CONCRETE);
+      }
     }
   }
   // The step, one voxel per perimeter cell, spiralling down the wall.

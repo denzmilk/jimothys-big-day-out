@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WORLD, COLORS, HIDE_SPOTS, TERRAIN, HORIZON, ATMOSPHERE as A, STREET } from '../core/Constants.js';
+import { WORLD, COLORS, HIDE_SPOTS, TERRAIN, HORIZON, VOXEL, ATMOSPHERE as A, STREET } from '../core/Constants.js';
 import * as Terrain from './Terrain.js';
 import * as Masterplan from './CityPlanner.js';
 import { gameState } from '../core/GameState.js';
@@ -90,11 +90,8 @@ export class LevelBuilder {
 
   /** The whole island, once, at low resolution.
    *
-   *  Built from the SAME baked height field the voxels are generated from, so
-   *  it cannot disagree with them about where a hill is — it is the same
-   *  function sampled coarsely. Sits `HORIZON.DROP` below the true surface, so
-   *  the real voxel ground always wins the depth test where it exists and this
-   *  is only ever seen past the streaming boundary.
+   *  A coarse island cannot represent street cuts or player craters. A small
+   *  column mask hides it wherever real voxel geometry has been built (M28).
    *
    *  One draw call for 2 km of island. Adding one more ring of voxel columns to
    *  see 35 m further costs far more than this does to see all of it (JIM-34). */
@@ -144,8 +141,35 @@ export class LevelBuilder {
       geo,
       new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }),
     );
+    const columnSize=VOXEL.SIZE*VOXEL.CHUNK_XZ,origin=Math.floor(-B/columnSize),size=Math.floor(B/columnSize)-origin+1;
+    const data=new Uint8Array(size*size),texture=new THREE.DataTexture(data,size,size,THREE.RedFormat);
+    texture.minFilter=texture.magFilter=THREE.NearestFilter;texture.needsUpdate=true;
+    this.horizonCoverage={origin,size,columnSize,data,texture,key:null};
+    this.horizon.material.onBeforeCompile=shader=>{
+      shader.uniforms.columnCoverage={value:texture};
+      shader.uniforms.coverageGrid={value:new THREE.Vector3(origin,size,columnSize)};
+      shader.vertexShader='varying vec2 horizonXZ;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nhorizonXZ=position.xz;');
+      shader.fragmentShader='varying vec2 horizonXZ;uniform sampler2D columnCoverage;uniform vec3 coverageGrid;\n'+shader.fragmentShader.replace('#include <clipping_planes_fragment>',`#include <clipping_planes_fragment>
+        vec2 coverageUV=(floor(horizonXZ/coverageGrid.z)-coverageGrid.x+.5)/coverageGrid.y;
+        if(all(greaterThanEqual(coverageUV,vec2(0.)))&&all(lessThan(coverageUV,vec2(1.)))&&texture2D(columnCoverage,coverageUV).r>.5)discard;`);
+    };
+    this.horizon.material.customProgramCacheKey=()=> 'horizon-column-coverage';
+    this.updateHorizonCoverage();
     this.horizon.renderOrder = -1;
     this.scene.add(this.horizon);
+  }
+
+  updateHorizonCoverage(){
+    if(!this.voxels)return;
+    const coverage=this.horizonCoverage;
+    const ready=[...this.voxels.generated].filter(key=>[...(this.voxels.columnChunks.get(key)||[])].every(k=>!this.voxels.chunks.get(k)?.dirty));
+    const key=ready.join(';');if(key===coverage.key)return;
+    coverage.key=key;coverage.data.fill(0);
+    for(const column of ready){
+      const [x,z]=column.split(',').map(Number),i=x-coverage.origin,j=z-coverage.origin;
+      if(i>=0&&j>=0&&i<coverage.size&&j<coverage.size)coverage.data[j*coverage.size+i]=255;
+    }
+    coverage.texture.needsUpdate=true;
   }
 
   registerEntities(){for(const p of this.bushes)eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:p.kind,size:p.size});}
@@ -155,6 +179,7 @@ export class LevelBuilder {
   }
 
   update(delta, camera) {
+    this.updateHorizonCoverage();
     this.time += delta;
     this.atmosphereTime.value = this.time;
     this.sky.position.copy(camera.position);

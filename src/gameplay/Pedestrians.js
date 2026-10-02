@@ -53,17 +53,16 @@ export class Pedestrians {
     this.center={x,z};this.graph.clear();
     this.buildings=Layout.Masterplan.buildingsIn(x-R-S,z-R-S,x+R+S,z+R+S);
     for(let iz=Math.floor((z-R)/S);iz<=Math.ceil((z+R)/S);iz++) for(let ix=Math.floor((x-R)/S);ix<=Math.ceil((x+R)/S);ix++) {
-      const px=ix*S,pz=iz*S;
+      const px=(ix+.5)*S,pz=(iz+.5)*S;
       if(Math.hypot(px-x,pz-z)>R||!this._clear(px,pz))continue;
       // Pavement follows the baked road edges. People stay on its land side,
       // instead of picking arbitrary destinations through rooms or the sea.
-      if(Layout.roadAtWorld(px,pz))continue;
-      if(![[S,0],[-S,0],[0,S],[0,-S],[S,S],[-S,-S],[S,-S],[-S,S]].some(([dx,dz])=>Layout.roadAtWorld(px+dx,pz+dz)))continue;
+      if(!Layout.isFootpathAtWorld(px,pz))continue;
       this.graph.set(`${ix},${iz}`,{key:`${ix},${iz}`,ix,iz,x:px,z:pz,links:[]});
     }
     for(const n of this.graph.values()) for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]) {
       const other=this.graph.get(`${n.ix+dx},${n.iz+dz}`);
-      if(other&&this._clear((n.x+other.x)/2,(n.z+other.z)/2)) n.links.push(other.key);
+      if(other&&Layout.isFootpathAtWorld((n.x+other.x)/2,(n.z+other.z)/2)&&this._clear((n.x+other.x)/2,(n.z+other.z)/2)) n.links.push(other.key);
     }
     for(const [key,n] of this.graph)if(!n.links.length)this.graph.delete(key);
   }
@@ -148,7 +147,7 @@ export class Pedestrians {
         const step=Math.min(speed*delta,d),nx=p.x+dx/(d||1)*step,nz=p.z+dz/(d||1)*step;
         const surface=this.voxels.terrainHeightAt(nx,nz), ground=this.voxels.groundHeightAt(nx,nz,surface+PED.GROUND_SCAN);
         const givesWay=p.flee<=0&&Math.hypot(nx-jp.x,nz-jp.z)<PED.GIVE_WAY_RADIUS;
-        if(!givesWay&&this._clear(nx,nz)&&Math.abs(ground-p.y)<PED.MAX_STEP&& !this.voxels.solidAtWorld(nx,ground+PED.BODY_PROBE,nz)) {
+        if(!givesWay&&(!Layout.isFootpathAtWorld(p.x,p.z)||Layout.isFootpathAtWorld(nx,nz))&&this._clear(nx,nz)&&Math.abs(ground-p.y)<PED.MAX_STEP&& !this.voxels.solidAtWorld(nx,ground+PED.BODY_PROBE,nz)) {
           p.x=nx;p.z=nz;p.y=ground;p.yaw=Math.atan2(dx,dz);moving=step>0;
         } else {p.target=null;p.previous=null;p.steps++;}
       }

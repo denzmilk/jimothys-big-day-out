@@ -267,10 +267,12 @@ export class JimothyController {
       // Both the ceiling and the STEP scale with him (milestone 23). A
       // block-sized Jimothy steps over houses, and probing that in 0.55 m
       // increments would be 150 grid queries per axis per frame.
+      // A stationary body falling beside a ledge must settle, not climb the
+      // side probe again as soon as ground contact is restored (M28).
       const maxLift = this.climbHeight;
       const liftStep = Math.max(VOXEL.SIZE, maxLift / 8);
       let climbed = false;
-      for (let lift = liftStep; this.grounded && lift <= maxLift; lift += liftStep) {
+      for (let lift = liftStep; this.grounded && p[axis] !== prev && lift <= maxLift; lift += liftStep) {
         const y = probeY + lift;
         const blocked = this.voxels.solidAtWorld(a.x, y, a.z)
           || this.voxels.solidAtWorld(bq.x, y, bq.z);
@@ -489,7 +491,9 @@ export class JimothyController {
       // hop, and carrying a big negative velocity into the next gap he meets
       // (playtest 2026-08-06: "falling through the floor").
       this.grounded = true;
-      if (this.vy < 0) this.vy = 0;
+      // Settle onto the floor so contact tolerance cannot preserve a visible gap.
+      // Preserve upward motion so the first frames of a hop remain free.
+      if (this.vy <= 0) { p.y = standY; this.vy = 0; }
     }
     // Last line of defence: whatever happened above, he is never below the
     // surface of his own column. Cheap, and it makes falling out of the world

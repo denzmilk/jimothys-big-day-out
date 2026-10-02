@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { VOXEL, STREAM, TERRAIN, GLAZING as G } from '../core/Constants.js';
+import { VOXEL, STREAM, TERRAIN, PAVING, GLAZING as G } from '../core/Constants.js';
 
 // Chunked destructible voxel grid (ADR-0003).
 //
@@ -643,26 +643,9 @@ export class VoxelWorld {
       tops.fill(-2147483648);
     }
 
-    // --- smoothing (playtest 2026-08-07) -------------------------------------
-    //
-    // The height field is continuous; the voxels are 0.55 m. Quantising one
-    // into the other terraces every hillside — a step roughly every metre on
-    // Trash Panda Heights, which reads as a staircase rather than a hill.
-    //
-    // The fix costs no geometry: the top face of an UNDISTURBED ground voxel
-    // has its four corners moved to the exact height field. Corners are lattice
-    // points, so neighbouring voxels — and neighbouring CHUNKS — sample the same
-    // world position and get the same answer. The surface comes out continuous
-    // and watertight by construction rather than by tolerance.
-    //
-    // Only the top face, and only where nothing has happened to the ground.
-    // Everything the player MAKES stays hard-edged: a crater's floor is no
-    // longer the terrain's top voxel, so it drops out of this and renders
-    // blocky. Smooth is what you found, voxel is what you did to it.
-    //
-    // Side walls are still emitted (never skipped): a step's wall ends up buried
-    // under the tilted quad above it, and skipping them opens half-voxel cracks
-    // wherever a smoothed column meets an unsmoothed one.
+    // Undamaged ground follows its authored surface; destroyed ground keeps
+    // voxel edges. M28 samples each side of a street boundary independently
+    // so a kerb has a vertical face instead of blending into the road.
     const Q = CX + 3;
     const cornerH = new Float32Array(Q * Q);
     const intact = new Uint8Array(P * P);
@@ -705,6 +688,28 @@ export class VoxelWorld {
       out[0] = -dx / len;
       out[1] = 1 / len;
       out[2] = -dz / len;
+    };
+    const sided = this.terrain?.cornerHeight;
+    const surfaceCorners = new Float32Array(P * P * 4);
+    if (sided) for (let lz=-1;lz<=CX;lz++) for (let lx=-1;lx<=CX;lx++) {
+      if (!intact[(lz+1)*P+lx+1]) continue;
+      for (let oz=0;oz<=1;oz++) for (let ox=0;ox<=1;ox++) {
+        surfaceCorners[((lz+1)*P+lx+1)*4+oz*2+ox]=sided(
+          (base[0]+lx+ox)*s,(base[2]+lz+oz)*s,(base[0]+lx+.5)*s,(base[2]+lz+.5)*s);
+      }
+    }
+    const surfaceCorner=(lx,lz,ox,oz)=>sided
+      ?surfaceCorners[((lz+1)*P+lx+1)*4+oz*2+ox]:corner(lx+ox,lz+oz);
+    const emitQuad=(quad,color,normal=null)=>{
+      for (const ids of [[0,1,2],[0,2,3]]) {
+        let n=normal;
+        if (!n) {
+          const [a,b,c]=ids.map(i=>quad[i]),u=b.map((v,i)=>v-a[i]),v=c.map((v,i)=>v-a[i]);
+          n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
+          const length=Math.hypot(...n)||1;n=n.map(v=>v/length);
+        }
+        for (const i of ids) {pos.push(...quad[i]);norm.push(...n);col.push(color.r,color.g,color.b);}
+      }
     };
     const nrm = [0, 1, 0];
     /** Occupancy for a voxel given in LOCAL coordinates, where lx/lz may be -1
@@ -754,15 +759,50 @@ export class VoxelWorld {
           const smooth = isTerrainTop(lx, ly, lz);
           for (let fi = 0; fi < FACES.length; fi++) {
             const f = FACES[fi];
-            if (occupied(lx + f.d[0], ly + f.d[1], lz + f.d[2], mat)) continue;
+            const nx=lx+f.d[0],nz=lz+f.d[2];
+            if (sided && f.d[1]===0 && intact[(lz+1)*P+lx+1] && intact[(nz+1)*P+nx+1]
+                && vy<=tops[(lz+1)*P+lx+1]
+                && (vy>=tops[(nz+1)*P+nx+1]||occupied(nx,ly,nz,mat))) {
+              // A retaining face can be taller than the stored terrain skin.
+              // Emit it once from the top column. Air pockets below grade
+              // still use voxel faces, so this cannot erase a tunnel wall.
+              if (smooth) {
+                let exposed=false;
+                const wall=f.v.map(([ox,oy,oz])=>{
+                  const top=surfaceCorner(lx,lz,ox,oz),adjacent=surfaceCorner(nx,nz,ox-f.d[0],oz-f.d[2]);
+                  if(top>adjacent+1e-6)exposed=true;
+                  return [(vx+ox)*s,oy?top:Math.min(top,adjacent),(vz+oz)*s];
+                });
+                if(exposed)emitQuad(wall,color,f.d);
+              }
+              continue;
+            }
+            if (occupied(nx, ly + f.d[1], nz, mat)) continue;
             // Undisturbed ground: every vertex on the voxel's TOP plane moves to
             // the real surface. That covers the top face and the upper edge of
             // any side wall in one rule, so the two always meet.
             const quad = f.v.map(([ox, oy, oz]) => [
               (vx + ox) * s,
-              smooth && oy === 1 ? corner(lx + ox, lz + oz) : (vy + oy) * s,
+              smooth && oy === 1 ? surfaceCorner(lx,lz,ox,oz) : (vy + oy) * s,
               (vz + oz) * s,
             ]);
+            const paving=mat===PAVING.SLAB_MATERIAL||mat===PAVING.SLAB_VARIANT||mat===PAVING.KERB_MATERIAL;
+            if (smooth && fi===2 && paving && sided) {
+              const mod=n=>((n%PAVING.SLAB_CELLS)+PAVING.SLAB_CELLS)%PAVING.SLAB_CELLS;
+              const inset=(n,offset)=>offset===0?(mod(n)===0?PAVING.JOINT_HALF:0)
+                :(mod(n)===PAVING.SLAB_CELLS-1?-PAVING.JOINT_HALF:0);
+              const inner=f.v.map(([ox,,oz])=>{
+                const x=(vx+ox)*s+inset(vx,ox),z=(vz+oz)*s+inset(vz,oz);
+                return [x,sided(x,z,(vx+.5)*s,(vz+.5)*s),z];
+              });
+              emitQuad(inner,color);
+              for(let i=0;i<4;i++) {
+                const j=(i+1)%4;
+                if(inner[i][0]!==quad[i][0]||inner[i][2]!==quad[i][2]||inner[j][0]!==quad[j][0]||inner[j][2]!==quad[j][2])
+                  emitQuad([quad[i],quad[j],inner[j],inner[i]],color);
+              }
+              continue;
+            }
             // Terrain slopes keep their sampled corners; only genuinely planar
             // faces merge, so reducing cells cannot flatten a hill (JIM-34).
             const flat = smooth && fi === 2 && quad.every(q => Math.abs(q[1] - quad[0][1]) < 1e-6);
@@ -770,6 +810,7 @@ export class VoxelWorld {
               mergeFace(fi, lx, ly, lz, mat, flat ? quad[0][1] : null);
               continue;
             }
+            if (sided && smooth && fi===2 && mat===PAVING.ROAD_MATERIAL) {emitQuad(quad,color);continue;}
             const lit = smooth && f.d[1] === 1;
             for (const [a, b, c] of [[0, 1, 2], [0, 2, 3]]) {
               for (const idx of [a, b, c]) {

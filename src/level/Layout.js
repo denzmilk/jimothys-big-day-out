@@ -1,6 +1,7 @@
-import { VOXEL, CONTAINERS, BUILDINGS, HIDE_SPOTS } from '../core/Constants.js';
+import { VOXEL, CONTAINERS, BUILDINGS, HIDE_SPOTS, PAVING } from '../core/Constants.js';
 import * as Masterplan from './CityPlanner.js';
 import * as TerrainField from './Terrain.js';
+import * as StreetPaving from './StreetPaving.js';
 
 // Layout is now an ADAPTER over the authored masterplan (milestone 16), not a
 // generator.
@@ -25,6 +26,8 @@ const v = (world) => Math.round(world / VOXEL.SIZE);
 export function roadAtWorld(x, z) {
   return Masterplan.isRoad(x, z);
 }
+export const pavingAtWorld=StreetPaving.at;
+export const isFootpathAtWorld=StreetPaving.isFootpath;
 
 export function roadAtVoxel(vx, vz) {
   return Masterplan.isRoad(vx * VOXEL.SIZE, vz * VOXEL.SIZE);
@@ -73,7 +76,7 @@ function terraceHeight(x, z) {
       for(let iz=Math.max(0,Math.floor((b.z-margin+B)/step));iz<=Math.min(terraceSize-1,Math.ceil((b.z+b.d+margin+B)/step));iz++) {
         for(let ix=Math.max(0,Math.floor((b.x-margin+B)/step));ix<=Math.min(terraceSize-1,Math.ceil((b.x+b.w+margin+B)/step));ix++) {
           const px=ix*step-B,pz=iz*step-B;
-          if(Masterplan.isRoad(px,pz)) continue;
+          if(Masterplan.isRoad(px,pz)||StreetPaving.isFootpath(px,pz)) continue;
           const dist=Math.max(b.x-px,px-b.x-b.w,b.z-pz,pz-b.z-b.d,0);
           const mix=Math.max(0,1-dist/margin);
           const raw=TerrainField.surfaceHeight(px,pz);
@@ -88,10 +91,15 @@ function terraceHeight(x, z) {
   const tx=fx-ix,tz=fz-iz;
   return (at(ix,iz)*(1-tx)+at(ix+1,iz)*tx)*(1-tz)+(at(ix,iz+1)*(1-tx)+at(ix+1,iz+1)*tx)*tz;
 }
-const terraceTop=(x,z)=>Math.floor(terraceHeight(x,z)/VOXEL.SIZE-0.5);
+const cornerHeight=(x,z,rx,rz)=>StreetPaving.isPaved(rx,rz)?StreetPaving.heightAt(x,z,rx,rz):StreetPaving.landHeight(x,z,terraceHeight(x,z));
+// Class borders follow voxel columns in both the mesh and collision queries.
+const streetHeight=(x,z)=>cornerHeight(x,z,(Math.floor(x/VOXEL.SIZE)+.5)*VOXEL.SIZE,(Math.floor(z/VOXEL.SIZE)+.5)*VOXEL.SIZE);
+const terraceTop=(x,z)=>Math.floor(streetHeight(x,z)/VOXEL.SIZE-0.5);
 
 export const terrain = {
-  surfaceHeight: terraceHeight,
+  surfaceHeight: streetHeight,
+  // One-sided corners retain a real vertical kerb at a surface boundary.
+  cornerHeight,
   topSolidVoxelY: terraceTop,
 
   /** Implicit ground. 0 is air; anything else is solid, whether or not a single
@@ -109,7 +117,8 @@ export const terrain = {
     const z = (vz + 0.5) * VOXEL.SIZE;
     const cls = Masterplan.classAt(x, z);
     const C = Masterplan.CLASS;
-    if (cls === C.ROAD) return 18;
+    if (cls === C.ROAD) return PAVING.ROAD_MATERIAL;
+    if (cls === C.FOOTPATH) return StreetPaving.materialAt(x,z);
     if (cls === C.PLAZA) return CONCRETE;
     if (cls === C.ALLEY) return BRICK;
     return MOSS;
@@ -206,7 +215,7 @@ export function propsIn(minX, minZ, maxX, maxZ) {
       let keep = false;
       if (Masterplan.isAlley(x, z)) {
         keep = roll < CONTAINERS.ALLEY_SHARE;
-      } else if (Masterplan.classAt(x, z) === Masterplan.CLASS.LAND) {
+      } else if ([Masterplan.CLASS.LAND,Masterplan.CLASS.FOOTPATH].includes(Masterplan.classAt(x,z))) {
         // On the kerb of a buildable lot that actually fronts a road. The rate
         // depends on whether this district has alleys to put them down instead
         // — a street of houses with no bins at all is its own kind of

@@ -337,6 +337,10 @@ test('no hard lock: the marker and the swing never disagree about digging', asyn
     const onGround = await page.evaluate(() => {
       const g = window.__game;
       if (!g.reticleHit.onSurface) return false;
+      // A low car panel can be within the old ground-height tolerance. It is
+      // still a prop hit, and correctly protects the road underneath it.
+      const hit=g.aimHit(g.jimothy.body.position,g._aimDir);
+      if(hit?.vx===undefined)return false;
       const r = g.reticle.position;
       return r.y <= g.voxels.terrainHeightAt(r.x, r.z) + 0.6;
     });

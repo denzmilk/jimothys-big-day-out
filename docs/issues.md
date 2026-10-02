@@ -10,6 +10,14 @@
 
 ## Open
 
+### JIM-51 — Streets blend into the hills without physical footpaths
+
+**Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 28
+
+Chris requested separate footpath blocks with a 3D appearance and less merging of all ground into rolling hills. Reserved 2 m strips now keep building lots off the pavement. Slabs have recessed joints and raised kerbs; short street grades keep level cross-sections, blend into neighbouring plots, and join district grids without cliffs. People use the paved routes. Paving remains voxel terrain with physical debris and persistent damage. The coarse island backdrop is masked over loaded geometry so it cannot cover lowered roads or craters. Locations: `CityPlanner`, `StreetPaving`, `Layout`, `VoxelWorld`, `LevelBuilder`, `Pedestrians`.
+
+Evidence: all five checks in `tests/footpaths.spec.js` pass, covering plot exclusion, height/mesh contact, 776 district joins, tunnel wall preservation, physical debris, streaming/restart, backdrop coverage and people/traffic routing. Build and production rendered smoke pass. The full suite passed 156/164 before three corrections; the final affected rerun passed 65/68 with only existing feast and draw-call failures. Two existing rig failures also remain in the full suite (JIM-03, JIM-48, JIM-49). Captures: `output/iterate/footpaths-production-street.png`, `footpaths-production-slabs.png`, `footpaths-production-broken.png`. Chris's visual and walking sign-off remains open.
+
 ### JIM-50 — Pedestrians jump during foot-support changes on slopes
 
 **Status:** implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 27 grounding refinement

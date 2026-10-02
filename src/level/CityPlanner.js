@@ -1,5 +1,5 @@
 import * as Terrain from './Terrain.js';
-import { TERRAIN, SEWER, BUILDINGS } from '../core/Constants.js';
+import { TERRAIN, SEWER, BUILDINGS, PAVING } from '../core/Constants.js';
 import { inPolygon, polygonBounds } from '../core/MathUtils.js';
 
 const plan = Terrain.plan;
@@ -49,12 +49,14 @@ export const CLASS = {
   PARK: 3,
   PLAZA: 4,
   WATER: 5,
+  FOOTPATH: 6,
 };
 
 const SIZE = Math.ceil((plan.bounds * 2) / CELL);
 const HALF = SIZE / 2;
 
 let cells = null;
+let regionDistance = null;
 let regionOf = null;   // which region owns a cell, so district lookups are free
 let trunk = null;      // the sewer centreline: the middle of every arterial
 let blockIdOf = null;
@@ -142,6 +144,7 @@ function stampRegion(region) {
   // every region's streets line up through the seams and the collision that
   // makes this work is thrown away.
   const phase = (region.id.length * 37) % 50;
+  region.streetFrame={cos,sin,originU:uMin-phase,originV:vMin-phase,widths:ROAD_CLASSES};
 
   const bb = cellBounds(region.polygon);
   for (let cz = bb.z0; cz <= bb.z1; cz++) {
@@ -454,6 +457,16 @@ export function bake() {
     }
   }
 
+  // Reserve the pedestrian strip before packing lots, so a pavement cannot
+  // disappear into a house that was placed against the old road edge (JIM-51).
+  const streets=cells.slice(),reach=Math.ceil(PAVING.WIDTH/CELL);
+  for(let cz=reach;cz<SIZE-reach;cz++)for(let cx=reach;cx<SIZE-reach;cx++){
+    const i=idx(cx,cz),c=streets[i];
+    if(regionOf[i]<0||c===CLASS.ROAD||c===CLASS.ALLEY||c===CLASS.WATER)continue;
+    let beside=false;
+    for(let dz=-reach;dz<=reach&&!beside;dz++)for(let dx=-reach;dx<=reach;dx++)if(streets[idx(cx+dx,cz+dz)]===CLASS.ROAD){beside=true;break;}
+    if(beside)cells[i]=CLASS.FOOTPATH;
+  }
   findBlocks();
   findSewers();
   baked = true;
@@ -477,6 +490,34 @@ export function isRoad(x, z) {
 
 export function isAlley(x, z) {
   return classAt(x, z) === CLASS.ALLEY;
+}
+
+export function regionAtWorld(x,z){
+  bake();const cx=toCell(x),cz=toCell(z);
+  return inGrid(cx,cz)?regions[regionOf[idx(cx,cz)]]||null:null;
+}
+
+// District grids meet at different angles. A shared border height prevents
+// their separately graded roads from ending in vertical cliffs (M28).
+export function regionInteriorAtWorld(x,z){
+  bake();
+  if(!regionDistance){
+    regionDistance=new Uint16Array(SIZE*SIZE);regionDistance.fill(Math.ceil(PAVING.SEAM_BLEND/CELL));
+    for(let j=0;j<SIZE;j++)for(let i=0;i<SIZE;i++){
+      const k=idx(i,j),r=regionOf[k];
+      if(!i||!j||i===SIZE-1||j===SIZE-1||r<0||regionOf[k-1]!==r||regionOf[k+1]!==r||regionOf[k-SIZE]!==r||regionOf[k+SIZE]!==r)regionDistance[k]=0;
+    }
+    for(let j=1;j<SIZE;j++)for(let i=1;i<SIZE;i++){
+      const k=idx(i,j);regionDistance[k]=Math.min(regionDistance[k],regionDistance[k-1]+1,regionDistance[k-SIZE]+1);
+    }
+    for(let j=SIZE-2;j>=0;j--)for(let i=SIZE-2;i>=0;i--){
+      const k=idx(i,j);regionDistance[k]=Math.min(regionDistance[k],regionDistance[k+1]+1,regionDistance[k+SIZE]+1);
+    }
+  }
+  const fx=x/CELL+HALF-.5,fz=z/CELL+HALF-.5,i=Math.floor(fx),j=Math.floor(fz);
+  if(!inGrid(i,j)||!inGrid(i+1,j+1))return 0;
+  const tx=fx-i,tz=fz-j,at=(i,j)=>regionDistance[idx(i,j)];
+  return ((at(i,j)*(1-tx)+at(i+1,j)*tx)*(1-tz)+(at(i,j+1)*(1-tx)+at(i+1,j+1)*tx)*tz)*CELL;
 }
 
 /** Buildable ground: not a road, not a park, not water. */

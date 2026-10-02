@@ -828,6 +828,9 @@ export const VOXEL = {
     19: { name: 'slate roof', color: 0x414f59 },
     20: { name: 'terracotta', color: 0x9d604c },
     21: { name: 'painted door', color: 0x3a5960 },
+    22: { name: 'paving slab', color: 0xb7b0a1 },
+    23: { name: 'paving slab variation', color: 0xa9a496 },
+    24: { name: 'kerbstone', color: 0xd0cbbb },
   },
   // Bedrock can't be destroyed. Without a floor, a roll digs straight through
   // every ground layer and leaves Jimothy stranded metres below grade in a
@@ -1146,6 +1149,12 @@ export const GROUNDING = {
   VELOCITY_RESPONSE: 16, LANDING_RESPONSE: 18, LANDING_SPEED: 2.5, LANDING_LOCK: .65, NORMAL_RESPONSE: 16,
   PELVIS_RESPONSE: 18, PELVIS_SPEED: 3, RESET_DISTANCE: 2.5,
   WHEEL_INSET: .8, MAX_TILT: .5, SUSPENSION: .4, WHEEL_CONTACT_BAND: .35, WHEEL_SOLVE_STEPS: 4,
+};
+export const PAVING = {
+  WIDTH: 2, HEIGHT: .22, KERB_WIDTH: .33,
+  SLAB_CELLS: 5, JOINT_HALF: .018, JOINT_DEPTH: .018,
+  GRADE_RUN: 8, SEAM_BLEND: 24, LAND_EDGE: 4, LAND_BLEND: 6,
+  ROAD_MATERIAL: 18, SLAB_MATERIAL: 22, SLAB_VARIANT: 23, KERB_MATERIAL: 24,
 };
 export const GLAZING = {
   MATERIAL_ID: 4, COLOR: 0xc9e2e4, ROUGHNESS: .08, TRANSMISSION: .88,

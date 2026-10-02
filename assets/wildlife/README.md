@@ -6,4 +6,4 @@ Download: https://opengameart.org/sites/default/files/Animal%20Pack%20Vol.2%20by
 
 Original editable Blender sources are preserved here. `tools/prepare_wildlife.py` converts legacy Diffuse BSDF materials to Principled while preserving their colours, and exports all actions using Blender 5.2. Runtime scales the animals to metre dimensions.
 
-Plants: Kenney Nature Kit 1.0, CC0, https://kenney.nl/assets/nature-kit. Original unmodified GLBs and licence are under `public/assets/models/nature/`.
+Plants: Kenney Nature Kit (included licence: 2.1), CC0, https://kenney.nl/assets/nature-kit. Original unmodified GLBs and licence are under `public/assets/models/nature/`.

@@ -4,7 +4,17 @@
 
 ## Living-world continuation — 2026-10-02
 
-Development: milestones 29–31 capture Chris's next pass. Milestone 29 is implemented, awaiting playtest: bounded 11-body ragdolls, recovery and collection, a telegraphed net swing and size-resistant capture meter. Its three final checks pass; full regression passed 162/167 with only the five known JIM-03/JIM-48/JIM-49 failures. Build, rendered smoke and capture inspection passed. JIM-52 restart carry-over is fixed in 340e64e. Milestone 29 is pushed as 836bd41. Milestone 30 now adds wind-reactive grass/flowers, animated cats/dogs/birds, pollen, a 12-minute sun/moon cycle and nearby lamp lighting. Its 9/9 focused checks, 3/3 final environment/lamps checks and rendered smoke pass; source assets and Blender rebuild recipe are preserved under assets/wildlife and tools. Appearance and feel still await Chris’s playtest. Next: water physics/swimming, followed by the combined regression run. Each milestone is verified and committed separately. Milestone 28 remains awaiting playtest.
+**Development; milestones 29–31 are implemented, awaiting Chris's playtest.** Milestone 28 also remains awaiting playtest.
+
+- **29 — ragdolls and capture:** 11-body jointed knockdowns, recovery/collection and a telegraphed net swing with a size-resistant capture meter. Pushed as `836bd41`. Three final behaviour checks pass; full regression was 162/167 with the five existing JIM-03/JIM-48/JIM-49 failures. JIM-52 restart carry-over is fixed separately in `340e64e`.
+- **30 — environment and lighting:** wind-reactive grass/flowers, animated cats/dogs/birds, pollen, a 12-minute sun/moon cycle and nearby lamp lighting. Pushed as `3cd2636`. Nine focused/adjacent checks and three final environment/lamps checks pass. Editable Blender sources, licences and rebuild recipe are preserved under `assets/wildlife/` and `tools/`.
+- **31 — water:** a shared rendered/physical wave field, local ripples, textured translucent water, bounded reflections/splashes, dynamic buoyancy/drag and Jimothy paddling with beach exit. The 13-case water/physics/ragdoll run and four final water checks pass. The final full run passed **170/175** in 26 minutes (`output/iterate/living-world-full-suite.log`), including a beach crossing with the real rig. Its five failures are the existing interrupted-feast case (JIM-03), two rig growth cases (JIM-49) and two renderer-budget assertions (JIM-48).
+
+Builds and rendered production smoke checks pass without console errors. Inspected captures are in `output/iterate/`: `ragdoll-launch.png`, `ragdoll-land.png`, `ragdoll-recover.png`, `net-windup.png`, `net-holding.png`, `environment-day.png`, `environment-night.png`, `wildlife-*.png`, `water-swim.png`, `water-night.png`, `water-floating-car.png`. `water-beach-ui.log` verifies the actual Dev panel shortcut.
+
+The water controller uses the visible belly's height, since its centre differs from the collision sphere. A depth threshold separates wading from swimming, and ground snapping no longer holds him on the seabed. ADR-0005 records that finite pond drainage and excavation flooding remain separate; this pass provides ocean surface simulation and local ripples.
+
+**Playtest:** http://127.0.0.1:4174. Roll with **C**, headbutt with **E**, and compare net escape at lean and House size. **Dev → Level → Go to the beach** starts on dry land facing the sea; the same tab has a time-of-day slider. User judgement of animation, capture balance, lighting and water feel is still required.
 
 ## Raised footpaths — milestone 28 / JIM-51 — 2026-10-02
 

@@ -52,6 +52,8 @@ export const Events = {
   // local:*
   LOCAL_SCARED: 'local:scared',
   // world:*
+  WATER_SAMPLE: 'water:sample',
+  WATER_DISTURB: 'water:disturb',
   WORLD_IMPACT: 'world:impact',
   GLASS_SHATTER: 'glass:shatter',
   CAR_EXPLODED: 'car:exploded',
@@ -94,6 +96,7 @@ export const Events = {
   DEV_REMOVE_CAN: 'dev:remove-can',
   DEV_RESET_CANS: 'dev:reset-cans',
   DEV_CANS_CHANGED: 'dev:cans-changed',
+  DEV_GOTO_BEACH: 'dev:goto-beach',
   DEV_GOTO_SEWER: 'dev:goto-sewer',
   DEV_SET_TIME: 'dev:set-time',
   DEV_SET_FATNESS: 'dev:set-fatness',

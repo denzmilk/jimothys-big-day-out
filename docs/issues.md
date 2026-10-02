@@ -44,6 +44,8 @@ Both failures reproduce unchanged on isolated pre-shatter commit `723c993`: `rig
 
 `tests/voxel.spec.js` has two assertions requiring fewer than 300 renderer calls. A clean isolated copy of pre-shatter commit `723c993` already reports 866 calls, 2,931,262 triangles and 195 voxel meshes at deterministic boot. Separate car panes report 900 calls with the same triangle and voxel mesh counts. The `voxels.drawCalls` field currently reports the whole renderer, including people and props. Evidence: `output/iterate/glass-baseline-comparison.log`, `glass-adjacent.log`. Review scene batching/LOD and the telemetry naming in a separate performance pass; do not raise the limit to conceal it. Locations: `Game.renderToText`, `Pedestrians`, `StreetLife`, `VoxelWorld`, `tests/voxel.spec.js`.
 
+Milestones 30–31 add local sun shadows, vegetation/wildlife and water. The final production smoke records 1,510 whole-renderer calls after two simulated seconds (`output/iterate/water-smoke-final.log`), with 1,249 plants and nine animals. The draw-call budget remains unresolved; bounded populations and passing state tests are not an FPS sign-off.
+
 ### JIM-47 — Feet and wheels need contact with the visible ground
 
 **Status:** implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 27 refinement

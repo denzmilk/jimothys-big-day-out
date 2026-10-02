@@ -5,7 +5,7 @@ import * as Masterplan from './CityPlanner.js';
 import { gameState } from '../core/GameState.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
-// Static block dressing: the sea, hide-spot bushes, and the perimeter curbs
+// Static block dressing: the sky, hide-spot bushes, and the perimeter curbs
 // matching the physics walls in PhysicsSystem.
 export class LevelBuilder {
   constructor(scene, voxels = null) {
@@ -40,23 +40,6 @@ export class LevelBuilder {
     }));
     this.sky.renderOrder=-10;
     scene.add(this.sky);
-    this.sea = new THREE.Mesh(new THREE.PlaneGeometry(WORLD.BOUNDS * 4, WORLD.BOUNDS * 4, 128, 128),new THREE.ShaderMaterial({
-      transparent:true, depthWrite:false,
-      uniforms:{ ...common, deepColor:{value:new THREE.Color(A.WATER_DEEP)},shallowColor:{value:new THREE.Color(A.WATER_SHALLOW)}, highlightColor:{value:new THREE.Color(A.WATER_HIGHLIGHT)},waveSpeed:{value:A.WAVE_SPEED},waveScale:{value:A.WAVE_SCALE},waveHeight:{value:A.WAVE_HEIGHT} },
-      vertexShader:`uniform float uTime,waveSpeed,waveScale,waveHeight;varying vec3 wp;void main(){vec4 p=modelMatrix*vec4(position,1.);p.y+=waveHeight*sin(p.x*waveScale+uTime*waveSpeed)*sin(p.z*waveScale*.7-uTime*waveSpeed);wp=p.xyz;gl_Position=projectionMatrix*viewMatrix*p;}`,
-      fragmentShader:`uniform float uTime,waveSpeed,waveScale;uniform vec3 deepColor,shallowColor,highlightColor,sunDir,topColor,horizonColor;varying vec3 wp;
-      void main(){float t=uTime*waveSpeed;vec2 p=wp.xz*waveScale;vec3 n=normalize(vec3(cos(p.x*1.7+t)*.12+sin(p.y*2.4-t)*.08,1.,sin(p.y*1.8+t)*.14+cos(p.x*2.3+t)*.07));
-      n=normalize(mix(vec3(0.,1.,0.),n,exp(-length(cameraPosition-wp)*.002)));vec3 view=normalize(cameraPosition-wp);float fres=pow(1.-max(dot(view,n),0.),3.);vec3 reflection=reflect(-view,n);vec3 sky=mix(horizonColor,topColor,max(0.,reflection.y));
-      float glitter=pow(max(0.,dot(reflect(-sunDir,n),view)),90.);float pattern=sin(p.x*.31+p.y*.43+t*.3)*.5+.5;
-      vec3 c=mix(deepColor,shallowColor,pattern*.28);c=mix(c,sky,fres*.7);c+=highlightColor*glitter*.8;gl_FragColor=vec4(c,.9);
-      #include <tonemapping_fragment>
-      #include <colorspace_fragment>
-      }`,
-    }));
-    this.sea.rotation.x=-Math.PI/2;
-    this.sea.position.y=TERRAIN.SEA_LEVEL;
-    this.sea.renderOrder=1;
-    scene.add(this.sea);
     this.hemisphere=new THREE.HemisphereLight(A.SKY_TOP,A.GROUND_LIGHT,A.HEMISPHERE);scene.add(this.hemisphere);
 
     this.buildHorizon();

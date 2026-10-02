@@ -1,5 +1,5 @@
 import * as CANNON from 'cannon-es';
-import { WORLD, PHYSICS, VOXEL, STREET, RAGDOLL } from '../core/Constants.js';
+import { WORLD, PHYSICS, VOXEL, STREET, RAGDOLL, WATER, TERRAIN } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
 // Owns the cannon-es world (ADR-0002). Fixed-step accumulator keeps
@@ -24,13 +24,10 @@ export class PhysicsSystem {
     this.dynamic = [];
     this.voxels = null;
 
-    // Kept, but no longer load-bearing. It used to be the ONLY floor in the
-    // game, which is JIM-42: it means y = 0, that meant "grade" on the flat 250
-    // m block, and it has meant "the waterline" since the island (milestone
-    // 17). It stays as a backstop because `TERRAIN.SEA_LEVEL` is 0, so it is
-    // exactly the sea surface — anything that leaves the island rests on the
-    // water instead of falling forever.
+    // ADR-0005: keep the safety plane below the seabed so it cannot turn
+    // water into a solid floor or suppress buoyancy and sinking.
     const ground = new CANNON.Body({ type: CANNON.Body.STATIC, shape: new CANNON.Plane() });
+    ground.position.y=-TERRAIN.SEABED_DEPTH-TERRAIN.DEPTH;
     ground.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
     this.world.addBody(ground);
 
@@ -159,6 +156,7 @@ export class PhysicsSystem {
   update(delta) {
     this.accumulator += delta;
     while (this.accumulator >= this.fixedStep - 1e-9) {
+      this._floatBodies(this.fixedStep);
       this.world.step(this.fixedStep);
       // Inside the loop, not once per frame: a chunk at blast speed crosses a
       // 0.55 m voxel in about one step, so clamping per FRAME would let it
@@ -169,6 +167,23 @@ export class PhysicsSystem {
     for (const { body, mesh } of this.pairs) {
       mesh.position.copy(body.position);
       mesh.quaternion.copy(body.quaternion);
+    }
+  }
+
+  _floatBodies(dt){
+    const C=WATER;
+    for(const body of this.dynamic){
+      const p=body.position,sup=this._support(body);
+      if(p.y>TERRAIN.SEA_LEVEL+sup.y+C.RIPPLE_MAX||p.y<TERRAIN.SEA_LEVEL-C.MAX_DEPTH)continue;
+      let water;eventBus.emit(Events.WATER_SAMPLE,{x:p.x,z:p.z,id:body.id,receive:w=>water=w});if(!water)continue;
+      const fraction=Math.max(0,Math.min(1,(water.height-p.y+sup.y)/(sup.y*2)));if(!fraction)continue;
+      eventBus.emit(Events.WATER_DISTURB,{id:body.id,x:p.x,z:p.z,speed:body.velocity.length(),verticalSpeed:Math.abs(body.velocity.y)});
+      body.wakeUp();const s=body.shapes[0],h=s?.halfExtents;
+      const volume=h?8*h.x*h.y*h.z:4/3*Math.PI*(s?.radius||sup.r)**3;
+      const lift=Math.min(body.mass*C.MAX_BUOYANCY,C.DENSITY*volume)*WORLD.GRAVITY*fraction;
+      body.force.y+=lift-body.velocity.y*body.mass*C.BUOYANCY_DAMPING*fraction;
+      const drag=Math.exp(-C.DRAG*fraction*dt);body.velocity.x*=drag;body.velocity.z*=drag;
+      body.angularVelocity.scale(Math.exp(-C.ANGULAR_DRAG*fraction*dt),body.angularVelocity);
     }
   }
 

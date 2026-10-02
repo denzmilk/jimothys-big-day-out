@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  WATER, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -149,6 +149,7 @@ export class JimothyController {
   }
 
   reset() {
+    this.swimming=false;gameState.player.swimming=false;
     // JIM-52: a held attack must not carry momentum into the next run.
     this.move = null;
     this.moveCooldown = 0;
@@ -326,7 +327,13 @@ export class JimothyController {
     // Fat trade-off #1: the blob waddles slower (same asymptotic factor as
     // the body visuals, so what you see is what you pay).
     const f = fatFactor(gameState.player.fatness);
-    const speed =
+    let water;eventBus.emit(Events.WATER_SAMPLE,{x:this.body.position.x,z:this.body.position.z,receive:w=>water=w});
+    const bellyHeight=this.rig.skinned?this._pivot.y:this.radius;
+    const draft=Math.max(this.radius*WATER.SWIM_DEPTH,bellyHeight-this.radius*WATER.SWIM_OFFSET);
+    const threshold=draft+(this.swimming?-WATER.SWIM_HYSTERESIS:WATER.SWIM_HYSTERESIS);
+    this.swimming=!!water&&water.depth>threshold&&this.body.position.y<water.height+this.radius*WATER.SWIM_ENTER;
+    gameState.player.swimming=this.swimming;
+    const speed = this.swimming ? (this.input.scurry?WATER.SWIM_FAST:WATER.SWIM_SPEED)*(1-f*FATNESS.SPEED_PENALTY_MAX) :
       (this.input.scurry ? P.SCURRY_SPEED : P.SPEED) * (1 - f * FATNESS.SPEED_PENALTY_MAX);
     const dvMax = P.ACCEL * delta;
     // Camera-relative input: W is always "away from the camera". Screen
@@ -338,7 +345,7 @@ export class JimothyController {
     const wz = controllable ? this.input.moveX * sin + -this.input.moveZ * cos : 0;
     // Airborne steering is throttled — committing to a hop should mean
     // committing to where it lands.
-    const authority = this.grounded ? dvMax : dvMax * P.AIR_CONTROL;
+    const authority = this.grounded||this.swimming ? dvMax : dvMax * P.AIR_CONTROL;
     this.vel.x += THREE.MathUtils.clamp(wx * speed - this.vel.x, -authority, authority);
     this.vel.z += THREE.MathUtils.clamp(wz * speed - this.vel.z, -authority, authority);
 
@@ -348,7 +355,14 @@ export class JimothyController {
     }
     if (!this.grounded) this.vy -= P.HOP_GRAVITY * delta;
 
-    this._updateMoves(delta, controllable);
+    if(this.swimming){
+      this.move=null;this.grounded=false;this.vy=0;
+      // The collision sphere is centred near his feet; flotation follows the
+      // rendered belly so both the lean rig and giant forms sit in the water.
+      const target=water.height+this.radius-bellyHeight+this.radius*WATER.SWIM_OFFSET;
+      this.body.position.y=THREE.MathUtils.lerp(this.body.position.y,target,1-Math.exp(-WATER.SWIM_RESPONSE*delta));
+      this.input.consumeHeadbutt();this.input.consumeRoll();
+    }else this._updateMoves(delta, controllable);
 
     this.body.velocity.set(this.vel.x, this.vy, this.vel.z);
   }
@@ -484,7 +498,7 @@ export class JimothyController {
       p.y = standY;
       this.vy = 0;
       this.grounded = true;
-    } else if (p.y > standY + P.GROUND_STICK) {
+    } else if (this.swimming || p.y > standY + P.GROUND_STICK) {
       this.grounded = false;
     } else {
       // Within sticking distance of a surface: hold him there rather than
@@ -776,6 +790,13 @@ export class JimothyController {
       p.z - this._pivotRotated.z,
     );
 
-    this.legs.update(delta);
+    if(this.swimming&&this.rig.skinned){
+      for(const [i,name] of ['FL','FR','RL','RR'].entries()){
+        const phase=this.elapsed*WATER.PADDLE_RATE+(i%2)*Math.PI;
+        this.rig.pose('leg_'+name,Math.sin(phase)*WATER.PADDLE_ANGLE,0,Math.cos(phase)*WATER.PADDLE_ANGLE/2);
+        this.rig.pose('shin_'+name,Math.max(0,Math.cos(phase))*WATER.PADDLE_ANGLE);
+      }
+      this.rig.pose('head',-WATER.PADDLE_ANGLE/4,0,0);
+    }else this.legs.update(delta);
   }
 }

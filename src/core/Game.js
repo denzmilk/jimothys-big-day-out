@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
-  MOVES, RETICLE, GLAZING, ATMOSPHERE,
+  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { fatFactor } from './MathUtils.js';
@@ -18,6 +18,7 @@ import { TrashCans } from '../gameplay/TrashCans.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
 import { EnvironmentLife } from '../level/EnvironmentLife.js';
 import { DayNight } from '../level/DayNight.js';
+import { WaterSystem } from '../level/WaterSystem.js';
 import { LevelBuilder } from '../level/LevelBuilder.js';
 import { VoxelWorld } from '../level/VoxelWorld.js';
 import { installCity } from '../level/VoxelCity.js';
@@ -108,6 +109,7 @@ class Game {
     this.level.registerEntities();
     this.streetLife = new StreetLife(this.scene, this.jimothy, this.voxels);
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
+    this.water=new WaterSystem(this.scene,this.jimothy,this.voxels,this.level.sky);
     this.ragdolls = new HumanRagdolls(this.jimothy,this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
     this.dayNight=new DayNight(this.scene,this.renderer,this.level,this.sun,this.ambient,this.jimothy);
@@ -143,6 +145,10 @@ class Game {
 
     // Straight to the nearest stairwell (milestone 20). Inspecting the
     // underground should not require digging to it.
+    eventBus.on(Events.DEV_GOTO_BEACH,()=>{
+      this.teleportJimothy(...WATER.BEACH_PREVIEW);this.jimothy.yaw=WATER.BEACH_YAW;this.jimothy.aimYaw=WATER.BEACH_YAW;
+      this.cameraSystem.yaw=WATER.BEACH_YAW;this.cameraSystem.snapToTarget();this.jimothy.postUpdate(0);
+    });
     eventBus.on(Events.DEV_GOTO_SEWER, () => {
       const jp = this.jimothy.group.position;
       const near = this.sewerEntrances().reduce(
@@ -168,6 +174,7 @@ class Game {
     eventBus.on(Events.GAME_RESTART, () => {
       this.collector.reset();
       this.ragdolls.reset();
+      this.water.reset();
       gameState.reset();
       this.jimothy.reset();
       this.trashCans.reset();
@@ -332,10 +339,12 @@ class Game {
     // camera is pointed, which the mouse already drives whenever the pointer is
     // locked. One frame stale, because the camera updates after him — which at
     // 60 Hz is nothing, and keeps the order of the loop unchanged.
+    this.water.update(delta);
     this.jimothy.update(delta, this.cameraSystem.yaw, this.cameraSystem.aimPitch);
     this.streetLife.update(delta);
     this.physics.update(delta);
     this.jimothy.postUpdate(delta);
+    this.water.afterUpdate(delta);
     this.trashCans.update(delta);
     this.ragdolls.update(delta);
     this.collector.update(delta);
@@ -820,6 +829,7 @@ class Game {
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
       environment: this.environmentLife.snapshot(),
       dayNight: this.dayNight.snapshot(),
+      water: this.water.snapshot(),
       people: this.pedestrians.snapshot(),
       ragdolls: this.ragdolls.snapshot(),
       capture: gameState.capture,

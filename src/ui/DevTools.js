@@ -1,4 +1,4 @@
-import { KEYBINDS, DEV, FATNESS, VOXEL, HIDE_SPOTS, PLAYER_CONFIG } from '../core/Constants.js';
+import { KEYBINDS, DEV, FATNESS, VOXEL, HIDE_SPOTS, PLAYER_CONFIG, DAY_NIGHT } from '../core/Constants.js';
 import { GROUPS, TUNABLES } from '../core/Tunables.js';
 import { DevOverrides } from '../core/DevOverrides.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -301,7 +301,7 @@ export class DevTools {
   _buildLevelTab() {
     const root = this.sections.level;
     const timeLabel=document.createElement('label');timeLabel.textContent='Time of day';
-    const time=document.createElement('input');time.type='range';time.min='0';time.max='24';time.step='.25';time.value=String(gameState.world.hour??17);
+    const time=document.createElement('input');time.type='range';time.min='0';time.max='24';time.step='.25';time.value=String(gameState.world.hour??DAY_NIGHT.START_HOUR);
     time.addEventListener('input',()=>eventBus.emit(Events.DEV_SET_TIME,{hour:Number(time.value)}));
     timeLabel.appendChild(time);root.appendChild(timeLabel);
     const mk = (id, label, fn) => {
@@ -312,6 +312,7 @@ export class DevTools {
       root.appendChild(btn);
       return btn;
     };
+    mk('dt-goto-beach','Go to the beach',()=>eventBus.emit(Events.DEV_GOTO_BEACH));
     mk('dt-spawn-can', 'Spawn can ahead', () => eventBus.emit(Events.DEV_SPAWN_CAN));
     mk('dt-remove-can', 'Remove nearest can', () => eventBus.emit(Events.DEV_REMOVE_CAN));
     mk('dt-reset-cans', 'Reset can layout', () => eventBus.emit(Events.DEV_RESET_CANS));

@@ -20,6 +20,8 @@ export class Pedestrians {
     eventBus.emit(Events.ENTITY_LIST,{receive:entities=>{for(const e of entities)remember(e);}});
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=true;this._animate(p,'Idle');}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=false;p.x=position.x;p.z=position.z;p.y=ground;p.mesh.position.set(p.x,p.y,p.z);p.grounding.reset();p.target=null;p.node=null;p.flee=PED.FLEE_SECONDS;}});
+    eventBus.on(Events.HUMAN_DOWN,({id,active,position})=>{const p=this.people.find(p=>p.id===id);if(!p)return;p.ragdoll=active;
+      if(!active){p.x=position.x;p.z=position.z;p.y=position.y;p.target=null;p.node=null;p.grounding.reset();p.flee=PED.FLEE_SECONDS;}});
     const loader=new GLTFLoader();
     this.loading=Promise.all(PED.MODELS.map(id=>loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/people/${id}.glb`)))
       .then(models=>{
@@ -78,6 +80,7 @@ export class Pedestrians {
     for(const clip of source.animations) actions[clip.name]=mixer.clipAction(clip);
     const p={id:`ped-${this.serial++}`,x:node.x,z:node.z,y:0,yaw:0,node:node.key,previous:null,target:null,mesh,visual,mixer,actions,animation:null,model:PED.MODELS[modelIndex],flee:0,scaredRecently:false,steps:index,pause:0,attached:false};
     p.grounding=new FootGrounding(mesh,visual,(x,z)=>this.voxels.groundHeightAt(x,z,this.voxels.terrainHeightAt(x,z)+PED.GROUND_SCAN));
+    eventBus.emit(Events.HUMAN_REGISTER,{id:p.id,group:mesh,visual});
     this.people.push(p);this._animate(p,'Idle');eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:'person',size:COLLECTION.PERSON_SIZE});return p;
   }
 
@@ -88,6 +91,7 @@ export class Pedestrians {
   }
 
   _remove(p) {
+    eventBus.emit(Events.HUMAN_UNREGISTER,{id:p.id});
     eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});
     p.mixer.stopAllAction();p.mixer.uncacheRoot(p.visual);
     p.mesh.removeFromParent();
@@ -117,7 +121,7 @@ export class Pedestrians {
       this._populate();
     }
     for(const p of this.people) {
-      if(p.attached)continue;
+      if(p.attached||p.ragdoll)continue;
       const dj=Math.hypot(p.x-jp.x,p.z-jp.z);
       if(dj<PED.SCARE_RADIUS&&!gameState.player.hidden) {
         if(!p.scaredRecently){p.scaredRecently=true;eventBus.emit(Events.LOCAL_SCARED,{id:p.id,x:p.x,z:p.z});}
@@ -172,5 +176,5 @@ export class Pedestrians {
   }
 
   get fleeingCount(){return this.people.filter(p=>p.flee>0).length;}
-  snapshot(){const j=this.jimothy.group.position;return {ready:this.ready,models:this.models.length,count:this.people.length,nearby:this.people.filter(p=>Math.hypot(p.x-j.x,p.z-j.z)<PED.NEAR_DISTANCE).length,fleeing:this.fleeingCount,items:this.people.map(p=>({id:p.id,model:p.model,x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2),animation:p.animation,attached:p.attached,feet:p.grounding.contacts}))};}
+  snapshot(){const j=this.jimothy.group.position;return {ready:this.ready,models:this.models.length,count:this.people.length,nearby:this.people.filter(p=>Math.hypot(p.x-j.x,p.z-j.z)<PED.NEAR_DISTANCE).length,fleeing:this.fleeingCount,items:this.people.map(p=>({id:p.id,model:p.model,x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2),animation:p.animation,attached:p.attached,ragdoll:!!p.ragdoll,feet:p.grounding.contacts}))};}
 }

@@ -9,6 +9,13 @@ export class HUD {
     this.comboEl = document.getElementById('combo');
     this.popupsEl = document.getElementById('popups');
     this.flashEl = document.getElementById('flash');
+    eventBus.on(Events.CAPTURE_CHANGED,c=>{
+      const meter=document.getElementById('capture-meter');
+      meter.hidden=c.progress<=0&&c.phase!=='windup'&&c.phase!=='swing';
+      meter.setAttribute('aria-valuenow',String(Math.round(c.progress*100)));
+      document.getElementById('capture-fill').style.width=`${c.progress*100}%`;
+      document.getElementById('capture-label').textContent=c.holding?'BREAK FREE — ROLL OR HEADBUTT!':c.progress>0?'GET CLEAR OF THE NET!':'NET INCOMING — MOVE!';
+    });
     this.render();
     eventBus.on(Events.SCORE_CHANGED, () => this.render());
     eventBus.on(Events.COMBO_CHANGED, () => this.render());

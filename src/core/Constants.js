@@ -1179,3 +1179,25 @@ export const CAR_EXPLOSION = {
   SPARK_LIFT: 5, SPARK_GRAVITY: 9.8, SPARK_COLOR: 0xffdb6e,
   LIGHT_INTENSITY: 18, LIGHT_DISTANCE: 13,
 };
+
+// M29: nearby bodies only; everyone recovers, including the catcher.
+export const RAGDOLL = {
+  CAPACITY: 6, MASS: 7, RADIUS: .085, TORSO_RADIUS: .18, HEAD_RADIUS: .13,
+  DAMPING: .18, ANGLE: 1.1, TWIST: .45, FORCE: 8000,
+  IMPULSE: 5, POWER_GAIN: 1.6, MAX_SPEED: 16, LIFT: 4, SPIN: 3,
+  HIT_HEIGHT: .9, HIT_PADDING: .45, CONTACT_PADDING: .45,
+  DOWN_SECONDS: 3, MAX_SECONDS: 8, REST_SPEED: 1.2, RECOVER_SECONDS: .8,
+  IMMUNITY: 1, GROUP: 4, MASK: 1,
+  BONES: [
+    ['pelvis','spine_03'],['spine_03','neck_01'],['neck_01','head'],
+    ['upperarm_l','lowerarm_l'],['lowerarm_l','hand_l'],
+    ['upperarm_r','lowerarm_r'],['lowerarm_r','hand_r'],
+    ['thigh_l','calf_l'],['calf_l','foot_l'],['thigh_r','calf_r'],['calf_r','foot_r'],
+  ],
+};
+export const CAPTURE = {
+  WINDUP: .9, SWING: .55, RECOVERY: 1.2, HOLD_MAX: 6,
+  RATE: 1.25, SIZE_RESISTANCE: 4, DECAY: .7, ARC: 1.1,
+  NET_LIFT: 1.25, NET_REACH: 1, NET_ANGLE: 1.8, CONTACT_FRACTION: .5,
+  NET_RADIUS: .45, NET_RIM: .025, HANDLE_LENGTH: 1.1, HANDLE_RADIUS: .02, NET_BAG_DEPTH: .65,
+};

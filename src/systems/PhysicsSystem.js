@@ -1,5 +1,5 @@
 import * as CANNON from 'cannon-es';
-import { WORLD, PHYSICS, VOXEL, STREET } from '../core/Constants.js';
+import { WORLD, PHYSICS, VOXEL, STREET, RAGDOLL } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
 // Owns the cannon-es world (ADR-0002). Fixed-step accumulator keeps
@@ -61,6 +61,31 @@ export class PhysicsSystem {
       p.body.velocity.set(...velocity);p.body.angularVelocity.set(spin,0,-spin);p.body.wakeUp();
     });
 
+
+    this.ragdolls=new Map();
+    eventBus.on(Events.RAGDOLL_CREATE,({id,parts,velocity,receive})=>{
+      const C=RAGDOLL,bodies=parts.map(p=>{
+        const b=new CANNON.Body({mass:C.MASS,shape:new CANNON.Box(new CANNON.Vec3(...p.half)),
+          linearDamping:C.DAMPING,angularDamping:C.DAMPING,collisionFilterGroup:C.GROUP,collisionFilterMask:C.MASK});
+        b.position.copy(p.position);b.quaternion.copy(p.quaternion);b.velocity.set(...velocity);
+        b.angularVelocity.set(C.SPIN,0,-C.SPIN);this.add(b);return b;
+      });
+      const constraints=[];
+      parts.forEach((p,i)=>{
+        if(p.parent<0)return;
+        const a=bodies[p.parent],b=bodies[i],point=new CANNON.Vec3(p.start.x,p.start.y,p.start.z);
+        const axis=b.quaternion.vmult(new CANNON.Vec3(0,1,0));
+        const c=new CANNON.ConeTwistConstraint(a,b,{pivotA:a.pointToLocalFrame(point),pivotB:b.pointToLocalFrame(point),
+          axisA:a.vectorToLocalFrame(axis),axisB:new CANNON.Vec3(0,1,0),angle:C.ANGLE,twistAngle:C.TWIST,maxForce:C.FORCE,collideConnected:false});
+        constraints.push(c);this.world.addConstraint(c);
+      });
+      const r={bodies,constraints};this.ragdolls.set(id,r);receive(r);
+    });
+    eventBus.on(Events.RAGDOLL_REMOVE,({id})=>{
+      const r=this.ragdolls.get(id);if(!r)return;
+      for(const c of r.constraints)this.world.removeConstraint(c);
+      for(const b of r.bodies)this.remove(b);this.ragdolls.delete(id);
+    });
 
     eventBus.on(Events.DEV_TUNING_CHANGED, ({ group, key }) => {
       if (group === 'WORLD' && key === 'GRAVITY') this.world.gravity.y = -WORLD.GRAVITY;

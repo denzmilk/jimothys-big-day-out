@@ -76,6 +76,12 @@ export const Events = {
   SCORE_CHANGED: 'score:changed',
   COMBO_CHANGED: 'combo:changed',
   // rig:*
+  HUMAN_REGISTER: 'human:register',
+  HUMAN_UNREGISTER: 'human:unregister',
+  HUMAN_DOWN: 'human:down',
+  RAGDOLL_CREATE: 'ragdoll:create',
+  RAGDOLL_REMOVE: 'ragdoll:remove',
+  CAPTURE_CHANGED: 'capture:changed',
   HUMAN_MODELS_READY: 'rig:humans-ready',
   RIG_LOADED: 'rig:loaded',
   // game:*

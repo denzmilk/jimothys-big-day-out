@@ -2,6 +2,8 @@
 
 ## Status
 
+**Swimming revision, 2026-10-02:** Chris now requests water physics and a swim animation. Milestone 31 replaces the fairy-return behaviour below; the earlier decision is retained as history.
+
 **superseded in part by milestone 17** (2026-08-07). The island's SHAPE — coastline, water bodies, districts, hills — is authored in `src/level/islandPlan.js` and built by milestone 17. What remains here is the **sea itself**: the water surface, the Gerstner-wave shader, buoyancy, and the fairy godmother. Read milestone 17 first.
 
 ## Objective

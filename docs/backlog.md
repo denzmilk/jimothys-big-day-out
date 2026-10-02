@@ -61,13 +61,13 @@
 - [ ] Stealable vehicles + rideables — cars, shopping trolley, scooter, monorail. Terrible-on-purpose handling; a trolley at speed smashes voxel walls. Jimothy is kinematic-while-controlled so a vehicle is a controller state swap, not a second controller.
   - Source: 2026-07-23 Chris ("vehicles (stealable)", earlier "silly rideables with terrible animations and physics")
   - Rough size: L · Rough value: L · Roadmap: Phase 4
-- [ ] Ragdoll bodies — pedestrians, paparazzi and animal control get jointed ragdolls. INJURED, NEVER KILLED: they flop, crawl and get back up. Goat-sim register, strictly cartoon (see docs/lore.md guardrails).
+- [x] Ragdoll bodies → milestone 29 (2026-10-02) — pedestrians, paparazzi and animal control get jointed ragdolls. INJURED, NEVER KILLED: they flop, crawl and get back up. Goat-sim register, strictly cartoon (see docs/lore.md guardrails).
   - Source: 2026-07-23 Chris ("more pedestrians with ragdoll effects (goat sim vibes)", "enemies can be injured/ragdolled (not killed)")
   - Rough size: L · Rough value: L · Roadmap: Phase 2 — unblocks most of the weapon arsenal
 - [ ] Crowd-scale pedestrians — far more than the current 26, via instancing plus a shared ragdoll pool so only nearby/hit people simulate.
   - Source: 2026-07-23 Chris ("more pedestrians")
   - Rough size: M · Rough value: M · Roadmap: Phase 2
-- [ ] Day/night cycle — golden hour → dusk → night → dawn. Raccoons are nocturnal, so night should be a mechanical advantage: thinner crowds, easier hiding, faster heat decay in darkness, brighter/scarier camera flashes.
+- [x] Day/night cycle → milestone 30 (2026-10-02; lighting first, crowd/stealth balance remains deferred) — golden hour → dusk → night → dawn. Raccoons are nocturnal, so night should be a mechanical advantage: thinner crowds, easier hiding, faster heat decay in darkness, brighter/scarier camera flashes.
   - Source: 2026-07-23 Chris ("day/night cycle")
   - Rough size: M · Rough value: L · Roadmap: Phase 3
 - [ ] Temporary pickups/weapons — fire extinguisher (propulsion + fog), taser, suction-cap gun, plus the earlier list (bubble blower, dance ray, sick ray, food magnet, super jump, long legs). Timed pickups with a duration meter.
@@ -82,7 +82,7 @@
 - [ ] Material toughness — clapboard splinters, brick resists, concrete needs a fat Jimothy. Makes fatness-as-power legible. Glass shattering promoted to milestone 27 on 2026-10-02.
   - Source: 2026-07-23 roadmap planning
   - Rough size: M · Rough value: M · Roadmap: Phase 1
-- [ ] Water physics — ponds, fountains and puddles Jimothy can splash into, wade through and swim in. Buoyancy on debris and containers; a fountain that keeps refilling after you smash its basin. Raccoons famously douse food in water, so there's an identity beat here too (`docs/lore.md`).
+- [x] Water physics → milestone 31 (2026-10-02; waves, local ripples, buoyancy and swimming; fountain/pond breach flow remains deferred) — ponds, fountains and puddles Jimothy can splash into, wade through and swim in. Buoyancy on debris and containers; a fountain that keeps refilling after you smash its basin. Raccoons famously douse food in water, so there's an identity beat here too (`docs/lore.md`).
   - Source: 2026-08-06 Chris ("water physics for ponds/fountains etc.")
   - Rough size: L · Rough value: M · Roadmap: Phase 1 (new)
   - Notes: interacts hard with destructible voxels — if you can blast a pond's basin, the water has to go somewhere. Cheapest credible version is a water LEVEL per body (a plane + a volume test) with drain-on-breach, not per-voxel fluid sim. Decide the model in an ADR before coding; a cellular-automata fluid across a streamed world is a milestone on its own.
@@ -174,3 +174,9 @@
 - [x] Varied MPFB humans and nearby animated pedestrians → milestone 26; promotes crowd density and JIM-08 presentation.
 - [x] Cars, poles, hydrants and physical street objects, with giant-roll attachment/release → milestone 27 and the collection portion of milestone 24. Driving/stealing remains deferred.
 - [x] Sky and animated water appearance → milestone 25. Full fluid simulation remains deferred.
+
+## Living-world continuation — 2026-10-02
+
+- [x] Reactive grass, flowers, environmental animals, wind and airborne particles → milestone 30. Requested with ragdolls, lighting and water as the next world pass.
+- [ ] Destructible fountain and pond basins with conserved drainage into dug channels. Ocean and nearby ripple simulation are milestone 31; finite water volumes need a separate flow model.
+  - Source: earlier water-physics request, retained while milestone 31 adds swimming. Rough size: L · Rough value: M.

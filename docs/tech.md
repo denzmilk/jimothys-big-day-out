@@ -111,3 +111,9 @@ MPFB 2.0.17 in Blender 5.2 creates varied clothed pedestrian rigs. Preserve sour
 ### Verification
 
 The opt-in `STATE_ONLY_TEST=1` skips repeated software rasterization after the harness renders its first frame; simulation and scene matrices still update. Default `advanceTime` and the smoke test render normally. Use the rendered smoke/pixel-readback and in-game captures for visual evidence. Restart Vite before a test run that imports singleton modules directly: a long-running HMR session can rewrite imports with timestamped URLs and create a second state/event module in test code. Boot waits for all people/car assets, and the real Jimothy rig when requested.
+
+### Human impacts and capture (milestone 29)
+
+`HumanRagdolls` binds eleven torso/head/limb segments to the existing MPFB skeletons. `human:*` suspends AI and IK while down; `ragdoll:*` asks PhysicsSystem to create and remove cannon-es bodies and cone/twist joints. Six people can simulate at once. Bodies collide with props and the voxel clamp; self-collision is excluded to keep overlapping shoulders stable. Recovery blends back into the animation pose, then resumes grounded movement. Entity attachment removes the temporary simulation before RollCollector borrows the mesh.
+
+Animal control uses windup, swing, hold and recovery phases. `GameState.capture` drives the HUD through `capture:changed`. Growth reduces meter fill; loss of reach/sight or a ragdoll interrupts the hold. Only a full meter emits `player:netted`. Existing on-foot speed penalties preserve the lean movement advantage. Joint reference: https://pmndrs.github.io/cannon-es/docs/classes/ConeTwistConstraint.html.

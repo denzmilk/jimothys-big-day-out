@@ -2,6 +2,10 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Living-world continuation — 2026-10-02
+
+Development: milestones 29–31 capture Chris's next pass. Milestone 29 is implemented, awaiting playtest: bounded 11-body ragdolls, recovery and collection, a telegraphed net swing and size-resistant capture meter. Its three final checks pass; full regression passed 162/167 with only the five known JIM-03/JIM-48/JIM-49 failures. Build, rendered smoke and capture inspection passed. JIM-52 restart carry-over is fixed in 340e64e. Next: reactive environment/day-night lighting, then water physics/swimming. Each milestone is verified and committed separately. Milestone 28 remains awaiting playtest.
+
 ## Raised footpaths — milestone 28 / JIM-51 — 2026-10-02
 
 **Implemented, awaiting Chris's playtest.** Streets have reserved 2 m pedestrian strips, 22 cm kerbs and 1.1 m concrete slabs with 18 mm recessed geometric joints. Paving remains part of the 22 cm voxel world. Street runs have level cross-sections and short planar grades; surrounding land and differently angled district grids meet them through gradual transitions. Civilian routes now use footpath cell centres while traffic stays on roads.

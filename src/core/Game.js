@@ -25,6 +25,7 @@ import { GlassShards } from '../gameplay/GlassShards.js';
 import { CarExplosions } from '../gameplay/CarExplosions.js';
 import { StreetLife } from '../gameplay/StreetLife.js';
 import { RollCollector } from '../gameplay/RollCollector.js';
+import { HumanRagdolls } from '../gameplay/HumanRagdolls.js';
 import { Pedestrians } from '../gameplay/Pedestrians.js';
 import { Treasures } from '../gameplay/Treasures.js';
 import { CrabPeople } from '../gameplay/CrabPeople.js';
@@ -105,6 +106,7 @@ class Game {
     this.level.registerEntities();
     this.streetLife = new StreetLife(this.scene, this.jimothy, this.voxels);
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
+    this.ragdolls = new HumanRagdolls(this.jimothy,this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
     this.treasures = new Treasures(this.scene, this.jimothy, this.voxels);
@@ -161,6 +163,7 @@ class Game {
     // race), so restart order lives here, not in subscribers.
     eventBus.on(Events.GAME_RESTART, () => {
       this.collector.reset();
+      this.ragdolls.reset();
       gameState.reset();
       this.jimothy.reset();
       this.trashCans.reset();
@@ -329,6 +332,7 @@ class Game {
     this.physics.update(delta);
     this.jimothy.postUpdate(delta);
     this.trashCans.update(delta);
+    this.ragdolls.update(delta);
     this.collector.update(delta);
     this.pursuers.update(delta);
     this.pedestrians.update(delta);
@@ -808,6 +812,8 @@ class Game {
       },
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
       people: this.pedestrians.snapshot(),
+      ragdolls: this.ragdolls.snapshot(),
+      capture: gameState.capture,
       streetLife: this.streetLife.snapshot(),
       glass: this.glassShards.snapshot(),
       explosions: this.carExplosions.snapshot(),

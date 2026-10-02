@@ -19,6 +19,7 @@ class GameState {
       finds: [],
     };
     this.world = { disabledHideSpots: new Set() };
+    this.capture = { progress: 0, holding: false, phase: 'idle' };
     this.heat = {
       points: 0,
       tier: 0,

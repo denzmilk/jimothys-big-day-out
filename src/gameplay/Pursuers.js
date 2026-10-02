@@ -3,9 +3,10 @@ import { FootGrounding } from '../core/Grounding.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import {
   PAPARAZZI, ANIMAL_CONTROL, PURSUER_SPAWN_POINTS, COLORS, WORLD,
-  VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, SEWER, COLLECTION, PEDESTRIANS,
+  VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, SEWER, COLLECTION, PEDESTRIANS, CAPTURE,
 } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
+import { fatFactor } from '../core/MathUtils.js';
 import { gameState } from '../core/GameState.js';
 
 // How far ahead the obstacle probe looks. A body length, not one frame's step:
@@ -58,12 +59,17 @@ export class Pursuers {
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=true;p.pinned=true;p.sees=false;}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=false;p.group.position.set(position.x,ground,position.z);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
     eventBus.on(Events.HUMAN_MODELS_READY,({models})=>{this.models=models;for(const p of this.all)this._human(p);});
+    eventBus.on(Events.HUMAN_DOWN,({id,active,position})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(!p)return;p.ragdoll=active;p.netPhase='idle';p.netTimer=0;p.sees=false;
+      if(!active){p.group.position.copy(position);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
     // Shared across the whole pack so a crowd can't chain-stun the player.
     this.globalFlashCooldown = 0;
 
     this.bodyGeo = new THREE.CylinderGeometry(0.28, 0.32, 1.2, 10);
     this.headGeo = new THREE.SphereGeometry(0.22, 12, 10);
-    this.netGeo = new THREE.TorusGeometry(0.45, 0.05, 6, 12);
+    this.netGeo = new THREE.TorusGeometry(CAPTURE.NET_RADIUS, CAPTURE.NET_RIM, 6, 16);
+    this.netHandleGeo=new THREE.CylinderGeometry(CAPTURE.HANDLE_RADIUS,CAPTURE.HANDLE_RADIUS,CAPTURE.HANDLE_LENGTH,6);
+    this.netBagGeo=new THREE.SphereGeometry(CAPTURE.NET_RADIUS,12,6,0,Math.PI*2,0,Math.PI/2);
+    this.netBagMat=new THREE.MeshStandardMaterial({color:COLORS.NET,wireframe:true});
     this.papMat = new THREE.MeshStandardMaterial({ color: COLORS.PAPARAZZO });
     this.acMat = new THREE.MeshStandardMaterial({ color: COLORS.ANIMAL_CONTROL });
     this.netMat = new THREE.MeshStandardMaterial({ color: COLORS.NET });
@@ -122,9 +128,12 @@ export class Pursuers {
     head.position.y = 1.4;
     body.userData.placeholder=true;head.userData.placeholder=true;group.add(body, head);
     if (withNet) {
-      const net = new THREE.Mesh(this.netGeo, this.netMat);
+      const net = new THREE.Group();
+      net.add(new THREE.Mesh(this.netGeo,this.netMat));
+      const handle=new THREE.Mesh(this.netHandleGeo,this.netMat);handle.position.y=-CAPTURE.NET_RADIUS-CAPTURE.HANDLE_LENGTH/2;net.add(handle);
+      const bag=new THREE.Mesh(this.netBagGeo,this.netBagMat);bag.rotation.x=Math.PI/2;bag.scale.y=CAPTURE.NET_BAG_DEPTH/CAPTURE.NET_RADIUS;net.add(bag);
       net.position.set(0, 1.0, 0.55);
-      group.add(net);
+      net.name='capture-net';group.add(net);
     }
     group.position.set(x, this._groundY(x, z), z);
     this.scene.add(group);
@@ -172,6 +181,7 @@ export class Pursuers {
     p.visual=clone(model.scene);const box=new THREE.Box3().setFromObject(p.visual);p.visual.position.y-=box.min.y;p.group.add(p.visual);
     for(const child of [...p.group.children])if(child.userData.placeholder)p.group.remove(child);
     p.mixer=new THREE.AnimationMixer(p.visual);p.actions={};for(const clip of model.animations)p.actions[clip.name]=p.mixer.clipAction(clip);
+    eventBus.emit(Events.HUMAN_REGISTER,{id:`pursuer-${p.id}`,group:p.group,visual:p.visual});
     p.grounding=new FootGrounding(p.group,p.visual,(x,z)=>this._groundY(x,z));
   }
   _animate(p,dt,x,z) {
@@ -182,6 +192,7 @@ export class Pursuers {
     p.mixer.update(dt);p.grounding.update(p.actions[p.animation],moving,dt);
   }
   _removePerson(p) {
+    eventBus.emit(Events.HUMAN_UNREGISTER,{id:`pursuer-${p.id}`});
     eventBus.emit(Events.ENTITY_UNREGISTER,{id:`pursuer-${p.id}`});p.group.removeFromParent();
     if(p.mixer){p.mixer.stopAllAction();p.mixer.uncacheRoot(p.visual);p.visual.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});}
   }
@@ -533,7 +544,7 @@ export class Pursuers {
 
     this.globalFlashCooldown -= delta;
     for (const p of this.paparazzi) {
-      if(p.attached)continue;
+      if(p.attached||p.ragdoll)continue;
       const x=p.group.position.x,z=p.group.position.z;
       p.flashCooldown -= delta;
       this._think(p, delta);
@@ -554,16 +565,41 @@ export class Pursuers {
       }
     }
 
-    if (this.animalControl && !this.animalControl.attached) {
-      const ac = this.animalControl;
+    const ac=this.animalControl;
+    gameState.capture.holding=false;
+    if(ac&&!ac.attached&&!ac.ragdoll){
       const x=ac.group.position.x,z=ac.group.position.z;
-      this._think(ac, delta);
-      const d = this._steer(ac, delta, this._speed(ac));
-      this._animate(ac,delta,x,z);
-      // You cannot net what you cannot see. At NET_RANGE the bush multiplier
-      // still leaves him visible, so hiding under someone's nose does not save
-      // him — which is the behaviour the flag was pretending to have.
-      if (ac.sees && d <= ANIMAL_CONTROL.NET_RANGE) eventBus.emit(Events.PLAYER_NETTED);
+      this._think(ac,delta);
+      const busy=ac.netPhase&&ac.netPhase!=='idle';
+      const d=this._steer(ac,delta,busy?0:this._speed(ac));
+      if(busy)ac.group.rotation.y=ac.netYaw;
+      this._animate(ac,delta,x,z);this._net(ac,delta,d);
+    }
+    if(!gameState.capture.holding)gameState.capture.progress=Math.max(0,gameState.capture.progress-CAPTURE.DECAY*delta);
+    gameState.capture.phase=ac?.netPhase||'idle';
+    eventBus.emit(Events.CAPTURE_CHANGED,gameState.capture);
+  }
+
+  _net(ac,dt,d){
+    const C=CAPTURE,bar=gameState.capture,j=this.jimothy.group.position,pos=ac.group.position;
+    const reach=ANIMAL_CONTROL.NET_RANGE+Math.max(0,this.jimothy.radius-PLAYER_CONFIG.RADIUS);
+    ac.netPhase ||= 'idle';ac.netTimer=(ac.netTimer||0)+dt;
+    const phase=s=>{ac.netPhase=s;ac.netTimer=0;};
+    const facing=Math.atan2(j.x-pos.x,j.z-pos.z)-(ac.netYaw||0);
+    const contact=ac.sees&&d<=reach&&Math.abs(Math.atan2(Math.sin(facing),Math.cos(facing)))<C.ARC;
+    if(ac.netPhase==='idle'&&ac.sees&&d<=reach){ac.netYaw=ac.group.rotation.y;phase('windup');}
+    else if(ac.netPhase==='windup'&&ac.netTimer>=C.WINDUP)phase('swing');
+    else if(ac.netPhase==='swing'){
+      if(contact&&ac.netTimer>=C.SWING*C.CONTACT_FRACTION)phase('hold');else if(ac.netTimer>=C.SWING)phase('recovery');
+    }else if(ac.netPhase==='hold'){
+      if(!contact||ac.netTimer>C.HOLD_MAX)phase('recovery');
+      else {bar.holding=true;bar.progress=Math.min(1,bar.progress+dt*C.RATE/(1+fatFactor(gameState.player.fatness)*C.SIZE_RESISTANCE));
+        if(bar.progress>=1)eventBus.emit(Events.PLAYER_NETTED);}
+    }else if(ac.netPhase==='recovery'&&ac.netTimer>=C.RECOVERY)phase('idle');
+    const net=ac.group.getObjectByName('capture-net');
+    if(net){
+      const t=ac.netPhase==='windup'?Math.min(1,ac.netTimer/C.WINDUP):ac.netPhase==='swing'?1-Math.min(1,ac.netTimer/C.SWING):0;
+      net.position.set(0,C.NET_LIFT+t*C.NET_REACH,C.NET_REACH*(1-t));net.rotation.x=-t*C.NET_ANGLE;
     }
   }
 
@@ -583,6 +619,8 @@ export class Pursuers {
       id: p.id,
       type: p.type,
       attached: !!p.attached,
+      ragdoll: !!p.ragdoll,
+      netPhase: p.netPhase || 'idle',
       x: round(p.group.position.x),
       z: round(p.group.position.z),
       // Milestone 19: without these, none of the awareness model is assertable

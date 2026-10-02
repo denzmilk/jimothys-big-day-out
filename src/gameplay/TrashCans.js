@@ -56,13 +56,15 @@ export class TrashCans {
     eventBus.on(Events.ENTITY_ATTACH, ({id}) => {
       const can=this.cans.find(c=>c.collectId===id),snack=this.snacks.find(s=>s.collectId===id);
       if(can){can.attached=true;this.physics.remove(can.body,can.mesh);}
-      if(snack)snack.attached=true;
+      if(snack){snack.attached=true;if(snack.owner)eventBus.emit(Events.FOOD_TAKEN,{owner:snack.owner});}
     });
     eventBus.on(Events.ENTITY_RELEASE, ({id,position,ground}) => {
       const can=this.cans.find(c=>c.collectId===id),snack=this.snacks.find(s=>s.collectId===id);
       if(can){can.attached=false;can.body.position.set(position.x,ground+can.kind.height/2,position.z);can.mesh.position.copy(can.body.position);can.body.quaternion.copy(can.mesh.quaternion);can.body.velocity.setZero();can.body.angularVelocity.setZero();this.physics.resetSweep(can.body);this.physics.add(can.body,can.mesh);can.body.wakeUp();}
       if(snack){snack.attached=false;snack.baseY=this._restY(position.x,position.z,ground);snack.mesh.position.set(position.x,snack.baseY,position.z);}
     });
+    eventBus.on(Events.FOOD_SPAWN,e=>{if(!this.snacks.some(s=>s.owner===e.owner))this.spawnFood(e.foodId,e.x,e.z,e.y,e.owner);});
+    eventBus.on(Events.FOOD_REMOVE,({owner})=>{for(const s of [...this.snacks])if(s.owner===owner&&!s.attached)this.removeSnack(s);});
     this._up = new CANNON.Vec3();
 
     this.foodLibrary=new FoodLibrary();this.foodBatches=new InstanceBatches(scene,FOOD.LIMIT);
@@ -345,7 +347,7 @@ export class TrashCans {
             eventBus.emit(Events.ENTITY_UNREGISTER,{id:s.collectId});
             this.scene.remove(s.mesh);
             this.snacks.splice(i, 1);
-            const name = s.name;
+            const name = s.name;if(s.owner)eventBus.emit(Events.FOOD_TAKEN,{owner:s.owner});
             eventBus.emit(Events.PLAYER_PICKUP, {
               name, points: FOODS.FEAST.POINTS, fat: FOODS.FEAST.FAT,
             });
@@ -358,7 +360,7 @@ export class TrashCans {
         eventBus.emit(Events.ENTITY_UNREGISTER,{id:s.collectId});
         this.scene.remove(s.mesh);
         this.snacks.splice(i, 1);
-        const name = s.name;
+        const name = s.name;if(s.owner)eventBus.emit(Events.FOOD_TAKEN,{owner:s.owner});
         eventBus.emit(Events.PLAYER_PICKUP, {
           name, points: FOODS.SCRAP.POINTS, fat: FOODS.SCRAP.FAT,
         });

@@ -1,0 +1,272 @@
+[
+  {
+    "id": "bathroomSink",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.6800000071525574,
+      0.5799999833106995,
+      1.1200000047683716
+    ]
+  },
+  {
+    "id": "bathtub",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      2.380000114440918,
+      1.1200000047683716,
+      0.8399999737739563
+    ]
+  },
+  {
+    "id": "bedDouble",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      1.9120004177093506,
+      2.25,
+      0.75
+    ]
+  },
+  {
+    "id": "bedSingle",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      1.1420001983642578,
+      2.25,
+      0.75
+    ]
+  },
+  {
+    "id": "bookcaseOpen",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.800000011920929,
+      0.5,
+      1.7599998712539673
+    ]
+  },
+  {
+    "id": "books",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.30089518427848816,
+      0.1889999955892563,
+      0.20780451595783234
+    ]
+  },
+  {
+    "id": "cabinetTelevision",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      1.600000023841858,
+      0.5,
+      0.6200000047683716
+    ]
+  },
+  {
+    "id": "cardboardBoxClosed",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.42499998211860657,
+      0.42499998211860657,
+      0.5619999766349792
+    ]
+  },
+  {
+    "id": "cardboardBoxOpen",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.7437499761581421,
+      0.42499998211860657,
+      0.5619999766349792
+    ]
+  },
+  {
+    "id": "chair",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.4000000059604645,
+      0.4000000059604645,
+      0.9399999976158142
+    ]
+  },
+  {
+    "id": "chairDesk",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.6699000000953674,
+      0.6285980939865112,
+      1.2151999473571777
+    ]
+  },
+  {
+    "id": "computerScreen",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.7853760123252869,
+      0.20800799131393433,
+      0.5885704159736633
+    ]
+  },
+  {
+    "id": "desk",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      1.468950867652893,
+      0.784600019454956,
+      0.7688151001930237
+    ]
+  },
+  {
+    "id": "kitchenCabinet",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.8600000143051147,
+      0.8999999761581421,
+      0.8999999761581421
+    ]
+  },
+  {
+    "id": "kitchenFridge",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.8600000143051147,
+      0.5838677883148193,
+      1.840000033378601
+    ]
+  },
+  {
+    "id": "kitchenSink",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.8600000143051147,
+      0.8999999761581421,
+      0.9799999594688416
+    ]
+  },
+  {
+    "id": "kitchenStove",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.8600000143051147,
+      0.8999999761581421,
+      0.8999999761581421
+    ]
+  },
+  {
+    "id": "lampRoundFloor",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.3040788173675537,
+      0.3511199951171875,
+      1.7200000286102295
+    ]
+  },
+  {
+    "id": "loungeChair",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.9799999594688416,
+      0.8200000524520874,
+      0.9200000166893005
+    ]
+  },
+  {
+    "id": "loungeSofa",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      1.959999918937683,
+      0.8200000524520874,
+      0.9200000166893005
+    ]
+  },
+  {
+    "id": "pottedPlant",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.4241185486316681,
+      0.4829238951206207,
+      1.3080335855484009
+    ]
+  },
+  {
+    "id": "rugRectangle",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      3.1399998664855957,
+      1.840000033378601,
+      0.019999999552965164
+    ]
+  },
+  {
+    "id": "table",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      1.6829758882522583,
+      0.8947466611862183,
+      0.6534679532051086
+    ]
+  },
+  {
+    "id": "tableCoffee",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      1.3219921588897705,
+      0.800000011920929,
+      0.46000000834465027
+    ]
+  },
+  {
+    "id": "tableRound",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      1.3856406211853027,
+      1.600000023841858,
+      0.7334679365158081
+    ]
+  },
+  {
+    "id": "televisionVintage",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.8200000524520874,
+      0.5399999618530273,
+      0.5399999618530273
+    ]
+  },
+  {
+    "id": "toilet",
+    "source": "https://kenney.nl/assets/furniture-kit",
+    "license": "CC0-1.0",
+    "size": [
+      0.5683170557022095,
+      0.8676615357398987,
+      0.8199999928474426
+    ]
+  }
+]

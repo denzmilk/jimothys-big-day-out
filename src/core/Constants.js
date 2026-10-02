@@ -1427,3 +1427,27 @@ export const FOOD_MODELS = {
   LIMIT: 96, BOB_HEIGHT: .025, CLEARANCE: .035, SUPPORT_SCAN: .25,
   SUPPORT_INTERVAL: .25, REACH_HEIGHT: 1.15, SPIN_RATE: 3,
 };
+
+export const INTERIORS = {
+  MODELS:['bedDouble','bedSingle','loungeSofa','loungeChair','table','tableRound','chair','chairDesk','desk','bookcaseOpen','kitchenFridge','kitchenStove','kitchenSink','kitchenCabinet','toilet','bathtub','bathroomSink','cardboardBoxClosed','cardboardBoxOpen','pottedPlant','lampRoundFloor','televisionVintage','cabinetTelevision','computerScreen','books','tableCoffee','rugRectangle'],
+  RADIUS:55, VERTICAL_RADIUS:4, MAX_FLOORS:4, MAX_ITEMS:64, MAX_RESIDENTS:8, RESIDENTS_PER_FLOOR:2,
+  FRAGMENTS:16, FRAGMENT_LIFE:18, REFRESH:1, RESIDENT_DISTANCE:38, NEAR_DISTANCE:12, BATCH_CAPACITY:80, BATCH_VERTICES:120000,
+  HALL:2.2, LANDING:1.54, STAIR_WIDTH:1.54, WALL_MARGIN:.55, ROOM_MIN:2.0,
+  DOOR:1.32, WALL_MATERIAL:13, WALL_PALETTE:[13,14,15], FLOOR_MATERIAL:17, WET_FLOOR:6, STAIR_MATERIAL:17,
+  MIN_HEADROOM:2.2, ROOM_DEPTH:4.8, PLAN_CACHE:128, SPLITS:[.45,.5,.55], FURNITURE_INSET:.85, ROOM_CLEARANCE:.60, FURNITURE_GAP:.12,
+  ROOM_NODE_RATIO:.72, CLEARANCE:.025, BODY_RADIUS:.22, BODY_HEIGHT:1.65, GROUND_SCAN:.28, MAX_STEP:.5, GRAVITY:12,
+  PASS_DISTANCE:.9, PASS_STEP:.58, PASS_SECONDS:1.5, PASS_WAIT:.1,
+  SPEED:.85, FLEE_SPEED:2.2, PAUSE:2.6, ARRIVE:.13, SCARE_RADIUS:5.5, FLEE_TIME:7,
+  BREAK_RADIUS:1.1, IMPULSE:5, LIFT:3, SPIN:2, MASS:18, FRAGMENT_MIN:.06, BONK_SPEED:1.8,
+  SUPPORT_INTERVAL:.5, MAX_FOOD_PER_FLOOR:2, PREVIEW_TYPES:['craftsman','apartment','shop','warehouse','tower'], PREVIEW_HEIGHT:1.65,
+  FURNISHINGS: {
+    living:[['loungeSofa','loungeChair'],['cabinetTelevision','bookcaseOpen'],['pottedPlant','lampRoundFloor'],['tableCoffee'],['rugRectangle']],
+    kitchen:[['kitchenStove','kitchenSink'],['kitchenFridge'],['kitchenCabinet','tableRound']],
+    bedroom:[['bedDouble','bedSingle'],['bookcaseOpen','desk'],['lampRoundFloor','pottedPlant']],
+    bathroom:[['toilet'],['bathroomSink'],['bathtub']],
+    office:[['desk'],['bookcaseOpen'],['chairDesk']],
+    shop:[['bookcaseOpen'],['kitchenCabinet','table'],['pottedPlant','chair']],
+    cafe:[['tableRound','table'],['kitchenCabinet'],['chair','loungeChair']],
+    stock:[['cardboardBoxClosed','cardboardBoxOpen'],['bookcaseOpen'],['cardboardBoxClosed']],
+  },
+};

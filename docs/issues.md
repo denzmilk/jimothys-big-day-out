@@ -11,10 +11,10 @@
 ## Current interior and food reports — 2026-10-02
 
 ### JIM-66 — Food models do not resemble their pickup names
-**Status:** implemented, awaiting playtest · Milestone 37. `TrashCans` renders spheres/discs and selects the food name only when eaten. Fix stable identity, model correspondence and surface support; preserve economy.
+**Status:** implemented, awaiting playtest · Milestone 37. `TrashCans` previously rendered spheres/discs and selected the name only when eaten. Sixteen prepared food models now retain matching identities, use actual floor support and preserve the existing economy. Asset, pickup, restart, build and rendered smoke checks pass; native lineup/spill inspected. Pushed as `8362b9e`.
 
 ### JIM-67 — Buildings are empty shells with no residents
-**Status:** planned · Milestone 38. `VoxelCity` has one floor and no furnished rooms; pedestrian navigation excludes all building footprints. Generate continuous rooms and bounded indoor furniture/residents, with shared grounding/physics.
+**Status:** implemented, awaiting playtest · Milestone 38 / ADR-0006. `VoxelCity` previously had one floor and no furnished rooms; outdoor pedestrians excluded building footprints. Seeded rooms/floors/stairs now share a plan with bounded indoor furniture and MPFB residents. Furniture breaks and joins rolling collection; people use floor-aware grounding, connected routes and shared ragdolls. Door entry, stairs, hallway passing, streaming, destruction, reset and unchanged draw-budget checks pass. See milestone 38 for final native timing, visual evidence and limits.
 
 
 ## Open

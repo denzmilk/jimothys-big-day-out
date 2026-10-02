@@ -43,6 +43,8 @@ export const eventBus = new EventBus();
 export const Events = {
   // player:*
   PLAYER_PICKUP: 'player:pickup',
+  FOOD_SPAWN:'food:spawn', FOOD_REMOVE:'food:remove', FOOD_TAKEN:'food:taken',
+  DEV_GOTO_INTERIOR:'dev:goto-interior',
   PLAYER_EATING: 'player:eating',
   PLAYER_STUNNED: 'player:stunned',
   PLAYER_LAUNCHED: 'player:launched',

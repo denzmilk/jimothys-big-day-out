@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
-  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT, GRAPHICS, OCEAN,
+  MOVES, RETICLE, GLAZING, ATMOSPHERE, WATER, WORK_BUDGET, GIANT_IMPACT, GRAPHICS, OCEAN, INTERIORS,
 } from './Constants.js';
 import { gameState } from './GameState.js';
 import { fatFactor } from './MathUtils.js';
@@ -16,6 +16,7 @@ import { FlyCamera } from '../systems/FlyCamera.js';
 import { ScoreSystem } from '../systems/ScoreSystem.js';
 import { HeatSystem } from '../systems/HeatSystem.js';
 import { JimothyController } from '../gameplay/JimothyController.js';
+import {InteriorSystem} from '../level/InteriorSystem.js';
 import { TrashCans } from '../gameplay/TrashCans.js';
 import {Military} from '../gameplay/Military.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
@@ -129,6 +130,7 @@ class Game {
     eventBus.on(Events.WORLD_BLAST,({x,y,z,radius,digsTerrain})=>this.voxels.queueDamageSphere(x,y,z,radius,{digsTerrain}));
     this.dayNight=new DayNight(this.scene,this.renderer,this.level,this.sun,this.ambient,this.jimothy);
     this.environmentLife=new EnvironmentLife(this.scene,this.jimothy,this.voxels);
+    this.interiors=new InteriorSystem(this.scene,this.jimothy,this.voxels);
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
     this.treasures = new Treasures(this.scene, this.jimothy, this.voxels);
     this.crabs = new CrabPeople(this.scene, this.jimothy, this.voxels);
@@ -162,8 +164,15 @@ class Game {
       this.jimothy.body.position.y+=this.jimothy.radius-radius;
     });
 
-    // Straight to the nearest stairwell (milestone 20). Inspecting the
-    // underground should not require digging to it.
+    // Shared world-space entrances keep the interior preview on the same
+    // floor and route that normal play uses (ADR-0006).
+    eventBus.on(Events.DEV_GOTO_INTERIOR,()=>{
+      const index=this.interiorPreviewIndex||0,type=INTERIORS.PREVIEW_TYPES[index%INTERIORS.PREVIEW_TYPES.length];this.interiorPreviewIndex=index+1;
+      const buildings=Layout.buildingsIntersecting(-WORLD.BOUNDS,-WORLD.BOUNDS,WORLD.BOUNDS,WORLD.BOUNDS).filter(b=>b.type===type).sort((a,b)=>Math.hypot(a.x,a.z)-Math.hypot(b.x,b.z));
+      const plan=this.interiors.plan(buildings[0]),entry=plan.nodes.find(n=>n.key===`${plan.id}:0:front`);
+      eventBus.emit(Events.DEV_SET_FATNESS,{value:0});this.teleportJimothy(entry.x,entry.z);this.jimothy.body.position.y=entry.y+this.jimothy.radius;this.jimothy.vy=0;this.jimothy._prevFeetY=undefined;
+      this.jimothy.yaw=-(plan.b.front||0)*Math.PI/2;this.jimothy.aimYaw=this.jimothy.yaw;this.jimothy.postUpdate(0);this.cameraSystem.yaw=this.jimothy.yaw;this.cameraSystem.snapToTarget();this.interiors.stream();
+    });
     eventBus.on(Events.DEV_GOTO_OCEAN,()=>{
       const site=this.ocean.sites[this.oceanPreviewIndex||0];this.oceanPreviewIndex=((this.oceanPreviewIndex||0)+1)%this.ocean.sites.length;
       eventBus.emit(Events.DEV_SET_FATNESS,{value:0});this.teleportJimothy(site.x,site.z-OCEAN.PREVIEW_OFFSET);
@@ -215,7 +224,7 @@ class Game {
       this.level.resetObjects();this.farBuildings.reset();
       gameState.game.started = true;
       gameState.game.isPlaying = true;
-      this.pedestrians.reset();
+      this.pedestrians.reset();this.interiors.reset();
       this.dayNight.reset();this.environmentLife.reset();
     });
 
@@ -375,8 +384,9 @@ class Game {
     this.trashCans.update(delta);
     this.ragdolls.update(delta);
     this.collector.update(delta);
-    this.streetLife.afterUpdate();this.trashCans.syncVisuals();
+    this.streetLife.afterUpdate();this.trashCans.syncVisuals();this.interiors.afterUpdate();
     this.pursuers.update(delta);this.military.update(delta);
+    this.interiors.update(delta,position=>this.quality.inView(position,GRAPHICS.ACTOR_RADIUS));
     this.pedestrians.update(delta,position=>this.quality.inView(position,GRAPHICS.ACTOR_RADIUS));
     this.level.update(delta, this.camera,jp,this.quality.preset.DETAIL+this.jimothy.radius);
     this.environmentLife.update(delta);this.ocean.update(delta);
@@ -870,6 +880,7 @@ class Game {
       sand:this.sand.snapshot(),
       ocean:this.ocean.snapshot(),
       people: this.pedestrians.snapshot(),
+      interiors:this.interiors.snapshot(),
       ragdolls: this.ragdolls.snapshot(),
       capture: gameState.capture,
       streetLife: this.streetLife.snapshot(),

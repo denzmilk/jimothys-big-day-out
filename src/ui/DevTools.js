@@ -316,6 +316,7 @@ export class DevTools {
       root.appendChild(btn);
       return btn;
     };
+    mk('dt-goto-interior','Visit next building interior',()=>eventBus.emit(Events.DEV_GOTO_INTERIOR));
     mk('dt-goto-ocean','Visit next underwater site',()=>eventBus.emit(Events.DEV_GOTO_OCEAN));
     mk('dt-goto-beach','Go to the beach',()=>eventBus.emit(Events.DEV_GOTO_BEACH));
     mk('dt-spawn-can', 'Spawn can ahead', () => eventBus.emit(Events.DEV_SPAWN_CAN));

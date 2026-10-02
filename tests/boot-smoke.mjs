@@ -13,7 +13,7 @@ page.on('pageerror', (err) => errors.push(String(err)));
 // explicit advanceTime below still renders and exercises the loaded scene.
 await page.addInitScript(() => { window.__MANUAL_TIME__ = true; });
 await page.goto(URL, { waitUntil: 'networkidle' });
-await page.waitForFunction(() => window.__game?.pedestrians.ready && window.__game?.streetLife.ready && window.__game?.jimothy.rig?.loaded && (!window.__game.environmentLife || window.__game.environmentLife.ready));
+await page.waitForFunction(() => window.__game?.pedestrians.ready && window.__game?.interiors.ready && window.__game?.trashCans.ready && window.__game?.streetLife.ready && window.__game?.jimothy.rig?.loaded && (!window.__game.environmentLife || window.__game.environmentLife.ready));
 await page.waitForTimeout(1500);
 
 const state = await page.evaluate(() => window.render_game_to_text());

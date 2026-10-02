@@ -1,8 +1,16 @@
 # Session state
 
-## Food and populated interiors — milestones 37–38 — 2026-10-02
+## Food and populated interiors — milestones 37–38 — 2026-10-03
 
-Milestone 37 implemented, awaiting playtest: sixteen food identities/models, matching pickup names, actual floor support, vertical reach checks and a 96-pickup cap. Food assets share batches. Food/economy, asset/batch, restart, build and rendered smoke checks pass; native lineup/spill inspected. Milestone 38 continuous furnished interiors and bounded residents is next. Prior world-pass code is implemented and pushed; playtest sign-off remains outstanding. See milestones 37–38 and ADR-0006.
+**Implemented, awaiting Chris's playtest.** Milestone 37 is pushed as `8362b9e`: sixteen food identities/models, matching pickup names, actual floor support, vertical reach checks and a 96-pickup cap. Food assets share batches. Food/economy, asset/batch, restart, build and rendered smoke checks pass; native lineup/spill inspected.
+
+Milestone 38 adds continuous seeded rooms/floors/stairs, 27 sourced Blender furniture deliveries and indoor MPFB residents. Furniture breaks, joins rolling collection and retains its dropped pose through travel. Residents walk/idle/flee, use floor-aware grounding and shared ragdolls; opposing hallway traffic can pass. Usable headroom determines upper floors. Nearby budgets are four floors, 64 furniture roots, 16 fragments and eight residents; cross-model BatchedMesh pools keep the two existing draw-budget regressions passing unchanged. Doors are open passages; hinged doors and house-specific lore remain deferred.
+
+Verification: all 44 unit checks pass, along with interior behaviour, relevant food/streaming/graphics/pedestrian/ragdoll/traffic/voxel/restart regressions, final build and production WebGL pixel smoke. One software capture-test setup timeout passed when repeated in native Chrome. Two initial draw-budget failures were fixed by batching and pass unchanged. Native house/apartment/shop/warehouse views and actual Dev/keyboard entry were inspected without page errors. See milestone 38 for exact runs and limits.
+
+Final native Chrome/Metal/M5 Pro, 1280 × 800, Medium, loaded rig, 100 m city route: lean/House/Block **12.9 / 13.5 / 17.9 ms median**, p95 **15.8 / 17.4 / 35.3 ms**, worst **59.6 / 72.3 / 98.1 ms**. Military is disabled for the matched route. Block carries 64 objects, including interior furniture and a resident, and removes 25,642 cells. Reset is clean. Large demolition still hitches; this is not a locked 60 fps result.
+
+Evidence: `output/iterate/interior-final-*`, `interior-batches-green.log`, `interior-build-final.log`, `interior-smoke-final.log`, `interior-profile-final.log`, `interior-follow-final.log`, `interior-*.png`, plus milestone 37's food evidence. Preview: **http://127.0.0.1:4174**. Dev → Level → **Visit next building interior** cycles houses and commercial spaces. **Next: Chris's hands-on review of food recognition, indoor movement and furnishing variety.** The earlier world-pass playtest also remains outstanding; no additional feature work from this approved request is queued.
 
 ## Underwater exploration and completed world-pass sequence — milestone 36 — 2026-10-02
 

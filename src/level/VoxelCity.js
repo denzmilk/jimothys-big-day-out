@@ -1,4 +1,5 @@
 import { VOXEL, STREAM, TERRAIN, SEWER, BUILDINGS } from '../core/Constants.js';
+import {planInterior,writeInterior} from './InteriorLayout.js';
 import * as Layout from './Layout.js';
 
 // Authored voxel content. Buildings are written as footprints + rules rather
@@ -57,8 +58,8 @@ function* building(world, ox, oy, oz, width, depth, h, b = {}, type = 'craftsman
     }
     for(let z=porch;z<d;z++) {put(0,y,z,facade(z-porch,y,d-porch));put(w-1,y,z,facade(z-porch,y,d-porch));}
   }
-  // A shallow floor closes the shell without filling its playable interior.
-  rect(0,w-1,0,0,porch,d-1,CONCRETE);
+  // Geometry and resident routes share the same destructible plan (ADR-0006).
+  yield* writeInterior(planInterior({...b,type,vx:ox,vy:oy,vz:oz,vw:width,vd:depth,vh:h}),put);
   if(home) {
     const pitch=C.ROOF_PITCH[style];
     const hip=style===2;

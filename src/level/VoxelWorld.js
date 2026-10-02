@@ -562,8 +562,11 @@ export class VoxelWorld {
           if (Math.hypot(wx - cx, wy - cy, wz - cz) > radius) continue;
           // Recorded, not just written: this hole has to still be here when
           // the player walks away and comes back.
-          this.setEdit(x, y, z, 0);
-          removed.push({ x: wx, y: wy, z: wz, mat });
+          if (mat === G.MATERIAL_ID) this.shatterPane(x, y, z, removed);
+          else {
+            this.setEdit(x, y, z, 0);
+            removed.push({ x: wx, y: wy, z: wz, mat });
+          }
         }
       }
     }
@@ -575,6 +578,22 @@ export class VoxelWorld {
     }
     this.removedCount += removed.length;
     return removed;
+  }
+
+  shatterPane(x, y, z, removed) {
+    // Connectivity stops at mullions. Recording every cell keeps a window
+    // broken across chunk seams and subsequent streaming (milestone 27).
+    const pending = [[x,y,z]], s = VOXEL.SIZE;
+    let count = 0;
+    while (pending.length && count < G.MAX_PANE_CELLS) {
+      const [vx,vy,vz] = pending.pop();
+      this._ensureAtWorld((vx+.5)*s,(vz+.5)*s);
+      if (this.get(vx,vy,vz) !== G.MATERIAL_ID) continue;
+      this.setEdit(vx,vy,vz,0);
+      removed.push({x:(vx+.5)*s,y:(vy+.5)*s,z:(vz+.5)*s,mat:G.MATERIAL_ID});
+      count++;
+      for (const [dx,dy,dz] of NEIGHBOURS) pending.push([vx+dx,vy+dy,vz+dz]);
+    }
   }
 
   // --- meshing ---

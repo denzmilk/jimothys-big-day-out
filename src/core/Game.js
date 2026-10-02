@@ -21,6 +21,7 @@ import { VoxelWorld } from '../level/VoxelWorld.js';
 import { installCity } from '../level/VoxelCity.js';
 import * as Layout from '../level/Layout.js';
 import { Debris } from '../gameplay/Debris.js';
+import { GlassShards } from '../gameplay/GlassShards.js';
 import { StreetLife } from '../gameplay/StreetLife.js';
 import { RollCollector } from '../gameplay/RollCollector.js';
 import { Pedestrians } from '../gameplay/Pedestrians.js';
@@ -98,6 +99,7 @@ class Game {
       this.onBlast?.(at);
     };
     this.collector = new RollCollector(this.scene, this.jimothy, this.voxels);
+    this.glassShards = new GlassShards(this.scene);
     this.level.registerEntities();
     this.streetLife = new StreetLife(this.scene, this.jimothy, this.voxels);
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
@@ -164,6 +166,7 @@ class Game {
       this.treasures.reset();
       this.crabs.reset();
       this.debris.reset();
+      this.glassShards.reset();
       this.voxels.clear();
       installCity(this.voxels);
       this.streetLife.reset();
@@ -330,6 +333,7 @@ class Game {
     this.score.update(delta);
     this.heat.update(delta);
     this.debris.update(delta);
+    this.glassShards.update(delta);
     this.treasures.update(delta);
     this.crabs.update(delta);
     // Underground is a property of DEPTH BELOW THIS COLUMN, not of a y value —
@@ -626,7 +630,9 @@ class Game {
     );
     if (!removed.length) return 0;
     this.voxels.remeshDirty();
-    this.debris.spawnBurst(removed);
+    this.debris.spawnBurst(removed.filter(cell=>cell.mat!==GLAZING.MATERIAL_ID));
+    const glass=removed.filter(cell=>cell.mat===GLAZING.MATERIAL_ID);
+    if(glass.length)eventBus.emit(Events.GLASS_SHATTER,{points:glass,origin:pos});
     // WHERE, not just how much (milestone 19). Destruction is loud, and the
     // noise is what pulls pursuers — toward the wall he just came through
     // rather than toward him, which is what makes demolition a decision.
@@ -799,6 +805,7 @@ class Game {
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),
       people: this.pedestrians.snapshot(),
       streetLife: this.streetLife.snapshot(),
+      glass: this.glassShards.snapshot(),
       collection: this.collector.snapshot(),
       world: { voxelSize: VOXEL.SIZE, atmosphereTime: this.level.time },
       voxels: {

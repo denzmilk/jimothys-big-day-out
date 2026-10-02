@@ -53,6 +53,7 @@ export const Events = {
   LOCAL_SCARED: 'local:scared',
   // world:*
   WORLD_IMPACT: 'world:impact',
+  GLASS_SHATTER: 'glass:shatter',
   ENTITY_LIST: 'entity:list',
   ENTITY_REGISTER: 'entity:register',
   ENTITY_UNREGISTER: 'entity:unregister',

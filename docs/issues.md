@@ -10,6 +10,18 @@
 
 ## Open
 
+### JIM-49 — Two rig growth checks fail at House size
+
+**Status:** open · **Found:** 2026-10-02 during full regression verification
+
+Both failures reproduce unchanged on isolated pre-shatter commit `723c993`: `rig.spec.js::fatness grows the belly and nothing else` reports a non-body bone scale of 0.858 versus a lean 0.849 (tolerance 0.005); `::the belly carries head, tail and legs outward as it grows` reports leg height 0.596 versus 0.647 (tolerance 0.05). Investigate posed bone measurements and growth correction before deciding whether these represent visible model drift or outdated invariant checks. No rig code or assertion tolerance was changed in the glass pass. Evidence: `output/iterate/glass-rig-baseline.log`, `glass-rig-offset-baseline.log`; code: `JimothyRig`, `JimothyController`, `tests/rig.spec.js`.
+
+### JIM-48 — Populated world exceeds the legacy draw-call budget
+
+**Status:** open · **Found:** 2026-10-02 during milestone 27 glass verification
+
+`tests/voxel.spec.js` has two assertions requiring fewer than 300 renderer calls. A clean isolated copy of pre-shatter commit `723c993` already reports 866 calls, 2,931,262 triangles and 195 voxel meshes at deterministic boot. Separate car panes report 900 calls with the same triangle and voxel mesh counts. The `voxels.drawCalls` field currently reports the whole renderer, including people and props. Evidence: `output/iterate/glass-baseline-comparison.log`, `glass-adjacent.log`. Review scene batching/LOD and the telemetry naming in a separate performance pass; do not raise the limit to conceal it. Locations: `Game.renderToText`, `Pedestrians`, `StreetLife`, `VoxelWorld`, `tests/voxel.spec.js`.
+
 ### JIM-47 — Feet and wheels need contact with the visible ground
 
 **Status:** implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 27 refinement

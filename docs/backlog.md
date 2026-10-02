@@ -41,7 +41,7 @@
   - Source: 2026-07-23 Chris ("some silly rideables with terrible animations and physics")
   - Rough size: M · Rough value: L
   - Notes: pairs with the voxel city (ADR-0003) — a trolley at speed should smash through walls. Jimothy is kinematic-while-controlled, so a rideable is a state swap, not a new controller.
-- [ ] Teardown-grade destruction — structural integrity (unsupported voxels fall), material-dependent toughness (glass shatters, brick resists), and cutting/pushing through walls rather than only sphere blasts. Reference: Teardown.
+- [ ] Teardown-grade destruction — structural integrity (unsupported voxels fall), material-dependent toughness (brick resists), and cutting/pushing through walls rather than only sphere blasts. Glass shattering promoted to milestone 27 on 2026-10-02. Reference: Teardown.
   - Source: 2026-07-23 Chris ("Inspiration from Teardown for destructability is where I want to go with it")
   - Rough size: L · Rough value: L
   - Notes: the current implementation does sphere damage + debris only. Structural collapse needs a connectivity pass (flood-fill from ground per chunk-island) — expensive, so budget it as its own milestone after the city exists.
@@ -79,7 +79,7 @@
 - [ ] Streaming / virtual ground — stop allocating undamaged ground voxels up front; render intact terrain as merged tiles and materialise chunks only where damaged. MEASURED BLOCKER: 5×-per-side map costs 19 s boot, 1007 draw calls, 3.5 GB heap; currently capped at 5× area instead.
   - Source: 2026-07-23 measurement while scaling the city
   - Rough size: L · Rough value: L · Roadmap: Phase 1 — prerequisite for a genuinely city-scale map
-- [ ] Material toughness — glass shatters, clapboard splinters, brick resists, concrete needs a fat Jimothy. Makes fatness-as-power legible.
+- [ ] Material toughness — clapboard splinters, brick resists, concrete needs a fat Jimothy. Makes fatness-as-power legible. Glass shattering promoted to milestone 27 on 2026-10-02.
   - Source: 2026-07-23 roadmap planning
   - Rough size: M · Rough value: M · Roadmap: Phase 1
 - [ ] Water physics — ponds, fountains and puddles Jimothy can splash into, wade through and swim in. Buoyancy on debris and containers; a fountain that keeps refilling after you smash its basin. Raccoons famously douse food in water, so there's an identity beat here too (`docs/lore.md`).

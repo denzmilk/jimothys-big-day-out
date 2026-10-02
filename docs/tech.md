@@ -95,6 +95,8 @@ MPFB 2.0.17 in Blender 5.2 creates varied clothed pedestrian rigs. Preserve sour
 - `RollCollector` receives `entity:*` registrations for props, bins, food, bushes and people. It suspends the owner's physics/AI while attached to the animated belly's local bounds; stopping releases surviving entities. Uprooted bushes cease to hide the player.
 - `Grounding` is a geometry utility: analytic leg IK after animation, pelvis reach correction, planted foot targets and ground normals; vehicles use pitch/bank plus wheel suspension. Spare tyres are excluded from support.
 - Building glass is a separate material group in the greedy voxel mesh, so it transmits light while retaining voxel damage. The sky supplies a shared environment map.
+- Glass impacts flood connected material-4 cells (bounded at 2,048 cells per pane) and record every removal as a streaming edit. `GlassGeometry` splits imported glazing into connected planar panes once per cached car model; `StreetLife` saves broken pane IDs. Lean car hits break glazing, while a 1.2 m blast radius also breaks the body.
+- `glass:shatter` creates thin triangular prisms through `GlassShards`; `prop:*` keeps body ownership in `PhysicsSystem`. Maximum 72 shards, seven seconds alive, with lifetime paused during rolling collection. Shared geometry/material survive restart; shard meshes, bodies and registry entries do not. Shards use gravity and the voxel ground/wall clamp, excluding contacts with simplified prop boxes: a car collider fills its cabin and would eject newly spawned glass upward.
 
 ### Verification
 

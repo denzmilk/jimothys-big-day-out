@@ -2,6 +2,20 @@
 
 > Updated at the end of each session that made progress. Read first at the start of each session by the session-start sub-pipeline.
 
+## Glass shatter refinement — 2026-10-02
+
+**Milestone 27 glass shattering is implemented, awaiting Chris's playtest.** His “yes glass with shatter” confirmation extended the world pass: connected building panes clear together, imported car panes break independently, and both emit thin triangular shards. Lean hits break car glazing; a blast radius of 1.2 m or more also breaks the body. Broken panes persist across streaming; restart restores them.
+
+`GlassShards` uses bounded physical bodies through `prop:*` events (72 maximum, seven-second lifetime). Shards attach to a giant rolling Jimothy and release; expiry/restart remove bodies and registry entries. Gravity and voxel ground/wall collision remain active. Prop-box collisions are excluded because glass spawned inside the cars' coarse cabin boxes was being launched 30–40 m upward.
+
+Verification: all four new glass cases pass, including cross-chunk pane damage, persistence, lean/heavy hits, shard settling, collection/release, cap and cleanup. Focused adjacent run: 17/19 passed. Production build and real rendered smoke pass with no console errors. `output/iterate/glass-live-state.log` records a 20-cell building pane clearing into glass shards with zero cube debris, plus a car retaining its body and three other panes. Before/after captures: `glass-car-before.png`, `glass-car-shatter.png`, `glass-house-before.png`, `glass-house-shatter.png`.
+
+The two adjacent failures are the legacy `<300` draw-call assertions. A clean isolated copy of pre-shatter `723c993` produces 866 calls; this change produces 900, with unchanged triangle counts. **JIM-48** tracks the existing scene budget problem and misleading whole-renderer `voxels.drawCalls` name. No threshold was loosened. The interrupted-feast issue JIM-03 remains separate.
+
+The required full run finished **147/152 passed** (`STATE_ONLY_TEST=1 npx playwright test --workers=2 --timeout=180000 --reporter=line`, `output/iterate/glass-full-suite.log`). Five failures remain: JIM-03 interrupted feast, two JIM-48 renderer-budget assertions, and two rig growth checks now tracked as **JIM-49**. Both rig failures reproduce with identical measurements against `723c993` (`glass-rig-baseline.log`, `glass-rig-offset-baseline.log`). No assertion was loosened and no rig change was bundled into glass. Build, rendered production smoke, visual captures and live console checks all pass; these do not replace Chris's playtest or constitute a performance sign-off.
+
+Playtest: **http://127.0.0.1:4174**. Aim a lean headbutt at a car window, then a building window; judge the scattering shards and the empty pane. A larger headbutt can also break the surrounding frame/wall. Full world and shatter feel remain unsigned-off.
+
 ## Current world pass — 2026-10-02
 
 **Milestones 23, 25, 26 and 27 are implemented, awaiting Chris's playtest.** The approved ordered world pass is integrated: 0.22 m destructible voxels, metre-scaled varied houses, sky/water, six Blender/MPFB pedestrians with animated street movement, six imported Kenney CC0 vehicle models, nearby traffic/parked cars, transmissive building/car glass, foot IK and wheel support, physical breakable street furniture, and giant-roll collection/release of objects, food, civilians and pursuers.

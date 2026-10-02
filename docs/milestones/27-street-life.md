@@ -27,6 +27,15 @@ Chris requested free online car models instead of custom geometry, real glass, a
 - [x] Restart clears attached/dropped objects and restores traffic/props without resource or body growth.
 - [ ] Chris judges traffic, destruction, rolling collection, sky/water and the full world pass in play.
 
+### Approved glass shatter refinement — 2026-10-02
+
+Chris confirmed “yes glass with shatter”.
+
+- [x] A small hit shatters the connected building pane, preserving its frame and separate panes; damage survives streaming. `glass.spec.js`: connected pane across a chunk seam.
+- [x] Individual imported car windows shatter independently; heavy impacts shatter remaining glazing before breaking the car body. Broken windows survive streaming and restart restores them. `glass.spec.js`: independent panes and lean/heavy hits.
+- [x] Glass becomes thin triangular physical shards, with a bounded count and lifetime. Shards settle, can attach to a giant rolling Jimothy, and release; restart removes their bodies and registry entries. `glass.spec.js`: physical shard lifecycle and collection.
+- [ ] Chris judges the glass appearance and shatter readability in play (verified by user playtest).
+
 ## Dependencies
 
 Depends on: milestones 12, 17, 22; uses the existing in-progress milestone 23 scale work. Delivery order: 25 → 26 → 27. Milestone 27 implements the collection/release portion of milestone 24.
@@ -55,6 +64,12 @@ Write focused failing acceptance tests first. Verify state through render_game_t
 
 Open the production preview at `http://127.0.0.1:4174`. Explore at lean size, then use **Dev panel → Jimothy → House** (90) or **Block** (250), hold **C** through a populated street, and release it. Judge house scale/variety, gait, traffic, glass, breakage and where living people/props land. Stash UI, structural collapse, army escalation and the known JIM-03 feast-interruption failure remain separate work.
 
+For glass, aim a lean headbutt at a car window, then try a building window. Check that the pane clears and small shards scatter and land; grow larger to break the car body. Frames or surrounding walls inside the headbutt sphere can also break. Captures: `output/iterate/glass-car-before.png`, `glass-car-shatter.png`, `glass-house-before.png`, `glass-house-shatter.png`. The building capture uses a tiny exact hit to show the preserved frame and neighboring panes.
+
+The focused glass/grounding/street/voxel run passed 17/19 cases. The two draw-call failures reproduce on the previous commit and are tracked as JIM-48. Glass-specific red/green evidence: `glass-red.log`, `glass-refinement-red.log`, `glass-adjacent.log`. The stress test exposed glass overlapping coarse vehicle colliders; the final implementation excludes prop contacts while retaining gravity and voxel collision. This is a deliberate approximation, not mesh-accurate vehicle collision.
+
 ## Final checks
+
+Glass refinement: full suite **147/152 passed** in `output/iterate/glass-full-suite.log`. Five pre-existing failures remain: interrupted feast (JIM-03), two rig growth assertions (JIM-49, reproduced exactly on `723c993`), and two renderer-budget assertions (JIM-48, also failing on `723c993`). All four new glass cases, all grounding/street-life/world-detail checks, production build and real rendered smoke pass. Captured car/building shatters produce no console errors. Glass appearance and feel await Chris's playtest.
 
 The broad state run passed 49 adjacent aim/dev-panel/fatness/physics/pursuer/scale checks. All 16 grounding, pedestrian, heat and street-life checks passed on the clean rerun; four world-detail checks also passed. The final suspension refinement passed all six grounding/street-life checks together. Production build and real rendered smoke pass with no console errors. The known JIM-03 interrupted-feast failure was excluded and remains open. Full world sign-off awaits Chris's playtest.

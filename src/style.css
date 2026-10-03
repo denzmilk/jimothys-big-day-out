@@ -337,3 +337,6 @@ body {
   pointer-events: none;
   opacity: 0;
 }
+
+#tool-hud {position:fixed;left:50%;bottom:36px;transform:translateX(-50%);max-width:min(660px,90vw);padding:10px 16px;background:#142023dd;color:#fff3c9;border:1px solid #b5a06f;border-radius:9px;white-space:pre-line;font:600 14px/1.5 system-ui;pointer-events:none;text-align:center;z-index:20;}
+#tool-hud[hidden] {display:none;}

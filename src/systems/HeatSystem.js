@@ -13,6 +13,7 @@ const SOURCES = {
 
 export class HeatSystem {
   constructor() {
+    eventBus.on(Events.TOOL_CHAOS,({points})=>{if(gameState.game.isPlaying){gameState.heat.points+=points;this._retier();}});
     for (const [event, key] of Object.entries(SOURCES)) {
       eventBus.on(event, () => {
         if (!gameState.game.isPlaying) return;

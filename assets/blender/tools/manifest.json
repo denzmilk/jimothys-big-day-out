@@ -1,0 +1,170 @@
+[
+  {
+    "id": "power-washer",
+    "vertices": 580,
+    "polygons": 532,
+    "source": "assets/blender/tools/power-washer.blend",
+    "model": "assets/models/tools/power-washer.glb"
+  },
+  {
+    "id": "bubble-gun",
+    "vertices": 2366,
+    "polygons": 2260,
+    "source": "assets/blender/tools/bubble-gun.blend",
+    "model": "assets/models/tools/bubble-gun.glb"
+  },
+  {
+    "id": "leaf-blower",
+    "vertices": 516,
+    "polygons": 502,
+    "source": "assets/blender/tools/leaf-blower.blend",
+    "model": "assets/models/tools/leaf-blower.glb"
+  },
+  {
+    "id": "vacuum",
+    "vertices": 378,
+    "polygons": 332,
+    "source": "assets/blender/tools/vacuum.blend",
+    "model": "assets/models/tools/vacuum.glb"
+  },
+  {
+    "id": "food-magnet",
+    "vertices": 594,
+    "polygons": 590,
+    "source": "assets/blender/tools/food-magnet.blend",
+    "model": "assets/models/tools/food-magnet.glb"
+  },
+  {
+    "id": "fire-extinguisher",
+    "vertices": 556,
+    "polygons": 514,
+    "source": "assets/blender/tools/fire-extinguisher.blend",
+    "model": "assets/models/tools/fire-extinguisher.glb"
+  },
+  {
+    "id": "paint-sprayer",
+    "vertices": 834,
+    "polygons": 770,
+    "source": "assets/blender/tools/paint-sprayer.blend",
+    "model": "assets/models/tools/paint-sprayer.glb"
+  },
+  {
+    "id": "confetti-cannon",
+    "vertices": 1516,
+    "polygons": 1420,
+    "source": "assets/blender/tools/confetti-cannon.blend",
+    "model": "assets/models/tools/confetti-cannon.glb"
+  },
+  {
+    "id": "air-horn",
+    "vertices": 502,
+    "polygons": 454,
+    "source": "assets/blender/tools/air-horn.blend",
+    "model": "assets/models/tools/air-horn.glb"
+  },
+  {
+    "id": "disco-ray",
+    "vertices": 1360,
+    "polygons": 1316,
+    "source": "assets/blender/tools/disco-ray.blend",
+    "model": "assets/models/tools/disco-ray.glb"
+  },
+  {
+    "id": "sick-ray",
+    "vertices": 864,
+    "polygons": 800,
+    "source": "assets/blender/tools/sick-ray.blend",
+    "model": "assets/models/tools/sick-ray.glb"
+  },
+  {
+    "id": "stink-sprayer",
+    "vertices": 570,
+    "polygons": 558,
+    "source": "assets/blender/tools/stink-sprayer.blend",
+    "model": "assets/models/tools/stink-sprayer.glb"
+  },
+  {
+    "id": "spring-glove",
+    "vertices": 1588,
+    "polygons": 1566,
+    "source": "assets/blender/tools/spring-glove.blend",
+    "model": "assets/models/tools/spring-glove.glb"
+  },
+  {
+    "id": "suction-grappler",
+    "vertices": 1392,
+    "polygons": 1328,
+    "source": "assets/blender/tools/suction-grappler.blend",
+    "model": "assets/models/tools/suction-grappler.glb"
+  },
+  {
+    "id": "plunger-launcher",
+    "vertices": 550,
+    "polygons": 480,
+    "source": "assets/blender/tools/plunger-launcher.blend",
+    "model": "assets/models/tools/plunger-launcher.glb"
+  },
+  {
+    "id": "tow-reel",
+    "vertices": 484,
+    "polygons": 440,
+    "source": "assets/blender/tools/tow-reel.blend",
+    "model": "assets/models/tools/tow-reel.glb"
+  },
+  {
+    "id": "foam-cannon",
+    "vertices": 1214,
+    "polygons": 1134,
+    "source": "assets/blender/tools/foam-cannon.blend",
+    "model": "assets/models/tools/foam-cannon.glb"
+  },
+  {
+    "id": "trampoline-popper",
+    "vertices": 486,
+    "polygons": 354,
+    "source": "assets/blender/tools/trampoline-popper.blend",
+    "model": "assets/models/tools/trampoline-popper.glb"
+  },
+  {
+    "id": "rocket-skates",
+    "vertices": 1040,
+    "polygons": 964,
+    "source": "assets/blender/tools/rocket-skates.blend",
+    "model": "assets/models/tools/rocket-skates.glb"
+  },
+  {
+    "id": "pogo-stick",
+    "vertices": 960,
+    "polygons": 938,
+    "source": "assets/blender/tools/pogo-stick.blend",
+    "model": "assets/models/tools/pogo-stick.glb"
+  },
+  {
+    "id": "umbrella-glider",
+    "vertices": 387,
+    "polygons": 294,
+    "source": "assets/blender/tools/umbrella-glider.blend",
+    "model": "assets/models/tools/umbrella-glider.glb"
+  },
+  {
+    "id": "bubble-shield",
+    "vertices": 1112,
+    "polygons": 1084,
+    "source": "assets/blender/tools/bubble-shield.blend",
+    "model": "assets/models/tools/bubble-shield.glb"
+  },
+  {
+    "id": "jackhammer",
+    "vertices": 324,
+    "polygons": 290,
+    "source": "assets/blender/tools/jackhammer.blend",
+    "model": "assets/models/tools/jackhammer.glb"
+  },
+  {
+    "id": "firework-launcher",
+    "vertices": 1325,
+    "polygons": 1273,
+    "source": "assets/blender/tools/firework-launcher.blend",
+    "model": "assets/models/tools/firework-launcher.glb"
+  }
+]

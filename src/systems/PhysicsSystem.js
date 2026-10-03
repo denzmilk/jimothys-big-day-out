@@ -34,6 +34,7 @@ export class PhysicsSystem {
     this.world.addBody(ground);
 
     this.buildWalls();
+    eventBus.on(Events.TOOL_FORCE,({mesh,velocity,spin})=>{const pair=this.pairs.find(p=>p.mesh===mesh);if(!pair)return;const b=pair.body;b.type=CANNON.Body.DYNAMIC;b.updateMassProperties();if(!this.dynamic.includes(b))this.dynamic.push(b);b.velocity.set(...velocity);if(spin)b.angularVelocity.set(...spin);b.wakeUp();});
     this.props = new Map();
     this.unsupported=new Set();
     eventBus.on(Events.WORLD_DEMOLISHED,({bounds})=>{

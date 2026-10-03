@@ -1,4 +1,4 @@
-import { INPUT, KEYBINDS } from '../core/Constants.js';
+import { INPUT, KEYBINDS, TOOLS } from '../core/Constants.js';
 
 // Merges keyboard + gamepad into one analog interface (threejs-game input
 // pattern): gameplay reads moveX/moveZ (-1..1), scurry, and consumeHop(),
@@ -26,6 +26,7 @@ export class InputSystem {
     this.suppressed = false;
     // Test seam — see the `pointerLocked` getter. Production never writes it.
     this.forcePointerLock = false;
+    this.toolUse=false;this._mouseTool=false;this._toolQueued=false;this._dropQueued=false;
     this._hopQueued = false;
     this._gpHopHeld = false;
     this._flyQueued = false;
@@ -46,6 +47,8 @@ export class InputSystem {
         e.preventDefault(); // Space must never scroll/click
       }
       if (KEYBINDS.POINTER_LOCK.includes(e.code)) this.togglePointerLock();
+      if(!e.repeat&&KEYBINDS.TOOL_PICKUP.includes(e.code))this._toolQueued=true;
+      if(!e.repeat&&KEYBINDS.TOOL_DROP.includes(e.code))this._dropQueued=true;
       if (!e.repeat && KEYBINDS.HEADBUTT.includes(e.code)) this._headbuttQueued = true;
       if (!e.repeat && KEYBINDS.ROLL.includes(e.code)) this._rollQueued = true;
       // Fly toggle and speed steps survive suppression — they are the controls
@@ -66,11 +69,15 @@ export class InputSystem {
       this.everPointer = true;
       // Webview/iframe hosts only deliver key events to a focused document —
       // claim focus explicitly on any click into the game.
+      if(e.target===this.canvas&&e.button===0)this._mouseTool=true;
       if (e.target === this.canvas) {
         window.focus();
         this.canvas.focus({ preventScroll: true });
       }
     };
+    this._onPointerUp=()=>{this._mouseTool=false;};
+    this._onBlur=()=>{this.codes.clear();this._mouseTool=false;this.toolUse=false;this._toolQueued=this._dropQueued=false;};
+    window.addEventListener('pointerup',this._onPointerUp);window.addEventListener('blur',this._onBlur);
     // tabindex makes the canvas a legitimate focus target inside webviews.
     this.canvas.tabIndex = 0;
     this.canvas.style.outline = 'none';
@@ -117,6 +124,7 @@ export class InputSystem {
     // Suppressed: the analog interface reads dead and every queued one-shot is
     // dropped, so nothing the player does to the camera reaches the raccoon.
     if (this.suppressed) {
+      this.toolUse=false;this._toolQueued=this._dropQueued=false;
       this.moveX = 0;
       this.moveZ = 0;
       this.scurry = false;this.dive=false;this.ascend=false;
@@ -132,6 +140,7 @@ export class InputSystem {
     if (this._pressed('RIGHT')) x += 1;
     if (this._pressed('FORWARD')) z -= 1;
     if (this._pressed('BACK')) z += 1;
+    this.toolUse=this._mouseTool||this._pressed('TOOL_USE');
     let scurry = this._pressed('SCURRY');
     this.dive=this._pressed('DIVE');this.ascend=this._pressed('HOP');
 
@@ -142,6 +151,9 @@ export class InputSystem {
     const pads = navigator.getGamepads?.() || [];
     const gp = [...pads].find((g) => g && g.connected !== false);
     if (gp) {
+      this.toolUse ||= !!gp.buttons?.[TOOLS.GAMEPAD_USE]?.pressed;
+      const pick=!!gp.buttons?.[TOOLS.GAMEPAD_PICKUP]?.pressed,drop=!!gp.buttons?.[TOOLS.GAMEPAD_DROP]?.pressed;
+      if(pick&&!this._gpTool)this._toolQueued=true;if(drop&&!this._gpDrop)this._dropQueued=true;this._gpTool=pick;this._gpDrop=drop;
       const gx = gp.axes?.[0] ?? 0;
       const gz = gp.axes?.[1] ?? 0;
       if (!keyboardActive) {
@@ -167,6 +179,9 @@ export class InputSystem {
     this.moveZ = z;
     this.scurry = scurry;
   }
+
+  consumeTool(){const value=this._toolQueued;this._toolQueued=false;return value;}
+  consumeDrop(){const value=this._dropQueued;this._dropQueued=false;return value;}
 
   consumeHop() {
     const h = this._hopQueued;
@@ -208,6 +223,7 @@ export class InputSystem {
   }
 
   dispose() {
+    window.removeEventListener('pointerup',this._onPointerUp);window.removeEventListener('blur',this._onBlur);
     window.removeEventListener('keydown', this._onDown);
     window.removeEventListener('keyup', this._onUp);
     window.removeEventListener('mousemove', this._onMouseMove);

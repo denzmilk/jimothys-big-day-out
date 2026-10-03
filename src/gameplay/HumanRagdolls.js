@@ -9,6 +9,7 @@ import {gameState} from '../core/GameState.js';
 export class HumanRagdolls {
   constructor(jimothy,voxels){
     this.jimothy=jimothy;this.voxels=voxels;this.people=new Map();this.active=new Map();this.time=0;
+    eventBus.on(Events.HUMAN_IMPACT,({id,...hit})=>{const p=this.people.get(id);if(p)this.knock(p,hit);});
     eventBus.on(Events.HUMAN_REGISTER,p=>this.people.set(p.id,p));
     eventBus.on(Events.HUMAN_UNREGISTER,({id})=>{this.stop(id);this.people.delete(id);});
     eventBus.on(Events.PLAYER_CONTACT,m=>{

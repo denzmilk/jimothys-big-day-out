@@ -55,6 +55,7 @@ export const KEYBINDS = {
   RESTART: ['KeyR'],
   HEADBUTT: ['KeyB', 'KeyE'],
   ROLL: ['KeyC'],
+  TOOL_PICKUP:['KeyT'], TOOL_DROP:['KeyG'], TOOL_USE:['KeyV'],
   // Fly camera (milestone 17). FORWARD/BACK/LEFT/RIGHT and SCURRY are shared
   // with the raccoon on purpose — flying takes the controls AWAY from him
   // (InputSystem.suppressed) rather than running two things off one keypress.
@@ -1510,4 +1511,29 @@ export const COMET = {
   LIGHT_INTENSITY:20, LIGHT_DISTANCE:24, FLASH_SECONDS:.22, FLASH_OPACITY:.65,
   SOUND_VOLUME:.24, RUSH_HZ:420, RUSH_END_HZ:1900, BOOM_HZ:95, BOOM_END_HZ:28,
   BOOM_SECONDS:1.5, NOISE_SECONDS:2, AUDIO_FADE:.03, AUDIO_FLOOR:.001,
+};
+
+// M43–44: costs spend food energy, never the fatness used for body/score.
+export const TOOLS = {
+ ENERGY_MAX:100,ENERGY_START:35,ENERGY_PER_FAT:8,LIMIT:24,EFFECT_LIMIT:96,STATUS_LIMIT:6,PAINT_LIMIT:24,
+ PICKUP_REACH:2.5,HEIGHT_REACH:2,RENDER_DISTANCE:100,MODEL_SCALE:.85,MASS:8,CLEARANCE:.06,
+ RAY_STEP:.22,CONTACT_PAD:.55,PERSON_HEIGHT:.85,TARGET_LIMIT:12,CONTACTS:8,
+ HOLD_SIDE:.75,HOLD_FORWARD:.9,HOLD_HEIGHT:.12,HOLD_MIN_HEIGHT:.4,HOLD_SCALE_MAX:3,
+ EFFECT_LIFE:.45,EFFECT_SIZE:.06,EFFECT_SPEED:8,EFFECT_SPREAD:.18,EFFECT_OPACITY:.62,
+ BUBBLE_LIFE:3.5,BUBBLE_RISE:1.4,BUBBLE_RADIUS:1.2,BUBBLE_COLOR:0x8bdcf4,BUBBLE_OPACITY:.22,
+ BUBBLE_ROUGHNESS:.1,PAINT_ROUGHNESS:.8,PAINT_BASE:0xffffff,
+ PAINT_LIFE:12,PAINT_RADIUS:.18,PAINT_CLEARANCE:.02,CHAOS:1,FORCE_LIFT:.4,FORCE_MASS:40,BIN_SPIN:2.8,FOOD_PUSH_STEP:.2,
+ SUCTION_SPEED:12,SUCTION_CLEARANCE:.35,PILE_DISTANCE:1.4,STATUS_WOBBLE:.12,STATUS_HZ:4,SIZE_REACH_MAX:2.5,
+ SITE_STEP:6,SITE_RING:20,SITE_SCAN:24,SITE_SEPARATION:2.5,SPAWN_X:-6,SPAWN_Z:-16,
+ GAMEPAD_PICKUP:4,GAMEPAD_DROP:1,GAMEPAD_USE:5,
+ CATALOG:[
+  {id:'power-washer',name:'POWER WASHER',mode:'water',color:0x80dfff,range:14,cone:.94,cost:1.2,interval:.12,force:9,description:'Narrow water jet pushes light objects'},
+  {id:'bubble-gun',name:'BUBBLE GUN',mode:'bubble',color:0x8bdcf4,range:13,cone:.9,cost:8,interval:.75,force:0,description:'Float a person in a bubble'},
+  {id:'leaf-blower',name:'LEAF BLOWER',mode:'air',color:0xe8dcc0,range:9,cone:.65,cost:1.1,interval:.12,force:7,description:'Sweep light objects with a wide air cone'},
+  {id:'vacuum',name:'VACUUM',mode:'suction',color:0x87acda,range:12,cone:.5,cost:1,interval:.12,force:0,description:'Suck loose food into a nearby pile'},
+  {id:'food-magnet',name:'FOOD MAGNET',mode:'magnet',color:0xf57898,range:7,cone:-1,cost:3,interval:.35,force:0,description:'Gather food from every direction'},
+  {id:'fire-extinguisher',name:'FIRE EXTINGUISHER',mode:'extinguisher',color:0xf4f4ed,range:8,cone:.65,cost:2,interval:.2,force:5,description:'White spray pushes objects and kicks you backwards'},
+  {id:'paint-sprayer',name:'PAINT SPRAYER',mode:'paint',color:0xfe459a,range:12,cone:.86,cost:2,interval:.25,force:0,description:'Splat paint on people and props'},
+  {id:'confetti-cannon',name:'CONFETTI CANNON',mode:'confetti',color:0xffd64d,range:8,cone:.25,cost:5,interval:.7,force:0,description:'Startle a crowd with a bright burst'},
+ ]
 };

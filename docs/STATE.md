@@ -1,5 +1,11 @@
 # Session state
 
+## First eight food-powered gadgets — milestone 43 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Physical T/LB equip/swap, mouse/V/RB use, G/B drop; eating refills a separate energy meter. Washer/air, bubbles, suction/magnet, extinguisher propulsion, paint and confetti share bounded targeting, model and effect lifecycles. Walls block use, bins tip, affected people recover alive and reset clears ownership. Twenty-four original editable Blender sources and GLBs are prepared; only the first eight behaviours ship in 43.
+
+The final 23 tool/adjacent browser checks, all 67 units, build and production pixel smoke pass. Native held views and the model sheet were inspected, console errors absent. Lean stationary washer update-plus-render submission: median 8.8 ms, p95 9.8, worst 23.2 at 1280×800 Chrome/Metal (144 calls); not an FPS/giant claim. Evidence: `output/iterate/tools-*`, `tool-held-*`, `tool-model-gallery.png`. User playtest question is pending. **Next: 44 remaining sixteen tools → 45 sixteen landmarks → 40 food tiers → 41 tourists → 42 drivers.**
+
 ## Tool and landmark expansion — 2026-10-03
 
 Chris approved **tools → landmarks → food progression → tourists → drivers**, moving the new milestones 43–45 ahead of 40–42. The target is **24 distinct usable tools and 16 landmarks**; roster and acceptance criteria are recorded. Milestone 43 is active: physical pickup/equip/use/drop, food-powered energy and the first eight gadgets. Milestone 44 completes the remaining sixteen; 45 builds the landmark sites. New code/assets are not yet claimed complete. Earlier giant repair remains implemented, awaiting playtest.

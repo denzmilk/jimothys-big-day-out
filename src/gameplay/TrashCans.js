@@ -63,6 +63,7 @@ export class TrashCans {
       if(can){can.attached=false;can.body.position.set(position.x,ground+can.kind.height/2,position.z);can.mesh.position.copy(can.body.position);can.body.quaternion.copy(can.mesh.quaternion);can.body.velocity.setZero();can.body.angularVelocity.setZero();this.physics.resetSweep(can.body);this.physics.add(can.body,can.mesh);can.body.wakeUp();}
       if(snack){snack.attached=false;snack.baseY=this._restY(position.x,position.z,ground);snack.mesh.position.set(position.x,snack.baseY,position.z);}
     });
+    eventBus.on(Events.FOOD_SHIFT,({id,position})=>{const s=this.snacks.find(s=>s.collectId===id);if(!s||s.attached)return;s.mesh.position.copy(position);s.baseY=this._restY(position.x,position.z,position.y);s.supportTimer=0;});
     eventBus.on(Events.FOOD_SPAWN,e=>{if(!this.snacks.some(s=>s.owner===e.owner))this.spawnFood(e.foodId,e.x,e.z,e.y,e.owner);});
     eventBus.on(Events.FOOD_REMOVE,({owner})=>{for(const s of [...this.snacks])if(s.owner===owner&&!s.attached)this.removeSnack(s);});
     this._up = new CANNON.Vec3();

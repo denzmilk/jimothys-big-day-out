@@ -17,6 +17,7 @@ import { ScoreSystem } from '../systems/ScoreSystem.js';
 import { HeatSystem } from '../systems/HeatSystem.js';
 import { JimothyController } from '../gameplay/JimothyController.js';
 import {InteriorSystem} from '../level/InteriorSystem.js';
+import {ToolSystem} from '../gameplay/ToolSystem.js';
 import { TrashCans } from '../gameplay/TrashCans.js';
 import {Military} from '../gameplay/Military.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
@@ -150,6 +151,7 @@ class Game {
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
     this.treasures = new Treasures(this.scene, this.jimothy, this.voxels);
     this.crabs = new CrabPeople(this.scene, this.jimothy, this.voxels);
+    this.tools=new ToolSystem(this.scene,this.jimothy,this.input,this.voxels);
     this.score = new ScoreSystem();
     this.heat = new HeatSystem();
     this.cameraSystem = new CameraSystem(this.camera, this.jimothy, this.input, this.voxels);
@@ -229,6 +231,7 @@ class Game {
     // FIRST (listeners registered before other systems see the event would
     // race), so restart order lives here, not in subscribers.
     eventBus.on(Events.GAME_RESTART, () => {
+      this.tools.clearStatuses();
       this.collector.reset();
       this.ragdolls.reset();
       this.water.reset();this.sand.reset();this.groundChannels.reset();this.structuralSupport.reset();this.ocean.reset();this.physics.unsupported.clear();
@@ -248,7 +251,7 @@ class Game {
       gameState.game.started = true;
       gameState.game.isPlaying = true;
       this.pedestrians.reset();this.interiors.reset();
-      this.dayNight.reset();this.environmentLife.reset();
+      this.dayNight.reset();this.environmentLife.reset();this.tools.reset();
       this.arrival.reset();
     });
 
@@ -403,6 +406,7 @@ class Game {
     // 60 Hz is nothing, and keeps the order of the loop unchanged.
     this.groundChannels.update(delta);this.structuralSupport.update(delta);this.water.update(delta);
     this.jimothy.update(delta, this.cameraSystem.yaw, this.cameraSystem.aimPitch);
+    this.tools.update(delta);
     this.streetLife.update(delta);
     this.physics.update(delta);
     this.jimothy.postUpdate(delta);
@@ -919,6 +923,7 @@ class Game {
       glass: this.glassShards.snapshot(),
       explosions: this.carExplosions.snapshot(),
       arrival:this.arrival.snapshot(),
+      tools:this.tools.snapshot(),
       collection: this.collector.snapshot(),
       support:this.structuralSupport.snapshot(),groundChannels:this.groundChannels.snapshot(),
       world: { voxelSize: VOXEL.SIZE, atmosphereTime: this.level.time },

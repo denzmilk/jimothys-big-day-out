@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress — Chris approved tools → landmarks → food progression → tourists → drivers on 2026-10-03.
+Implemented, awaiting Chris’s playtest — 2026-10-03.
 
 ## Objective
 
@@ -27,11 +27,11 @@ Give Jimothy a physical equipped-tool lifecycle with a first set of eight usable
 
 ## Acceptance criteria
 
-- [ ] Pick up, use, swap and drop real modelled tools through keyboard/mouse and gamepad, with visible equipment and energy feedback — test: `tests/tools.spec.js`.
-- [ ] Eating refills tool energy without reducing earned fatness; no energy means no effect, and pause/capture/fly/rolling suppress use — test: `tests/tools.spec.js`.
-- [ ] Water/air move reachable props, suction gathers reachable food, bubbles temporarily lift people, paint marks targets and confetti startles nearby people; walls block targeting — test: `tests/tools-effects.spec.js`.
-- [ ] Physics/AI ownership resumes after interruption, collection and release, with no duplicated people or bodies — test: `tests/tools-effects.spec.js`.
-- [ ] Tool models load with editable Blender sources; nearby pickups/effects stay bounded, destruction removes support and restart resets resources — test: `tests/tools.spec.js`.
+- [x] Pick up, use, swap and drop real modelled tools through keyboard/mouse and gamepad, with visible equipment and energy feedback — test: `tests/tools.spec.js`.
+- [x] Eating refills tool energy without reducing earned fatness; no energy means no effect, and pause/capture/fly/rolling suppress use — test: `tests/tools.spec.js`.
+- [x] Water/air move reachable props, suction gathers reachable food, bubbles temporarily lift people, paint marks targets and confetti startles nearby people; walls block targeting — test: `tests/tools-effects.spec.js`.
+- [x] Physics/AI ownership resumes after interruption, collection and release, with no duplicated people or bodies — test: `tests/tools-effects.spec.js`.
+- [x] Tool models load with editable Blender sources; nearby pickups/effects stay bounded, destruction removes support and restart resets resources — test: `tests/tools.spec.js`.
 - [ ] Chris approves held-tool placement, controls and readability — verified by user playtest.
 
 ## Exit condition
@@ -45,3 +45,9 @@ Failing browser behaviour checks first. Inspect Blender exports and native loade
 ## Notes
 
 Twenty-four is the implementation roster target, exceeding Chris’s minimum of twenty different tools. Shared effect families must still produce distinct useful behaviours; colour variants do not count. Design reference, exact prompt, Blender recipe/source and model manifest live under `assets/` and `tools/`.
+
+## Implementation evidence
+
+The five initial behaviour checks failed before implementation. Final regression: 23 passing tool/input/food/contact/ragdoll/capture/street/restart checks; all 67 unit checks pass. Build and production pixel smoke pass with no console errors. Original-rig held views and the full 24-model export sheet were inspected. The first eight behaviours are enabled here; the other sixteen exports are prepared for 44.
+
+Native Chrome/Metal, 1280×800, lean stationary washer firing, military disabled: update plus render submission median 8.8 ms, p95 9.8, worst 23.2, 144 draw calls. This is a local microbenchmark, not an FPS or giant-rampage claim. Evidence: `output/iterate/tools-*`, `tool-held-*.png`, `tool-model-gallery.png`. Pickup models use a side mount; anatomical hand gripping and detailed weathering are not claimed.

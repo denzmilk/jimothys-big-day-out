@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {PedestrianActivities} from './PedestrianActivities.js';
 import { FootGrounding } from '../core/Grounding.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
@@ -13,19 +14,19 @@ export class Pedestrians {
   constructor(scene, jimothy, voxels) {
     this.scene=scene;this.jimothy=jimothy;this.voxels=voxels;
     this.people=[];this.models=[];this.ready=false;this.elapsed=0;this.serial=0;this.center=null;
-    this.graph=new Map();this.obstacles=new Map();
+    this.graph=new Map();this.obstacles=new Map();this.activities=new PedestrianActivities(this);
     eventBus.on(Events.TRAFFIC_OBSTACLES,({obstacles})=>{for(const p of this.people)if(!p.attached)obstacles.push({id:p.id,x:p.mesh.position.x,z:p.mesh.position.z,y:p.mesh.position.y,radius:TRAFFIC.PERSON_RADIUS});});
     const remember=e=>{if(e.kind!=='person'&&e.kind!=='food')this.obstacles.set(e.id,e);};
     eventBus.on(Events.ENTITY_REGISTER,remember);
     eventBus.on(Events.ENTITY_UNREGISTER,({id})=>this.obstacles.delete(id));
     eventBus.emit(Events.ENTITY_LIST,{receive:entities=>{for(const e of entities)remember(e);}});
-    eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=true;this._animate(p,'Idle');}});
+    eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.people.find(p=>p.id===id);if(p){this.activities.stop(p,'attached');p.attached=true;this._animate(p,'Idle');}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=false;p.x=position.x;p.z=position.z;p.y=ground;p.mesh.position.set(p.x,p.y,p.z);p.grounding.reset();p.target=null;p.node=null;p.flee=PED.FLEE_SECONDS;}});
-    eventBus.on(Events.HUMAN_DOWN,({id,active,position})=>{const p=this.people.find(p=>p.id===id);if(!p)return;p.ragdoll=active;
+    eventBus.on(Events.HUMAN_DOWN,({id,active,position})=>{const p=this.people.find(p=>p.id===id);if(!p)return;if(active)this.activities.stop(p,'impact');p.ragdoll=active;
       if(!active){p.x=position.x;p.z=position.z;p.y=position.y;p.target=null;p.node=null;p.grounding.reset();p.flee=PED.FLEE_SECONDS;}});
     const loader=new GLTFLoader();
-    this.loading=Promise.all(PED.MODELS.map(id=>loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/people/${id}.glb`)))
-      .then(models=>{
+    this.loading=Promise.all([Promise.all(PED.MODELS.map(id=>loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/people/${id}.glb`))),this.activities.loading])
+      .then(([models])=>{
         // MakeSkin exports opaque clothes as BLEND too. Alpha testing retains
         // hair cutouts without transparent sorting cutting holes through skirts.
         for(const model of models)model.scene.traverse(o=>{
@@ -92,9 +93,9 @@ export class Pedestrians {
     visual.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
     const mixer=new THREE.AnimationMixer(visual),actions={};
     for(const clip of source.animations) actions[clip.name]=mixer.clipAction(clip);
-    const p={id:`ped-${this.serial++}`,x:node.x,z:node.z,y:0,yaw:0,node:node.key,previous:null,target:null,mesh,visual,mixer,actions,animation:null,model:PED.MODELS[modelIndex],flee:0,scaredRecently:false,steps:index,pause:0,attached:false};
+    const p={height:box.max.y-box.min.y,id:`ped-${this.serial++}`,x:node.x,z:node.z,y:0,yaw:0,node:node.key,previous:null,target:null,mesh,visual,mixer,actions,animation:null,model:PED.MODELS[modelIndex],flee:0,scaredRecently:false,steps:index,pause:0,attached:false};
     p.grounding=new FootGrounding(mesh,visual,(x,z)=>this.voxels.groundHeightAt(x,z,this.voxels.terrainHeightAt(x,z)+PED.GROUND_SCAN));
-    eventBus.emit(Events.HUMAN_REGISTER,{id:p.id,group:mesh,visual});
+    this.activities.init(p);eventBus.emit(Events.HUMAN_REGISTER,{id:p.id,group:mesh,visual});
     this.people.push(p);this._animate(p,'Idle');eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:'person',size:COLLECTION.PERSON_SIZE});return p;
   }
 
@@ -105,6 +106,7 @@ export class Pedestrians {
   }
 
   _remove(p) {
+    this.activities.stop(p,'removed');
     eventBus.emit(Events.HUMAN_UNREGISTER,{id:p.id});
     eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});
     p.mixer.stopAllAction();p.mixer.uncacheRoot(p.visual);
@@ -140,18 +142,20 @@ export class Pedestrians {
       const result=this.graphWork.next();if(result.done)this._acceptGraph(result.value);
     }
     if(this.populationPending)this._populate(PED.SPAWN_PER_FRAME);
+    this.activities.before(frameDelta);
     for(const p of this.people) {
       if(p.attached||p.ragdoll)continue;
       const dj=Math.hypot(p.x-jp.x,p.z-jp.z),quality=gameState.world.graphics;
       p.pendingDelta=(p.pendingDelta||0)+frameDelta;
       const distant=quality&&dj>Math.max(quality.aiDistance,this.jimothy.radius+GRAPHICS.CONTACT_MARGIN)&&!isVisible(p.mesh.position);
       if(distant&&p.pendingDelta<quality.aiInterval){p.throttled=true;continue;}
-      const delta=p.pendingDelta;p.pendingDelta=0;p.throttled=false;
+      const delta=p.pendingDelta;p.pendingDelta=0;p.throttled=false;this.activities.prepare(p);
       if(dj<PED.SCARE_RADIUS&&!gameState.player.hidden) {
         if(!p.scaredRecently){p.scaredRecently=true;eventBus.emit(Events.LOCAL_SCARED,{id:p.id,x:p.x,z:p.z});}
         p.flee=PED.FLEE_SECONDS;
       } else if(dj>PED.SCARE_RADIUS*2)p.scaredRecently=false;
       p.flee=Math.max(0,p.flee-delta);p.pause=Math.max(0,p.pause-delta);
+      if(this.activities.update(p,delta))continue;
       if(!p.target||Math.hypot(p.x-p.target.x,p.z-p.target.z)<PED.ARRIVE_RADIUS) {
         if(p.target){p.previous=p.node;p.node=p.target.key;}
         let node=this.graph.get(p.node);
@@ -175,7 +179,7 @@ export class Pedestrians {
         const step=Math.min(speed*delta,d),nx=p.x+dx/(d||1)*step,nz=p.z+dz/(d||1)*step;
         const surface=this.voxels.terrainHeightAt(nx,nz), ground=this.voxels.groundHeightAt(nx,nz,surface+PED.GROUND_SCAN);
         const givesWay=p.flee<=0&&Math.hypot(nx-jp.x,nz-jp.z)<PED.GIVE_WAY_RADIUS;
-        if(!givesWay&&(!Layout.isFootpathAtWorld(p.x,p.z)||Layout.isFootpathAtWorld(nx,nz))&&this._clear(nx,nz)&&Math.abs(ground-p.y)<PED.MAX_STEP&& !this.voxels.solidAtWorld(nx,ground+PED.BODY_PROBE,nz)) {
+        if(!givesWay&&this.activities.personClear(p,nx,nz,{performersOnly:true})&&(!Layout.isFootpathAtWorld(p.x,p.z)||Layout.isFootpathAtWorld(nx,nz))&&this._clear(nx,nz)&&Math.abs(ground-p.y)<PED.MAX_STEP&& !this.voxels.solidAtWorld(nx,ground+PED.BODY_PROBE,nz)) {
           p.x=nx;p.z=nz;p.y=ground;p.yaw=Math.atan2(dx,dz);moving=step>0;
         } else {p.target=null;p.previous=null;p.steps++;}
       }
@@ -193,12 +197,12 @@ export class Pedestrians {
   reset() {
     if(!this.ready)return;
     for(const p of [...this.people])this._remove(p);
-    this.serial=0;this.center=null;this.graphWork=null;
+    this.activities.reset();this.serial=0;this.center=null;this.graphWork=null;
     this._graphAround(this.jimothy.position.x,this.jimothy.position.z);this._populate();
     for(const p of this.people)p.y=this.voxels.terrainHeightAt(p.x,p.z);
     this.update(0);
   }
 
   get fleeingCount(){return this.people.filter(p=>p.flee>0).length;}
-  snapshot(){const j=this.jimothy.position;return {ready:this.ready,models:this.models.length,count:this.people.length,nearby:this.people.filter(p=>Math.hypot(p.x-j.x,p.z-j.z)<PED.NEAR_DISTANCE).length,fleeing:this.fleeingCount,items:this.people.map(p=>({id:p.id,model:p.model,x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2),animation:p.animation,attached:p.attached,ragdoll:!!p.ragdoll,feet:p.grounding.contacts}))};}
+  snapshot(){const j=this.jimothy.position;return {ready:this.ready,models:this.models.length,activities:this.activities.snapshot(),count:this.people.length,nearby:this.people.filter(p=>Math.hypot(p.x-j.x,p.z-j.z)<PED.NEAR_DISTANCE).length,fleeing:this.fleeingCount,items:this.people.map(p=>({id:p.id,model:p.model,x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2),animation:p.animation,activity:p.activity?{kind:p.activity.kind,phase:p.activity.phase,time:+p.activity.time.toFixed(2),partner:p.activity.partner,role:p.activity.role}:null,attached:p.attached,ragdoll:!!p.ragdoll,feet:p.grounding.contacts}))};}
 }

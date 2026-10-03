@@ -50,7 +50,7 @@ export class FootGrounding {
     const target=this.root.localToWorld(leg.rest.clone());
     target.y=this.ground(target.x,target.z)+leg.offset+C.FOOT_CLEARANCE;return target;
   }
-  update(action,moving,dt){
+  update(action,moving,dt,strideScale=1){
     this.visual.position.y=this.baseY-C.PELVIS_DROP;this.root.updateWorldMatrix(true,true);this.contacts=[];
     const rootPosition=position(this.root);
     if(this.previous&&rootPosition.distanceTo(this.previous)>C.RESET_DISTANCE)this.reset();
@@ -62,7 +62,9 @@ export class FootGrounding {
     this.previous=rootPosition;
     // JIM-58: short MPFB physiques need a quicker, shorter running step
     // to keep the support foot within reach on uphill grades.
-    const speed=this.velocity.length(),stride=Math.min(action?.getClip().name==='Run'?C.RUN_STRIDE:C.WALK_STRIDE,this.legLength*C.STRIDE_LEG_RATIO);
+    // M51's short, turning routines use smaller steps without retuning the
+    // ordinary walking/fleeing gait shared with the rest of the crowd.
+    const speed=this.velocity.length(),stride=Math.min(action?.getClip().name==='Run'?C.RUN_STRIDE:C.WALK_STRIDE,this.legLength*C.STRIDE_LEG_RATIO)*strideScale;
     const direction=this.velocity.clone().normalize();
     for(const leg of this.legs)if(!leg.target)leg.target=this.foothold(leg);
     this.wait=Math.max(0,this.wait-dt);

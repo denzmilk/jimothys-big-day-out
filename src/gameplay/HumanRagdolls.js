@@ -31,6 +31,7 @@ export class HumanRagdolls {
     if(p.attached||this.active.has(p.id)||p.immune>this.time)return;
     if(hit.source==='roll'&&!canPush(gameState.player.fatness,BODY_CONTACT.HUMAN_MASS,BODY_CONTACT.HUMAN_PUSH_RATIO))return;
     if(this.active.size>=C.CAPACITY)return;
+    eventBus.emit(Events.HUMAN_INTERRUPT,{id:p.id});
     p.group.updateMatrixWorld(true);
     const saved=[];p.visual.traverse(b=>{if(b.isBone)saved.push({bone:b,position:b.position.clone(),quaternion:b.quaternion.clone()});});
     const parts=[];

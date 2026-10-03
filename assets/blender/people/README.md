@@ -30,6 +30,8 @@ Preview the new six with `MPFB_ONLY` set to the same list and `MPFB_PREVIEW=mpfb
 
 Runtime contract: `Idle`, `Walk`, `Run`, standard MPFB game-engine bones, two independently planted feet, and the same 11-body ragdoll. Geometry and materials remain shared between clones; only skeletons and animation state are per person.
 
+Street routines added in M51 reuse these rigs with reversible procedural poses. Editable phone/cup models, exports and rebuild instructions are in [activities/README.md](activities/README.md).
+
 ## Delivery packing (M33, 2026-10-02)
 
 After the Blender build, run `python tools/pack_pedestrians.py` in a Python environment with NumPy and Pillow. It combines each person's aligned skin primitives into one skinned draw and packs their existing diffuse/normal maps with periodic gutters. Original vertices, weights, joints, bind matrices and animation streams remain exact. The editable/game Blender files remain the source; regenerate raw GLBs from those before repacking. `--backup /path/to/folder` optionally preserves raw exports.

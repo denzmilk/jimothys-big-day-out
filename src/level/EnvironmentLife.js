@@ -14,6 +14,8 @@ export class EnvironmentLife {
   this.wind=new THREE.Vector2();this.uniforms={lifeTime:{value:0},lifeWind:{value:this.wind},lifePlayer:{value:new THREE.Vector3()},lifeRadius:{value:1}};
   this.matrix=new THREE.Object3D();
   this.clumps=[];this.uprooted=new Set();this.serial=0;this.clumpClock=0;this.clumpMaterials=new Map();this.rootMaterial=new THREE.MeshStandardMaterial({color:VOXEL.MATERIALS[C.ROOT_MATERIAL].color});
+  eventBus.on(Events.WILDLIFE_QUERY,({birds})=>{for(const a of this.animals)if(a.bird&&!a.attached)birds.push({id:a.id,x:a.mesh.position.x,y:a.mesh.position.y,z:a.mesh.position.z});});
+  eventBus.on(Events.WILDLIFE_STARTLE,({id,source,x,z,seconds})=>{const a=this.animals.find(a=>a.id===id);if(a&&!a.attached){a.startledBy=source;a.threat={x,z};a.flee=seconds;}});
   const loader=new GLTFLoader(),base=import.meta.env.BASE_URL+'assets/models/';
   this.loading=Promise.all([...C.PLANTS.map(n=>loader.loadAsync(base+'nature/'+n+'.glb')),...C.ANIMALS.map(n=>loader.loadAsync(base+'wildlife/'+n+'.glb'))]).then(models=>{
    this.models=models.slice(C.PLANTS.length);
@@ -133,9 +135,9 @@ export class EnvironmentLife {
    if(a.attached){a.mixer.update(dt);continue;}
    const p=a.mesh.position,dx=p.x-j.x,dz=p.z-j.z,dist=Math.hypot(dx,dz);
    if(!a.bird){const floor=this.voxels.groundHeightAt(p.x,p.z,Math.max(p.y,this.voxels.terrainHeightAt(p.x,p.z)));a.vy=(a.vy||0)-SUPPORT.FALL_GRAVITY*dt;p.y=Math.max(floor,p.y+a.vy*dt);if(p.y<=floor)a.vy=0;}
-   if(dist<C.FLEE_RADIUS)a.flee=C.FLEE_SECONDS;else a.flee=Math.max(0,a.flee-dt);
+   if(dist<C.FLEE_RADIUS){a.flee=C.FLEE_SECONDS;a.threat=null;}else a.flee=Math.max(0,a.flee-dt);
    a.phase+=dt;const alarm=a.flee>0;
-   if(alarm)a.heading=Math.atan2(dx,dz);else a.heading+=Math.sin(a.phase*C.WANDER_HZ)*dt*C.TURN_RATE;
+   if(alarm)a.heading=a.threat?Math.atan2(p.x-a.threat.x,p.z-a.threat.z):Math.atan2(dx,dz);else a.heading+=Math.sin(a.phase*C.WANDER_HZ)*dt*C.TURN_RATE;
    const speed=alarm?C.FLEE_SPEED:a.bird?C.BIRD_SPEED:C.WALK_SPEED;
    const nx=p.x+Math.sin(a.heading)*speed*dt,nz=p.z+Math.cos(a.heading)*speed*dt;
    if(a.bird||this._clear(nx,nz)){

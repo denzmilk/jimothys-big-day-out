@@ -614,6 +614,44 @@ export const PEDESTRIANS = {
   FLEE_SECONDS: 3.5,
 };
 
+// M51: habits share one bounded crowd and restore normal walking on exit.
+export const PED_ACTIVITIES = {
+  MAX_ACTIVE:12, START_DELAY:8, START_SPREAD:9, CHECK_INTERVAL:.35, COOLDOWN:12, COOLDOWN_SPREAD:16, RANGE:62,
+  BLEND:.65, CLEARANCE:.48, GROUND_TOLERANCE:.22, PATH_SAMPLE:.35, TRAVEL:2.5, STRIDE_SCALE:.65,
+  MOON_SPEED:.75, CARRY_SPEED:.65, CHASE_SPEED:2.2, PAIR_SEARCH:12, PAIR_APPROACH:1.8, PAIR_TIMEOUT:9, PAIR_MOUNT:.6, RIDER_LIFT:.22, RIDER_BACK:.28,
+  BIRD_SEARCH:34, BIRD_STARTLE:8, BIRD_REFRESH:.35, BIRD_FLEE:2.5,
+  PERSON_GAP:.65, DROP_MAX:8, DROP_LIFE:18, DROP_MASS:.3, DROP_SPEED:1.6, DROP_LIFT:1, DROP_SPIN:3,
+  PROPS:{phone:{half:[.041,.08,.012],size:.16},coffee:{half:[.05,.092,.05],size:.18}},
+  CATALOG:[
+    {id:'phone',weight:4,duration:12,mode:'stand',prop:'phone'},
+    {id:'coffee',weight:4,duration:11,mode:'stand',prop:'coffee'},
+    {id:'bird-chase',weight:1,duration:7,mode:'chase'},
+    {id:'cartwheel',weight:1,duration:4,mode:'cartwheel'},
+    {id:'meditate',weight:2,duration:12,mode:'seat'},
+    {id:'float',weight:1,duration:10,mode:'hover'},
+    {id:'moonwalk',weight:1,duration:6,mode:'backwards'},
+    {id:'piggyback',weight:1,duration:5,mode:'pair'},
+    {id:'air-guitar',weight:1,duration:8,mode:'stand'},
+    {id:'robot',weight:1,duration:8,mode:'stand'},
+    {id:'stretch',weight:3,duration:8,mode:'stand'},
+    {id:'selfie',weight:3,duration:9,mode:'stand',prop:'phone'},
+  ],
+  POSE:{
+    REACH:.96, HAND_FORWARD:.05, GRIP_OFFSET:.04, FINGER_CURL:.8, THUMB_CURL:.4,
+    PHONE:[-.14,.87,.07], PHONE_HEAD:[-.08,.035,0], MOUTH_HEAD:[-.01,.035,.075], CUP_RIM:.085, RIDER_GRIP:[.1,-.025,.08], COFFEE_LOW:[-.17,.59,.2], COFFEE_HIGH:[-.08,.84,.17], SIP_HZ:1.65, CUP_TILT:.35,
+    SELFIE:[-.12,.84,.38], SELFIE_HZ:1.3, SELFIE_SWAY:.025,
+    REST_HAND:[.17,.52,.04], SEAT_DROP:.42, FLOAT_RISE:.73, FLOAT_BOB:.035, FLOAT_HZ:1.8,
+    SEAT_FOOT:[.1,.055,.2], SEAT_HAND:[.25,.19,.2], SEAT_POLE:[1,.15,.6],
+    CART_PIVOT:.5, HAND_FLOOR:.025, CART_HAND:[.2,1.02,.01], CART_FOOT:[.28,.05,0],
+    GUITAR_LEFT:[.34,.72,.2], GUITAR_RIGHT:[-.04,.58,.2], STRUM_HZ:14, STRUM_RANGE:.065,
+    ROBOT_HZ:2.4, ROBOT_HAND:[.27,.67,.16], ROBOT_RANGE:.15,
+    STRETCH_HAND:[.14,1.03,0], STRETCH_HZ:1.2, STRETCH_SWAY:.05,
+    CHASE_HAND:[.35,.87,.18], CHASE_HZ:9, CHASE_WAVE:.09, CHASE_LOOK:-.3,
+    RIDER_FOOT:[.23,.12,.1], RIDER_HAND:[.16,.7,.35], CARRIER_HAND:[.23,.45,-.18],
+    MOON_LIFT:.055, MOON_HZ:5, HEAD_NOD:.045, HEAD_HZ:2,
+  },
+};
+
 export const CAMERA = {
   FOV: 60,
   // 0.5, not 0.1: the far plane has to reach the far side of a 2 km island, and

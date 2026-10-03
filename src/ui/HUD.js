@@ -13,14 +13,18 @@ export class HUD {
     quality.addEventListener('change',()=>eventBus.emit(Events.GRAPHICS_CHANGED,{preset:quality.value}));
     const military=document.getElementById('military-warning');
     eventBus.on(Events.MILITARY_WARNING,({warning})=>{military.textContent=warning;military.hidden=!warning;});
-    this.scoreEl = document.getElementById('score');
+    this.scoreEl = document.getElementById('score-value');
     this.fatEl = document.getElementById('fat');
     this.heatEl = document.getElementById('heat');
+    this.starsEl = document.getElementById('heat-stars');
     this.comboEl = document.getElementById('combo');
     this.popupsEl = document.getElementById('popups');
     this.flashEl = document.getElementById('flash');
     this.clockEl = document.getElementById('world-clock');
-    const renderClock=()=>{this.clockEl.textContent=gameState.world.timeLabel??'';};
+    const renderClock=()=>{
+      this.clockEl.textContent=gameState.world.timeLabel??'';
+      document.getElementById('radar-compass').setAttribute('aria-label',`Compass. World time ${this.clockEl.textContent}`);
+    };
     eventBus.on(Events.WORLD_TIME_CHANGED,renderClock);renderClock();
     eventBus.on(Events.CAPTURE_CHANGED,c=>{
       const meter=document.getElementById('capture-meter');
@@ -43,10 +47,12 @@ export class HUD {
   }
 
   render() {
-    this.scoreEl.textContent = `SCORE ${gameState.player.score}`;
+    this.scoreEl.textContent = gameState.player.score;
     this.fatEl.textContent = `FAT ${gameState.player.fatness}`;
     const tier = gameState.heat.tier;
-    this.heatEl.textContent = `HEAT ${'★'.repeat(tier)}${'☆'.repeat(5 - tier)}`;
+    this.starsEl.textContent = `${'★'.repeat(tier)}${'☆'.repeat(5 - tier)}`;
+    this.heatEl.dataset.tier = tier;
+    this.heatEl.setAttribute('aria-label',`Wanted level ${tier} of 5`);
     const c = gameState.player.combo;
     this.comboEl.textContent = c > 1 ? `COMBO x${c}` : '';
   }

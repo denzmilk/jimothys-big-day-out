@@ -6,16 +6,14 @@ import * as Plan from '../level/CityPlanner.js';
 
 export class Minimap {
   constructor() {
-    this.panel=document.createElement('section');this.panel.id='tactical-radar';this.panel.setAttribute('aria-label','Enemy search radar');
-    this.panel.innerHTML='<div class="radar-heading"><b>NEIGHBOURHOOD RADAR</b><span id="radar-scale"></span></div><canvas id="radar-canvas" role="img" aria-label="Local streets, enemy sight cones and last seen search areas"></canvas><div id="radar-status" role="status"></div><div class="radar-legend"><span>◀ Sight</span><span>◌ Search</span><span>◇ Strike</span></div>';
-    document.body.appendChild(this.panel);this.canvas=this.panel.querySelector('canvas');
-    this.canvas.width=this.canvas.height=C.SIZE*C.PIXEL_RATIO;this.canvas.style.width=this.canvas.style.height=`${C.SIZE}px`;
+    this.panel=document.getElementById('tactical-radar');this.canvas=this.panel.querySelector('canvas');
+    this.canvas.width=this.canvas.height=C.SIZE*C.PIXEL_RATIO;
     this.ctx=this.canvas.getContext('2d');this.ctx.scale(C.PIXEL_RATIO,C.PIXEL_RATIO);
     this.background=document.createElement('canvas');this.background.width=this.background.height=C.SIZE*C.PIXEL_RATIO;
     this.sights=new SightSampler();
     eventBus.on(Events.WORLD_DEMOLISHED,()=>this.sights.invalidate());
     eventBus.on(Events.WORLD_OCCLUSION_CHANGED,()=>this.sights.invalidate());
-    this.status=this.panel.querySelector('#radar-status');this.scale=this.panel.querySelector('#radar-scale');this.reset();
+    this.status=document.getElementById('radar-status');this.scale=this.panel.querySelector('#radar-scale');this.reset();
     eventBus.on(Events.GAME_RESTART,()=>this.reset());
   }
 
@@ -60,7 +58,7 @@ export class Minimap {
   draw(player){
     const ctx=this.ctx,size=C.SIZE,half=size/2,scale=half/this.data.range,cache=this.cache;
     const point=p=>[half+(p.x-player.x)*scale,half+(p.z-player.z)*scale];
-    ctx.clearRect(0,0,size,size);ctx.save();ctx.beginPath();ctx.rect(0,0,size,size);ctx.clip();
+    ctx.clearRect(0,0,size,size);ctx.save();ctx.beginPath();ctx.arc(half,half,half,0,Math.PI*2);ctx.clip();
     ctx.drawImage(this.background,half+(cache.x-player.x-cache.half)*scale,half+(cache.z-player.z-cache.half)*scale,cache.half*2*scale,cache.half*2*scale);
     ctx.strokeStyle=C.GRID_COLOR;ctx.lineWidth=C.LINE;ctx.beginPath();ctx.moveTo(half,0);ctx.lineTo(half,size);ctx.moveTo(0,half);ctx.lineTo(size,half);ctx.stroke();
     const circle=(p,r,color,dashed=false)=>{const [x,z]=point(p);ctx.beginPath();ctx.arc(x,z,r*scale,0,Math.PI*2);ctx.fillStyle=color;ctx.globalAlpha=C.SEARCH_ALPHA;ctx.fill();ctx.globalAlpha=1;ctx.strokeStyle=color;ctx.setLineDash(dashed?[C.MARKER,C.MARKER]:[]);ctx.stroke();ctx.setLineDash([]);};
@@ -77,14 +75,18 @@ export class Minimap {
       ctx.fill();ctx.stroke();
       if(p.state==='noticing'){ctx.beginPath();ctx.arc(x,z,C.MARKER*2,-Math.PI/2,-Math.PI/2+p.awareness*Math.PI*2);ctx.strokeStyle=C.NOTICE;ctx.lineWidth=C.LINE*2;ctx.stroke();ctx.lineWidth=C.LINE;}
     }
-    if(this.data.waypoint){const [x,z]=point(this.data.waypoint),pad=C.PLAYER_SIZE;ctx.fillStyle=C.WAYPOINT;ctx.beginPath();ctx.arc(Math.max(pad,Math.min(size-pad,x)),Math.max(pad,Math.min(size-pad,z)),C.MARKER,0,Math.PI*2);ctx.fill();}
+    if(this.data.waypoint){
+      const [x,z]=point(this.data.waypoint),dx=x-half,dz=z-half,distance=Math.hypot(dx,dz),limit=half-C.PLAYER_SIZE;
+      // A rectangular clamp would hide diagonal destinations outside the round map.
+      const fraction=distance>limit?limit/distance:1;
+      ctx.fillStyle=C.WAYPOINT;ctx.beginPath();ctx.arc(half+dx*fraction,half+dz*fraction,C.MARKER,0,Math.PI*2);ctx.fill();
+    }
     ctx.translate(half,half);ctx.rotate(-player.yaw);ctx.beginPath();ctx.moveTo(0,C.PLAYER_SIZE);ctx.lineTo(-C.PLAYER_SIZE,-C.PLAYER_SIZE);ctx.lineTo(0,-C.PLAYER_SIZE/2);ctx.lineTo(C.PLAYER_SIZE,-C.PLAYER_SIZE);ctx.closePath();ctx.fillStyle=C.PLAYER;ctx.fill();ctx.strokeStyle=C.UNDERGROUND;ctx.stroke();ctx.restore();
-    ctx.fillStyle=C.TEXT;ctx.font=`bold ${C.NORTH_FONT}px system-ui`;ctx.fillText('N',half-C.MARKER,C.NORTH_TOP);
-    this.scale.textContent=`${Math.round(this.data.range)} m`;
+    this.scale.textContent=`${this.data.layer==='underground'?'SEWER · ':''}${Math.round(this.data.range)} m`;
     const contacts=this.data.contacts,notice=contacts.find(p=>p.state==='noticing'),search=contacts.filter(p=>p.search);
     const label=contacts.some(p=>p.state==='chase')?'SPOTTED · BREAK SIGHT':notice?`BEING NOTICED · ${Math.round(notice.awareness*100)}%`:search.length?`${search.some(p=>p.state==='search')?'SEARCHING':'INVESTIGATING'} · ${Math.ceil(Math.max(...search.map(p=>p.searchRemaining)))}s`:contacts.some(p=>p.strike)?'STRIKE ZONE · KEEP MOVING':'NO VISUAL CONTACT';
     this.status.textContent=label;this.status.dataset.state=contacts.some(p=>p.state==='chase')?'chase':notice?'noticing':search.length?'search':'clear';
-    this.panel.querySelector('b').textContent=this.data.layer==='underground'?'SEWER RADAR':'NEIGHBOURHOOD RADAR';
+    this.panel.setAttribute('aria-label',this.data.layer==='underground'?'Sewer search radar':'Enemy search radar');
   }
 
   snapshot(){return {...this.data,sightJobs:[...this.sights.entries.values()].filter(e=>e.job).length,sightRays:this.sights.lastRays};}

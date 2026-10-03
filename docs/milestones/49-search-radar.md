@@ -25,6 +25,18 @@ Chris attracts animal control, watches its notice indicator fill, ducks around a
 
 Full-map pan/zoom and arbitrary waypoints remain milestone 13; the existing M destination map stays available. Squad radio, A* navigation and new enemy types are outside this request.
 
+## Circular HUD refinement — requested 2026-10-04
+
+Chris requests a circular minimap/compass in the top right with world time embedded in the rim, then wanted level and score stacked beneath it. Keep the north-up streets/sewers, search shading, strike areas, waypoint and bounded update cadence. Place fatness/combo in a smaller supporting row. The clock follows the existing day/night simulation.
+
+- [x] Circular clipping retains the map's full radius; off-map waypoints clamp to its rim instead of disappearing in a square corner. **Check:** `radial-hud.spec.js` plus existing `search-radar.spec.js`.
+- [ ] Top-right compass, curved rim clock, wanted/score ordering and compact-screen spacing are readable. **Verified by user playtest**, supported by native screenshots at desktop and compact sizes.
+- [x] Time, wanted, score, combo and restart still update, with no duplicate HUD/radar or console errors. **Checks:** live state/event inspection, `hud-restart.spec.js` and existing score/heat/radar/map regressions.
+
+The refinement passes **13 focused/adjacent browser cases and all 86 units**, build and production pixel smoke. The circular clipping test failed on four opaque square corners before the change. Native Chrome/Metal inspection at 1280×800, 960×540 and 390×844 confirms the curved clock, north-up compass and wanted → score → fat/combo stack. Day/night clock stepping, restart and the sewer layer were inspected with no console errors; wanted/notice values were staged to check crowded readouts. The final compact layout uses smaller stars and a 220 px frame in short/narrow windows. The existing radar cadence, resolution and sampling budgets remain unchanged. JIM-81 separately repairs the stale counters found on restart. Evidence: `output/iterate/radial-hud-{red,tests,counters,unit,build,view,smoke}.log`, `radial-hud-native.json`, `radial-hud-*.png`.
+
+The sewer capture verifies the HUD only: the dev warp placed the follow camera very close to/inside the actor. That observation is recorded under JIM-41 for follow-up; it is not a sewer camera sign-off. Readability during active play still needs Chris’s judgement.
+
 ## Verification and limits
 
 The new perception regressions were reproduced before their repairs: dispatch, notice, search expiry/re-pick, nighttime range, peripheral coverage, downhill cone clipping, outdoor channels, giant target height and restart consistency. Browser baselines also reproduced the absent radar, hidden tank aim and omitted distant jet strike. The final evidence comprises **83 passing units, 33 unique passing browser checks**, build and production pixel smoke. Browser runs: `output/iterate/search-first.log`, `search-final.log`, `search-retest.log`, `radar-final.log`; early red runs are retained alongside them.

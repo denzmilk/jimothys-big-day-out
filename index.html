@@ -11,11 +11,30 @@
     <div id="game-container"></div>
     <div id="capture-meter" hidden role="progressbar" aria-label="Capture" aria-valuemin="0" aria-valuemax="100"><span id="capture-label">NET INCOMING — MOVE!</span><div><i id="capture-fill"></i></div></div>
     <div id="hud">
-      <div id="score">SCORE 0</div>
-      <div id="fat">FAT 0</div>
-      <div id="heat">HEAT ☆☆☆☆☆</div>
-      <div id="world-clock" aria-label="World time"></div>
-      <div id="combo"></div>
+      <section id="tactical-radar" aria-label="Enemy search radar">
+        <canvas id="radar-canvas" role="img" aria-label="Local streets, enemy sight cones and last seen search areas"></canvas>
+        <svg id="radar-compass" viewBox="0 0 280 280" role="img" aria-label="Compass and world time">
+          <defs><path id="clock-arc" d="M 23 140 A 117 117 0 0 1 257 140" /></defs>
+          <circle class="compass-bezel" cx="140" cy="140" r="126" />
+          <circle class="compass-edge" cx="140" cy="140" r="137" />
+          <circle class="compass-edge compass-inner" cx="140" cy="140" r="113" />
+          <path class="compass-ticks" d="M 10 140 h 10 M 260 140 h 10 M 46 46 l 7 7 M 227 53 l 7 -7 M 46 234 l 7 -7 M 227 227 l 7 7 M 140 10 v 5 M 140 265 v 5 M 20 90 l 5 2 M 255 188 l 5 2 M 20 190 l 5 -2 M 255 92 l 5 -2 M 90 260 l 2 -5 M 188 255 l 2 5" />
+          <text class="compass-clock"><textPath id="world-clock" href="#clock-arc" startOffset="50%" text-anchor="middle"></textPath></text>
+          <g class="compass-points" text-anchor="middle" dominant-baseline="central">
+            <text class="compass-north" x="140" y="48">N</text>
+            <text x="232" y="140">E</text>
+            <text x="140" y="232">S</text>
+            <text x="48" y="140">W</text>
+          </g>
+        </svg>
+        <span id="radar-scale"></span>
+      </section>
+      <div id="wanted-readout">
+        <div id="heat" role="img" aria-label="Wanted level 0 of 5"><span class="hud-label">WANTED </span><span id="heat-stars">☆☆☆☆☆</span></div>
+        <div id="radar-status" role="status"></div>
+      </div>
+      <div id="score"><span class="hud-label">SCORE </span><strong id="score-value">0</strong></div>
+      <div class="body-readout"><span id="fat">FAT 0</span><span id="combo"></span></div>
     </div>
     <div id="military-warning" hidden aria-live="polite"></div>
     <div id="popups"></div>

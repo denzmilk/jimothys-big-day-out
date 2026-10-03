@@ -1,5 +1,13 @@
 # Session state
 
+## Circular compass HUD — milestone 49 refinement — 2026-10-04
+
+**Implemented, awaiting Chris’s playtest.** The minimap is now a north-up circle in the top right with compass points and the existing world clock curved into its rim. Wanted stars and search status sit below, then score, with a smaller fatness/combo row. Streets, sewer routes, enemy search shading and strike indicators retain their existing data. Distant waypoints clamp to the circle’s rim. Rendering retains the existing canvas resolution, 5 Hz cadence and sight budgets; this adds no world camera.
+
+**13 focused/adjacent browser cases, all 86 units, build and production pixel smoke pass.** Native original-rig Chrome/Metal views at 1280×800, 960×540 and 390×844 were inspected; short/narrow windows use the compact frame/star spacing. Time advances and switches to night, and score/wanted/combo reset correctly after the separate JIM-81 repair. No console errors or duplicate HUD/radar. Evidence and limits: `docs/milestones/49-search-radar.md`, `output/iterate/radial-hud-*`. The sewer HUD inspection exposed close-camera actor obstruction after the dev warp; a follow-up is recorded under JIM-41, without changing camera code in this pass.
+
+**Play at http://127.0.0.1:4174.** Judge the HUD’s size/readability while moving and escaping a search area. The slower destruction-led wanted response remains the next requested separate pass (JIM-35); prior food → tourists → drivers and city/keepsake requests remain recorded.
+
 ## HUD restart repair — JIM-81 — 2026-10-04
 
 **Implemented, awaiting Chris’s playtest.** The HUD's restart listener ran before `GameState` reset, leaving old score/fatness/combo/wanted values visible until another counter event. It now reads the new state in a microtask after the reset listeners and before paint. A pickup/chaos/restart regression failed with score 75 displayed over state 0; the fix and four existing counter/clock checks pass. Native original-rig inspection also confirms the counters clear after restart with no console errors. Evidence: `output/iterate/hud-restart-red.log`, `radial-hud-counters.log`, `radial-hud-native.json`.

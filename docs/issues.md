@@ -437,6 +437,8 @@ So the standoff now shrinks with the downward carry (`hypot(dir.x, dir.z)`, 1 fl
 
 **Status:** fixed 2026-08-08 (milestone 21) · **Test:** `tests/underground.spec.js::the follow camera never sits inside the rock`, `::he fades when the camera is forced in close` · **Severity:** high (the underground is barely viewable) · **Found:** 2026-08-08, while diagnosing JIM-40 · **Chris's words:** *"once you're underground the smoothness we had on the outer world goes away and it turns into blocks."*
 
+**Open follow-up, 2026-10-04:** native circular-HUD inspection at 1280×800, original rig, restart → Dev “nearest sewer” warp → two simulated seconds leaves the camera close to/inside the translucent actor at x=69, z=-3. The HUD and tunnel map work, but the actor obscures most of the view (`output/iterate/radial-hud-sewer.png`; setup in `radial-hud-view.mjs`). Recheck close-camera fading with the current rig and normal sewer entry before claiming this path is clear. No camera changes were included in the HUD refinement.
+
 `CameraSystem` does no occlusion test of any kind. It places the camera `CAMERA.FOLLOW_DISTANCE` (7 m) behind and `FOLLOW_HEIGHT` (3.5 m) above Jimothy and lerps to it. Sewer tunnels are `SEWER.WIDTH` 3.6 m by `SEWER.HEIGHT` 2.9 m — **a 7 m boom cannot fit in one under any heading.**
 
 Measured in a sewer under the middle of the island:

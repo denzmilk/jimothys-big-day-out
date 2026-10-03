@@ -194,6 +194,8 @@ Chris's 2026-10-02 playtest confirms a visible shape failure. Actual posed mesh 
 
 ### JIM-48 — Populated world exceeds the legacy draw-call budget
 
+**Open-furrow shader stall, 2026-10-03:** comparing feet against original grade switched the outdoor crash trench into underground lighting. This invalidated shadow variants across the scene. Compare against displaced grade instead. The frame-by-frame daylight reproduction and eight furrow/lighting checks pass; matched instrumented native worst drops 305.3 → 67.1 ms, while median stays about 24 ms. First render is separate (~657 ms); further frame cost and remesh lag remain open. See STATE for captures and the unreproduced 1.66 s outlier.
+
 **Status:** reopened after Chris’s maximum-size playtest, 2026-10-03 · **Found:** 2026-10-02 during milestone 27 glass verification
 
 **2026-10-03 follow-up:** accelerated original-skin attachment queries and sliced pedestrian navigation/rig spawning remove two repeated CPU spikes. Both new regressions first failed, then all eight relevant loaded-body/pedestrian cases and 58 units pass. In the matched native 100 m Absurd route, p95 falls 46.7 → 34.7 ms and worst falls 128.2 → 54.2 ms; median remains about 23 ms. Initial shader startup is excluded consistently from both movement samples. Ground mesh backlog and steady frame cost remain open; see STATE for exact evidence.

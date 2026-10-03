@@ -422,7 +422,9 @@ class Game {
     this.crabs.update(delta);
     // Underground is a property of DEPTH BELOW THIS COLUMN, not of a y value —
     // grade stopped being a constant when the island got hills (milestone 17).
-    this._setUnderground(this.voxels.terrainHeightAt(jp.x, jp.z) - jp.y > SEWER.BELOW);
+    // An open crash furrow lowers outdoor grade. Comparing against its old
+    // height disabled sunlight and rebuilt every shadow shader mid-roll.
+    this._setUnderground(this.voxels.terrainHeightAt(jp.x,jp.z)+(this.voxels.channels?.sample(jp.x,jp.z)||0)-jp.y>SEWER.BELOW);
     this.dayNight.update(delta,this.underground);
     this.lamp.position.set(jp.x, jp.y + 1.6, jp.z);
     this.updateReticle();

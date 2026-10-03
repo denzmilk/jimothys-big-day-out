@@ -1,5 +1,11 @@
 # Session state
 
+## Open furrows retain daylight — JIM-48 — 2026-10-03
+
+**Implemented, awaiting playtest.** Depth detection now uses excavated outdoor grade. Entering a crash furrow was briefly classified as going underground, disabling sun shadows and synchronously compiling dozens of shader variants. A frame-by-frame regression failed first and now passes; all eight furrow/daylight/visible-shadow/clock checks pass. Build and production pixel smoke pass with no console errors.
+
+Matched native Block route with the support work in progress: the repeatable frame-41 render stall falls from about 287 ms to ordinary render cost. Warmed update-plus-render submission worst falls 305.3 → 67.1 ms; median 24.1 ms, p95 31.7 ms. First render remains about 657 ms and is reported separately. A separate initial support run had a 1.66 s worst frame; that extreme did not reproduce in the instrumented runs. Evidence: `crash-daylight-{red,green,profile}.log`, `support-render-profile.log`, `support-smoke.log` under `output/iterate/`. Steady cost, remesh delay and first-use material stalls remain JIM-48. Floating-support and carrying-layer work is still in progress.
+
 ## Crash-furrow revision — JIM-70 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Broad continuous gouges, raised soil banks, earth clods and dust now follow giant rolling. A persistent height field shares its values with collision, terrain/shadow rendering and shoreline water, avoiding millions of saved air voxels and the terrain remesh delay. The native view exposed interrupted carving when he lost support in his own cut; a 100 m continuity regression now passes. Block cuts measure about 3.1–3.5 m; Absurd route samples 4–6.8 m.

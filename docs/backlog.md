@@ -6,6 +6,10 @@
 
 ## Gameplay & features
 
+- [x] **Size-tiered food and edible destination buildings** → milestone 40 (planned, approved 2026-10-03). Chris cannot see small bin food once large; bridge growth with increasingly substantial food, including giant lobster/banana landmark buildings gated by Jimothy's size. Extends the existing farms/markets and landmark proposals. Size L; value L. Consumption and destruction persist during travel; eating remains deliberate.
+- [x] **Landmark tourists** → milestone 41 (planned, approved 2026-10-03). Visitors travel to points of interest, look around, pose and take selfies, then react to rampaging. Size M; value M. Uses existing MPFB people, IK and ragdolls; depends on landmark sites.
+- [x] **Drivers, parking and getting in/out** → milestone 42 (planned, approved 2026-10-03). People visibly own a trip from driving to parking, walking at a destination and returning. Size L; value L. Traffic, seats, door exits, damage and streaming share one ownership state; player driving remains separate.
+
 - [ ] **Farms and distinct food markets with greater risk/reward.** Extend the pending Seattle/collectible content proposal with food destinations that differ in food, layout and exposure.
   - Source: 2026-10-03 Chris ("need some farms and markets too for differnt food types/locations with freater risk/reward").
   - Rough size: L · Rough value: L

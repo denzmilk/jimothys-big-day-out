@@ -1,5 +1,11 @@
 # Session state
 
+## HUD restart repair — JIM-81 — 2026-10-04
+
+**Implemented, awaiting Chris’s playtest.** The HUD's restart listener ran before `GameState` reset, leaving old score/fatness/combo/wanted values visible until another counter event. It now reads the new state in a microtask after the reset listeners and before paint. A pickup/chaos/restart regression failed with score 75 displayed over state 0; the fix and four existing counter/clock checks pass. Native original-rig inspection also confirms the counters clear after restart with no console errors. Evidence: `output/iterate/hud-restart-red.log`, `radial-hud-counters.log`, `radial-hud-native.json`.
+
+The requested top-right circular compass/clock/wanted/score layout is the current M49 refinement. Its radar checks pass; the final layout inspection and production smoke are in progress. The slower wanted escalation remains the next separate pass.
+
 ## Pedestrian street routines — milestone 51 — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** The existing crowd now makes phone calls, drinks coffee, chases birds, cartwheels, meditates, levitates, moonwalks and gives piggyback rides, plus air guitar, robot dancing, stretches and selfies. Everyday habits are weighted more often. Twelve actors can perform at once within the existing 36-person population; paired rides use two existing people. Threats/impacts/collection cancel routines, restore the rig and drop held phone/cup props into shared physics. Up to eight props are retained; restart clears their registrations and bodies. Original editable Blender props and their recipe are under `assets/blender/people/activities/`.

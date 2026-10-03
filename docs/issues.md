@@ -8,6 +8,16 @@
 >
 > ⚠️ **Not yet mirrored to GitHub.** The repo has a remote (`denzmilk/jimothys-big-day-out`) but the `gh` CLI on this machine is an x86 binary and won't run on Apple Silicon (`bad CPU type in executable`). Fix `gh` (`brew install gh`) and these can be filed as real GitHub issues; until then this file is the register.
 
+## HUD restart — 2026-10-04
+
+### JIM-81 — Run counters retain old values after restart
+
+**Status:** implemented, awaiting Chris’s playtest · **Severity:** low · **Found:** native inspection during the circular HUD refinement.
+
+`HUD` subscribes to `GAME_RESTART` before the orchestrator's reset listener. It redraws the previous score/fatness/combo/wanted tier, then `GameState` resets without publishing new counter events. Native repro: state resets to zero while the score still reads 12340. `tests/hud-restart.spec.js` seeds two real pickup events and chaos, restarts, and checks the counters before another pickup can mask the stale display. Location: `src/ui/HUD.js` restart subscription.
+
+**Repair:** defer the HUD read to a microtask after the reset listeners, before the next paint. The regression failed with displayed score 75 versus state 0 and passes after the fix. Existing pickup/score/combo, fatness, wanted-star and clock-reset checks also pass. Evidence: `output/iterate/hud-restart-red.log`, `radial-hud-counters.log`.
+
 ## Current interior and food reports — 2026-10-02
 
 ### JIM-79 — Indoor collision recovery lifts Jimothy onto roofs

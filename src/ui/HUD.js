@@ -33,7 +33,9 @@ export class HUD {
     eventBus.on(Events.SCORE_CHANGED, () => this.render());
     eventBus.on(Events.COMBO_CHANGED, () => this.render());
     eventBus.on(Events.HEAT_CHANGED, () => this.render());
-    eventBus.on(Events.GAME_RESTART, () => this.render());
+    // The orchestrator resets GameState later in this event dispatch (JIM-81).
+    // Read the new counters after every reset listener, before the next paint.
+    eventBus.on(Events.GAME_RESTART, () => queueMicrotask(() => this.render()));
     eventBus.on(Events.PLAYER_PICKUP, ({ name }) => this.stinger(`JIMOTHY ACQUIRES ${name}`));
     eventBus.on(Events.PLAYER_EATING, () => this.stinger('NOM NOM NOM…'));
     eventBus.on(Events.PLAYER_STUNNED, () => this.cameraFlash());

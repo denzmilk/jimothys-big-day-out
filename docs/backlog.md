@@ -265,3 +265,9 @@ Chris subsequently reported the giant form, attachment, destruction and performa
 - Exit: Chris swims between separated ruins and wrecks → the next site has a different silhouette/layout, creatures react nearby, daylight rays and bubbles sell the water, and frame time stays within the agreed budget.
 
 The later beach/underwater briefs extend the earlier water scope; finite pond drainage remains separately deferred. Source recipes, asset licences, editable Blender files and in-engine inspection remain required for new assets. The complete sequence is authorised; no repeat approval is needed to continue it.
+
+
+## City and hidden keepsakes — 2026-10-03
+
+- [ ] **Recognisable downtown and skyscraper exploration.** Extends the existing world-variety entry; defect JIM-74 records the measured shortage of towers. Chris: “model out a city ... it all just looks like residential streets”. Size L; value L. Proposed milestone 46 supplies varied commercial buildings and reachable upper floors/roofs while preserving voxel destruction, existing landmarks and rendering limits. See `city-keepsakes-proposal.md`; priority is not yet confirmed.
+- [ ] **Hidden Jimothy keepsakes, collected for their own sake.** Chris requests themed treasures underwater and up in skyscrapers, “just to collect for the sake of it”. Size L; value L. Extends milestone 18's zero-utility treasure rule and relates to the den/photobook backlog. Proposal: 36 distinct modelled objects, twelve underwater, twelve upper-floor/roof and twelve around streets/parks/landmarks; a collection viewer and local discovery save, no score/fatness/energy/currency rewards. Pickups survive support loss, remain reachable, respect occlusion and do not duplicate after travel/reload. Proposed milestone 47 follows city routes; counts, persistence and priority are in `city-keepsakes-proposal.md` for review.

@@ -19,6 +19,12 @@
 
 ## Open
 
+### JIM-74 — City reads as residential streets, with no substantial downtown
+
+**Status:** open · **Reported:** 2026-10-03 (Chris).
+
+Chris reports that the world still looks residential and requests a modelled city with skyscraper destinations. Current active-plan audit: four ordinary towers, 738 craftsman houses, 693 sheds, 153 apartments, 346 shops and 30 warehouses; downtown contains only 21 ordinary buildings. Sixteen landmarks exist, but they do not supply a commercial skyline or enough upper-floor exploration. Locations: `src/level/CityPlanner.js` (district stamping and lot packing), `src/level/islandPlan.js`, `src/core/Constants.js` (building families/heights), `src/level/VoxelCity.js` and `src/level/InteriorLayout.js`. Extend the existing world-variety backlog entry. Proposed scope and routing criteria are in `docs/city-keepsakes-proposal.md`; priority is awaiting confirmation. No repair claimed.
+
 ### JIM-73 — Assets remain floating after destruction
 
 **Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris).

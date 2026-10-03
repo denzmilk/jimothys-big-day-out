@@ -1,5 +1,11 @@
 # Session state
 
+## Downtown and hidden keepsakes proposal — 2026-10-03
+
+Chris requested a recognisable city/skyscrapers plus hidden Jimothy-themed keepsakes underwater and high in buildings, collected for their own sake. Logged the city complaint as JIM-74 and both asks in backlog. Audit: only four ordinary towers versus 1,431 houses/sheds; downtown has 21 buildings. Existing treasure is a shared glinting shape with twelve names, buried on land, and per-run collection only.
+
+`docs/city-keepsakes-proposal.md` describes proposed milestone 46 (varied commercial city and eight reachable upper-floor/roof destinations) then 47 (36 distinct keepsakes, underwater/high/ground placements and a persistent collection viewer, zero stat/currency rewards). The scope question is pending: put these before food → tourists → drivers, or retain/revise the existing order. No new milestone files or runtime changes yet. Do not treat the proposal as accepted until Chris answers. Tools/landmarks remain implemented, awaiting playtest; the previous approved next step is still milestone 40.
+
 ## Sixteen landmark destinations — milestone 45 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Sixteen original Blender landmarks now reserve island parcels and two street approaches before housing generation. Each has a distinct silhouette, M-map destination/waypoint, an advanced tool and food cache. Near geometry uses destructible 0.22 m voxel runs; one-mesh GLBs retain distant silhouettes. Glass shatters, shared support checks collapse unsupported structures, food depletion and damage survive travel, and reset restores sites. Up to 24 physical benches stream near Jimothy. The locks use an excavated swimming/ripple basin with submerged gate solids. Opening the map pauses movement/capture and releases mouse capture; closing returns keyboard focus.

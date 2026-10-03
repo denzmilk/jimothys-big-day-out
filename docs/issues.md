@@ -735,6 +735,8 @@ Three systems were anchored to the old map. Two were fixed in milestone 12 becau
 
 **Surface repair, 2026-10-02:** collection now projects onto the grown skin, preserves entity scale and continues revolving during held rolling. Loaded-skin contact and owner release tests pass; native rendered evidence is in `giant-street-final.log` / `giant-street-carry.png`. Awaiting playtest; the broader stash/sifting loop remains open.
 
+**Carrying-layer repair, 2026-10-03:** size and kind weighting prevent small scraps permanently filling the coat; later large objects replace weaker items through normal release. Twelve bounded clumps use original vegetation geometry, and wildlife joins the collection lifecycle. Sixty-five units and 22 body/collection/environment/ragdoll/military cases pass after the new reproductions failed. Native Block/Absurd rolls carry 12 object kinds, including cars, building fragments, plants and people. Build/smoke and reset pass; final feel and stash presentation remain open. See STATE and `giant-carry-*` evidence.
+
 ### The loop
 
 1. **Get fat.** On foot you slow down — unchanged, and now it has a purpose.

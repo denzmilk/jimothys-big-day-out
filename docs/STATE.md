@@ -1,5 +1,13 @@
 # Session state
 
+## Varied rolling collection — JIM-29 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Large visible objects can displace tiny scraps at the fixed 64-item limit, with diminishing preference for repeated kinds. Replaced objects release through their owners; stopping spreads release over six objects per update. Existing vegetation geometry becomes physical root clumps, and wildlife can be carried and released alive. Restart clears the additions.
+
+Both new reproductions failed before repair. All 65 units, eight body/collection cases and 14 adjacent environment/ragdoll/capture/military cases pass. Build and production pixel smoke pass; native original-rig roll views were inspected and console errors are absent. Warmed Chrome/Metal, 1280×800 Medium, army disabled, 100 m roll: Block/Absurd median 23.9/25.2 ms, p95 31.3/34.2, worst 67.8/51.7 (update plus render submission). Both carry 64 items across 12 kinds, including six/eight cars, 20/15 building pieces, nine/four plant clumps and three/two people. This is not an FPS or visual-feel sign-off. Absurd still has 21 mesh jobs after six settling seconds; the next JIM-48 repair targets empty-space scanning in remeshing.
+
+Evidence: `output/iterate/giant-carry-*`, `giant-foliage-red.log`. The stash/sifting presentation remains open in milestone 24. The approved next content order remains tiered food/edible landmarks → tourists → drivers (40–42).
+
 ## Destruction support — JIM-73 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Bounded support checks release undermined street props and their traffic reservations. Bushes lose their hiding function and fall; plant roots and ground animals follow excavated ground. Voxel support uses 0.88 m groups linked only across touching voxel faces, preserving connected spans and removing detached sections. Up to 24 pieces retain sampled original voxel shape/material, fall through shared physics and register for rolling collection. Collapse shares the existing work queue and cannot monopolise impact processing.

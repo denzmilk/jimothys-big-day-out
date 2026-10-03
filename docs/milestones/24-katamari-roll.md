@@ -2,7 +2,7 @@
 
 ## Status
 
-**Partially implemented; contact reopened after Chris's playtest, 2026-10-02.** The registry collects and releases entities, but Block-size people attach several metres from the visible skin and stop revolving after the first tumble. JIM-29/JIM-60 require repair before collection can be accepted. See [the loaded-model audit](../giant-audit-2026-10-02.md). Final stash/sifting presentation remains open.
+**Collection repairs implemented, awaiting Chris’s playtest, 2026-10-03.** Original-skin contact and sustained spin repairs follow [the loaded-model audit](../giant-audit-2026-10-02.md). Collection now favours larger visible pieces and varied kinds; real uprooted plant clumps and wildlife join the existing props, people and structural rubble. Final stash/sifting presentation remains open.
 
 Depends on: milestone 23 (break the fatness ceiling) — the roll is only a traversal mode once he is big enough to need one.
 
@@ -34,7 +34,12 @@ This is a whole loop on top of it — accretion, a stash, sifting, and the press
 
 ## Acceptance criteria
 
-To be written when this becomes the active milestone — the shape of the stash depends on how milestone 23's roll actually feels, and writing checkable criteria now would be guessing at numbers that do not exist yet. **The exit condition below is the fixed point; the criteria serve it.**
+- [x] Carried objects follow the original growing skin through continuous rolling without changing object scale (`giant-body.spec.js`).
+- [x] Later large objects can replace tiny scraps at the fixed 64-item limit (`giant-carry.test.mjs`).
+- [x] Existing vegetation becomes collectible clumps; wildlife survives collection/release and restart clears both (`giant-foliage.spec.js`).
+- [x] Food, people and animal control still collect and release alive (`street-life.spec.js`).
+- [ ] Chris verifies the varied carrying layer, drop feel and pursuit pressure in play.
+- [ ] Final stash/sifting presentation is implemented and playtested.
 
 ## Exit condition
 

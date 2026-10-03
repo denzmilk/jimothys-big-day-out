@@ -1,5 +1,9 @@
 # Session state
 
+## Tool and landmark expansion — 2026-10-03
+
+Chris approved **tools → landmarks → food progression → tourists → drivers**, moving the new milestones 43–45 ahead of 40–42. The target is **24 distinct usable tools and 16 landmarks**; roster and acceptance criteria are recorded. Milestone 43 is active: physical pickup/equip/use/drop, food-powered energy and the first eight gadgets. Milestone 44 completes the remaining sixteen; 45 builds the landmark sites. New code/assets are not yet claimed complete. Earlier giant repair remains implemented, awaiting playtest.
+
 ## Sparse remesh work — JIM-48 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Per-row solid counts let the mesher skip empty rooms/destroyed space and remove fully empty stored chunks immediately, retaining the same face/terrain/kerb calculations. Counts survive edit replay and are copied with in-flight mesh snapshots. Frame budgets are unchanged; extra storage is 10 KiB per chunk.

@@ -41,6 +41,10 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
 - Combo multiplier resets if no pickup for a few seconds (or when a shell sends him flying).
 - Best score persists in localStorage.
 
+## Usable tool arsenal and destination expansion — 2026-10-03
+
+Chris approved tools → landmarks → food progression → tourists → drivers. Build at least twenty different usable tools; the implementation roster targets twenty-four with distinct uses, physical pickups, one equipped slot and a separate energy meter refilled by eating. Tool use does not spend earned fatness or score. Expand the imaginary Seattle island to sixteen varied destructible destinations with food/tool caches and accessible approaches. See `docs/tool-landmark-roster.md` and milestones 43–45; these are planned/in progress, not yet complete.
+
 ## Giant identity correction — 2026-10-03
 
 The original textured model remains visible at every size. Proportional anatomy growth keeps the face, paws and tail readable while the belly gains more girth. The giant jiggles and tumbles continuously; an added ball must not replace his torso. Carried objects follow the actual animated skin. Giant rolls carve continuous shallow ground/road channels with tapered banks; repeated passes respect a nominal 2.2 m depth cap relative to the original grade. Lean rolls keep their lighter scrape.

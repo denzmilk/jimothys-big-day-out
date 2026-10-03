@@ -17,6 +17,7 @@ import { ScoreSystem } from '../systems/ScoreSystem.js';
 import { HeatSystem } from '../systems/HeatSystem.js';
 import { JimothyController } from '../gameplay/JimothyController.js';
 import {InteriorSystem} from '../level/InteriorSystem.js';
+import {Landmarks} from '../level/Landmarks.js';
 import {ToolSystem} from '../gameplay/ToolSystem.js';
 import { TrashCans } from '../gameplay/TrashCans.js';
 import {Military} from '../gameplay/Military.js';
@@ -152,6 +153,7 @@ class Game {
     this.treasures = new Treasures(this.scene, this.jimothy, this.voxels);
     this.crabs = new CrabPeople(this.scene, this.jimothy, this.voxels);
     this.tools=new ToolSystem(this.scene,this.jimothy,this.input,this.voxels);
+    this.landmarks=new Landmarks(this.scene,this.jimothy,this.voxels,this.level.horizonCoverage);
     this.score = new ScoreSystem();
     this.heat = new HeatSystem();
     this.cameraSystem = new CameraSystem(this.camera, this.jimothy, this.input, this.voxels);
@@ -251,7 +253,7 @@ class Game {
       gameState.game.started = true;
       gameState.game.isPlaying = true;
       this.pedestrians.reset();this.interiors.reset();
-      this.dayNight.reset();this.environmentLife.reset();this.tools.reset();
+      this.dayNight.reset();this.environmentLife.reset();this.tools.reset();this.landmarks.reset();
       this.arrival.reset();
     });
 
@@ -367,6 +369,7 @@ class Game {
   }
 
   update(delta) {
+    if(gameState.game.paused)return;
     if (this.input.consumeFlyToggle()) {
       this.flyCamera.toggle();
       // Landing puts the follow camera back on him immediately. Controls are
@@ -406,7 +409,7 @@ class Game {
     // 60 Hz is nothing, and keeps the order of the loop unchanged.
     this.groundChannels.update(delta);this.structuralSupport.update(delta);this.water.update(delta);
     this.jimothy.update(delta, this.cameraSystem.yaw, this.cameraSystem.aimPitch);
-    this.tools.update(delta);
+    this.tools.update(delta);this.landmarks.update(delta);
     this.streetLife.update(delta);
     this.physics.update(delta);
     this.jimothy.postUpdate(delta);
@@ -923,7 +926,7 @@ class Game {
       glass: this.glassShards.snapshot(),
       explosions: this.carExplosions.snapshot(),
       arrival:this.arrival.snapshot(),
-      tools:this.tools.snapshot(),
+      tools:this.tools.snapshot(),landmarks:this.landmarks.snapshot(),
       collection: this.collector.snapshot(),
       support:this.structuralSupport.snapshot(),groundChannels:this.groundChannels.snapshot(),
       world: { voxelSize: VOXEL.SIZE, atmosphereTime: this.level.time },

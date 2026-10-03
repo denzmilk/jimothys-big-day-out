@@ -1,7 +1,8 @@
-import { VOXEL, CONTAINERS, BUILDINGS, HIDE_SPOTS, PAVING, BEACH } from '../core/Constants.js';
+import { VOXEL, CONTAINERS, BUILDINGS, HIDE_SPOTS, PAVING, BEACH, LANDMARKS } from '../core/Constants.js';
 import * as Masterplan from './CityPlanner.js';
 import * as TerrainField from './Terrain.js';
 import * as StreetPaving from './StreetPaving.js';
+import {basinGround} from '../core/BasinField.js';
 
 // Layout is now an ADAPTER over the authored masterplan (milestone 16), not a
 // generator.
@@ -91,12 +92,21 @@ function terraceHeight(x, z) {
   const tx=fx-ix,tz=fz-iz;
   return (at(ix,iz)*(1-tx)+at(ix+1,iz)*tx)*(1-tz)+(at(ix,iz+1)*(1-tx)+at(ix+1,iz+1)*tx)*tz;
 }
-const cornerHeight=(x,z,rx,rz)=>StreetPaving.isPaved(rx,rz)?StreetPaving.heightAt(x,z,rx,rz):StreetPaving.landHeight(x,z,terraceHeight(x,z));
+let basins=null;
+function waterBasins(){return basins??=(LANDMARKS.BASINS.map(b=>{const s=Masterplan.landmarks().find(s=>s.id===b.id);return {...b,x:s.vx*VOXEL.SIZE+b.offset[0],z:s.vz*VOXEL.SIZE+b.offset[1],rim:s.height};}));}
+const parcelHeight=(x,z,rx,rz)=>{
+ if(StreetPaving.isPaved(rx,rz))return StreetPaving.heightAt(x,z,rx,rz);
+ const base=StreetPaving.landHeight(x,z,terraceHeight(x,z)),s=Masterplan.landmarkAt(rx,rz);if(!s)return base;
+ const edge=Math.min(s.width/2-Math.abs(x-s.x),s.depth/2-Math.abs(z-s.z));
+ const mix=Math.max(0,Math.min(1,edge/LANDMARKS.PARCEL_BLEND));return base+(s.height-base)*mix;
+};
+const cornerHeight=(x,z,rx,rz)=>basinGround(x,z,parcelHeight(x,z,rx,rz),waterBasins());
 // Class borders follow voxel columns in both the mesh and collision queries.
 const streetHeight=(x,z)=>cornerHeight(x,z,(Math.floor(x/VOXEL.SIZE)+.5)*VOXEL.SIZE,(Math.floor(z/VOXEL.SIZE)+.5)*VOXEL.SIZE);
 const terraceTop=(x,z)=>Math.floor(streetHeight(x,z)/VOXEL.SIZE-0.5);
 
 export const terrain = {
+  waterBasins,
   surfaceHeight: streetHeight,
   sandAt: (x,z)=>StreetPaving.isPaved(x,z)?0:TerrainField.sandAt(x,z),
   // One-sided corners retain a real vertical kerb at a surface boundary.
@@ -255,3 +265,5 @@ function hashCell(x, z) {
 }
 
 export { Masterplan };
+
+export function landmarkStructuresIn(x0,z0,x1,z1){return Masterplan.landmarks().filter(s=>s.x+s.width/2>=x0&&s.x-s.width/2<=x1&&s.z+s.depth/2>=z0&&s.z-s.depth/2<=z1).map(s=>({type:'landmark',id:s.id,x:s.x-s.width/2,z:s.z-s.depth/2,w:s.width,d:s.depth,vx:s.vx,vz:s.vz,vy:s.vy+Math.floor(s.model.bounds[0][1]/VOXEL.SIZE),vw:Math.ceil(s.width/VOXEL.SIZE),vd:Math.ceil(s.depth/VOXEL.SIZE),vh:Math.ceil((s.model.bounds[1][1]-s.model.bounds[0][1])/VOXEL.SIZE)}));}

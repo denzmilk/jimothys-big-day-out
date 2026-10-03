@@ -340,3 +340,14 @@ body {
 
 #tool-hud {position:fixed;left:50%;bottom:36px;transform:translateX(-50%);max-width:min(660px,90vw);padding:10px 16px;background:#142023dd;color:#fff3c9;border:1px solid #b5a06f;border-radius:9px;white-space:pre-line;font:600 14px/1.5 system-ui;pointer-events:none;text-align:center;z-index:20;}
 #tool-hud[hidden] {display:none;}
+
+#landmark-map-button{position:fixed;right:16px;bottom:20px;z-index:91;padding:12px 16px;border:1px solid #d9bd7e;border-radius:8px;background:#172b31;color:#ffe1a0;font:700 14px system-ui;cursor:pointer;}
+#landmark-waypoint{position:fixed;top:18px;left:50%;transform:translateX(-50%);padding:9px 14px;background:#142023d9;color:#fff3c9;border-radius:8px;font:600 16px system-ui;pointer-events:none;}
+#landmark-map{position:fixed;inset:5vh 8vw;z-index:130;overflow:auto;padding:24px;background:#13272bf5;border:1px solid #bdac78;border-radius:16px;color:#ffedc6;display:grid;grid-template-columns:minmax(220px,1fr) minmax(260px,1fr);gap:16px;font-family:system-ui;}
+#landmark-map[hidden],#landmark-waypoint[hidden]{display:none;}
+#landmark-map h2{grid-column:1/-1;margin:0;}
+#landmark-map svg{width:100%;max-height:64vh;border-radius:10px;}
+#landmark-destinations{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start;}
+#landmark-map button{padding:12px;border:1px solid #687d70;border-radius:6px;background:#28443f;color:#fff1c4;font:600 14px system-ui;text-align:left;cursor:pointer;}
+#landmark-map button:hover,#landmark-map button:focus-visible{background:#496456;border-color:#ffcf75;}
+@media(max-width:750px){#landmark-map{inset:3vh 3vw;grid-template-columns:1fr;}#landmark-map svg{max-height:36vh;}}

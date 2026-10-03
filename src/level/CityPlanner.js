@@ -1,8 +1,10 @@
 import * as Terrain from './Terrain.js';
-import { TERRAIN, SEWER, BUILDINGS, PAVING } from '../core/Constants.js';
+import { TERRAIN, SEWER, BUILDINGS, PAVING, LANDMARKS as LM, VOXEL, TOOLS } from '../core/Constants.js';
 import { inPolygon, polygonBounds } from '../core/MathUtils.js';
 
+import landmarkManifest from './landmarkManifest.json' with {type:'json'};
 const plan = Terrain.plan;
+const landmarkSites=[];let landmarkOf=null;
 
 // The city's design, as data (milestone 16), on the island (milestone 17).
 //
@@ -407,6 +409,35 @@ function indexBuildings() {
   }
 }
 
+// Parcels are reserved before the housing packer (M45). Every approach also
+// claims land, so later house generation cannot seal a landmark behind a wall.
+function reserveLandmarks(){
+ landmarkOf=new Uint8Array(cells.length);
+ const raw=(x,z)=>{const cx=toCell(x),cz=toCell(z);return inGrid(cx,cz)?cells[idx(cx,cz)]:CLASS.WATER;};
+ const reserve=(x0,z0,x1,z1,index=0)=>{for(let z=toCell(z0);z<=toCell(z1);z++)for(let x=toCell(x0);x<=toCell(x1);x++)if(inGrid(x,z)){const i=idx(x,z);if(cells[i]!==CLASS.ROAD&&cells[i]!==CLASS.FOOTPATH){cells[i]=CLASS.PLAZA;if(index)landmarkOf[i]=index;}}};
+ for(let index=0;index<LM.SITES.length;index++){
+  const d=LM.SITES[index],model=landmarkManifest.find(m=>m.id===d.id),bounds=model.bounds,width=bounds[1][0]-bounds[0][0]+LM.PARCEL_MARGIN*2,depth=bounds[1][2]-bounds[0][2]+LM.PARCEL_MARGIN*2;
+  let best=null,bestCost=Infinity;
+  for(let dz=-LM.SEARCH_RADIUS;dz<=LM.SEARCH_RADIUS;dz+=LM.SITE_STEP)for(let dx=-LM.SEARCH_RADIUS;dx<=LM.SEARCH_RADIUS;dx+=LM.SITE_STEP){
+   const cost=dx*dx+dz*dz;if(cost>=bestCost)continue;const x=d.preferred[0]+dx,z=d.preferred[1]+dz;
+   if(Math.hypot(x,z)<LM.MIN_SPAWN_DISTANCE||landmarkSites.some(s=>Math.hypot(s.x-x,s.z-z)<LM.MIN_SEPARATION))continue;
+   const x0=x-width/2,x1=x+width/2,z0=z-depth/2,z1=z+depth/2;let valid=true,min=Infinity,max=-Infinity;
+   for(let pz=z0;pz<=z1&&valid;pz+=CELL)for(let px=x0;px<=x1;px+=CELL){const c=raw(px,pz);if(c!==CLASS.LAND&&c!==CLASS.PARK){valid=false;break;}const y=Terrain.surfaceHeight(px,pz);min=Math.min(min,y);max=Math.max(max,y);if(max-min>LM.MAX_GRADE_SPAN){valid=false;break;}}
+   if(!valid)continue;
+   const approaches=[];
+   for(const [sx,sz,vx,vz]of [[x,z0,0,-1],[x,z1,0,1],[x0,z,-1,0],[x1,z,1,0]])for(let step=CELL;step<LM.APPROACH_MAX;step+=CELL){const px=sx+vx*step,pz=sz+vz*step,c=raw(px,pz);if(c===CLASS.WATER||c===CLASS.PLAZA)break;if(c===CLASS.FOOTPATH||c===CLASS.ROAD){approaches.push({x:sx-vx*LM.CACHE_GAP,z:sz-vz*LM.CACHE_GAP,end:{x:px,z:pz},distance:step});break;}}
+   if(approaches.length<2)continue;approaches.sort((a,b)=>a.distance-b.distance);best={...d,model,x,z,width,depth,height:Math.round(Terrain.surfaceHeight(x,z)/VOXEL.SIZE)*VOXEL.SIZE,approaches:approaches.slice(0,2)};bestCost=cost;
+  }
+  if(!best)throw Error('No valid landmark parcel: '+d.id);
+  const s=best;s.vx=Math.round((s.x-(bounds[0][0]+bounds[1][0])/2)/VOXEL.SIZE);s.vz=Math.round((s.z-(bounds[0][2]+bounds[1][2])/2)/VOXEL.SIZE);s.vy=Math.round(s.height/VOXEL.SIZE);s.tools=[TOOLS.CATALOG[index+8].id];s.food=LM.FOOD_IDS.slice(0,LM.FOOD_LIMIT);s.cache={x:s.x,z:s.z-depth/2+LM.CACHE_GAP};s.viewpoints=s.approaches.map(a=>({x:a.x,z:a.z}));s.parking=s.approaches.map(a=>a.end);
+  reserve(s.x-width/2,s.z-depth/2,s.x+width/2,s.z+depth/2,index+1);
+  for(const a of s.approaches)reserve(Math.min(a.x,a.end.x)-LM.PATH_HALF,Math.min(a.z,a.end.z)-LM.PATH_HALF,Math.max(a.x,a.end.x)+LM.PATH_HALF,Math.max(a.z,a.end.z)+LM.PATH_HALF);
+  landmarkSites.push(s);
+ }
+}
+export function landmarks(){bake();return landmarkSites;}
+export function landmarkAt(x,z){bake();const cx=toCell(x),cz=toCell(z);return inGrid(cx,cz)?landmarkSites[landmarkOf[idx(cx,cz)]-1]||null:null;}
+
 let baked = false;
 
 /** Bake the plan into the class grid. Idempotent, and a fixed boot cost that
@@ -467,6 +498,7 @@ export function bake() {
     for(let dz=-reach;dz<=reach&&!beside;dz++)for(let dx=-reach;dx<=reach;dx++)if(streets[idx(cx+dx,cz+dz)]===CLASS.ROAD){beside=true;break;}
     if(beside)cells[i]=CLASS.FOOTPATH;
   }
+  reserveLandmarks();
   findBlocks();
   findSewers();
   baked = true;

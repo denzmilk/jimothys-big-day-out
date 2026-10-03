@@ -32,6 +32,7 @@ export class ToolSystem {
     if(!Layout.isFootpathAtWorld(x,z)||this.pickups.some(p=>Math.hypot(p.mesh.position.x-x,p.mesh.position.z-z)<C.SITE_SEPARATION))continue;
     const y=this.voxels.groundHeightAt(x,z,this.voxels.terrainHeightAt(x,z)+C.HEIGHT_REACH);if(this.voxels.solidAtWorld(x,y+C.CLEARANCE+model.half.y,z))continue;spot=new THREE.Vector3(x,y+C.CLEARANCE+model.half.y,z);break;
    }
+   const site=Layout.Masterplan.landmarks().find(s=>s.tools.includes(d.id));if(site){const x=site.cache.x,z=site.cache.z,y=this.voxels.groundHeightAt(x,z,this.voxels.terrainHeightAt(x,z)+C.HEIGHT_REACH);spot=new THREE.Vector3(x,y+C.CLEARANCE+model.half.y,z);}
    if(!spot){console.error('No reachable tool site',d.id);continue;}
    mesh.position.copy(spot);this.scene.add(mesh);const p={id:`tool:${d.id}`,type:d.id,kind:'tool',mesh,half:model.half.toArray(),size:Math.max(...model.half.toArray())*2,mass:C.MASS,loose:false,attached:false,held:false,home:spot.clone()};this.pickups.push(p);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,p);
   }

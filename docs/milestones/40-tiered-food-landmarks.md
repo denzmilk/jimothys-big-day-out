@@ -22,7 +22,7 @@ Make normal play sustain growth from a small raccoon to the largest tier. Food m
 
 ## Dependencies
 
-- **Depends on:** giant destruction/collection repair; milestones 37–38; existing food economy.
+- **Depends on:** giant destruction/collection repair; milestones 37–38 and 45; existing food economy.
 - **Blocks:** 41.
 
 ## Acceptance criteria

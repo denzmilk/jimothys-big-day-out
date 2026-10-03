@@ -1,6 +1,7 @@
 import { VOXEL, STREAM, TERRAIN, SEWER, BUILDINGS } from '../core/Constants.js';
 import {planInterior,writeInterior} from './InteriorLayout.js';
 import * as Layout from './Layout.js';
+import {writeLandmarks} from './LandmarkVoxels.js';
 
 // Authored voxel content. Buildings are written as footprints + rules rather
 // than baked voxel data, so the city stays diffable, seed-reproducible, and
@@ -298,6 +299,8 @@ export function* generateColumn(world, cx, cz) {
     yield*buildFoundation(world, b);
     yield*build(world, b.vx, b.vy, b.vz, b.vw, b.vd, b.vh, b);
   }
+
+  yield*writeLandmarks(world,cx,cz);
 
   // The underground, after the buildings: a house planted on the street above
   // must not have its foundation punched through the tunnel, and writing the

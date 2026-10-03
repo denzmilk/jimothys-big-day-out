@@ -1,5 +1,15 @@
 # Session state
 
+## Sixteen landmark destinations — milestone 45 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Sixteen original Blender landmarks now reserve island parcels and two street approaches before housing generation. Each has a distinct silhouette, M-map destination/waypoint, an advanced tool and food cache. Near geometry uses destructible 0.22 m voxel runs; one-mesh GLBs retain distant silhouettes. Glass shatters, shared support checks collapse unsupported structures, food depletion and damage survive travel, and reset restores sites. Up to 24 physical benches stream near Jimothy. The locks use an excavated swimming/ripple basin with submerged gate solids. Opening the map pauses movement/capture and releases mouse capture; closing returns keyboard focus.
+
+The initial four site checks and later dry-lock/map reproductions failed before their changes. All 70 units, 36 adjacent browser cases, 18 landmark/water cases and eight giant/collection/cache cases pass, as do build and production pixel smoke. All sixteen asset/site views and native tower collapse were inspected with no console errors. Removing the tower legs clears the crown and produces the bounded 24 physical structure pieces. Evidence: `output/iterate/landmark-*`, `landmarks-*`. The final four map-control checks also pass. Native original-rig Chrome/Metal 1280×800, warmed lean site approaches, military disabled: tower / conservatories / locks median 6.5 / 9.4 / 7.3 ms, p95 8.0 / 11.8 / 9.3, worst 16.9 / 12.7 / 10.4 for update plus render submission. All three settle with no queued meshes/columns; this is not a giant-rampage or FPS claim. Details are in the milestone.
+
+**Play at http://127.0.0.1:4174.** T/LB equips, mouse/V/RB uses, G/B drops; food refills energy. M opens the destination map. The first eight tools stay near spawn; the remaining sixteen reward landmark visits. Sources/recipes/reference prompts are preserved. These are simplified parody structures: the ferry is a static pier exhibit, wheel/monorail rides are not simulated, and landmark interiors are limited. Held tools use a generic side mount; Chris’s feedback on that position is still pending.
+
+**Next approved order: 40 larger food/edible landmark rewards → 41 tourists/selfies → 42 drivers parking and getting in/out.** Those remain planned. The lobster and banana sites now exist, but they are not yet consumable rewards. General giant frame cost and first-use stalls remain JIM-48; current correctness checks do not establish a frame-rate or visual-feel sign-off.
+
 ## Twenty-four usable tools — milestone 44 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** The complete 24-tool roster is enabled. New tools supply sonic stun, dance/queasy reactions, repelling clouds, spring punches, collision-respecting grapple/skates/pogo/gliding, light-prop towing, car slowdown, physical foam, bounce pads, temporary capture shielding, local digging and delayed fireworks. Six devices/eight projectiles/three clouds/six interrupted people are hard limits. Movement gear is limited to compact bodies (3 m radius); fatness and score are preserved.

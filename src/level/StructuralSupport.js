@@ -9,10 +9,10 @@ export class StructuralSupport {
   this.material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1});this.cube=new THREE.BoxGeometry(VOXEL.SIZE,VOXEL.SIZE,VOXEL.SIZE).toNonIndexed();
   eventBus.on(Events.WORLD_DEMOLISHED,e=>{
    if(!e.bounds)return;
-   if(!e.collapse)for(const b of Layout.buildingsIntersecting(e.bounds.min[0],e.bounds.min[2],e.bounds.max[0],e.bounds.max[2])){
+   if(!e.collapse)for(const b of [...Layout.buildingsIntersecting(e.bounds.min[0],e.bounds.min[2],e.bounds.max[0],e.bounds.max[2]),...Layout.landmarkStructuresIn(e.bounds.min[0],e.bounds.min[2],e.bounds.max[0],e.bounds.max[2])]){
     if(this.pending.size>=C.PENDING)break;
     const margin=BUILDINGS.ROOF_OVERHANG+VOXEL.SIZE;
-    const bottom=Math.min(...[[0,0],[b.w,0],[0,b.d],[b.w,b.d]].map(([x,z])=>voxels.terrainHeightAt(b.x+x,b.z+z)))-VOXEL.SIZE;
+    const bottom=Math.min(b.type==='landmark'?b.vy*VOXEL.SIZE:Infinity,...[[0,0],[b.w,0],[0,b.d],[b.w,b.d]].map(([x,z])=>voxels.terrainHeightAt(b.x+x,b.z+z)))-VOXEL.SIZE;
     this.pending.set(`${b.vx},${b.vz}`,{min:[b.x-margin,bottom,b.z-margin],max:[b.x+b.w+margin,(b.vy+b.vh)*VOXEL.SIZE+Math.max(b.w,b.d)*Math.max(...BUILDINGS.ROOF_PITCH),b.z+b.d+margin]});
    }
    if(e.cells)this.gather(e.cells);

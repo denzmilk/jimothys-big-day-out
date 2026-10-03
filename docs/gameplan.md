@@ -116,3 +116,8 @@ The giant-world pass adds tanks at tier 5 for all sizes, or tier 4 when Jimothy 
 ## Approved coast and underwater extension — 2026-10-02
 
 Five beaches provide dry/wet sand, gradual outer shallows and local compaction from paws, rolls and impacts. The sea remains the existing wave/ripple and buoyancy simulation; sand uses persistent shallow dents with partial settling. Q dives, Space rises, and Shift swims faster. Underwater exploration alternates deliberate open stretches with varied wrecks, ruined structures, plants and wildlife. Breakable wreck pieces, artifacts, plants and ruin rubble participate in physical impacts and rolling collection. Daylight shafts, depth fog and bubbles support the underwater view; night reduces visibility. There is no drowning timer or new run-ending condition.
+
+
+## Approved tools and landmark route — 2026-10-03
+
+Chris approved tools → landmarks → food progression → tourists → drivers. Jimothy carries one of 24 food-powered tools, equips or swaps with T/LB, uses it with mouse/V/RB and drops it with G/B. Eating refills a separate tool-energy meter. The first eight gadgets are near spawn; sixteen additional tools reward travel to sixteen Seattle-inspired parody destinations. M opens the destination map and selecting a site supplies a waypoint. Landmarks have destructible voxel structures, physical details, food caches and street approaches. The complete roster is in `tool-landmark-roster.md`. Edible lobster/banana buildings and larger food tiers follow in milestone 40; tourists and driver visits follow in 41–42.

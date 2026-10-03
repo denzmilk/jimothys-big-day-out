@@ -851,6 +851,13 @@ export const VOXEL = {
     10: { name: 'rock', color: 0x7d7b76 },
     11: { name: 'deeprock', color: 0x4c4a4f },
     12: { name: 'dry sand', color: 0xdfc995 },
+    26: { name: 'landmark red', color: 0xd65340 },
+    27: { name: 'landmark gold', color: 0xe5bb44 },
+    28: { name: 'landmark plum', color: 0x965377 },
+    29: { name: 'landmark teal', color: 0x49918b },
+    30: { name: 'rusted iron', color: 0x85533d },
+    31: { name: 'dark steel', color: 0x343b42 },
+    32: { name: 'warm white', color: 0xece9d9 },
     25: { name: 'wet sand', color: 0x9e9276 },
     13: { name: 'ivory trim', color: 0xf2e7ce },
     14: { name: 'sage siding', color: 0x829986 },
@@ -1559,5 +1566,32 @@ export const TOOLS = {
   {id:'bubble-shield',name:'BUBBLE SHIELD',mode:'shield',color:0x70dffa,range:0,cone:1,cost:20,interval:3.5,force:0,description:'Briefly break an animal-control net hold',life:0},
   {id:'jackhammer',name:'JACKHAMMER',mode:'dig',color:0xbc9a68,range:3,cone:0.8,cost:3,interval:0.3,force:0,description:'Chew a small hole in ground ahead',life:0},
   {id:'firework-launcher',name:'FIREWORK LAUNCHER',mode:'firework',color:0xffbd39,range:30,cone:0.98,cost:12,interval:0.7,force:0,description:'Launch an arcing delayed blast',life:0},
+ ]
+};
+
+export const LANDMARKS = {
+ BASINS:[{id:'bandit-locks',offset:[0,0],halfX:5.5,halfZ:13,floor:-3,ramp:6}],
+ MAP_KEY:'KeyM',MAP_FONT_SIZE:48,COMPASS_CONE:Math.PI/6,
+ DETAIL_PARTS:[[[1.8,.22,.65],[0,.3,0],17],[[1.8,.6,.22],[0,.65,.35],17],[[.22,.7,.65],[-.6,0,0],31],[[.22,.7,.65],[.6,0,0],31]],
+ PARCEL_MARGIN:4,PARCEL_BLEND:4,SITE_STEP:8,SEARCH_RADIUS:320,MAX_GRADE_SPAN:3,MIN_SEPARATION:85,APPROACH_MAX:80,PATH_HALF:2,MIN_SPAWN_DISTANCE:80,
+ STREAM_RADIUS:75,DETAIL_LIMIT:24,FOOD_LIMIT:4,REFRESH:.5,PROP_MASS:24,PROP_LIFT:2,PROP_SPEED:5,PROP_SIZE:1.8,CACHE_GAP:2,MAP_SCALE:2000,
+ MATERIAL_ROUGHNESS:.85,SIGN_WIDTH:4,SIGN_HEIGHT:1.2,SIGN_LIFT:3,MAP_COLOR:'#ffe1a0',MAP_WATER:'#183847',MAP_LAND:'#53785c',FOOD_IDS:['whole-pizza','old-banana','cold-fries','pizza-slice'],
+ SITES:[
+  {id:'space-noodle',name:'Space Noodle',preferred:[-150,-130]},
+  {id:'picky-place',name:'Picky Place',preferred:[-365,80]},
+  {id:'frumont-troll',name:'Frumont Troll',preferred:[-60,-430]},
+  {id:'gas-guzzlers',name:'Gas Guzzlers Park',preferred:[140,-410]},
+  {id:'bandit-locks',name:'Bandit Locks',preferred:[-370,-490]},
+  {id:'ferry-fiasco',name:'Ferry Fiasco',preferred:[-375,200]},
+  {id:'mono-rail-yard',name:'Mono-Rail Yard',preferred:[-190,20]},
+  {id:'rainforest-bubbles',name:'Rainforest Bubbles',preferred:[-60,115]},
+  {id:'smiff-tower',name:'Smiff Tower',preferred:[-250,210]},
+  {id:'great-squeal',name:'Great Squeal',preferred:[-430,0]},
+  {id:'museum-of-loud',name:'Museum of Loud',preferred:[-270,-115]},
+  {id:'hat-stomps',name:'Hat & Stomps',preferred:[40,330]},
+  {id:'volunteer-waterworks',name:'Volunteer Waterworks',preferred:[150,-170]},
+  {id:'discovery-light',name:'Discovery Light',preferred:[-650,-270]},
+  {id:'big-pinch-diner',name:'Big Pinch Diner',preferred:[-180,570]},
+  {id:'banana-snacks',name:'Banana Republic of Snacks',preferred:[390,430]},
  ]
 };

@@ -3,6 +3,8 @@ import './style.css';
 import Game from './core/Game.js';
 import { gameState } from './core/GameState.js';
 
+import {loadLandmarkVoxels} from './level/LandmarkVoxels.js';
+await loadLandmarkVoxels();
 const game = new Game();
 
 // Test hooks for the Playwright live-iterate loop (see docs/tech.md).

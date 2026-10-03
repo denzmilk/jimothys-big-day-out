@@ -219,3 +219,14 @@ Ordinary mechanic fixtures set `__SKIP_ARRIVAL__`; dedicated arrival tests and p
 ## Sparse remeshing — JIM-48
 
 Each voxel chunk keeps per-row and total occupied-cell counts, updated by ordinary writes and edit replay. Mesh snapshots copy row counts with the voxel data so concurrent damage cannot skip an older snapshot’s contents. Fully empty stored chunks remove their stale geometry immediately; other chunks skip empty rows while retaining the existing terrain/kerb/hidden-face calculations and greedy face merging. The frame budget is unchanged. This adds 10 KiB per stored chunk; it trades a small fixed index for fewer scheduled work slices after demolition.
+
+
+## Usable tools and landmark sites — milestones 43–45
+
+`ToolSystem` owns a single equipped gadget and bounded particles, human status effects, devices and projectiles. Food refills tool energy separately from score/fatness. Physical pickup, towing, knockback and temporary traffic obstacles use the existing EventBus and PhysicsSystem. Borrowed human meshes return through their owner lifecycle. Movement gadgets request controller motion through collision sweeps and stop working above the configured compact-body radius. `tools/build_chaos_tools.py` preserves 24 editable Blender sources and exports the shared runtime models.
+
+`CityPlanner` reserves 16 parcels and two street approaches per site before generating housing. `Layout` terraces each parcel; `LandmarkVoxels` indexes offline 0.22 m solid runs by world column. `tools/build_landmarks.py` uses the same separately editable primitives for the Blender source, compact run binary and one-mesh far GLB. Far landmarks use the existing near-column coverage texture and disappear after local damage. Nearby destruction remains in VoxelWorld's persistent edit store and shared structural-support queue. The bounded rubble system represents collapse; it does not simulate every building voxel as a rigid body.
+
+`Landmarks` streams nearby food and up to 24 physical benches, preserving eaten caches and displaced details during travel. The first eight tools remain near spawn; the other sixteen occupy one site cache each. M opens a paused destination map and selecting a name sets a direction/distance waypoint. `BasinField` shares the locks' excavated ground boundary between collision, water sampling, ripple simulation and water shaders; intact gate solids extend below the waterline. These gates do not operate as a shipping-lock simulation. Reset restores authored structures, loose details, pickups and caches.
+
+Original source assets and exact generated reference prompts are under `assets/blender/{tools,landmarks}` and `assets/references/{tools,landmarks}`; shipped GLBs and the landmark run binary are under `public/assets/models/`. Sixteen simplified landmark silhouettes are implemented; ride operation, edible building rewards, tourist AI and drivers are separate milestones.

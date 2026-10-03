@@ -589,6 +589,7 @@ export const CITY = {
 };
 
 export const PEDESTRIANS = {
+  NAV_WORK:256, SPAWN_PER_FRAME:2,
   MODELS: ['commuter','neighbour','runner','worker','retiree','shopper','student','walker','musician','tourist','pensioner','artist'],
   COUNT: 36,
   RADIUS: 76, NEAR_DISTANCE: 60, NAV_STEP: 2,
@@ -777,6 +778,7 @@ export const ASSET_PATHS = {
 // Runtime model splitter (milestone 06): one full Meshy GLB cut into
 // head/body/tail at load time — no Blender, no rigging.
 export const RIG = {
+  CONTACT_LEAF:12,
   TORSO_WEIGHT: 0.8,
   ANATOMY_GROWTH: .45,
   JIGGLE_MAX: .06,

@@ -19,6 +19,12 @@
 
 ## Open
 
+### JIM-73 — Assets remain floating after destruction
+
+**Status:** in-progress · **Reported:** 2026-10-03 (Chris).
+
+Check unsupported voxel building sections and previously grounded props/vegetation/actors after giant destruction. A persistent channel must expose an actual lower contact surface; assets whose support is removed must fall, detach or settle with it. Initial inspection: interiors periodically test support, but street objects only invalidate road markings on `WORLD_DEMOLISHED`, bushes respond to direct impacts only, vegetation samples original terrain, and voxel structures have no unsupported-section collapse pass. Reproduce each affected family before changing its behaviour. Related: JIM-48/JIM-70/JIM-29.
+
 ### JIM-72 — Water reactions ignore body size and submerged contact
 
 **Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 31 refinement.
@@ -37,7 +43,9 @@ The spherical GiantCoat hides the original torso; fixed-size extremities disappe
 
 ### JIM-70 — Giant rolls do not carve continuous ground channels
 
-**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 33 refinement.
+**Status:** reopened after Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 33 refinement.
+
+Latest feedback: maximum-size rolling still hitches, destruction feels unreliable and the carved trail/carrying layer lacks impact. Inspect the continuous route with live work budgets, not only settled edits. Building rubble is not registered with collection, and the first 64 registered entities can fill the carry budget with tiny items. JIM-48 covers frame cost; JIM-29 covers the carrying layer; JIM-73 covers unsupported assets.
 
 Roll damage intentionally excludes implicit terrain and repeats separate spheres. Revise giant rolling to carve a continuous, shallow swept channel with bounded work, persistent ground/collision edits and clean reset. Lean rolling remains a light scrape. This explicitly supersedes the giant ground-protection part of JIM-16/JIM-61. Locations: `Game.onImpact`, `VoxelWorld`, `Constants`.
 
@@ -184,7 +192,9 @@ Chris's 2026-10-02 playtest confirms a visible shape failure. Actual posed mesh 
 
 ### JIM-48 — Populated world exceeds the legacy draw-call budget
 
-**Status:** implemented, awaiting Chris’s playtest · **Found:** 2026-10-02 during milestone 27 glass verification
+**Status:** reopened after Chris’s maximum-size playtest, 2026-10-03 · **Found:** 2026-10-02 during milestone 27 glass verification
+
+**2026-10-03 follow-up:** accelerated original-skin attachment queries and sliced pedestrian navigation/rig spawning remove two repeated CPU spikes. Both new regressions first failed, then all eight relevant loaded-body/pedestrian cases and 58 units pass. In the matched native 100 m Absurd route, p95 falls 46.7 → 34.7 ms and worst falls 128.2 → 54.2 ms; median remains about 23 ms. Initial shader startup is excluded consistently from both movement samples. Ground mesh backlog and steady frame cost remain open; see STATE for exact evidence.
 
 `tests/voxel.spec.js` has two assertions requiring fewer than 300 renderer calls. A clean isolated copy of pre-shatter commit `723c993` already reports 866 calls, 2,931,262 triangles and 195 voxel meshes at deterministic boot. Separate car panes report 900 calls with the same triangle and voxel mesh counts. The `voxels.drawCalls` field currently reports the whole renderer, including people and props. Evidence: `output/iterate/glass-baseline-comparison.log`, `glass-adjacent.log`. Review scene batching/LOD and the telemetry naming in a separate performance pass; do not raise the limit to conceal it. Locations: `Game.renderToText`, `Pedestrians`, `StreetLife`, `VoxelWorld`, `tests/voxel.spec.js`.
 

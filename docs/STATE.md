@@ -1,5 +1,17 @@
 # Session state
 
+## Maximum-size rampage review and next content — 2026-10-03
+
+Chris reports maximum-size hitches, weak/unreliable destruction and an insufficient carrying layer; also floating assets after destruction. JIM-48/JIM-70 are reopened, collection remains JIM-29, and support loss is JIM-73. Current work: reproduce/profile a live-budget Absurd roll, repair the dominant cost and visible channel/collection/support failures, then verify native play and adjacent state. Previous technical checks do not constitute playtest acceptance.
+
+Chris approved the next order: **40 tiered food and edible lobster/banana landmarks → 41 landmark tourists/selfies → 42 drivers parking and getting in/out**. Those milestone files are planned, with dependencies and acceptance tests; no implementation is claimed yet. Power washer/bubble gun and the broader Seattle roster remain in the earlier backlog proposal.
+
+**First JIM-48 repair implemented:** triangle bounds accelerate original-skin attachment rays; the same triangles are returned while reading 60–297 vertices per query instead of scanning the mesh. Pedestrian navigation rebuilds over updates, retains valid old routes and caps new rig creation per frame. Both regressions failed first; eight loaded-body/collection/pedestrian checks and all 58 unit checks pass. Build and native route rendering are console-clean. Production pixel smoke is checked before this issue commit.
+
+Matched loaded Chrome/Metal/M5 Pro, 1280×800 Medium, live work budgets, military disabled, 100 m Absurd roll: before/after update-plus-render submission **22.5/22.9 ms median, 46.7/34.7 ms p95, 128.2/54.2 ms worst**. Pedestrian worst update falls **69.4 → 7.4 ms**; collector worst is **0.9 ms** after repair. This is not a locked-60 result. The first probe's 781 ms maximum included the first ever rendered frame (737.5 ms in the corrected baseline), which is startup cost rather than rolling; final comparisons warm that first render before movement. Evidence: `giant-work-{red,first,units,build,smoke}.log`, `giant-hitch-{baseline,after}.log`, `giant-hitch-current.png` under `output/iterate/`.
+
+**Next:** the broader crash-furrow presentation and delayed ground rendering (JIM-70), collectable building/plant fragments (JIM-29), and support loss (JIM-73). Those repairs remain unfinished; food/tourist/driver milestones follow them.
+
 ## Size-sensitive water reactions — JIM-72 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Jimothy produces footprint-sized entry ripples, spreading foam and splash droplets; moving at the surface leaves a trailing wake and smaller spray. Radius and impact speed control scale/strength. Actual imported cars, articulated MPFB ragdolls, pooled rubble and other dynamic props share the contact path. Fully submerged motion stays quiet at the surface, and a contact latch prevents the body’s own depression from triggering another entry burst.

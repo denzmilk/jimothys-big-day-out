@@ -39,11 +39,11 @@ export class Pedestrians {
       .catch(error=>{this.loadError=String(error);console.error('Pedestrian assets failed',error);});
   }
 
-  _clear(x,z) {
+  _clear(x,z,buildings=this.buildings) {
     const C=Layout.Masterplan.CLASS;
     const cls=Layout.Masterplan.classAt(x,z);
     if(cls===C.WATER) return false;
-    if(this.buildings.some(b=>x>b.x-PED.WALL_MARGIN&&x<b.x+b.w+PED.WALL_MARGIN&&z>b.z-PED.WALL_MARGIN&&z<b.z+b.d+PED.WALL_MARGIN)) return false;
+    if(buildings.some(b=>x>b.x-PED.WALL_MARGIN&&x<b.x+b.w+PED.WALL_MARGIN&&z>b.z-PED.WALL_MARGIN&&z<b.z+b.d+PED.WALL_MARGIN)) return false;
     for(const e of this.obstacles.values())if(!e.attached&&e.mesh.parent===this.scene&&Math.hypot(x-e.mesh.position.x,z-e.mesh.position.z)<Math.min(PED.OBSTACLE_RADIUS_MAX,e.size/2)+PED.OBSTACLE_MARGIN)return false;
     // Terrace banks can rise a storey between two navigation nodes. Reject
     // the whole foot span before IK is asked to reach across that cliff.
@@ -52,22 +52,34 @@ export class Pedestrians {
   }
 
   _graphAround(x,z) {
+    const work=this._graphTask(x,z);let result;do{result=work.next();}while(!result.done);
+    this._acceptGraph(result.value);
+  }
+
+  *_graphTask(x,z) {
     const R=PED.RADIUS,S=PED.NAV_STEP;
-    this.center={x,z};this.graph.clear();
-    this.buildings=Layout.Masterplan.buildingsIn(x-R-S,z-R-S,x+R+S,z+R+S);
+    const graph=new Map(),buildings=Layout.Masterplan.buildingsIn(x-R-S,z-R-S,x+R+S,z+R+S);
     for(let iz=Math.floor((z-R)/S);iz<=Math.ceil((z+R)/S);iz++) for(let ix=Math.floor((x-R)/S);ix<=Math.ceil((x+R)/S);ix++) {
+      yield;
       const px=(ix+.5)*S,pz=(iz+.5)*S;
-      if(Math.hypot(px-x,pz-z)>R||!this._clear(px,pz))continue;
+      if(Math.hypot(px-x,pz-z)>R)continue;
       // Pavement follows the baked road edges. People stay on its land side,
       // instead of picking arbitrary destinations through rooms or the sea.
-      if(!Layout.isFootpathAtWorld(px,pz))continue;
-      this.graph.set(`${ix},${iz}`,{key:`${ix},${iz}`,ix,iz,x:px,z:pz,links:[]});
+      if(!Layout.isFootpathAtWorld(px,pz)||!this._clear(px,pz,buildings))continue;
+      graph.set(`${ix},${iz}`,{key:`${ix},${iz}`,ix,iz,x:px,z:pz,links:[]});
     }
-    for(const n of this.graph.values()) for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]) {
-      const other=this.graph.get(`${n.ix+dx},${n.iz+dz}`);
-      if(other&&Layout.isFootpathAtWorld((n.x+other.x)/2,(n.z+other.z)/2)&&this._clear((n.x+other.x)/2,(n.z+other.z)/2)) n.links.push(other.key);
+    for(const n of graph.values()) for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]) {
+      yield;const other=graph.get(`${n.ix+dx},${n.iz+dz}`);
+      if(other&&Layout.isFootpathAtWorld((n.x+other.x)/2,(n.z+other.z)/2)&&this._clear((n.x+other.x)/2,(n.z+other.z)/2,buildings)) n.links.push(other.key);
     }
-    for(const [key,n] of this.graph)if(!n.links.length)this.graph.delete(key);
+    for(const [key,n] of graph)if(!n.links.length)graph.delete(key);
+    return {graph,buildings,center:{x,z}};
+  }
+
+  _acceptGraph(result){
+    Object.assign(this,result);this.graphWork=null;this.populationPending=true;
+    const jp=this.jimothy.position;
+    for(const p of [...this.people])if(!p.attached&&Math.hypot(p.x-jp.x,p.z-jp.z)>PED.RADIUS)this._remove(p);
   }
 
   _spawn(node,index) {
@@ -102,26 +114,32 @@ export class Pedestrians {
     this.people.splice(this.people.indexOf(p),1);
   }
 
-  _populate() {
+  _populate(limit=Infinity) {
     const jp=this.jimothy.position;
+    let count=this.people.filter(p=>!p.attached).length,spawned=0;
+    if(count>=PED.COUNT){this.populationPending=false;return;}
     const candidates=[...this.graph.values()].filter(n=>Math.hypot(n.x-jp.x,n.z-jp.z)>PED.SPAWN_MIN)
       .sort((a,b)=>hash(a.ix,a.iz)-hash(b.ix,b.iz));
     for(const n of candidates) {
-      if(this.people.filter(p=>!p.attached).length>=PED.COUNT)break;
+      if(count>=PED.COUNT)break;
+      if(spawned>=limit)return;
       if(this.people.some(p=>Math.hypot(p.x-n.x,p.z-n.z)<PED.SPAWN_GAP))continue;
-      this._spawn(n,this.people.length);
+      this._spawn(n,this.people.length);count++;spawned++;
     }
+    this.populationPending=false;
   }
 
   update(frameDelta,isVisible=()=>true) {
     if(!this.ready||!gameState.game.isPlaying)return;
     this.elapsed+=frameDelta;
     const jp=this.jimothy.position;
-    if(!this.center||Math.hypot(jp.x-this.center.x,jp.z-this.center.z)>PED.REFRESH_DISTANCE) {
-      this._graphAround(jp.x,jp.z);
-      for(const p of [...this.people])if(!p.attached&&Math.hypot(p.x-jp.x,p.z-jp.z)>PED.RADIUS)this._remove(p);
-      this._populate();
+    if(!this.graphWork&&(!this.center||Math.hypot(jp.x-this.center.x,jp.z-this.center.z)>PED.REFRESH_DISTANCE))this.graphWork=this._graphTask(jp.x,jp.z);
+    // JIM-48: keep the usable routes until the replacement is complete. A
+    // giant crosses the old refresh distance several times each second.
+    for(let i=0;this.graphWork&&i<PED.NAV_WORK;i++){
+      const result=this.graphWork.next();if(result.done)this._acceptGraph(result.value);
     }
+    if(this.populationPending)this._populate(PED.SPAWN_PER_FRAME);
     for(const p of this.people) {
       if(p.attached||p.ragdoll)continue;
       const dj=Math.hypot(p.x-jp.x,p.z-jp.z),quality=gameState.world.graphics;
@@ -175,7 +193,7 @@ export class Pedestrians {
   reset() {
     if(!this.ready)return;
     for(const p of [...this.people])this._remove(p);
-    this.serial=0;this.center=null;
+    this.serial=0;this.center=null;this.graphWork=null;
     this._graphAround(this.jimothy.position.x,this.jimothy.position.z);this._populate();
     for(const p of this.people)p.y=this.voxels.terrainHeightAt(p.x,p.z);
     this.update(0);

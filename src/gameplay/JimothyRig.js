@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ASSET_PATHS, RIG, PLAYER_CONFIG } from '../core/Constants.js';
+import {TriangleIndex} from '../core/TriangleIndex.js';
 
 import { eventBus, Events } from '../core/EventBus.js';
 
@@ -138,6 +139,7 @@ export class JimothyRig {
     a.skinIndex.needsUpdate=true;a.skinWeight.needsUpdate=true;
     for(let i=0;i<positions.array.length;i++)positions.array[i]=this.growthBase[i]+this.growthDelta[i]*amount;
     positions.needsUpdate=true;mesh.geometry.computeBoundingBox();mesh.geometry.computeBoundingSphere();
+    this.surfaceIndex.refit();
     const posed={};
     for(const [name,bone] of Object.entries(this.bones)){
       posed[name]=bone.quaternion.clone();bone.quaternion.copy(this.rest[name]);bone.position.copy(this.restPos[name]);
@@ -166,6 +168,7 @@ export class JimothyRig {
     this.root.parent.updateMatrixWorld(true);
     this.bindBellyLocal=this.bellyLocalBox(this.root.parent).getCenter(new THREE.Vector3());
     this.surfaceMesh=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({side:THREE.DoubleSide}));
+    this.surfaceIndex=new TriangleIndex(geometry,RIG.CONTACT_LEAF);
     this.surfaceMesh.matrixAutoUpdate=false;this.surfaceRay=new THREE.Raycaster();
     this._contactVertex=new THREE.Vector3();this._contactInverse=new THREE.Matrix4();
     this.growthAnchors={};
@@ -198,10 +201,11 @@ export class JimothyRig {
     surface.matrixWorld.copy(this.root.parent.matrixWorld).invert().multiply(this.skinned.matrixWorld);
     const shell=direction.clone().multiply(radii),origin=center.clone().addScaledVector(shell,2);
     this.surfaceRay.set(origin,shell.clone().normalize().negate());
-    const hit=this.surfaceRay.intersectObject(surface,false)[0];
+    const inverse=new THREE.Matrix4().copy(surface.matrixWorld).invert();
+    const hit=this.surfaceIndex.intersect(this.surfaceRay.ray.clone().applyMatrix4(inverse));
     if(!hit)return null;
-    const ids=[hit.face.a,hit.face.b,hit.face.c],positions=this.skinned.geometry.attributes.position;
-    const point=hit.point.clone().applyMatrix4(surface.matrixWorld.clone().invert());
+    const ids=hit.ids,positions=this.skinned.geometry.attributes.position;
+    const point=hit.point;
     const weights=THREE.Triangle.getBarycoord(point,...ids.map(i=>new THREE.Vector3().fromBufferAttribute(positions,i)),new THREE.Vector3());
     return {ids,weights:weights.toArray()};
   }

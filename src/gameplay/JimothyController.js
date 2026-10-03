@@ -290,13 +290,53 @@ export class JimothyController {
     return { up, parts, bodyY: c.y, bodyBottom: box.min.y };
   }
 
+  _bodyClear(x, y, z) {
+    const r = this.radius * P.CONTACT_WIDTH;
+    return [[0,0,0],[r,0,0],[-r,0,0],[0,0,r],[0,0,-r],[0,r,0],[0,-r,0]]
+      .every(([dx,dy,dz]) => !this.voxels.solidAtWorld(x+dx,y+dy,z+dz));
+  }
+
+  _ceilingLimit(x, z, from, to) {
+    if (to <= from) return to;
+    const rad = this.radius, r = rad * P.CONTACT_WIDTH;
+    let limit = to;
+    for (const [dx,dz] of [[0,0],[r,0],[-r,0],[0,r],[0,-r]]) {
+      const start = from + rad - P.CONTACT_SKIN;
+      const hit = this.voxels.raycast(x+dx,start,z+dz,0,1,0,to-from+P.CONTACT_SKIN);
+      if (hit) limit = Math.min(limit,from+hit.t-P.CONTACT_SKIN);
+    }
+    return limit;
+  }
+
+  _recoverOverlap(p) {
+    if (!this.voxels.solidAtWorld(p.x,p.y,p.z)) return;
+    // JIM-79: a partition is a sideways obstruction. Searching above it chose
+    // the next storey or roof and turned a small overlap into a seven-metre jump.
+    const step = Math.max(VOXEL.SIZE,this.radius/P.RECOVERY_RINGS);
+    for (let ring=1;ring<=P.RECOVERY_RINGS;ring++) {
+      for (let n=0;n<P.RECOVERY_DIRECTIONS;n++) {
+        const angle=n/P.RECOVERY_DIRECTIONS*Math.PI*2;
+        const x=p.x+Math.cos(angle)*ring*step,z=p.z+Math.sin(angle)*ring*step;
+        if (!this._bodyClear(x,p.y,z)) continue;
+        p.x=x;p.z=z;this.vel.set(0,0,0);this.body.velocity.x=0;this.body.velocity.z=0;return;
+      }
+    }
+    // Buried ground may have no sideways exit. Only the first pocket of air
+    // is eligible; a low pocket must never be skipped for a higher floor.
+    for (let lift=VOXEL.SIZE;lift<=this.climbHeight;lift+=step) {
+      if (this.voxels.solidAtWorld(p.x,p.y+lift,p.z)) continue;
+      if (this._bodyClear(p.x,p.y+lift,p.z)) {p.y+=lift;this.vy=0;this.body.velocity.y=0;}
+      break;
+    }
+  }
+
   // Voxel structure has no physics bodies (ADR-0003) — he's kinematic, so we
   // resolve against the grid directly. Per-axis so sliding along a wall works
   // instead of sticking, and only at body height so he steps over kerbs.
   _resolveVoxels(p) {
     if (!this.voxels) return;
     const rad = this.radius;
-    const r = rad * 0.8;
+    const r = rad * P.CONTACT_WIDTH;
     const probeY = p.y;
     for (const [axis, prev] of [['x', this._prevX], ['z', this._prevZ]]) {
       const off = (s) => ({
@@ -337,7 +377,8 @@ export class JimothyController {
         // that left him permanently not-grounded (playtest 2026-08-06).
         const supported = this.voxels.solidAtWorld(a.x, y - liftStep, a.z)
           || this.voxels.solidAtWorld(bq.x, y - liftStep, bq.z);
-        if (!blocked && supported) {
+        if (!blocked && supported && this._bodyClear(p.x,y,p.z)
+          && this._ceilingLimit(p.x,p.z,probeY,y) >= y-P.CONTACT_SKIN) {
           p.y = y;
           if (this.vy < 0) this.vy = 0;
           this.grounded = true;
@@ -592,6 +633,11 @@ export class JimothyController {
     }
     // The authored comet path must not acquire a roof as its walking floor.
     if(!['waiting','falling'].includes(gameState.arrival.phase)){
+      if (this._prevFeetY !== undefined && this._contactRadius !== undefined) {
+        const previousY=this._prevFeetY+this._contactRadius;
+        const limit=this._ceilingLimit(p.x,p.z,previousY,p.y);
+        if (limit < p.y) {p.y=limit;this.vy=Math.min(0,this.vy);this.body.velocity.y=Math.min(0,this.body.velocity.y);}
+      }
       this._resolveVoxels(p);
       // Ground height comes from the voxel slab, so blasted craters are real
       // terrain he can drop into and climb out of. Scanned from his own feet so
@@ -643,12 +689,9 @@ export class JimothyController {
     // is, the deeper into the bush he must squeeze — past a point the blob
     // simply doesn't fit and bushes stop working entirely.
     const hideRadius = this.hideRadius;
-    // Anti-stuck: if he's ended up buried inside solid voxels (blasted a
-    // crater and slid in, or terrain changed around him), lift him to the
-    // nearest free surface rather than trapping him in the geometry.
-    if (this.voxels && this.voxels.solidAtWorld(p.x, p.y, p.z)) {
-      p.y = this.voxels.groundHeightAt(p.x, p.z, p.y + 6) + rad;
-      this.vy = Math.max(0, this.vy);
+    if (this.voxels && !['waiting','falling'].includes(gameState.arrival.phase)) {
+      this._recoverOverlap(p);
+      this._prevFeetY=p.y-rad;this._contactRadius=rad;this._prevX=p.x;this._prevZ=p.z;
     }
 
     let hidden = false;

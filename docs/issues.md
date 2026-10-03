@@ -10,6 +10,18 @@
 
 ## Current interior and food reports — 2026-10-02
 
+### JIM-79 — Indoor collision recovery lifts Jimothy onto roofs
+
+**Status:** implemented, awaiting Chris’s playtest · **Severity:** high · **Reported:** Chris, 2026-10-03
+
+Walking inside buildings glitches onto the roof. The controller permits a 2.6 m step while checking only its centre, has no upward ceiling sweep, and its final overlap recovery scans six metres above the body. Reproduce normal walking along room walls and jumping under a ceiling; recovery must stay on the reachable floor. Covered by milestone 50. The loaded partition reproduction jumped 7.04 m; a separate upward-launch check crossed a ceiling. Both fail before and pass after bounded sideways recovery, first-pocket buried recovery and a swept ceiling guard. All four contact checks, eight interior checks and eighteen adjacent weight/physics/sewer/growth checks pass, as do 83 existing units, build and rendered smoke. Original-rig native indoor view is console-clean. Outdoor ledges remain climbable. Evidence: `output/iterate/building-contact-*`, `building-overlap-*`, `building-collision-native.*`. The initially unloaded overlap fixture was corrected to wait for generated geometry before measuring; it then reproduced the actual jump. Door/layout repair remains JIM-80.
+
+### JIM-80 — Buildings have missing doors, cramped rooms and sparse furnishing
+
+**Status:** in progress · **Severity:** medium · **Reported:** Chris, 2026-10-03
+
+M38 supplies open passages only. A central hall, two landings and a stair lane consume small footprints; room splits can create very shallow rooms. Add visible usable front/inter-room doors, connected routes, sensible room dimensions and purpose-specific dressing without blocking paths. Milestone 50 follows JIM-79's collision repair.
+
 ### JIM-78 — Enemy approaches lack readable detection and search strategy
 
 **Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 49.
@@ -498,6 +510,8 @@ Adding one more ring of voxel columns to see 35 m further costs far more than th
 `HEAT.PER_DEMOLITION` is 0.4 *per voxel destroyed*. A single fat headbutt into open ground removes about **1,075 voxels**, which is **430 heat points** — against a tier-5 threshold of 100. So one swing at maximum fatness takes the run from calm to the army.
 
 It may well be intended ("levelling a house is chaos", and the constant is commented as exactly that). But it was written when a blast was small, and `FATNESS.BLAST_PER_FAT` has been raised since. Worth a decision rather than a discovery: either heat scales sub-linearly with the size of a blast, or the per-voxel rate comes down.
+
+**2026-10-03 follow-up:** Chris still reaches five stars almost immediately. Reopened for balance investigation: 3 heat per frightened resident and thresholds 10/20/35/60/100 remain. Trace repeat scares, demolition/collapse attribution and pacing before tuning. Expanded staged response is recorded in backlog; no new enemy tier is implemented by this report.
 
 **2026-10-02:** demolition heat now uses destroyed cubic metres. A thousand 0.22 m cells produce 4.2592 points instead of 400; doubling voxel resolution preserves the same heat for the same volume. The deterministic volume test, aiming/destruction regressions and rendered smoke pass. The coefficient still needs playtesting.
 

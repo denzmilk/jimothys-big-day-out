@@ -1,5 +1,9 @@
 # Session state
 
+## Building repair and wanted escalation — 2026-10-03
+
+Active: milestone 50. JIM-79 is implemented, awaiting playtest: a 7.04 m indoor partition jump and upward ceiling crossing are repaired; 30 browser checks, 83 existing units, build/render smoke pass. Native original-rig indoor view is console-clean. Next JIM-80: cramped/bare interiors and missing doors. Building-first is the recommended default; optional priority question is open. Diagnose/reproduce collision before doors/layout work. Chris also reopened JIM-35 and specified paparazzi → kicking locals → animal control → armed police cars → army/automatic infantry. All stages and slower destruction-led pacing are recorded in backlog for the next focused pass. Existing net-only ending remains. Earlier radar/gait/sewer passes await playtest.
+
 ## Enemy searches and local radar — JIM-78 / milestone 49 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Foot enemies investigate approximate reports, build notice before chasing, then search a fixed last-seen area and give up. Close contact remains immediate. Noise, bushes, night and underground affect the chase. Tanks use remembered targets and require sight before choosing new shots; committed jet/shell strikes remain dodgeable. The lower-right radar shows streets or sewer routes, heading/waypoint, sampled sight cones and proximity areas, notice/search status and incoming strike zones. Outdoor crash channels retain their surface layer.

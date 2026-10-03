@@ -16,6 +16,7 @@ export const PLAYER_CONFIG = {
   // absorb the jitter of stepped voxel geometry (roof steps, crater lips) —
   // at 0.05 he oscillated between grounded and falling forever on a rooftop.
   GROUND_STICK: 0.25,
+  CONTACT_WIDTH: .8, CONTACT_SKIN: .015, RECOVERY_RINGS: 4, RECOVERY_DIRECTIONS: 8,
   RADIUS: 0.55,
   PICKUP_RADIUS: 1.0,
   BONK_MIN_SPEED: 2,

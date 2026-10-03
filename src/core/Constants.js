@@ -1286,8 +1286,19 @@ export const RAGDOLL = {
 export const CAPTURE = {
   WINDUP: .9, SWING: .55, RECOVERY: 1.2, HOLD_MAX: 6,
   RATE: 1.25, SIZE_RESISTANCE: 4, DECAY: .7, ARC: 1.1,
-  NET_LIFT: 1.25, NET_REACH: 1, NET_ANGLE: 1.8, CONTACT_FRACTION: .5,
+  CONTACT_FRACTION: .5,
   NET_RADIUS: .45, NET_RIM: .025, HANDLE_LENGTH: 1.1, HANDLE_RADIUS: .02, NET_BAG_DEPTH: .65,
+  HANDLE_BUTT: .1, FRONT_GRIP: .28, PALM_FRACTION: .85, PALM_DEPTH: .02,
+  NET_CLEARANCE: .08, GROUND_POSE_PASSES: 3,
+  ARM_REACH: .985, ELBOW_OUT: .8, ELBOW_DOWN: -.65, ELBOW_BACK: -.25,
+  FINGER_CURL: [1, 1.3, .9], THUMB_CURL: [.15, .35, .4],
+  // Grip positions are relative to the animated shoulder centre (JIM-75).
+  NET_POSES: {
+    carry: {position:[-.14,-.4,.18],pitch:-.2},
+    windup: {position:[-.14,-.08,.08],pitch:-1.05},
+    contact: {position:[-.14,-.34,.08],pitch:.38},
+    follow: {position:[-.14,-.36,.08],pitch:.48},
+  },
 };
 
 

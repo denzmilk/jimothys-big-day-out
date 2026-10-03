@@ -19,6 +19,14 @@
 
 ## Open
 
+### JIM-75 — Animal control swings the net handle-first with idle arms
+
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 29 refinement.
+
+Reproduced with the loaded MPFB worker during a close-range capture: the hoop pivots above the head, its shaft points at Jimothy, and both arms retain their idle animation. The net's root is at the hoop; the negative-Y shaft swings forward under negative X rotation. No arm or hand attachment drives the prop. Locations: `Pursuers._makePerson`, `_animate`, `_net`, `CAPTURE` tuning. Fix the held pivot/orientation and both arm poses through wind-up, contact and recovery without changing capture balance. Baseline: `output/iterate/net-before.png`, `net-before-probe.json`.
+
+**Repair:** the shaft runs forward from a rear-hand pivot. Two-arm IK, wrist orientation and finger poses follow eased carry/wind-up/contact/follow-through/recovery poses after foot grounding. The hoop tilts clear of uphill ground, and the primary hand retains the net during ragdolls without running arm IK. Shield interruption returns from the current pose and locks a valid heading even before a catcher's first swing. The original two regressions failed with a -1.52 m hoop lead and a 0.743 m palm gap; the shield-on-arrival reproduction also failed with a non-finite transform. All four pose regressions now pass, with 34 unique adjacent gameplay checks, 70 units, build and production pixel smoke passing. Inspected original-rig production captures are console-clean. Evidence: `output/iterate/net-*`; see milestone 29. Chris still needs to judge the motion.
+
 ### JIM-74 — City reads as residential streets, with no substantial downtown
 
 **Status:** open · **Reported:** 2026-10-03 (Chris).

@@ -1,5 +1,13 @@
 # Session state
 
+## Animal-control net and arm repair — JIM-75 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** The net now pivots at the rear grip and swings hoop-first. Both MPFB arms use IK with held wrist/finger poses through carry, wind-up, contact, follow-through and recovery. Uphill ground raises the hoop angle; ragdolls retain the net through its primary-hand attachment while arm IK is suspended. A bubble shield also recovers the pose correctly when a catcher arrives before ever swinging. Capture balance is unchanged.
+
+The two original pose tests and a separate shield-on-arrival regression failed before their fixes. All four now pass; 34 unique net/pursuit/ragdoll/contact/tool/walking checks, 70 units, build and production pixel smoke pass. Inspected native production views are console-clean. Evidence: `output/iterate/net-*`; details in milestone 29. **Play at http://127.0.0.1:4174** and judge whether the two-handed wind-up and sweep read correctly.
+
+The downtown/36-keepsake proposal below still awaits Chris's priority answer. No new city/keepsake milestone has been assumed approved; the existing food → tourists → drivers order remains recorded.
+
 ## Downtown and hidden keepsakes proposal — 2026-10-03
 
 Chris requested a recognisable city/skyscrapers plus hidden Jimothy-themed keepsakes underwater and high in buildings, collected for their own sake. Logged the city complaint as JIM-74 and both asks in backlog. Audit: only four ordinary towers versus 1,431 houses/sheds; downtown has 21 buildings. Existing treasure is a shared glinting shape with twelve names, buried on land, and per-run collection only.

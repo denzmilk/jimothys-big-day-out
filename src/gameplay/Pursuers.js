@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FootGrounding } from '../core/Grounding.js';
+import { FootGrounding, solveTwoBone } from '../core/Grounding.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import {
   PAPARAZZI, ANIMAL_CONTROL, PURSUER_SPAWN_POINTS, COLORS, WORLD,
@@ -130,10 +130,14 @@ export class Pursuers {
     body.userData.placeholder=true;head.userData.placeholder=true;group.add(body, head);
     if (withNet) {
       const net = new THREE.Group();
-      net.add(new THREE.Mesh(this.netGeo,this.netMat));
-      const handle=new THREE.Mesh(this.netHandleGeo,this.netMat);handle.position.y=-CAPTURE.NET_RADIUS-CAPTURE.HANDLE_LENGTH/2;net.add(handle);
-      const bag=new THREE.Mesh(this.netBagGeo,this.netBagMat);bag.rotation.x=Math.PI/2;bag.scale.y=CAPTURE.NET_BAG_DEPTH/CAPTURE.NET_RADIUS;net.add(bag);
-      net.position.set(0, 1.0, 0.55);
+      // JIM-75: the rear grip is the pivot; +Z always points towards the hoop.
+      const rim=new THREE.Mesh(this.netGeo,this.netMat);rim.rotation.x=Math.PI/2;
+      rim.position.z=CAPTURE.HANDLE_LENGTH-CAPTURE.HANDLE_BUTT+CAPTURE.NET_RADIUS;net.add(rim);
+      const handle=new THREE.Mesh(this.netHandleGeo,this.netMat);handle.rotation.x=Math.PI/2;
+      handle.position.z=CAPTURE.HANDLE_LENGTH/2-CAPTURE.HANDLE_BUTT;net.add(handle);
+      const bag=new THREE.Mesh(this.netBagGeo,this.netBagMat);bag.position.copy(rim.position);
+      bag.scale.y=CAPTURE.NET_BAG_DEPTH/CAPTURE.NET_RADIUS;net.add(bag);
+      rim.castShadow=true;handle.castShadow=true;
       net.name='capture-net';group.add(net);
     }
     group.position.set(x, this._groundY(x, z), z);
@@ -185,6 +189,77 @@ export class Pursuers {
     p.mixer=new THREE.AnimationMixer(p.visual);p.actions={};for(const clip of model.animations)p.actions[clip.name]=p.mixer.clipAction(clip);
     eventBus.emit(Events.HUMAN_REGISTER,{id:`pursuer-${p.id}`,group:p.group,visual:p.visual});
     p.grounding=new FootGrounding(p.group,p.visual,(x,z)=>this._groundY(x,z));
+    if(p.type==='animal-control')this._netRig(p);
+  }
+
+  _netRig(p){
+    const C=CAPTURE,net=p.group.getObjectByName('capture-net');
+    p.netPose=new THREE.Group();p.group.add(p.netPose);
+    p.netArms=['r','l'].map(side=>{
+      const sign=side==='l'?1:-1;
+      const upper=p.visual.getObjectByName(`upperarm_${side}`),lower=p.visual.getObjectByName(`lowerarm_${side}`),hand=p.visual.getObjectByName(`hand_${side}`);
+      const basis=new THREE.Matrix4().makeBasis(new THREE.Vector3(0,0,sign),new THREE.Vector3(-sign,0,0),new THREE.Vector3(0,-1,0));
+      const orientation=new THREE.Quaternion().setFromRotationMatrix(basis);
+      const palm=p.visual.getObjectByName(`index_01_${side}`).position.clone().multiplyScalar(C.PALM_FRACTION);palm.z+=C.PALM_DEPTH;
+      const wrist=new THREE.Vector3(0,0,side==='l'?C.FRONT_GRIP:0).sub(palm.applyQuaternion(orientation));
+      const fingers=[];
+      for(const digit of ['index','middle','ring','pinky','thumb'])for(let i=0;i<C.FINGER_CURL.length;i++){
+        const bone=p.visual.getObjectByName(`${digit}_0${i+1}_${side}`);
+        if(bone)fingers.push({bone,rest:bone.quaternion.clone(),angle:(digit==='thumb'?C.THUMB_CURL:C.FINGER_CURL)[i]});
+      }
+      return {upper,lower,hand,sign,orientation,wrist,fingers};
+    });
+    // The primary hand owns the prop even when ragdoll/collection owns the
+    // skeleton. Only the normal pursuit path runs arm IK (milestone 29).
+    const primary=p.netArms[0];primary.hand.add(net);
+    net.quaternion.copy(primary.orientation).invert();net.position.copy(primary.wrist).negate().applyQuaternion(net.quaternion);
+    this._poseNet(p);
+  }
+
+  _poseNet(p){
+    if(!p.netArms)return;
+    const C=CAPTURE,poses=C.NET_POSES,phase=p.netPhase||'idle';
+    let from=poses.carry,to=poses.carry,t=0;
+    if(phase==='windup'){to=poses.windup;t=p.netTimer/C.WINDUP;}
+    else if(phase==='swing'){
+      const contactTime=C.SWING*C.CONTACT_FRACTION;
+      if(p.netTimer<=contactTime){from=poses.windup;to=poses.contact;t=p.netTimer/contactTime;}
+      else {from=poses.contact;to=poses.follow;t=(p.netTimer-contactTime)/(C.SWING-contactTime);}
+    }else if(phase==='hold'){from=to=poses.contact;}
+    else if(phase==='recovery'){from=p.netRecovery||poses.contact;t=p.netTimer/C.RECOVERY;}
+    t=THREE.MathUtils.clamp(t,0,1);const ease=t*t*(3-2*t);
+    const offset=new THREE.Vector3().fromArray(from.position).lerp(new THREE.Vector3().fromArray(to.position),ease);
+    const pitch=THREE.MathUtils.lerp(from.pitch,to.pitch,ease);
+    p.netCurrent={position:offset.toArray(),pitch};
+    p.group.updateWorldMatrix(true,true);
+    const shoulders=p.netArms.map(a=>p.group.worldToLocal(a.upper.getWorldPosition(new THREE.Vector3())));
+    p.netPose.position.copy(shoulders[0]).add(shoulders[1]).multiplyScalar(.5).add(offset);
+    p.netPose.rotation.set(pitch,0,0);p.netPose.updateWorldMatrix(true,true);
+    // A fixed downward pitch buries the hoop in Seattle's uphill streets.
+    // Tilt at the hands, preserving arm reach and the visible contact plane.
+    const head=C.HANDLE_LENGTH-C.HANDLE_BUTT+C.NET_RADIUS;
+    for(let pass=0;pass<C.GROUND_POSE_PASSES;pass++){
+      let lift=0;
+      for(const [x,z] of [[0,-C.NET_RADIUS],[0,C.NET_RADIUS],[-C.NET_RADIUS,0],[C.NET_RADIUS,0]]){
+        const point=p.netPose.localToWorld(new THREE.Vector3(x,0,head+z));
+        lift=Math.max(lift,this._groundY(point.x,point.z)+C.NET_CLEARANCE-point.y);
+      }
+      if(lift<=0)break;
+      p.netPose.rotation.x=Math.max(poses.windup.pitch,p.netPose.rotation.x-Math.atan2(lift,head));p.netPose.updateWorldMatrix(false,true);
+    }
+    const rotation=p.netPose.getWorldQuaternion(new THREE.Quaternion()),rootRotation=p.group.getWorldQuaternion(new THREE.Quaternion());
+    for(const arm of p.netArms){
+      const target=p.netPose.localToWorld(arm.wrist.clone());
+      const pole=new THREE.Vector3(arm.sign*C.ELBOW_OUT,C.ELBOW_DOWN,C.ELBOW_BACK).applyQuaternion(rootRotation);
+      solveTwoBone(arm.upper,arm.lower,arm.hand,target,pole,C.ARM_REACH);
+      arm.hand.quaternion.copy(arm.hand.parent.getWorldQuaternion(new THREE.Quaternion()).invert()).multiply(rotation).multiply(arm.orientation);
+      arm.hand.updateWorldMatrix(false,true);
+      const curlAxis=new THREE.Vector3(1,0,0).applyQuaternion(arm.hand.getWorldQuaternion(new THREE.Quaternion()));
+      for(const {bone,rest,angle} of arm.fingers){
+        const axis=curlAxis.clone().applyQuaternion(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert());
+        bone.quaternion.copy(rest).premultiply(new THREE.Quaternion().setFromAxisAngle(axis,angle));bone.updateWorldMatrix(false,true);
+      }
+    }
   }
   _animate(p,dt,x,z) {
     if(!p.mixer)return;
@@ -575,7 +650,7 @@ export class Pursuers {
       const busy=ac.netPhase&&ac.netPhase!=='idle';
       const d=this._steer(ac,delta,busy?0:this._speed(ac));
       if(busy)ac.group.rotation.y=ac.netYaw;
-      this._animate(ac,delta,x,z);this._net(ac,delta,d);
+      this._animate(ac,delta,x,z);this._net(ac,delta,d);this._poseNet(ac);
     }
     if(!gameState.capture.holding)gameState.capture.progress=Math.max(0,gameState.capture.progress-CAPTURE.DECAY*delta);
     gameState.capture.phase=ac?.netPhase||'idle';
@@ -584,10 +659,18 @@ export class Pursuers {
 
   _net(ac,dt,d){
     const C=CAPTURE,bar=gameState.capture,j=this.jimothy.position,pos=ac.group.position;
-    if(gameState.tools.shield>0){ac.netPhase='recovery';ac.netTimer=0;bar.holding=false;return;}
+    const phase=s=>{
+      // A shield can interrupt before the first swing has locked a heading.
+      if(!ac.netPhase||ac.netPhase==='idle')ac.netYaw=ac.group.rotation.y;
+      if(s==='recovery')ac.netRecovery=ac.netCurrent;
+      ac.netPhase=s;ac.netTimer=0;
+    };
+    if(gameState.tools.shield>0){
+      if(ac.netPhase!=='recovery')phase('recovery');else ac.netTimer+=dt;
+      bar.holding=false;return;
+    }
     const reach=ANIMAL_CONTROL.NET_RANGE+Math.max(0,this.jimothy.radius-PLAYER_CONFIG.RADIUS);
     ac.netPhase ||= 'idle';ac.netTimer=(ac.netTimer||0)+dt;
-    const phase=s=>{ac.netPhase=s;ac.netTimer=0;};
     const facing=Math.atan2(j.x-pos.x,j.z-pos.z)-(ac.netYaw||0);
     const contact=ac.sees&&d<=reach&&Math.abs(Math.atan2(Math.sin(facing),Math.cos(facing)))<C.ARC;
     if(ac.netPhase==='idle'&&ac.sees&&d<=reach){ac.netYaw=ac.group.rotation.y;phase('windup');}
@@ -599,11 +682,6 @@ export class Pursuers {
       else {bar.holding=true;bar.progress=Math.min(1,bar.progress+dt*C.RATE/(1+fatFactor(gameState.player.fatness)*C.SIZE_RESISTANCE));
         if(bar.progress>=1)eventBus.emit(Events.PLAYER_NETTED);}
     }else if(ac.netPhase==='recovery'&&ac.netTimer>=C.RECOVERY)phase('idle');
-    const net=ac.group.getObjectByName('capture-net');
-    if(net){
-      const t=ac.netPhase==='windup'?Math.min(1,ac.netTimer/C.WINDUP):ac.netPhase==='swing'?1-Math.min(1,ac.netTimer/C.SWING):0;
-      net.position.set(0,C.NET_LIFT+t*C.NET_REACH,C.NET_REACH*(1-t));net.rotation.x=-t*C.NET_ANGLE;
-    }
   }
 
   reset() {

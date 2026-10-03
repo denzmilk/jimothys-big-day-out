@@ -8,7 +8,13 @@
 >
 > ⚠️ **Not yet mirrored to GitHub.** The repo has a remote (`denzmilk/jimothys-big-day-out`) but the `gh` CLI on this machine is an x86 binary and won't run on Apple Silicon (`bad CPU type in executable`). Fix `gh` (`brew install gh`) and these can be filed as real GitHub issues; until then this file is the register.
 
-## HUD restart — 2026-10-04
+## Current destruction and HUD reports — 2026-10-04
+
+### JIM-82 — Destruction debris does not interact consistently with moving objects
+
+**Status:** in-progress · **Severity:** high · **Reported:** Chris, 2026-10-04 · Milestone 52.
+
+Chris requests physical contact between all visible solid debris and moving objects, including cars, animals and other debris. Audit: glass uses collision mask 0, car parts use group 2/mask 1 and cannot collide with one another, soil clods use a separate ballistic effect, and walking wildlife/people have no shared collision body. Existing ordinary voxel rubble already has Cannon bodies. Locations: `PhysicsSystem`, `GlassShards`, `StreetLife`, `GroundChannels`, actor movement/ground queries. Reproduce actual contact and lifecycle behaviour before enabling filters so initially overlapping fragments do not explode.
 
 ### JIM-81 — Run counters retain old values after restart
 
@@ -83,11 +89,17 @@ Chris reports that the world still looks residential and requests a modelled cit
 
 ### JIM-73 — Assets remain floating after destruction
 
-**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris).
+**Status:** implemented, awaiting playtest (2026-10-04) · **Reported:** 2026-10-03 (Chris) · Milestone 52 follow-up.
+
+Chris confirms that buildings with nothing below still float and asks for cave-in/breakup. The initial support pass uses original terrain height (plus channel displacement) for anchors and treats all voxels within a 0.88 m cell as connected. Ordinary excavation and narrow separations need actual connectivity checks. Verify generated building and landmark bases, collapse latency and the physical sections left behind. Earlier evidence below covered a fully undermined house via the channel path only.
 
 Check unsupported voxel building sections and previously grounded props/vegetation/actors after giant destruction. A persistent channel must expose an actual lower contact surface; assets whose support is removed must fall, detach or settle with it. Initial inspection: interiors periodically test support, but street objects only invalidate road markings on `WORLD_DEMOLISHED`, bushes respond to direct impacts only, vegetation samples original terrain, and voxel structures have no unsupported-section collapse pass. Reproduce each affected family before changing its behaviour. Related: JIM-48/JIM-70/JIM-29.
 
 **Repair:** street objects release from kinematic control when their footprint loses support; traffic reservations clear. Bushes fall, vegetation and animals follow deformed ground. Bounded voxel connectivity retains supported spans and detaches unsupported sections into at most 24 collectible physics pieces built from the actual removed cells. Three browser support cases and two connectivity units pass after failing reproductions; original impact/physics regressions pass. The house case removes 1,854 unsupported roof cells and resets cleanly. Render remeshing can still lag large destruction (JIM-48), and final collapse feel requires Chris's playtest. See STATE for limits and evidence.
+
+**Follow-up verification — 2026-10-04**
+
+Three new exact-connectivity/ordinary-dig units failed before the fix and all five support units pass afterward. Generated craftsman/apartment thin cuts failed with 4,077 / 51,694 upper cells still present; both now remove every sampled upper cell. The existing wide-channel test exposed distant-first support scheduling; nearest-first scheduling restores its collapse. Street props and vegetation support checks pass. Native original-rig cave-in captures and console results: `output/iterate/collapse-native.json`, `collapse-before.png`, `collapse-after.png`. Build passes. Rubble shape/contact refinement and performance validation continue under JIM-82/M52.
 
 ### JIM-72 — Water reactions ignore body size and submerged contact
 

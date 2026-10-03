@@ -1,41 +1,53 @@
 import {VOXEL,SUPPORT as C} from './Constants.js';
 const directions=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
-// Connectivity is grouped at 0.88 m, but links require touching real voxel
-// faces. Checking only vertical columns would wrongly drop a spanning roof.
+
+// JIM-73: a one-cell cut must sever a wall even inside a former coarse group.
+// Sparse stored cells include footings at grade; unedited implicit earth can
+// anchor them only through a remaining neighbour, never through old height.
 export function* supportTask(world,bounds){
- yield [];const s=VOXEL.SIZE,K=C.CELL_VOXELS,CX=VOXEL.CHUNK_XZ,CY=VOXEL.CHUNK_Y,nodes=new Map();let work=0;
+ yield [];
+ const s=VOXEL.SIZE,CX=VOXEL.CHUNK_XZ,CY=VOXEL.CHUNK_Y,nodes=new Map();let work=0;
  const low=bounds.min.map(v=>Math.floor(v/s)),high=bounds.max.map(v=>Math.ceil(v/s));
- const key=(x,y,z)=>`${Math.floor(x/K)},${Math.floor(y/K)},${Math.floor(z/K)}`;
+ const width=high[0]-low[0]+1,height=high[1]-low[1]+1;
+ const inside=(x,y,z)=>x>=low[0]&&x<=high[0]&&y>=low[1]&&y<=high[1]&&z>=low[2]&&z<=high[2];
+ const key=(x,y,z)=>x-low[0]+width*(y-low[1]+height*(z-low[2]));
  for(const chunk of world.chunks.values()){
   const bx=chunk.cx*CX,by=chunk.cy*CY,bz=chunk.cz*CX;
   if(bx>high[0]||bx+CX<low[0]||by>high[1]||by+CY<low[1]||bz>high[2]||bz+CX<low[2])continue;
-  for(const [column,bits] of chunk.damageColumns){
-   const x=bx+column%CX,z=bz+Math.floor(column/CX);if(x<low[0]||x>high[0]||z<low[2]||z>high[2])continue;
-   const wx=(x+.5)*s,wz=(z+.5)*s,grade=(world.terrain?.surfaceHeight(wx,wz)||0)+(world.channels?.sample(wx,wz)||0);
-   let mask=bits;
-   while(mask){
+  for(let z=Math.max(0,low[2]-bz);z<=Math.min(CX-1,high[2]-bz);z++)for(let y=Math.max(0,low[1]-by);y<=Math.min(CY-1,high[1]-by);y++){
+   if(++work%C.WORK===0)yield [];
+   const row=y+CY*z;if(!chunk.rowCounts[row])continue;
+   for(let x=Math.max(0,low[0]-bx);x<=Math.min(CX-1,high[0]-bx);x++){
     if(++work%C.WORK===0)yield [];
-    const bit=mask&-mask;mask=(mask&~bit)>>>0;const y=by+31-Math.clz32(bit);if(y<low[1]||y>high[1])continue;
-    const mat=world.get(x,y,z);if(!mat||mat===VOXEL.BEDROCK)continue;
-    const id=key(x,y,z);let node=nodes.get(id);if(!node){node={cells:[],links:new Set(),anchor:false};nodes.set(id,node);}node.cells.push([x,y,z,mat]);
-    if(y*s<=grade+s)node.anchor=true;
-    for(const [dx,dy,dz] of directions){
-     const nx=x+dx,ny=y+dy,nz=z+dz,id2=key(nx,ny,nz);if(id2===id||!world.get(nx,ny,nz))continue;
-     if(nx<low[0]||nx>high[0]||ny<low[1]||ny>high[1]||nz<low[2]||nz>high[2])node.anchor=true;
-     else node.links.add(id2);
-    }
+    const stored=chunk.data[x+CX*row];if(!stored||stored===VOXEL.EMPTY)continue;
+    const vx=bx+x,vy=by+y,vz=bz+z,mat=world.get(vx,vy,vz);if(!mat||mat===VOXEL.BEDROCK)continue;
+    nodes.set(key(vx,vy,vz),{x:vx,y:vy,z:vz,mat,held:false});
    }
   }
  }
- const queue=[];for(const [id,node]of nodes)if(node.anchor){node.held=true;queue.push(id);}
+ const queue=[];
+ for(const node of nodes.values()){
+  if(++work%C.WORK===0)yield [];
+  for(const [dx,dy,dz]of directions){
+   const x=node.x+dx,y=node.y+dy,z=node.z+dz;
+   if(inside(x,y,z)&&nodes.has(key(x,y,z)))continue;
+   if(world.get(x,y,z)){node.held=true;queue.push(node);break;}
+  }
+ }
  for(let i=0;i<queue.length;i++){
   if(++work%C.WORK===0)yield [];
-  for(const key of nodes.get(queue[i]).links){const node=nodes.get(key);if(node&&!node.held){node.held=true;queue.push(key);}}
+  const n=queue[i];if(!world.get(n.x,n.y,n.z))continue;
+  for(const [dx,dy,dz]of directions){
+   const x=n.x+dx,y=n.y+dy,z=n.z+dz;if(!inside(x,y,z))continue;
+   const node=nodes.get(key(x,y,z));
+   if(node&&!node.held){node.held=true;queue.push(node);}
+  }
  }
  let removed=[];
- for(const node of nodes.values())if(!node.held)for(const [x,y,z,mat] of node.cells){
+ for(const node of nodes.values()){
   if(++work%C.WORK===0){yield removed;removed=[];}
-  if(world.get(x,y,z)!==mat)continue;
+  if(node.held)continue;
+  const {x,y,z,mat}=node;if(world.get(x,y,z)!==mat)continue;
   world.setEdit(x,y,z,0);world.removedCount++;removed.push({x:(x+.5)*s,y:(y+.5)*s,z:(z+.5)*s,mat});
  }
  if(removed.length)yield removed;

@@ -60,6 +60,7 @@
   - Rough size: M · Rough value: L
   - Notes: pairs with the voxel city (ADR-0003) — a trolley at speed should smash through walls. Jimothy is kinematic-while-controlled, so a rideable is a state swap, not a new controller.
 - [ ] Teardown-grade destruction — structural integrity (unsupported voxels fall), material-dependent toughness (brick resists), and cutting/pushing through walls rather than only sphere blasts. Glass shattering promoted to milestone 27 on 2026-10-02. Reference: Teardown.
+  - Structural cave-in and shared physical rubble promoted to milestone 52 on 2026-10-04 after Chris's repeated floating-building report. Material toughness remains deferred.
   - Source: 2026-07-23 Chris ("Inspiration from Teardown for destructability is where I want to go with it")
   - Rough size: L · Rough value: L
   - Notes: the current implementation does sphere damage + debris only. Structural collapse needs a connectivity pass (flood-fill from ground per chunk-island) — expensive, so budget it as its own milestone after the city exists.
@@ -203,6 +204,7 @@
 ## Grounding follow-up — 2026-10-02
 
 - [ ] Support feet on loose moving props and rubble piles, using a shared physical-surface query for people and Jimothy. Milestone 11 adds planted paws on voxel terrain, kerbs and broken ground; the existing pedestrian ground sampler also excludes moving prop surfaces. This retains the broader rubble criterion from milestone 11.
+  - Rubble contact/support promoted to milestone 52 on 2026-10-04 with the physical-debris request; preserve the approved gait while adding physical surfaces.
   - Source: milestone 11 original footing scope; clarified during JIM-22. Rough size: M · Rough value: M.
 
 ## Next world pass — approved, 2026-10-02

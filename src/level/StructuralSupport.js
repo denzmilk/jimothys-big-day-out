@@ -12,8 +12,9 @@ export class StructuralSupport {
    if(!e.collapse)for(const b of [...Layout.buildingsIntersecting(e.bounds.min[0],e.bounds.min[2],e.bounds.max[0],e.bounds.max[2]),...Layout.landmarkStructuresIn(e.bounds.min[0],e.bounds.min[2],e.bounds.max[0],e.bounds.max[2])]){
     if(this.pending.size>=C.PENDING)break;
     const margin=BUILDINGS.ROOF_OVERHANG+VOXEL.SIZE;
-    const bottom=Math.min(b.type==='landmark'?b.vy*VOXEL.SIZE:Infinity,...[[0,0],[b.w,0],[0,b.d],[b.w,b.d]].map(([x,z])=>voxels.terrainHeightAt(b.x+x,b.z+z)))-VOXEL.SIZE;
-    this.pending.set(`${b.vx},${b.vz}`,{min:[b.x-margin,bottom,b.z-margin],max:[b.x+b.w+margin,(b.vy+b.vh)*VOXEL.SIZE+Math.max(b.w,b.d)*Math.max(...BUILDINGS.ROOF_PITCH),b.z+b.d+margin]});
+    const key=`${b.vx},${b.vz}`,previous=this.pending.get(key);
+    const bottom=Math.min(e.bounds.min[1],b.type==='landmark'?b.vy*VOXEL.SIZE:Infinity,...[[0,0],[b.w,0],[0,b.d],[b.w,b.d]].map(([x,z])=>voxels.terrainHeightAt(b.x+x,b.z+z)))-VOXEL.SIZE;
+    this.pending.set(key,{min:[b.x-margin,Math.min(bottom,previous?.min[1]??Infinity),b.z-margin],max:[b.x+b.w+margin,(b.vy+b.vh)*VOXEL.SIZE+Math.max(b.w,b.d)*Math.max(...BUILDINGS.ROOF_PITCH),b.z+b.d+margin]});
    }
    if(e.cells)this.gather(e.cells);
   });
@@ -29,7 +30,9 @@ export class StructuralSupport {
   }
  }
  update(dt){
-  for(const [key,bounds]of this.pending){
+  // Nearby cave-ins must not wait behind a larger structure at the edge of a wide crater.
+  const distance=b=>Math.hypot((b.min[0]+b.max[0])/2-this.jimothy.position.x,(b.min[2]+b.max[2])/2-this.jimothy.position.z);
+  for(const [key,bounds]of [...this.pending].sort((a,b)=>distance(a[1])-distance(b[1]))){
    const active=this.voxels.damageQueue.filter(j=>j.kind==='support').length;if(active>=C.ACTIVE)break;
    if(!this.voxels.isLoadedAtWorld(bounds.min[0],bounds.min[2])||!this.voxels.isLoadedAtWorld(bounds.max[0],bounds.max[2])){continue;}
    if(this.voxels.queueSupport(bounds,key))this.pending.delete(key);break;

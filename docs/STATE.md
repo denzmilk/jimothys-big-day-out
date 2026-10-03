@@ -1,5 +1,11 @@
 # Session state
 
+## Cave-in support repair — JIM-73 / milestone 52 — 2026-10-04
+
+**Support repair implemented, awaiting Chris’s playtest; shared rubble contact is in progress (JIM-82).** Support now follows remaining face-connected voxels, including real ground contact after ordinary excavation. A one-cell cut no longer inherits support from a coarse 4-cell group. Wide channel damage schedules nearer buildings first so a distant large structure cannot delay the visible house. Five support units pass; generated house/apartment cuts remove all 4,077 / 51,694 sampled upper cells, and the existing channel, prop and vegetation support checks pass. Native original-rig cave-in inspection is console-clean (`output/iterate/collapse-{before,after}.png`). Debris hulls still need refinement in the coupled JIM-82 pass. A manual-time 360-step update sample measured p95 96.6 ms; this unbudgeted diagnostic is not a performance sign-off.
+
+**Current request:** finish M52 shared collision, actor contact, bounded debris and native performance checks. Earlier wanted pacing and content milestones remain recorded.
+
 ## Circular compass HUD — milestone 49 refinement — 2026-10-04
 
 **Implemented, awaiting Chris’s playtest.** The minimap is now a north-up circle in the top right with compass points and the existing world clock curved into its rim. Wanted stars and search status sit below, then score, with a smaller fatness/combo row. Streets, sewer routes, enemy search shading and strike indicators retain their existing data. Distant waypoints clamp to the circle’s rim. Rendering retains the existing canvas resolution, 5 Hz cadence and sight budgets; this adds no world camera.

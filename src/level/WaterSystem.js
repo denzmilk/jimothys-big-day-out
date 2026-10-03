@@ -3,14 +3,15 @@ import {Water} from 'three/addons/objects/Water.js';
 import {WATER as C,WORLD,TERRAIN,OCEAN} from '../core/Constants.js';
 import {RippleField,waveHeight,waveShader,waterReaction} from '../core/WaterField.js';
 import {sandShader} from '../core/SandField.js';
+import {groundChannelShader} from '../core/GroundChannelField.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 import * as Terrain from './Terrain.js';
 
 export class WaterSystem {
- constructor(scene,jimothy,voxels,sky,sandUniforms){
+ constructor(scene,jimothy,voxels,sky,sandUniforms,channelUniforms){
   this.scene=scene;this.jimothy=jimothy;this.voxels=voxels;this.time=0;this.wakeClock=0;this.lastReflection=-Infinity;this.floating=new Set();this.bodyWakes=new Map();this.drops=[];this.rings=[];this.serial=0;this.reactions=0;this.lastReaction=null;this.playerWet=false;this.playerAbove=false;
-  this.field=new RippleField((x,z)=>Terrain.surfaceHeight(x,z));this.field.centerAt(jimothy.body.position.x,jimothy.body.position.z);
+  this.field=new RippleField((x,z)=>Terrain.surfaceHeight(x,z)+(voxels.channels?.sample(x,z)||0));this.field.centerAt(jimothy.body.position.x,jimothy.body.position.z);
   this.rippleTexture=new THREE.DataTexture(this.field.current.slice(),C.RIPPLE_SIZE,C.RIPPLE_SIZE,THREE.RedFormat,THREE.FloatType);this.rippleTexture.needsUpdate=true;
   const N=C.DEPTH_SIZE,depths=new Float32Array(N*N);
   for(let z=0;z<N;z++)for(let x=0;x<N;x++)depths[z*N+x]=Terrain.surfaceHeight((x/(N-1)*2-1)*WORLD.BOUNDS,(z/(N-1)*2-1)*WORLD.BOUNDS);
@@ -25,12 +26,12 @@ export class WaterSystem {
   this.surface=new Water(new THREE.PlaneGeometry(C.NEAR_SIZE,C.NEAR_SIZE,C.NEAR_SEGMENTS,C.NEAR_SEGMENTS),{textureWidth:C.REFLECTION_SIZE,textureHeight:C.REFLECTION_SIZE,waterNormals:this.normalTexture});
   this.surface.rotation.x=-Math.PI/2;this.surface.userData.farDetail=true;this.surface.frustumCulled=false;
   const m=this.surface.material,u=m.uniforms;m.transparent=true;m.depthWrite=false;m.side=THREE.DoubleSide;
-  Object.assign(u,sandUniforms,{waterTime:{value:0},rippleMap:{value:this.rippleTexture},rippleGrid:{value:new THREE.Vector2()},rippleCell:{value:C.RIPPLE_CELL},nearHalf:{value:C.NEAR_SIZE/2},depthMap:{value:this.depthTexture},detailMap:{value:this.normalTexture},nearCenter:{value:new THREE.Vector2()},farSurface:{value:0},reflectionReady:{value:0},daylight:{value:1},underSurface:{value:new THREE.Color(OCEAN.SURFACE_COLOR)},deepColor:{value:new THREE.Color(C.DEEP)},shallowColor:{value:new THREE.Color(C.SHALLOW)},foamColor:{value:new THREE.Color(C.FOAM)},skyTop:sky.material.uniforms.topColor,skyHorizon:sky.material.uniforms.horizonColor,lightDirection:sky.material.uniforms.sunDir});
-  const fields=`${sandShader()} uniform float waterTime,farSurface,rippleCell,nearHalf;uniform sampler2D rippleMap,depthMap;uniform vec2 rippleGrid,nearCenter;
+  Object.assign(u,sandUniforms,channelUniforms,{waterTime:{value:0},rippleMap:{value:this.rippleTexture},rippleGrid:{value:new THREE.Vector2()},rippleCell:{value:C.RIPPLE_CELL},nearHalf:{value:C.NEAR_SIZE/2},depthMap:{value:this.depthTexture},detailMap:{value:this.normalTexture},nearCenter:{value:new THREE.Vector2()},farSurface:{value:0},reflectionReady:{value:0},daylight:{value:1},underSurface:{value:new THREE.Color(OCEAN.SURFACE_COLOR)},deepColor:{value:new THREE.Color(C.DEEP)},shallowColor:{value:new THREE.Color(C.SHALLOW)},foamColor:{value:new THREE.Color(C.FOAM)},skyTop:sky.material.uniforms.topColor,skyHorizon:sky.material.uniforms.horizonColor,lightDirection:sky.material.uniforms.sunDir});
+  const fields=`${sandShader()} ${groundChannelShader()} uniform float waterTime,farSurface,rippleCell,nearHalf;uniform sampler2D rippleMap,depthMap;uniform vec2 rippleGrid,nearCenter;
    ${waveShader()}
    float ripple(vec2 p){vec2 g=p/rippleCell-rippleGrid;vec2 i=floor(g),f=fract(g);if(any(lessThan(i,vec2(0.)))||any(greaterThanEqual(i,vec2(${(C.RIPPLE_SIZE-1).toFixed(1)}))))return 0.;vec2 uv=(i+.5)/${C.RIPPLE_SIZE.toFixed(1)};vec2 d=vec2(1./${C.RIPPLE_SIZE.toFixed(1)},0.);return mix(mix(texture2D(rippleMap,uv).r,texture2D(rippleMap,uv+d.xy).r,f.x),mix(texture2D(rippleMap,uv+d.yx).r,texture2D(rippleMap,uv+d.xx).r,f.x),f.y);}
    float waterHeight(vec2 p){return waves(p,waterTime)+ripple(p);}
-   float bottom(vec2 p){vec2 g=(p/${WORLD.BOUNDS.toFixed(1)}*.5+.5)*${(N-1).toFixed(1)},i=floor(g),f=fract(g),uv=(i+.5)/${N.toFixed(1)},d=vec2(1./${N.toFixed(1)},0.);return mix(mix(texture2D(depthMap,uv).r,texture2D(depthMap,uv+d.xy).r,f.x),mix(texture2D(depthMap,uv+d.yx).r,texture2D(depthMap,uv+d.xx).r,f.x),f.y)+sandOffset(p);}`;
+   float bottom(vec2 p){vec2 g=(p/${WORLD.BOUNDS.toFixed(1)}*.5+.5)*${(N-1).toFixed(1)},i=floor(g),f=fract(g),uv=(i+.5)/${N.toFixed(1)},d=vec2(1./${N.toFixed(1)},0.);return mix(mix(texture2D(depthMap,uv).r,texture2D(depthMap,uv+d.xy).r,f.x),mix(texture2D(depthMap,uv+d.yx).r,texture2D(depthMap,uv+d.xx).r,f.x),f.y)+channelOffset(p)+(abs(channelOffset(p))<.0001?sandOffset(p):0.);}`;
   m.vertexShader=`${fields} uniform mat4 textureMatrix;varying vec3 wp;varying vec4 reflectionCoord;
    void main(){vec4 p=modelMatrix*vec4(position,1.);p.y=waterHeight(p.xz);wp=p.xyz;reflectionCoord=textureMatrix*p;gl_Position=projectionMatrix*viewMatrix*p;}`;
   m.fragmentShader=`${fields} uniform sampler2D mirrorSampler,detailMap;uniform float reflectionReady,daylight;uniform vec3 underSurface,deepColor,shallowColor,foamColor,skyTop,skyHorizon,lightDirection;varying vec3 wp;varying vec4 reflectionCoord;
@@ -89,6 +90,7 @@ export class WaterSystem {
    if(this.react({...q,kind:'body'}))this.bodyWakes.set(q.id,this.time);
   });
   eventBus.on(Events.WATER_SAMPLE,q=>q.receive(this.sample(q.x,q.z,q.id)));
+  eventBus.on(Events.WORLD_DEMOLISHED,q=>{if(q.groundOnly&&q.bounds.min[1]<=TERRAIN.SEA_LEVEL)this.field.refreshGround(q.bounds);});
   eventBus.on(Events.WORLD_IMPACT,h=>{if(this.sample(h.x,h.z)&&Math.abs(h.y-this.heightAt(h.x,h.z))<h.radius)
    this.react({...h,kind:'impact',entering:true,speed:0,verticalSpeed:-C.SPLASH_THRESHOLD});});
   this.update(0);
@@ -102,7 +104,7 @@ export class WaterSystem {
   return waveHeight(x,z,u.waterTime.value)+h;
  }
  sample(x,z,id){
-  const height=this.heightAt(x,z),ground=Terrain.surfaceHeight(x,z)+this.voxels.sandOffsetAt(x,z);if(ground>=height-C.MIN_DEPTH)return null;
+  const height=this.heightAt(x,z),ground=Terrain.surfaceHeight(x,z)+(this.voxels.channels?.sample(x,z)||0)+this.voxels.sandOffsetAt(x,z);if(ground>=height-C.MIN_DEPTH)return null;
   return {height,baseHeight:waveHeight(x,z,this.time),depth:height-ground};
  }
  react(q){

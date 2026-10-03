@@ -340,6 +340,14 @@ export class VoxelWorld {
   get(vx, vy, vz) {
     const stored = this.storedAt(vx, vy, vz);
     if (stored === VOXEL.EMPTY) return 0;
+    if(this.channels?.cells&&this.terrain){
+      const x=(vx+.5)*VOXEL.SIZE,z=(vz+.5)*VOXEL.SIZE,offset=this.channels.sample(x,z);
+      if(offset){
+        const oldTop=this.terrain.topSolidVoxelY(x,z),top=Math.ceil((this.terrain.surfaceHeight(x,z)+offset)/VOXEL.SIZE)-1;
+        if(vy>top&&vy<=oldTop)return 0;
+        if(vy>oldTop&&vy<=top)return GROUND_CHANNEL.DIRT_MATERIAL;
+      }
+    }
     if (stored) return stored;
     // Nothing stored: the ground answers for itself. This is what makes depth
     // free — the rock 40 m under a hill is solid to a collision query without
@@ -440,7 +448,8 @@ export class VoxelWorld {
    *  him into the sky). `stepUp` is the small lip he's allowed to mount. */
   groundHeightAt(x, z, fromY = 0, stepUp = VOXEL.SIZE * 0.75) {
     this._ensureAtWorld(x, z);
-    const surface = (this.terrain ? this.terrain.surfaceHeight(x, z) : 0)+this.sandOffsetAt(x,z);
+    const channel=this.channels?.sample(x,z)||0;
+    const surface = (this.terrain ? this.terrain.surfaceHeight(x, z) : 0)+channel+this.sandOffsetAt(x,z);
     // Too far out to be worth building: report the terrain's own answer rather
     // than the dug-through-to-bedrock one the scan below would give for empty
     // space. A pedestrian out there would otherwise sink through the floor —
@@ -468,7 +477,9 @@ export class VoxelWorld {
     // and the smoothing then silently does not apply there (measured: 0.30 m of
     // drift on a hillside, against 0.02 m once the two agree).
     const terrainTop = this.terrain
-      ? this.terrain.topSolidVoxelY((vx + 0.5) * s, (vz + 0.5) * s)
+      ? this.channels?.sample((vx+.5)*s,(vz+.5)*s)
+        ?Math.ceil((this.terrain.surfaceHeight((vx+.5)*s,(vz+.5)*s)+this.channels.sample((vx+.5)*s,(vz+.5)*s))/s)-1
+        :this.terrain.topSolidVoxelY((vx + 0.5) * s, (vz + 0.5) * s)
       : NaN;
     if(this.terrain&&fromY+stepUp>=surface&&this.get(vx,terrainTop,vz)!==0){
       // Traffic probes used to march dozens of known-empty air cells per
@@ -648,6 +659,7 @@ export class VoxelWorld {
 
   queueGroundChannel(from,to,radius,depth){
     if(!(radius>0&&depth>0)||!this.terrain)return false;
+    if(this.channels)return this.channels.queue(from,to,radius,depth);
     let job=this.damageQueue.find(j=>j.kind==='channel');
     if(!job){
       if(this.damageQueue.length>=W.MAX_DAMAGE_QUEUE)return false;
@@ -888,8 +900,8 @@ export class VoxelWorld {
     }
     const surfaceCorner=(lx,lz,ox,oz)=>sided
       ?surfaceCorners[((lz+1)*P+lx+1)*4+oz*2+ox]:corner(lx+ox,lz+oz);
-    const sandWeights=[];
-    const emitQuad=(quad,color,normal=null,sand=false)=>{
+    const sandWeights=[],terrainWeights=[];
+    const emitQuad=(quad,color,normal=null,sand=false,terrain=false)=>{
 
       for (const ids of [[0,1,2],[0,2,3]]) {
         let n=normal;
@@ -898,7 +910,7 @@ export class VoxelWorld {
           n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
           const length=Math.hypot(...n)||1;n=n.map(v=>v/length);
         }
-        for (const i of ids) {if(sand)sandWeights[pos.length/3]=1;pos.push(...quad[i]);norm.push(...n);col.push(color.r,color.g,color.b);}
+        for (const i of ids) {if(sand)sandWeights[pos.length/3]=1;if(terrain)terrainWeights[pos.length/3]=1;pos.push(...quad[i]);norm.push(...n);col.push(color.r,color.g,color.b);}
       }
     };
     const nrm = [0, 1, 0];
@@ -944,20 +956,20 @@ export class VoxelWorld {
       }
       if(!safe)continue;
       const color=this._colors.get(mat)||this._colors.get(1),corners=[[x,z,h00],[x,z+stride,h01],[x+stride,z+stride,h11],[x+stride,z,h10]];
-      if(mat===PAVING.ROAD_MATERIAL)emitQuad(corners.map(([xx,zz,h])=>[(base[0]+xx)*s,h,(base[2]+zz)*s]),color);
-      else for(const i of [0,1,2,0,2,3]){const [xx,zz,h]=corners[i];pos.push((base[0]+xx)*s,h,(base[2]+zz)*s);slopeNormal(xx,zz,nrm);norm.push(...nrm);col.push(color.r,color.g,color.b);}
+      if(mat===PAVING.ROAD_MATERIAL)emitQuad(corners.map(([xx,zz,h])=>[(base[0]+xx)*s,h,(base[2]+zz)*s]),color,null,false,true);
+      else for(const i of [0,1,2,0,2,3]){const [xx,zz,h]=corners[i];terrainWeights[pos.length/3]=1;pos.push((base[0]+xx)*s,h,(base[2]+zz)*s);slopeNormal(xx,zz,nrm);norm.push(...nrm);col.push(color.r,color.g,color.b);}
       for(let dz=0;dz<stride;dz++)coarse.fill(1,(z+dz)*CX+x,(z+dz)*CX+x+stride);
     }}
 
     const planes = new Map();
-    const mergeFace = (fi, lx, ly, lz, mat, flatHeight = null) => {
+    const mergeFace = (fi, lx, ly, lz, mat, flatHeight = null, terrain = false) => {
       const axis = Math.floor(fi / 2), local = [lx, ly, lz];
       const u = axis === 0 ? 2 : 0, v = axis === 1 ? 2 : 1;
       const width = u === 1 ? CY : CX, height = v === 1 ? CY : CX;
-      const key = `${fi}:${local[axis]}:${flatHeight ?? ''}`;
+      const key = `${fi}:${local[axis]}:${flatHeight ?? ''}:${terrain}`;
       let plane = planes.get(key);
       if (!plane) {
-        plane = { fi, axis, u, v, width, height, slice: local[axis], flatHeight, mask: new Uint8Array(width * height) };
+        plane = { fi, axis, u, v, width, height, slice: local[axis], flatHeight, terrain, mask: new Uint8Array(width * height) };
         planes.set(key, plane);
       }
       plane.mask[local[u] + local[v] * width] = mat;
@@ -974,6 +986,7 @@ export class VoxelWorld {
           const vz = base[2] + lz;
           const color = this._colors.get(mat) || this._colors.get(1);
           const smooth = isTerrainTop(lx, ly, lz);
+          const terrainCell=!!this.terrain&&vy<=tops[(lz+1)*P+lx+1];
           const sand=smooth&&(mat===BEACH.DRY_MATERIAL||mat===BEACH.WET_MATERIAL);
           for (let fi = 0; fi < FACES.length; fi++) {
             if(fi===2&&coarse[lz*CX+lx]&&isTerrainTop(lx,ly,lz))continue;
@@ -992,7 +1005,7 @@ export class VoxelWorld {
                   if(top>adjacent+1e-6)exposed=true;
                   return [(vx+ox)*s,oy?top:Math.min(top,adjacent),(vz+oz)*s];
                 });
-                if(exposed)emitQuad(wall,color,f.d,sand);
+                if(exposed)emitQuad(wall,color,f.d,sand,true);
               }
               continue;
             }
@@ -1007,7 +1020,7 @@ export class VoxelWorld {
                   if(top>bottom+1e-6)exposed=true;
                   return[(vx+ox)*s,oy?top:Math.min(top,bottom),(vz+oz)*s];
                 });
-                if(exposed)emitQuad(wall,color,f.d);
+                if(exposed)emitQuad(wall,color,f.d,false,terrainCell);
               }
               continue;
             }
@@ -1028,11 +1041,11 @@ export class VoxelWorld {
                 const x=(vx+ox)*s+inset(vx,ox),z=(vz+oz)*s+inset(vz,oz);
                 return [x,sided(x,z,(vx+.5)*s,(vz+.5)*s),z];
               });
-              emitQuad(inner,color);
+              emitQuad(inner,color,null,false,true);
               for(let i=0;i<4;i++) {
                 const j=(i+1)%4;
                 if(inner[i][0]!==quad[i][0]||inner[i][2]!==quad[i][2]||inner[j][0]!==quad[j][0]||inner[j][2]!==quad[j][2])
-                  emitQuad([quad[i],quad[j],inner[j],inner[i]],color);
+                  emitQuad([quad[i],quad[j],inner[j],inner[i]],color,null,false,true);
               }
               continue;
             }
@@ -1040,14 +1053,15 @@ export class VoxelWorld {
             // faces merge, so reducing cells cannot flatten a hill (JIM-34).
             const flat = smooth && fi === 2 && quad.every(q => Math.abs(q[1] - quad[0][1]) < 1e-6);
             if (!smooth || (flat&&!sand)) {
-              mergeFace(fi, lx, ly, lz, mat, flat ? quad[0][1] : null);
+              mergeFace(fi, lx, ly, lz, mat, flat ? quad[0][1] : null,terrainCell);
               continue;
             }
-            if (sided && smooth && fi===2 && mat===PAVING.ROAD_MATERIAL) {emitQuad(quad,color);continue;}
+            if (sided && smooth && fi===2 && mat===PAVING.ROAD_MATERIAL) {emitQuad(quad,color,null,false,true);continue;}
             const lit = smooth && f.d[1] === 1;
             for (const [a, b, c] of [[0, 1, 2], [0, 2, 3]]) {
               for (const idx of [a, b, c]) {
                 if(sand&&f.v[idx][1]===1)sandWeights[pos.length/3]=1;
+                if(terrainCell)terrainWeights[pos.length/3]=1;
                 pos.push(quad[idx][0], quad[idx][1], quad[idx][2]);
                 if (lit) {
                   slopeNormal(lx + f.v[idx][0], lz + f.v[idx][2], nrm);
@@ -1065,14 +1079,14 @@ export class VoxelWorld {
 
     for (const plane of planes.values()) {
       yield;
-      const {mask,width,height,u,v,axis,slice,fi,flatHeight} = plane;
+      const {mask,width,height,u,v,axis,slice,fi,flatHeight,terrain} = plane;
       const f = FACES[fi];
       for (let row=0; row<height; row++) for (let colIdx=0; colIdx<width;) {
         const material = mask[row*width+colIdx];
         if (!material) {colIdx++; continue;}
         let run=1, rows=1;
-        while(colIdx+run<width && mask[row*width+colIdx+run]===material) run++;
-        outer: while(row+rows<height) {
+        while(colIdx+run<width && (!terrain||run<VOXEL_BATCH.GROUND_STEP) && mask[row*width+colIdx+run]===material) run++;
+        outer: while(row+rows<height&&(!terrain||rows<VOXEL_BATCH.GROUND_STEP)) {
           for(let k=0;k<run;k++) if(mask[(row+rows)*width+colIdx+k]!==material) break outer;
           rows++;
         }
@@ -1082,7 +1096,7 @@ export class VoxelWorld {
         const quad=f.v.map(c=>c.map((n,i)=>(base[i]+origin[i]+n*size[i])*s));
         if(flatHeight!==null) for(const q of quad) q[1]=flatHeight;
         const pp=material===G.MATERIAL_ID?glassPos:pos,nn=material===G.MATERIAL_ID?glassNorm:norm,cc=material===G.MATERIAL_ID?glassCol:col;
-        for(const i of [0,1,2,0,2,3]) {pp.push(...quad[i]);nn.push(...f.d);cc.push(color.r,color.g,color.b);}
+        for(const i of [0,1,2,0,2,3]) {if(terrain)terrainWeights[pp.length/3]=1;pp.push(...quad[i]);nn.push(...f.d);cc.push(color.r,color.g,color.b);}
         for(let j=0;j<rows;j++) mask.fill(0,(row+j)*width+colIdx,(row+j)*width+colIdx+run);
         colIdx+=run;
       }
@@ -1098,6 +1112,7 @@ export class VoxelWorld {
     geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     geo.setAttribute('sandWeight',new THREE.Float32BufferAttribute(Array.from({length:pos.length/3},(_,i)=>sandWeights[i]||0),1));
+    geo.setAttribute('terrainWeight',new THREE.Float32BufferAttribute(Array.from({length:pos.length/3},(_,i)=>terrainWeights[i]||0),1));
     geo.computeBoundingSphere();
     return geo;
   }
@@ -1143,6 +1158,7 @@ export class VoxelWorld {
       batches:this.renderBatches.stats(),
       pendingDamage:this.damageQueue.length,
       pendingChannelSegments:this.damageQueue.find(j=>j.kind==='channel')?.segments.length||0,
+      groundChannels:this.channels?{cells:this.channels.cells,pending:this.channels.pending.length,work:this.channels.work}:null,
       damageMs:this.lastDamageMs||0,
       pendingColumns:this._columnWork.size,
       generationMs:this.lastGenerationMs||0,

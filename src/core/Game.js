@@ -24,6 +24,7 @@ import { EnvironmentLife } from '../level/EnvironmentLife.js';
 import { DayNight } from '../level/DayNight.js';
 import {OceanSystem} from '../level/OceanSystem.js';
 import {SandSystem} from '../level/SandSystem.js';
+import {GroundChannels} from '../level/GroundChannels.js';
 import { WaterSystem } from '../level/WaterSystem.js';
 import { LevelBuilder } from '../level/LevelBuilder.js';
 import { VoxelWorld } from '../level/VoxelWorld.js';
@@ -108,8 +109,10 @@ class Game {
         const rolling=cfg===MOVES.ROLL,offset=rolling?0:bodyRadius*GIANT_IMPACT.HEADBUTT_FORWARD;
         if(rolling){
           const move=this.jimothy.move,to={x,y:y-bodyRadius,z},from=move?.carveFrom||to;
-          if(!this.jimothy.grounded){if(move)move.carveFrom=to;}
-          else if(Math.hypot(to.x-from.x,to.z-from.z)>=GROUND_CHANNEL.MIN_TRAVEL){
+          // Excavation removes his contact for a few falling frames. The field
+          // checks the swept feet against grade, so that gap must not end the
+          // trail; actual jumps and elevated bridges still leave soil alone.
+          if(Math.hypot(to.x-from.x,to.z-from.z)>=GROUND_CHANNEL.MIN_TRAVEL){
             const halfWidth=Math.min(GROUND_CHANNEL.MAX_HALF_WIDTH,bodyRadius*GROUND_CHANNEL.WIDTH_RATIO);
             const depth=Math.min(GROUND_CHANNEL.MAX_DEPTH,bodyRadius*GROUND_CHANNEL.DEPTH_RATIO);
             if(this.voxels.queueGroundChannel(from,to,halfWidth,depth)&&move)move.carveFrom=to;
@@ -133,7 +136,8 @@ class Game {
     this.streetLife = new StreetLife(this.scene, this.jimothy, this.voxels);
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
     this.sand=new SandSystem(this.scene,this.jimothy,this.voxels);
-    this.water=new WaterSystem(this.scene,this.jimothy,this.voxels,this.level.sky,this.sand.uniforms);
+    this.groundChannels=new GroundChannels(this.scene,this.jimothy,this.voxels);
+    this.water=new WaterSystem(this.scene,this.jimothy,this.voxels,this.level.sky,this.sand.uniforms,this.groundChannels.uniforms);
     this.ragdolls = new HumanRagdolls(this.jimothy,this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
     this.military=new Military(this.scene,this.jimothy,this.voxels);
@@ -225,7 +229,7 @@ class Game {
     eventBus.on(Events.GAME_RESTART, () => {
       this.collector.reset();
       this.ragdolls.reset();
-      this.water.reset();this.sand.reset();this.ocean.reset();
+      this.water.reset();this.sand.reset();this.groundChannels.reset();this.ocean.reset();
       gameState.reset();
       this.jimothy.reset();
       this.trashCans.reset();
@@ -395,7 +399,7 @@ class Game {
     // camera is pointed, which the mouse already drives whenever the pointer is
     // locked. One frame stale, because the camera updates after him — which at
     // 60 Hz is nothing, and keeps the order of the loop unchanged.
-    this.water.update(delta);
+    this.groundChannels.update(delta);this.water.update(delta);
     this.jimothy.update(delta, this.cameraSystem.yaw, this.cameraSystem.aimPitch);
     this.streetLife.update(delta);
     this.physics.update(delta);

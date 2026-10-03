@@ -32,6 +32,10 @@ export class RippleField {
    if(!this.mask[k])this.current[k]=this.velocity[k]=0;
   }
  }
+ refreshGround({min,max}){
+  const N=this.size,i0=Math.max(0,Math.floor(min[0]/this.cell-this.x)),i1=Math.min(N-1,Math.ceil(max[0]/this.cell-this.x)),j0=Math.max(0,Math.floor(min[2]/this.cell-this.z)),j1=Math.min(N-1,Math.ceil(max[2]/this.cell-this.z));
+  for(let j=j0;j<=j1;j++)for(let i=i0;i<=i1;i++){const k=j*N+i;this.mask[k]=this.ground((this.x+i)*this.cell,(this.z+j)*this.cell)<TERRAIN.SEA_LEVEL?1:0;if(!this.mask[k])this.current[k]=this.velocity[k]=0;}
+ }
  disturb(x,z,strength,radius=this.cell){
   const cx=Math.round(x/this.cell-this.x),cz=Math.round(z/this.cell-this.z),N=this.size;
   const footprint=Math.max(this.cell,radius),reach=Math.min(N,Math.ceil(C.SPLAT_RADIUS*footprint/this.cell));

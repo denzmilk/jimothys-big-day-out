@@ -1,5 +1,13 @@
 # Session state
 
+## Crash-furrow revision — JIM-70 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Broad continuous gouges, raised soil banks, earth clods and dust now follow giant rolling. A persistent height field shares its values with collision, terrain/shadow rendering and shoreline water, avoiding millions of saved air voxels and the terrain remesh delay. The native view exposed interrupted carving when he lost support in his own cut; a 100 m continuity regression now passes. Block cuts measure about 3.1–3.5 m; Absurd route samples 4–6.8 m.
+
+All 61 unit checks, five initial channel/beach cases and build pass. Native original-rig Chrome/Metal, 1280×800 Medium, live budgets, army disabled, warmed 100 m roll: Block/Absurd update-plus-render submission median 19.7/21.4 ms, p95 27.2/30.9, worst 58.7/41.1. Ground no longer waits on mesh jobs; structure meshes still lag (0/9 remaining after six settling seconds). This is not a locked frame-rate result. Evidence: `output/iterate/crash-furrow-*` logs and roll/floor captures. All 11 adjacent water/swimming checks and production pixel smoke pass with no console errors. Two support-loss reproductions fail as expected before JIM-73 repair.
+
+**Next:** confirmed floating street props, vegetation and building remnants (JIM-73), then the larger varied carrying layer (JIM-29), before the approved food → tourists → drivers milestones. These remain unfinished; existing screenshots visibly show the floating assets.
+
 ## Maximum-size rampage review and next content — 2026-10-03
 
 Chris reports maximum-size hitches, weak/unreliable destruction and an insufficient carrying layer; also floating assets after destruction. JIM-48/JIM-70 are reopened, collection remains JIM-29, and support loss is JIM-73. Current work: reproduce/profile a live-budget Absurd roll, repair the dominant cost and visible channel/collection/support failures, then verify native play and adjacent state. Previous technical checks do not constitute playtest acceptance.

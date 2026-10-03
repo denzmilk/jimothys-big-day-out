@@ -43,13 +43,15 @@ The spherical GiantCoat hides the original torso; fixed-size extremities disappe
 
 ### JIM-70 — Giant rolls do not carve continuous ground channels
 
-**Status:** reopened after Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 33 refinement.
+**Status:** revised implementation, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 33 refinement.
 
 Latest feedback: maximum-size rolling still hitches, destruction feels unreliable and the carved trail/carrying layer lacks impact. Inspect the continuous route with live work budgets, not only settled edits. Building rubble is not registered with collection, and the first 64 registered entities can fill the carry budget with tiny items. JIM-48 covers frame cost; JIM-29 covers the carrying layer; JIM-73 covers unsupported assets.
 
 Roll damage intentionally excludes implicit terrain and repeats separate spheres. Revise giant rolling to carve a continuous, shallow swept channel with bounded work, persistent ground/collision edits and clean reset. Lean rolling remains a light scrape. This explicitly supersedes the giant ground-protection part of JIM-16/JIM-61. Locations: `Game.onImpact`, `VoxelWorld`, `Constants`.
 
 **Repair:** shallow swept segments carve tapered banks and an actual persistent floor, with the original grade limiting repeat passes. The bounded shared queue preserves travel added at yield boundaries and alternates ground/structure work. Five channel unit checks and 25 unique relevant gameplay cases pass; build/pixel smoke and native views are clean. Block's sampled channel is 1.36–1.66 m deep. Native 100 m Block/Absurd rolls carry 64 objects; median CPU/render submission is 18.4/20.9 ms, with remaining heavy-destruction hitches documented in milestone 33. JIM-48 remains open.
+
+**Crash-furrow revision:** broad persistent height displacement replaces the narrow voxel groove for giant rolls. Approximately 3.1–3.5 m centre cuts at Block scale and 4–6.8 m along the checked Absurd route, with raised banks, soil colour, dust and clods. The same field drives rendered ground/shadows, contact and shoreline water. A regression caught self-excavation briefly ungrounding Jimothy and breaking the trail; it now passes across 100 m. Work and buffers are fixed-size. See milestone 33 for native timing and verification; JIM-48/JIM-73/JIM-29 remain separate.
 
 ### JIM-71 — Giant headbutts ignore upward aim against military aircraft
 

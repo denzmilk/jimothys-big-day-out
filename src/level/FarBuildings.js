@@ -52,8 +52,8 @@ export class FarBuildings {
   const matrix=new THREE.Matrix4();if(front===1)matrix.makeRotationY(-Math.PI/2).setPosition(b.vw*s,0,0);if(front===2)matrix.makeRotationY(Math.PI).setPosition(b.vw*s,0,b.vd*s);if(front===3)matrix.makeRotationY(Math.PI/2).setPosition(0,0,b.vd*s);
   geo.applyMatrix4(matrix);geo.translate(b.vx*s,b.vy*s,b.vz*s);return geo;
  }
- damage({bounds}){
-  if(!bounds)return;const box=new THREE.Box3(new THREE.Vector3(...bounds.min),new THREE.Vector3(...bounds.max)),seen=new Set();
+ damage({bounds,groundOnly}){
+  if(!bounds||groundOnly)return;const box=new THREE.Box3(new THREE.Vector3(...bounds.min),new THREE.Vector3(...bounds.max)),seen=new Set();
   for(let x=Math.floor(box.min.x/L.CELL);x<=Math.floor(box.max.x/L.CELL);x++)for(let z=Math.floor(box.min.z/L.CELL);z<=Math.floor(box.max.z/L.CELL);z++)for(const entry of this.grid.get(`${x},${z}`)||[]){
    if(seen.has(entry)||!entry.box.intersectsBox(box))continue;seen.add(entry);this.damaged.add(entry.id);for(const item of this.batches.entries.get(entry)||[])if(item)item.bank.mesh.setVisibleAt(item.instance,false);
   }

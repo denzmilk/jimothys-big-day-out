@@ -32,6 +32,7 @@ export class VoxelBatches {
   if(bank){if(bank.mesh.unusedVertexCount<reserved)bank.mesh.optimize();return bank;}
   const capacity=Math.max(this.limits.VERTICES,reserved),mesh=new THREE.BatchedMesh(this.limits.INSTANCES,capacity,0,this.materials[materialIndex]);
   mesh.castShadow=true;mesh.receiveShadow=true;
+  if(this.depthMaterial)mesh.customDepthMaterial=this.depthMaterial;
   // Its own per-object test uses the current main/shadow camera. A stale
   // aggregate sphere must not reject newly streamed chunks before that test.
   mesh.frustumCulled=false;this.scene.add(mesh);

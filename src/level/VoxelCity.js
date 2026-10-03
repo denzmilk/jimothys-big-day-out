@@ -1,6 +1,7 @@
 import { VOXEL, STREAM, TERRAIN, SEWER, BUILDINGS } from '../core/Constants.js';
 import {planInterior,writeInterior} from './InteriorLayout.js';
 import * as Layout from './Layout.js';
+import {profile as sewerProfile,roomsIn as sewerRoomsIn} from './SewerLayout.js';
 import {writeLandmarks} from './LandmarkVoxels.js';
 
 // Authored voxel content. Buildings are written as footprints + rules rather
@@ -200,32 +201,27 @@ function* buildFoundation(world, b) {
  *  `VOXEL.EMPTY`, not 0, for the bore. Below the stored skin a 0 means "nothing
  *  here, ask the height field", which fills the tunnel back in with rock the
  *  instant anything looks at it. */
-function* buildSewers(world, cx, cz) {
-  const C = VOXEL.CHUNK_XZ;
-  const s = VOXEL.SIZE;
-  const halfW = SEWER.WIDTH / 2;
-  for (let x = cx * C; x < cx * C + C; x++) {
+function* buildSewers(world,cx,cz) {
+  const C=VOXEL.CHUNK_XZ,s=VOXEL.SIZE,x0=cx*C*s,z0=cz*C*s;
+  const near=sewerRoomsIn(x0-SEWER.WIDTH,z0-SEWER.WIDTH,x0+C*s+SEWER.WIDTH,z0+C*s+SEWER.WIDTH);
+  const nodes=Layout.Masterplan.sewerNodesIn(x0-SEWER.WIDTH,z0-SEWER.WIDTH,x0+C*s+SEWER.WIDTH,z0+C*s+SEWER.WIDTH);
+  if(!nodes.length&&!near.length)return;
+  for(let x=cx*C;x<cx*C+C;x++){
     yield;
-    for (let z = cz * C; z < cz * C + C; z++) {
-      const wx = (x + 0.5) * s;
-      const wz = (z + 0.5) * s;
-      const d = Layout.Masterplan.sewerDistance(wx, wz, halfW + 1.2);
-      if (d > halfW + s) continue;
-      const surface = Layout.terrain.topSolidVoxelY(wx, wz);
-      const floor = surface - Math.round(SEWER.DEPTH / s);
-      const ceiling = floor + Math.round(SEWER.HEIGHT / s);
-      if (d <= halfW) {
-        // The bore, plus a floor and a ceiling that read as built rather than
-        // as a hole someone left in the rock.
-        world.set(x, floor - 1, z, CONCRETE);
-        for (let y = floor; y <= ceiling; y++) world.set(x, y, z, VOXEL.EMPTY);
-        world.set(x, ceiling + 1, z, BRICK);
-      } else {
-        // The lining. Without it the tunnel wall is implicit ground — solid to
-        // every query and invisible to the mesher, so the sewer would render as
-        // a black void with a floor.
-        for (let y = floor - 1; y <= ceiling + 1; y++) world.set(x, y, z, BRICK);
-      }
+    const wx=(x+.5)*s,row=nodes.filter(n=>Math.abs(n.x-wx)<SEWER.WIDTH+TERRAIN.CELL);
+    for(let z=cz*C;z<cz*C+C;z++){
+      const wz=(z+.5)*s,p=sewerProfile(wx,wz,near,row);
+      if(!p.edge)continue;
+      const masonry=(y)=>(y%SEWER.BRICK_ROWS===0&&(x+z+Math.floor(y/SEWER.BRICK_ROWS))%SEWER.BRICK_LENGTH===0)?SEWER.MORTAR_MATERIAL:SEWER.BRICK_MATERIAL;
+      const floor=Math.round((p.floor-(p.basin?SEWER.BASIN_DEPTH:p.channel?SEWER.GUTTER_DEPTH:0))/s),ceiling=Math.round((p.floor+p.height)/s);
+      if(p.inside){
+        world.set(x,floor-1,z,p.channel?MOSS:SEWER.WALKWAY_MATERIAL);
+        for(let y=floor;y<=ceiling;y++)world.set(x,y,z,VOXEL.EMPTY);
+        for(let y=ceiling+1;y<=ceiling+Math.ceil(SEWER.ROOF_THICKNESS/s);y++)world.set(x,y,z,p.room?SEWER.ROOM_MATERIAL[p.room.index]:masonry(y));
+        // Voxel pipework shares damage/persistence with its supporting wall.
+        if(!p.room&&Math.abs(p.d-(p.width/2-SEWER.PIPE_RADIUS))<SEWER.PIPE_RADIUS)
+          world.set(x,Math.round((p.floor+SEWER.PIPE_HEIGHT)/s),z,SEWER.PIPE_MATERIAL);
+      }else for(let y=floor-1;y<=ceiling+Math.ceil(SEWER.ROOF_THICKNESS/s);y++)world.set(x,y,z,masonry(y));
     }
   }
 }

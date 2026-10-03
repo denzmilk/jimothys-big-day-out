@@ -121,7 +121,7 @@ window.sewerEntrances = () => game.sewerEntrances();
 // This is the AC "no dead space you cannot get out of", and it is the reason it
 // is a property rather than an eyeball: a tunnel that looks fine from the
 // street can still be sealed 200 m along it.
-window.sewerEscapeRoute = (x, z, budget = 20000) => game.sewerEscapeRoute(x, z, budget);
+window.sewerEscapeRoute = (x, z, budget) => game.sewerEscapeRoute(x, z, budget);
 
 // Free-look hook for capturing overviews without the follow cam fighting it.
 window.debugCamera = (x, y, z, lx = 0, ly = 0, lz = 0) => {

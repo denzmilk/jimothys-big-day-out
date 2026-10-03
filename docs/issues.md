@@ -27,6 +27,14 @@ Chris preferred the earlier low, balanced slinking gait; the current IK produces
 
 **Repair:** preserve the original paw reach and knee bend plane, reduce lateral knee correction/crouch/lift, cap landing lead by each leg’s remaining reach, and land one diagonal pair before lifting the other. The reproduction failed before repair; nine speed/frame-rate combinations now retain two supports, with maximum 8.7 cm paw lift and 12.3 cm knee splay. All eight focused and 24 adjacent browser checks pass, alongside 70 units, build and production pixel smoke. The head-return fixture now removes whole-rig grounding translation: its lunge crosses a kerb, and the previous measurement mistook a 23 cm body-height correction for neck drift. Head motion/recovery thresholds are unchanged. Native original-rig studio and keyboard-driven world views are console-clean. Evidence: `output/iterate/slink-*`, `gait-final-*`; movement feel still needs Chris’s judgement.
 
+### JIM-77 — Sewers need a full rework; creatures read as brown blobs
+
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris).
+
+Current crab people are a flattened sphere and one eye instance each, without claws or legs. Sewers repeat a narrow rectangular brick bore with a headlamp and no distinct chambers, pipework or local lighting. Rework underground layout, visual landmarks, lighting and creature readability while preserving destructibility, bounded streaming and walkable exits. Existing milestone 18 supplies traversal/treasure/pursuit contracts. Locations: `CrabPeople`, `VoxelCity.buildSewers`, `CityPlanner` sewer graph and `SEWER` tuning.
+
+**Repair (milestone 48):** continuous centreline projections produce 3.6–5.8 m arched bores, shallow channels and 21 pump/overflow/maintenance chambers. Original Blender worker/scavenger/elder crab people have eye stalks, articulated knees and pincers, grounded scuttling and alarm reactions. Five physical equipment models, four nearby lights and two-sided exit signs replace the bare tunnel. Walls/pipework use destructible voxels; dropped creatures/equipment retain their ownership and vertical level. Counts are capped at 12 creatures and 28 fixtures. Thirty-one unique behaviour checks, 70 units, build and production pixel smoke pass; native views are console-clean. Details and limits in milestone 48; feel remains unapproved.
+
 ### JIM-75 — Animal control swings the net handle-first with idle arms
 
 **Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 29 refinement.

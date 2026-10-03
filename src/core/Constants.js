@@ -858,6 +858,10 @@ export const VOXEL = {
     30: { name: 'rusted iron', color: 0x85533d },
     31: { name: 'dark steel', color: 0x343b42 },
     32: { name: 'warm white', color: 0xece9d9 },
+    33: { name: 'damp sewer brick', color: 0x665047 },
+    34: { name: 'oxidised pipe', color: 0x426c66 },
+    35: { name: 'sewer mortar', color: 0x8b8272 },
+    36: { name: 'sewer paving', color: 0x6f736d },
     25: { name: 'wet sand', color: 0x9e9276 },
     13: { name: 'ivory trim', color: 0xf2e7ce },
     14: { name: 'sage siding', color: 0x829986 },
@@ -978,8 +982,26 @@ export const SEWER = {
   DEPTH: 8.2,
   // Bore. Wide enough for a fat Jimothy and an animal controller at once,
   // low enough to feel like a pipe rather than a corridor.
-  WIDTH: 3.6,
-  HEIGHT: 2.9,
+  WIDTH: 5.8,
+  HEIGHT: 4.3,
+  MAINTENANCE_WIDTH: 3.6, WALL_HEIGHT: 2.65, ARCH_RISE: 1.65,
+  NARROW_NEAR_EXIT: 4, SECTION_LENGTH: 46, GUTTER_WIDTH: .9, GUTTER_DEPTH: .22,
+  ROOM_OFFSET: 24, ROOM_RADIUS: [6.2,7.2,5.8], ROOM_HEIGHT: [5.1,5.8,4.4],
+  ROOM_KINDS: ['pump','overflow','maintenance'], ROOM_BLEND: 2,
+  FIXTURE_RADIUS: 65, FIXTURE_LIMIT: 28, FIXTURE_REFRESH: 8,
+  LOCAL_LIGHT_LIMIT: 4, LOCAL_LIGHT_INTENSITY: 32, LOCAL_LIGHT_RANGE: 17,
+  LOCAL_LIGHT_COLORS: [0xffd39a,0xa3d9c4,0xffd39a],
+  WATER_COLOR: 0x285b50, WATER_OPACITY: .72, WATER_OFFSET: .045, WATER_SPEED: .6,
+  FIXTURE_MASS: 45, FIXTURE_KICK: 3, FIXTURE_LIFT: 1.8, FIXTURE_SPIN: 1.2,
+  SIGN_COLOR: 0x21483d, SIGN_TEXT: 0xf2e8be, SIGN_WIDTH: 1.45, SIGN_HEIGHT: .58,
+  PIPE_RADIUS: .16, PIPE_HEIGHT: 2.25, PIPE_MATERIAL: 34,
+  WALKWAY_MATERIAL: 36, ROOM_MATERIAL: [33,33,6], BRICK_MATERIAL: 33, MORTAR_MATERIAL: 35,
+  BRICK_ROWS: 3, BRICK_LENGTH: 5,
+  ROOM_PROP_INSET: .56, SIGN_Y: 2.45,
+  GUTTER_TILE: 2, WATER_RADIUS: 45, WATER_LIMIT: 1000,
+  LINING_CELLS: 2, ROOF_THICKNESS: .88, BASIN_SHARE: .42, BASIN_DEPTH: .66,
+  ESCAPE_BUDGET: 100000, WAVE_FREQUENCY: 7, RIPPLE_REACH: 3,
+  RIPPLE_FREQUENCY: 9,
   // Below this length a run of centreline is a puddle, not a tunnel, and gets
   // no sewer at all — an unreachable pocket in the rock is worse than nothing.
   MIN_RUN: 60,
@@ -1035,7 +1057,7 @@ export const TREASURE = {
 // does not care about your wanted level, which is what makes going down there a
 // change of situation rather than a safer version of the surface.
 export const CRABS = {
-  COUNT: 22,        // live at once, streamed around him like everything else
+  COUNT: 12,        // articulated nearby actors, shared geometry
   SPEED: 1.7,
   SCUTTLE_SPEED: 4.4,
   // Jimothy this close and they scatter. They are not a threat and not a score
@@ -1044,6 +1066,11 @@ export const CRABS = {
   SCUTTLE_SECONDS: 3,
   SIZE: 0.34,
   COLOR: 0xc9502f,
+  MODELS: ['worker','scavenger','elder'], RADIUS: 44, SPAWN_GAP: 3,
+  WANDER_DISTANCE: 9, REPATH: 1.8, GROUND_SCAN: .8, WALL_SCAN: .65,
+  FOOT_LIFT: .07, FOOT_STRIDE: .22, STEP_HZ: 3.6, FOOT_CLEARANCE: .035,
+  TURN_RESPONSE: 10, CLAW_WAVE: .20, PINCER_WAVE: .28,
+  FALL_GRAVITY: 18, FLOOR_STEP: .45, KNOCK_SPEED: 4, KNOCK_SECONDS: .65,
 };
 
 // Chunk streaming (milestone 12, JIM-01). The world is generated around the

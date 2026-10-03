@@ -661,6 +661,17 @@ export function sewerDistance(x, z, max = 6) {
   return best;
 }
 
+/** Sparse centreline samples let underground dressing reuse the baked network. */
+export function sewerNodesIn(x0,z0,x1,z1) {
+  bake();const out=[];
+  for(let z=toCell(z0);z<=toCell(z1);z++)for(let x=toCell(x0);x<=toCell(x1);x++)
+    if(inGrid(x,z)&&sewerCell[idx(x,z)]){
+      const links=[[1,0],[0,1],[1,1],[-1,1]].filter(([dx,dz])=>inGrid(x+dx,z+dz)&&sewerCell[idx(x+dx,z+dz)]).map(([dx,dz])=>[dx*CELL,dz*CELL]);
+      out.push({x:toWorld(x),z:toWorld(z),links});
+    }
+  return out;
+}
+
 /** Is the sewer centreline in this cell? */
 export function isSewerLine(x, z) {
   bake();

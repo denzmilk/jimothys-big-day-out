@@ -1,5 +1,15 @@
 # Session state
 
+## Sewer rework — JIM-77 / milestone 48 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Sewers now have 3.6–5.8 m arched drains, shallow channels and 21 pump/overflow/maintenance chambers. Three original Blender crab-person variants have visible eye stalks, claws and articulated legs; they scuttle, react and can be carried/released alive. Five physical equipment models, four local lights and readable two-sided exit signs add detail. Structure/pipework remain destructible voxels; equipment falls when unsupported, and displaced props persist. Both sewer and surface releases preserve their objects. Drainage uses animated shallow-water surfaces and ripples, not fluid-volume/pressure simulation.
+
+All 31 unique sewer/adjacent browser checks, 70 units, build and production pixel smoke pass. The integrity fixture now waits for cross-district generation before searching every chamber family and verifies damage after travel. The deeper/wider search is centrally bounded at 100,000 cells, and its window wrapper uses that same default. Native original-rig Chrome/Metal views are console-clean. Warmed 1280×800 Medium pump / overflow / maintenance medians are 10.6 / 10.5 / 11.7 ms for update plus render submission; p95 12.0 / 11.2 / 14.7 ms. All three have 12 crabs, no queued columns/meshes. These are stationary lean-room samples, not an FPS or giant-performance sign-off. Evidence: `output/iterate/sewer-*`; model sources, exact reference prompt and recipe in `assets/blender/sewer/README.md`.
+
+**Play at http://127.0.0.1:4174.** Open the gear panel → **Drop into the nearest sewer**, then follow the drain to its chamber; exit signs lead back to the stairs. Judge this together with JIM-76’s repaired walk below. Both are awaiting Chris’s hands-on sign-off. The optional creature preference was unanswered, so the established crab-people theme was retained.
+
+**Next approved content order remains 40 food tiers/edible landmarks → 41 tourists → 42 drivers.** The city/skyscraper and 36-keepsake proposal still awaits its priority answer; no city/keepsake milestone has been assumed approved.
+
 ## Slinking walk repair — JIM-76 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Foot IK now keeps the original paw projection and knee bend direction, lowers step lift, limits reach and retains a supporting diagonal pair. Nine speed/frame-rate combinations have maximum 8.7 cm paw lift and 12.3 cm knee splay. All eight focused and 24 adjacent browser checks pass; 70 units, build and production pixel smoke pass. Headbutt recovery now excludes whole-rig ground correction from its neck measurement. Native original-rig studio and keyboard-driven world views are console-clean. Evidence: `output/iterate/slink-*`, `gait-final-*`. Play at **http://127.0.0.1:4174** to judge the restored walking character.

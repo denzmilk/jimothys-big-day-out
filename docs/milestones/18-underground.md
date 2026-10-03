@@ -99,3 +99,7 @@ No special case, no off-switch: the chase continues underground. That avoids the
 ## Exit condition
 
 User drops down a manhole in Trashattan, gets lost, meets a crab person, digs up a Tamagotchi, and surfaces somewhere in Compost Hill with no idea how he got there.
+
+## Superseding visual rework — 2026-10-03
+
+Milestone 48 / JIM-77 replaces the rectangular bore and shell/eye placeholders with varied arched drains, 21 chambers, physical equipment, local lighting and three articulated crab-person variants. Existing escape, pursuit, camera and zero-economy treasure contracts remain tested. Its shallow drainage surfaces are visual effects; no new pressure simulation or faction combat is implied. Both underground milestones remain subject to Chris’s playtest.

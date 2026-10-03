@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import * as Layout from '../level/Layout.js';
-import {COLLECTION as C,BODY_CONTACT} from '../core/Constants.js';
+import {COLLECTION as C,BODY_CONTACT,SEWER} from '../core/Constants.js';
 import {canPush} from '../core/BodyContact.js';
 import {gameState} from '../core/GameState.js';
 import {eventBus,Events} from '../core/EventBus.js';
@@ -70,12 +70,14 @@ export class RollCollector {
     const j=this.jimothy,i=this.dropSerial++%C.CAPACITY;
       this.scene.attach(e.mesh);
       let x=j.body.position.x,z=j.body.position.z,y=this.voxels.terrainHeightAt(x,z);
+      const underground=y-j.body.position.y>SEWER.BELOW;
+      if(underground)y=this.voxels.groundHeightAt(x,z,j.body.position.y);
       for(let attempt=0;attempt<C.CAPACITY;attempt++){
         const angle=(i+attempt)*Math.PI*(3-Math.sqrt(5)),r=j.radius+C.RELEASE_GAP+Math.sqrt(i+attempt)*C.RELEASE_SPACING;
         const candidateX=j.body.position.x+Math.cos(angle)*r,candidateZ=j.body.position.z+Math.sin(angle)*r;
         if(Layout.Masterplan.classAt(candidateX,candidateZ)===Layout.Masterplan.CLASS.WATER&&!j.diving)continue;
-        if(Layout.Masterplan.buildingsIn(candidateX,candidateZ,candidateX,candidateZ).some(b=>candidateX>=b.x&&candidateX<=b.x+b.w&&candidateZ>=b.z&&candidateZ<=b.z+b.d))continue;
-        const surface=this.voxels.terrainHeightAt(candidateX,candidateZ),candidateY=this.voxels.groundHeightAt(candidateX,candidateZ,surface+C.RELEASE_SCAN);
+        if(!underground&&Layout.Masterplan.buildingsIn(candidateX,candidateZ,candidateX,candidateZ).some(b=>candidateX>=b.x&&candidateX<=b.x+b.w&&candidateZ>=b.z&&candidateZ<=b.z+b.d))continue;
+        const surface=this.voxels.terrainHeightAt(candidateX,candidateZ),candidateY=this.voxels.groundHeightAt(candidateX,candidateZ,underground?j.body.position.y:surface+C.RELEASE_SCAN);
         if(!this.voxels.solidAtWorld(candidateX,candidateY+C.FALLBACK_Y,candidateZ)){x=candidateX;y=candidateY;z=candidateZ;break;}
       }
       const position=new THREE.Vector3(x,y+e.size/2,z);e.mesh.position.copy(position);e.mesh.quaternion.identity();e.attached=false;

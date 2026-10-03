@@ -1,173 +1,83 @@
 import * as THREE from 'three';
-import { CRABS, SEWER, VOXEL, STREAM } from '../core/Constants.js';
-import { eventBus, Events } from '../core/EventBus.js';
-import { gameState } from '../core/GameState.js';
-import * as Layout from '../level/Layout.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {CRABS as C,SEWER} from '../core/Constants.js';
+import {eventBus,Events} from '../core/EventBus.js';
+import {gameState} from '../core/GameState.js';
+import {solveTwoBone} from '../core/Grounding.js';
+import * as Plan from '../level/CityPlanner.js';
+import {profile} from '../level/SewerLayout.js';
 
-// The crab people (milestone 18).
-//
-// An underground faction with their own territory, going about their business
-// and reacting badly to a raccoon. Deliberately NOT a heat tier: they are a
-// separate ecology that does not care about your wanted level, which is what
-// makes going down there a change of situation rather than a safer version of
-// the surface. Animal control wants you; the crab people just want you to leave.
-//
-// Tone check from the milestone: this is meme-slop, and crab people are already
-// a joke that exists. Play it straight and let the absurdity do the work — they
-// have somewhere to be and you are in the way of it.
-//
-// Instanced, streamed and physics-free, exactly like the pedestrians: they live
-// only where the sewer does, which is the cheapest possible statement of
-// "territory" and also a true one.
+// M48: articulated, shared Blender meshes replace the anonymous shell blobs.
+// Crabs remain an underground ecology; they add neither heat nor run endings.
 export class CrabPeople {
-  constructor(scene, jimothy, voxels) {
-    this.scene = scene;
-    this.jimothy = jimothy;
-    this.voxels = voxels;
-    this.crabs = [];
-    this.elapsed = 0;
-    this.alarmed = 0;
-
-    // A shell and two eyes on stalks. Enough silhouette to read as a crab
-    // person in a torchlit tunnel, which is the only place they are ever seen.
-    const mat = new THREE.MeshStandardMaterial({ color: CRABS.COLOR, roughness: 0.55 });
-    const shell = new THREE.SphereGeometry(CRABS.SIZE, 10, 7);
-    shell.scale(1.35, 0.62, 1);
-    this.bodies = new THREE.InstancedMesh(shell, mat, CRABS.COUNT);
-    this.eyes = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(CRABS.SIZE * 0.22, 6, 5),
-      new THREE.MeshStandardMaterial({ color: 0xf6e6c8, emissive: 0x3a2a10 }),
-      CRABS.COUNT,
-    );
-    for (const m of [this.bodies, this.eyes]) {
-      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      m.frustumCulled = false;
-      m.count = 0;
-      scene.add(m);
-    }
-    this._m = new THREE.Matrix4();
-    this._q = new THREE.Quaternion();
-    this._s = new THREE.Vector3(1, 1, 1);
-    this._v = new THREE.Vector3();
+ constructor(scene,jimothy,voxels){
+  Object.assign(this,{scene,jimothy,voxels,crabs:[],elapsed:0,alarmed:0,ready:false,serial:0});
+  const loader=new GLTFLoader();this.loading=Promise.all(C.MODELS.map(kind=>loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/sewer/${kind}.glb`))).then(models=>{this.models=models;this.ready=true;}).catch(e=>console.error('Crab assets failed',e));
+  eventBus.on(Events.ENTITY_ATTACH,({id})=>{const c=this.crabs.find(c=>c.id===id);if(c){c.attached=true;c.displaced=true;}});
+  eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const c=this.crabs.find(c=>c.id===id);if(c){c.attached=false;c.x=position.x;c.z=position.z;c.y=ground;c.vy=0;c.mesh.quaternion.identity();c.alarm=C.SCUTTLE_SECONDS;c.legs.forEach(l=>l.target=null);}});
+  eventBus.on(Events.WORLD_IMPACT,h=>{for(const c of this.crabs)if(!c.attached&&Math.hypot(c.x-h.x,c.y-h.y,c.z-h.z)<h.radius+C.SIZE){const d=Math.hypot(c.x-h.x,c.z-h.z)||1;c.kick={x:(c.x-h.x)/d*C.KNOCK_SPEED,z:(c.z-h.z)/d*C.KNOCK_SPEED,t:C.KNOCK_SECONDS};c.alarm=C.SCUTTLE_SECONDS;}});
+ }
+ remove(c){eventBus.emit(Events.ENTITY_UNREGISTER,{id:c.id});c.mesh.removeFromParent();this.crabs.splice(this.crabs.indexOf(c),1);}
+ populate(){
+  const j=this.jimothy.position,nodes=Plan.sewerNodesIn(j.x-C.RADIUS,j.z-C.RADIUS,j.x+C.RADIUS,j.z+C.RADIUS).sort((a,b)=>Math.hypot(a.x-j.x,a.z-j.z)-Math.hypot(b.x-j.x,b.z-j.z));
+  for(const spot of nodes){
+   if(this.crabs.length>=C.COUNT)break;
+   if(Math.hypot(spot.x-j.x,spot.z-j.z)<C.SPAWN_GAP||this.crabs.some(c=>Math.hypot(c.x-spot.x,c.z-spot.z)<C.SPAWN_GAP))continue;
+   const p=profile(spot.x,spot.z),y=this.voxels.groundHeightAt(spot.x,spot.z,p.floor+C.GROUND_SCAN);
+   if(Math.abs(y-p.floor)>C.GROUND_SCAN||this.voxels.solidAtWorld(spot.x,y+C.WALL_SCAN,spot.z))continue;
+   const index=this.serial%C.MODELS.length,mesh=new THREE.Group(),visual=this.models[index].scene.clone(true);mesh.add(visual);mesh.position.set(spot.x,y,spot.z);this.scene.add(mesh);mesh.updateMatrixWorld(true);
+   const legs=Array.from({length:4},(_,i)=>{const hip=mesh.getObjectByName(`leg_${i}`),knee=mesh.getObjectByName(`knee_${i}`),foot=mesh.getObjectByName(`foot_${i}`);return {hip,knee,foot,rest:mesh.worldToLocal(foot.getWorldPosition(new THREE.Vector3())),hipQ:hip.quaternion.clone(),kneeQ:knee.quaternion.clone(),target:null};});
+   const c={id:`crab:${this.serial++}`,kind:C.MODELS[index],x:spot.x,z:spot.z,y,vy:0,yaw:0,mesh,visual,legs,alarm:0,phase:0,wait:0,tx:spot.x,tz:spot.z,attached:false};
+   this.crabs.push(c);eventBus.emit(Events.ENTITY_REGISTER,{id:c.id,mesh,kind:'crab-person',size:new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3()).length()});
   }
-
-  /** Somewhere on the sewer centreline near him, at tunnel-floor height. */
-  _spawnSpot(seed) {
-    const jp = this.jimothy.position;
-    const R = STREAM.LOAD_RADIUS * VOXEL.CHUNK_XZ * VOXEL.SIZE;
-    for (let n = 0; n < 24; n++) {
-      let h = (Math.imul(seed + n, 374761393) ^ 0x9e3779b9) >>> 0;
-      h = Math.imul(h ^ (h >>> 13), 1274126177);
-      h = (h ^ (h >>> 16)) >>> 0;
-      const x = jp.x + (((h & 1023) / 1024) * 2 - 1) * R;
-      const z = jp.z + ((((h >>> 10) & 1023) / 1024) * 2 - 1) * R;
-      if (!Layout.Masterplan.isSewerLine(x, z)) continue;
-      return { x, z, y: this.voxels.terrainHeightAt(x, z) - SEWER.DEPTH };
-    }
-    return null;
+ }
+ walkable(c,x,z){
+  const y=this.voxels.groundHeightAt(x,z,c.y+C.GROUND_SCAN);
+  return Math.abs(y-c.y)<=C.FLOOR_STEP&&!this.voxels.solidAtWorld(x,y+C.WALL_SCAN,z)&&!this.voxels.solidAtWorld(x,y+C.WALL_SCAN*2,z);
+ }
+ animate(c,dt,speed){
+  const root=c.mesh;root.position.set(c.x,c.y,c.z);root.rotation.y=c.yaw+Math.PI/2;root.updateMatrixWorld(true);
+  c.phase+=dt*C.STEP_HZ*(speed/C.SPEED);
+  for(let i=0;i<c.legs.length;i++){
+   const l=c.legs[i];l.hip.quaternion.copy(l.hipQ);l.knee.quaternion.copy(l.kneeQ);root.updateMatrixWorld(true);
+   const phase=c.phase*Math.PI*2+(i===0||i===3?0:Math.PI),wave=Math.sin(phase);
+   const home=root.localToWorld(l.rest.clone());home.y=this.voxels.groundHeightAt(home.x,home.z,c.y+C.GROUND_SCAN)+C.FOOT_CLEARANCE;
+   // Alternate diagonal supports. The world target stays still during stance;
+   // terrain only adjusts height, so lateral motion cannot skate the feet.
+   if(!l.target||wave>0||home.distanceTo(l.target)>C.FOOT_STRIDE*2){l.target=home; l.target.addScaledVector(new THREE.Vector3(Math.sin(c.yaw),0,Math.cos(c.yaw)),wave*C.FOOT_STRIDE);}
+   l.target.y=this.voxels.groundHeightAt(l.target.x,l.target.z,c.y+C.GROUND_SCAN)+C.FOOT_CLEARANCE+Math.max(0,wave)*C.FOOT_LIFT;
+   solveTwoBone(l.hip,l.knee,l.foot,l.target,new THREE.Vector3(i<2?-1:1,0,0).applyQuaternion(root.quaternion));
   }
-
-  update(delta) {
-    if (!gameState.game.isPlaying) return;
-    this.elapsed += delta;
-    const jp = this.jimothy.position;
-    const R = STREAM.LOAD_RADIUS * VOXEL.CHUNK_XZ * VOXEL.SIZE;
-    // Only while he is down there. They have their own lives when he isn't, and
-    // simulating them from the surface would be a draw call and a lie.
-    const below = this.voxels.terrainHeightAt(jp.x, jp.z) - jp.y > SEWER.BELOW;
-
-    // Drop the ones he has walked away from, then top up.
-    this.crabs = this.crabs.filter(
-      (c) => below && Math.max(Math.abs(c.x - jp.x), Math.abs(c.z - jp.z)) < R * 1.4,
-    );
-    if (below) {
-      while (this.crabs.length < CRABS.COUNT) {
-        const spot = this._spawnSpot(this.crabs.length + Math.floor(this.elapsed * 10));
-        if (!spot) break;
-        this.crabs.push({
-          ...spot, yaw: 0, alarm: 0, seed: this.crabs.length * 977 + 13, step: 0,
-          tx: spot.x, tz: spot.z,
-        });
-      }
-    }
-
-    this.alarmed = 0;
-    for (const c of this.crabs) {
-      const d = Math.hypot(jp.x - c.x, jp.z - c.z);
-      if (d < CRABS.ALARM_RADIUS && Math.abs(jp.y - c.y) < 4) {
-        if (c.alarm <= 0) eventBus.emit(Events.CRAB_ALARMED, { x: c.x, z: c.z });
-        c.alarm = CRABS.SCUTTLE_SECONDS;
-      }
-      let speed = CRABS.SPEED;
-      if (c.alarm > 0) {
-        c.alarm -= delta;
-        this.alarmed += 1;
-        speed = CRABS.SCUTTLE_SPEED;
-        // Straight away from the raccoon, along the tunnel if it can.
-        const inv = 1 / (d || 1);
-        c.tx = c.x + (c.x - jp.x) * inv * 14;
-        c.tz = c.z + (c.z - jp.z) * inv * 14;
-      }
-
-      const dx = c.tx - c.x;
-      const dz = c.tz - c.z;
-      const td = Math.hypot(dx, dz);
-      if (td < 1.2) {
-        // Somewhere else to be. Deterministic, like every other wander in this
-        // project — advanceTime has to reproduce it.
-        c.step += 1;
-        let h = (Math.imul(c.seed, 668265263) ^ Math.imul(c.step, 374761393)) >>> 0;
-        h = Math.imul(h ^ (h >>> 13), 1274126177);
-        const th = (((h ^ (h >>> 16)) >>> 0) & 1023) / 1024 * Math.PI * 2;
-        c.tx = c.x + Math.cos(th) * 12;
-        c.tz = c.z + Math.sin(th) * 12;
-      } else {
-        const step = Math.min(speed * delta, td);
-        const nx = c.x + (dx / td) * step;
-        const nz = c.z + (dz / td) * step;
-        // They stay in the pipe. Walking into the wall is what a crab person
-        // would do least.
-        if (!this.voxels.solidAtWorld(nx, c.y + 0.6, nz)) {
-          c.x = nx;
-          c.z = nz;
-          c.yaw = Math.atan2(dx, dz);
-        } else {
-          c.tx = c.x;
-          c.tz = c.z;
-        }
-      }
-      c.y = this.voxels.groundHeightAt(c.x, c.z, c.y + 1.5);
-    }
-    this._sync();
+  for(const [i,side] of ['L','R'].entries()){
+   const claw=root.getObjectByName(`claw_${side}`),pincer=root.getObjectByName(`pincer_${side}`);
+   claw.rotation.z=Math.sin(this.elapsed*C.STEP_HZ+i)*C.CLAW_WAVE*(c.alarm>0?1:.3);
+   pincer.rotation.z=Math.sin(this.elapsed*C.STEP_HZ+i)*C.PINCER_WAVE;
   }
-
-  _sync() {
-    const n = this.crabs.length;
-    this.bodies.count = n;
-    this.eyes.count = n;
-    for (let i = 0; i < n; i++) {
-      const c = this.crabs[i];
-      // A sideways scuttle, because of course it is.
-      const bob = Math.sin(this.elapsed * 9 + c.seed) * (c.alarm > 0 ? 0.08 : 0.02);
-      this._q.setFromEuler(new THREE.Euler(0, c.yaw + Math.PI / 2, bob));
-      this._m.compose(this._v.set(c.x, c.y + CRABS.SIZE * 0.6, c.z), this._q, this._s);
-      this.bodies.setMatrixAt(i, this._m);
-      this._m.compose(
-        this._v.set(c.x, c.y + CRABS.SIZE * 1.25, c.z), this._q, this._s,
-      );
-      this.eyes.setMatrixAt(i, this._m);
-    }
-    this.bodies.instanceMatrix.needsUpdate = true;
-    this.eyes.instanceMatrix.needsUpdate = true;
+ }
+ update(dt){
+  if(!this.ready||!gameState.game.isPlaying)return;this.elapsed+=dt;
+  const j=this.jimothy.position,below=this.voxels.terrainHeightAt(j.x,j.z)-j.y>SEWER.BELOW;
+  for(const c of [...this.crabs])if(!c.attached&&((!below&&!c.displaced)||Math.hypot(c.x-j.x,c.z-j.z)>C.RADIUS))this.remove(c);
+  if(below&&this.crabs.length<C.COUNT)this.populate();this.alarmed=0;
+  for(const c of this.crabs){
+   if(c.attached)continue;
+   const d=Math.hypot(c.x-j.x,c.z-j.z);if(d<C.ALARM_RADIUS&&Math.abs(c.y-j.y)<SEWER.HEIGHT){if(c.alarm<=0)eventBus.emit(Events.CRAB_ALARMED,{x:c.x,z:c.z});c.alarm=C.SCUTTLE_SECONDS;}
+   c.alarm=Math.max(0,c.alarm-dt);if(c.alarm>0)this.alarmed++;
+   c.wait-=dt;
+   if(c.wait<=0||Math.hypot(c.tx-c.x,c.tz-c.z)<C.SPAWN_GAP/2){
+    const nodes=Plan.sewerNodesIn(c.x-C.WANDER_DISTANCE,c.z-C.WANDER_DISTANCE,c.x+C.WANDER_DISTANCE,c.z+C.WANDER_DISTANCE).filter(n=>Math.hypot(n.x-c.x,n.z-c.z)>C.SPAWN_GAP);
+    if(nodes.length){const target=c.alarm>0?nodes.reduce((a,b)=>Math.hypot(a.x-j.x,a.z-j.z)>Math.hypot(b.x-j.x,b.z-j.z)?a:b):nodes[(this.serial+Math.floor(this.elapsed/C.REPATH)+this.crabs.indexOf(c))%nodes.length];c.tx=target.x;c.tz=target.z;}c.wait=C.REPATH;
+   }
+   const dx=c.tx-c.x,dz=c.tz-c.z,dist=Math.hypot(dx,dz)||1,speed=c.alarm>0?C.SCUTTLE_SPEED:C.SPEED,step=Math.min(dist,speed*dt);
+   const vx=c.kick?.x??dx/dist*speed,vz=c.kick?.z??dz/dist*speed;
+   let moved=false;const nx=c.x+(c.kick?vx*dt:dx/dist*step),nz=c.z+(c.kick?vz*dt:dz/dist*step);
+   if(this.walkable(c,nx,nz)){c.x=nx;c.z=nz;moved=true;}else if(this.walkable(c,nx,c.z)){c.x=nx;moved=true;}else if(this.walkable(c,c.x,nz)){c.z=nz;moved=true;}else c.wait=0;
+   if(c.kick){c.kick.t-=dt;if(c.kick.t<=0)c.kick=null;}
+   const floor=this.voxels.groundHeightAt(c.x,c.z,c.y+C.GROUND_SCAN);if(Math.abs(c.y-floor)<=C.FLOOR_STEP){c.y=floor;c.vy=0;}else {c.vy-=C.FALL_GRAVITY*dt;c.y=Math.max(floor,c.y+c.vy*dt);if(c.y===floor)c.vy=0;}
+   const target=Math.atan2(vx,vz),angle=Math.atan2(Math.sin(target-c.yaw),Math.cos(target-c.yaw));c.yaw+=angle*(1-Math.exp(-C.TURN_RESPONSE*dt));
+   this.animate(c,dt,moved?speed:0);
   }
-
-  reset() {
-    this.crabs = [];
-    this.alarmed = 0;
-    this._sync();
-  }
-
-  snapshot() {
-    return { count: this.crabs.length, alarmed: this.alarmed };
-  }
+ }
+ reset(){for(const c of [...this.crabs])this.remove(c);this.alarmed=0;this.elapsed=0;this.serial=0;}
+ snapshot(){return {ready:this.ready,count:this.crabs.length,alarmed:this.alarmed,kinds:[...new Set(this.crabs.map(c=>c.kind))],attached:this.crabs.filter(c=>c.attached).length};}
 }

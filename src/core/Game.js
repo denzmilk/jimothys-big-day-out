@@ -1,3 +1,4 @@
+import {SewerLife} from '../level/SewerLife.js';
 import * as THREE from 'three';
 import {
   CAMERA, COLORS, PLAYER_CONFIG, KEYBINDS, HIDE_SPOTS, VOXEL, WORLD, FATNESS, STREAM, SEWER,
@@ -152,6 +153,7 @@ class Game {
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
     this.treasures = new Treasures(this.scene, this.jimothy, this.voxels);
     this.crabs = new CrabPeople(this.scene, this.jimothy, this.voxels);
+    this.sewerLife=new SewerLife(this.scene,this.jimothy,this.voxels);
     this.tools=new ToolSystem(this.scene,this.jimothy,this.input,this.voxels);
     this.landmarks=new Landmarks(this.scene,this.jimothy,this.voxels,this.level.horizonCoverage);
     this.score = new ScoreSystem();
@@ -242,7 +244,7 @@ class Game {
       this.trashCans.reset();
       this.pursuers.reset();this.military.reset();
       this.treasures.reset();
-      this.crabs.reset();
+      this.crabs.reset();this.sewerLife.reset();
       this.debris.reset();
       this.glassShards.reset();
       this.carExplosions.reset();
@@ -428,7 +430,7 @@ class Game {
     this.debris.update(delta);
     this.glassShards.update(delta);
     this.treasures.update(delta);
-    this.crabs.update(delta);
+    this.crabs.update(delta);this.sewerLife.update(delta);
     // Underground is a property of DEPTH BELOW THIS COLUMN, not of a y value —
     // grade stopped being a constant when the island got hills (milestone 17).
     // An open crash furrow lowers outdoor grade. Comparing against its old
@@ -835,7 +837,7 @@ class Game {
    *
    *  Returns the surfacing point, or null. Bounded by `budget`, so a spec on a
    *  broken world fails instead of hanging. */
-  sewerEscapeRoute(x, z, budget = 20000) {
+  sewerEscapeRoute(x, z, budget = SEWER.ESCAPE_BUDGET) {
     const s = VOXEL.SIZE;
     const headroom = Math.ceil(1.2 / s);
     const climb = Math.floor(PLAYER_CONFIG.CLIMB_HEIGHT / s);
@@ -845,8 +847,8 @@ class Game {
     const seen = new Set([key(start)]);
     const queue = [start];
     let visited = 0;
-    while (queue.length && visited++ < budget) {
-      const [vx, vy, vz] = queue.shift();
+    while (visited < queue.length && visited < budget) {
+      const [vx, vy, vz] = queue[visited++];
       // Daylight: open sky above this voxel means he has surfaced.
       if ((vy + 0.5) * s >= this.voxels.terrainHeightAt((vx + 0.5) * s, (vz + 0.5) * s) - 0.5) {
         return { x: (vx + 0.5) * s, y: vy * s, z: (vz + 0.5) * s, visited };
@@ -881,7 +883,7 @@ class Game {
     const headroom = Math.ceil(1.2 / s);
     const [vx, , vz] = this.voxels.worldToVoxel(x, 0, z);
     const top = Math.floor(this.voxels.terrainHeightAt(x, z) / s);
-    for (let vy = top - Math.ceil(SEWER.BELOW / s); vy > top - 40; vy--) {
+    for (let vy = top - Math.ceil(SEWER.BELOW / s); vy > top - Math.ceil((SEWER.DEPTH+SEWER.BASIN_DEPTH+SEWER.ROOM_BLEND)/s); vy--) {
       if (this.isStandable(vx, vy, vz, headroom)) return [vx, vy, vz];
     }
     return null;
@@ -910,6 +912,7 @@ class Game {
         depth: +(this.voxels.terrainHeightAt(jp.x, jp.z) - jp.y).toFixed(2),
         treasure: this.treasures.snapshot(),
         crabs: this.crabs.snapshot(),
+        sewer: this.sewerLife.snapshot(),
         finds: gameState.player.finds,
       },
       hideSpots: HIDE_SPOTS.POSITIONS.map(([x, z]) => ({ x, z })),

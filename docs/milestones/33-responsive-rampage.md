@@ -63,3 +63,5 @@ JIM-70 crash-field revision: the initial broad-gouge and continuity reproduction
 All 11 water/swimming regression cases and production pixel smoke also pass with no console errors (`crash-furrow-adjacent-support-red.log`, `crash-furrow-smoke.log`). The same run confirms two failing support-loss reproductions before JIM-73 work.
 
 JIM-73 adds bounded support checks and collectible original-cell rubble. Street props/vegetation and a fully undermined generated house pass their falling/reset checks. A connected spanning roof remains supported by its surviving pier. All 64 units and adjacent impact/physics checks pass. See STATE for exact runs and the 24-piece / 0.88 m support grouping limits.
+
+JIM-48 sparse remeshing preserves row occupancy through edits/replay/snapshots and skips empty rows. All 67 units and twelve support/kerb/daylight/giant-impact cases pass. Native final route captures and a console-clean production pixel smoke are recorded in `sparse-mesh-*`; the six-second deterministic settling check now drains both tested scales. The matched native timing does not establish an FPS gain, and visible latency/performance still require Chris’s playtest.

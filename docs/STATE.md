@@ -1,5 +1,15 @@
 # Session state
 
+## Sparse remesh work — JIM-48 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Per-row solid counts let the mesher skip empty rooms/destroyed space and remove fully empty stored chunks immediately, retaining the same face/terrain/kerb calculations. Counts survive edit replay and are copied with in-flight mesh snapshots. Frame budgets are unchanged; extra storage is 10 KiB per chunk.
+
+The two work regressions first failed at 5,127/5,653 slices. One surviving cube now uses eight slices without terrain, or about 535 with the terrain prepasses. All 67 units, twelve support/footpath/daylight/giant-demolition checks, build and production pixel smoke pass. A test fixture initially compared against an unmaterialised implicit floor; replay correctly exposed extra ground, so the removed test cube moved above ground while preserving the neighbour-culling/replay assertions. No runtime rule was changed to satisfy it.
+
+Native original-rig Chrome/Metal, 1280×800 Medium, army disabled, warmed 100 m Block/Absurd roll: median 25.7/26.8 ms, p95 35.2/36.0, worst 86.9/53.0 (update plus render submission). This run does **not** demonstrate an FPS gain over the immediately preceding carrying-layer run. At route end, 88/53 meshes remain; both drain to zero after six simulated settling seconds, compared with 0/21 before. Settling uses deterministic work slices, whereas route movement uses live time budgets. Captures were inspected; console errors are absent. Evidence: `output/iterate/sparse-mesh-*`. General frame cost, first-use stalls and visible demolition latency still need playtest and remain JIM-48.
+
+**Next:** Chris plays the repaired giant rampage at **http://127.0.0.1:4174**, using Block/Absurd and holding C through streets. Judge the broad boulder/crash-landing gouge, falling unsupported assets and varied carrying layer. Then follow the approved milestones **40 food tiers/edible landmarks → 41 tourists → 42 drivers**; these are planned, not implemented. All earlier world/food/interior work remains in place and awaiting its existing playtest sign-off.
+
 ## Varied rolling collection — JIM-29 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Large visible objects can displace tiny scraps at the fixed 64-item limit, with diminishing preference for repeated kinds. Replaced objects release through their owners; stopping spreads release over six objects per update. Existing vegetation geometry becomes physical root clumps, and wildlife can be carried and released alive. Restart clears the additions.

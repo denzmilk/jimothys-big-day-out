@@ -196,6 +196,8 @@ Chris's 2026-10-02 playtest confirms a visible shape failure. Actual posed mesh 
 
 ### JIM-48 — Populated world exceeds the legacy draw-call budget
 
+**Sparse remesh work, 2026-10-03:** row occupancy skips empty-space work and immediately clears wholly empty stored chunks. The one-cube reproduction falls from 5,127 to eight slices; all 67 units and twelve terrain/support/destruction browser checks pass, plus build/pixel smoke. The Absurd route’s 21 remaining meshes after six simulated settling seconds fall to zero. Native median/p95 are not better in this comparison; overall frame cost and visible live-budget latency remain open. See STATE for exact measurements and the distinction between live movement and deterministic settling.
+
 **Open-furrow shader stall, 2026-10-03:** comparing feet against original grade switched the outdoor crash trench into underground lighting. This invalidated shadow variants across the scene. Compare against displaced grade instead. The frame-by-frame daylight reproduction and eight furrow/lighting checks pass; matched instrumented native worst drops 305.3 → 67.1 ms, while median stays about 24 ms. First render is separate (~657 ms); further frame cost and remesh lag remain open. See STATE for captures and the unreproduced 1.66 s outlier.
 
 **Status:** reopened after Chris’s maximum-size playtest, 2026-10-03 · **Found:** 2026-10-02 during milestone 27 glass verification

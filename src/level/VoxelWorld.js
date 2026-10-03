@@ -138,7 +138,7 @@ export class VoxelWorld {
       const [ex, ey, ez] = key.split(',').map(Number);
       const chunk = this.chunks.get(key) || this._createChunk(ex, ey, ez);
       let replayed=0;
-      for (const [idx,mat]of edits){chunk.data[idx]=mat;this._updateOccupancy(chunk,idx,mat);if(++replayed%W.REPLAY_BATCH===0)yield;}
+      for (const [idx,mat]of edits){this._updateOccupancy(chunk,idx,mat);if(++replayed%W.REPLAY_BATCH===0)yield;}
       this._markDirty(chunk);
     }
     // A hole is a hole because of what SURROUNDS it. Below the stored skin the
@@ -240,7 +240,7 @@ export class VoxelWorld {
   _createChunk(cx, cy, cz) {
     const CX = VOXEL.CHUNK_XZ;
     const chunk = {
-      cx, cy, cz, data: new Uint8Array(CX * VOXEL.CHUNK_Y * CX), damageColumns:new Map(),terrainTops:new Int32Array(CX*CX).fill(-2147483648), mesh: null, dirty: true, revision: 0,
+      cx, cy, cz, data: new Uint8Array(CX * VOXEL.CHUNK_Y * CX), rowCounts:new Uint16Array(CX*VOXEL.CHUNK_Y),solidCount:0,damageColumns:new Map(),terrainTops:new Int32Array(CX*CX).fill(-2147483648), mesh: null, dirty: true, revision: 0,
     };
     const key = this._key(cx, cy, cz);
     this.chunks.set(key, chunk);
@@ -253,6 +253,8 @@ export class VoxelWorld {
 
   _updateOccupancy(chunk,index,mat){
     const C=VOXEL.CHUNK_XZ,CY=VOXEL.CHUNK_Y,x=index%C,row=Math.floor(index/C),y=row%CY,z=Math.floor(row/CY),column=x+C*z;
+    const old=chunk.data[index],delta=Number(!!mat&&mat!==VOXEL.EMPTY)-Number(!!old&&old!==VOXEL.EMPTY);
+    chunk.rowCounts[row]+=delta;chunk.solidCount+=delta;chunk.data[index]=mat;
     let floor=chunk.terrainTops[column];
     if(floor===-2147483648){floor=this.terrain?this.terrain.topSolidVoxelY((chunk.cx*C+x+.5)*VOXEL.SIZE,(chunk.cz*C+z+.5)*VOXEL.SIZE):-2147483647;chunk.terrainTops[column]=floor;}
     let bits=chunk.damageColumns.get(column)||0;
@@ -291,7 +293,7 @@ export class VoxelWorld {
   set(vx, vy, vz, mat) {
     const chunk = this._chunkFor(vx, vy, vz, true);
     if (!chunk) return; // outside the column currently being generated
-    const index=this._localIndex(vx,vy,vz);chunk.data[index]=mat;this._updateOccupancy(chunk,index,mat);
+    const index=this._localIndex(vx,vy,vz);this._updateOccupancy(chunk,index,mat);
     this._markDirty(chunk);
     if(!this._writeColumn){
       const local=[((vx%VOXEL.CHUNK_XZ)+VOXEL.CHUNK_XZ)%VOXEL.CHUNK_XZ,((vy%VOXEL.CHUNK_Y)+VOXEL.CHUNK_Y)%VOXEL.CHUNK_Y,((vz%VOXEL.CHUNK_XZ)+VOXEL.CHUNK_XZ)%VOXEL.CHUNK_XZ];
@@ -805,7 +807,7 @@ export class VoxelWorld {
           if(d<distance){nearest=chunk;distance=d;}
         }
         if(!nearest)break;
-        const snapshot={...nearest,data:nearest.data.slice()};
+        const snapshot={...nearest,data:nearest.data.slice(),rowCounts:nearest.rowCounts.slice()};
         work=this._meshWork={chunk:nearest,key:this._key(nearest.cx,nearest.cy,nearest.cz),revision:nearest.revision,task:this._buildChunkTask(snapshot)};
       }
       const result=work.task.next();slices++;
@@ -820,6 +822,7 @@ export class VoxelWorld {
   }
 
   *_buildChunkTask(chunk) {
+    if(!chunk.solidCount)return null;
     const CX = VOXEL.CHUNK_XZ;
     const CY = VOXEL.CHUNK_Y;
     const s = VOXEL.SIZE;
@@ -987,6 +990,9 @@ export class VoxelWorld {
     };
     for (let lz = 0; lz < CX; lz++) {
       for (let ly = 0; ly < CY; ly++) {
+        // Empty rooms and demolished space used thousands of scheduled slices
+        // while the stale building stayed visible (JIM-48).
+        if(!chunk.rowCounts[ly+CY*lz])continue;
         yield;
         for (let lx = 0; lx < CX; lx++) {
           const mat = chunk.data[lx + CX * (ly + CY * lz)];

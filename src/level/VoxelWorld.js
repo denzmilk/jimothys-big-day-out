@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {VoxelBatches} from '../core/VoxelBatches.js';
-import { VOXEL, STREAM, TERRAIN, PAVING, VOXEL_BATCH, BEACH, GROUND_CHANNEL, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
+import {supportTask} from '../core/VoxelSupport.js';
+import { VOXEL, STREAM, TERRAIN, PAVING, VOXEL_BATCH, BEACH, GROUND_CHANNEL, SUPPORT, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
 
 // Chunked destructible voxel grid (ADR-0003).
 //
@@ -703,7 +704,9 @@ export class VoxelWorld {
       // Alternate ground and structural work so a large building cannot
       // postpone the physical rolling floor until several streets later.
       const channel=this.damageQueue.findIndex(j=>j.kind==='channel');
-      const structure=this.damageQueue.findIndex(j=>j.kind!=='channel');
+      const impact=this.damageQueue.findIndex(j=>j.kind!=='channel'&&j.kind!=='support'),support=this.damageQueue.findIndex(j=>j.kind==='support');
+      this.supportTurn=(this.supportTurn||0)+1;
+      const structure=support>=0&&(impact<0||this.supportTurn%SUPPORT.DAMAGE_SHARE===0)?support:impact;
       const index=channel>=0&&(this.damageTurn++%2===0||structure<0)?channel:Math.max(0,structure);
       const job=this.damageQueue[index];job.started=true;job.task??=job.kind==='channel'?this._groundChannelTask(job):this._damageSphereTask(job);
       const batch=job.task.next();slices++;
@@ -714,6 +717,14 @@ export class VoxelWorld {
       if(batch.done)this.damageQueue.splice(index,1);
     }
     this.lastDamageMs=performance.now()-started;return reports;
+  }
+
+  supportTask(bounds){return supportTask(this,bounds);}
+
+  queueSupport(bounds,key){
+    if(this.damageQueue.length>=W.MAX_DAMAGE_QUEUE)return false;
+    if(this.damageQueue.some(j=>j.kind==='support'&&j.key===key))return false;
+    this.damageQueue.push({kind:'support',key,cx:(bounds.min[0]+bounds.max[0])/2,cy:bounds.min[1],cz:(bounds.min[2]+bounds.max[2])/2,task:this.supportTask(bounds)});return true;
   }
 
   *_damageSphereTask({cx,cy,cz,radius,digsTerrain}){
@@ -1128,7 +1139,7 @@ export class VoxelWorld {
 
   clear() {
     this.renderBatches.clear();
-    this._meshWork=null;this._columnWork.clear();this.damageQueue=[];this.damageTurn=0;
+    this._meshWork=null;this._columnWork.clear();this.damageQueue=[];this.damageTurn=0;this.supportTurn=0;
     for (const chunk of this.chunks.values()) {
       if (chunk.mesh) {
         this.scene.remove(chunk.mesh);

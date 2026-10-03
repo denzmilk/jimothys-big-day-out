@@ -29,7 +29,7 @@ export class GroundChannelField {
  queue(from,to,radius,depth){
   if(this.pending.length>=C.MAX_SEGMENTS||!(radius>0&&depth>0))return false;
   const reach=radius*C.BANK_OUTER,x0=Math.floor((Math.min(from.x,to.x)-reach)/this.cell),x1=Math.ceil((Math.max(from.x,to.x)+reach)/this.cell),z0=Math.floor((Math.min(from.z,to.z)-reach)/this.cell),z1=Math.ceil((Math.max(from.z,to.z)+reach)/this.cell);
-  this.pending.push({from:{...from},to:{...to},radius,depth:Math.min(C.MAX_DEPTH,depth),x0,x1,z0,z1,x:x0,z:z0});return true;
+  this.pending.push({from:{...from},to:{...to},gradeFrom:this.grade(from.x,from.z),gradeTo:this.grade(to.x,to.z),radius,depth:Math.min(C.MAX_DEPTH,depth),x0,x1,z0,z1,x:x0,z:z0});return true;
  }
  update(){
   this.work=0;this.removed=0;this.changed=[];this.bounds=null;
@@ -38,8 +38,11 @@ export class GroundChannelField {
    const t=length2?Math.max(0,Math.min(1,((x-q.from.x)*dx+(z-q.from.z)*dz)/length2)):0,d=Math.hypot(x-q.from.x-dx*t,z-q.from.z-dz*t)/q.radius;
    const index=this.index(q.x,q.z);this.work++;
    if(index>=0&&d<C.BANK_OUTER){
-    const grade=this.grade(x,z),feet=q.from.y+(q.to.y-q.from.y)*t;
-    if(feet<=grade+C.CONTACT_SLOP&&feet>=grade-q.depth*(1+C.ROUGHNESS)-VOXEL.SIZE){
+    const grade=this.grade(x,z),feet=q.from.y+(q.to.y-q.from.y)*t,contactGrade=q.gradeFrom+(q.gradeTo-q.gradeFrom)*t;
+    // The air/bridge guard belongs to the travelling contact, not every point
+    // across its width. Per-cell guards left intact floating-looking terraces
+    // on the downhill side of an otherwise continuous crash furrow (JIM-73).
+    if(feet<=contactGrade+C.CONTACT_SLOP&&feet>=contactGrade-q.depth*(1+C.ROUGHNESS)-VOXEL.SIZE){
      const rough=1+C.ROUGHNESS*Math.sin(x*C.ROUGH_SCALE+Math.sin(z*C.ROUGH_SCALE))*Math.sin(z*C.ROUGH_SCALE);
      const amount=d<1?-q.depth*(1-d*d)*rough:q.depth*C.BANK_HEIGHT*Math.sin((d-1)/(C.BANK_OUTER-1)*Math.PI)*rough;
      const old=this.values[index],next=amount<0?Math.min(old,amount):old<0?old:Math.max(old,amount);

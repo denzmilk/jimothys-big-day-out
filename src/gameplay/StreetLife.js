@@ -31,6 +31,7 @@ export class StreetLife {
     this.markings.count=0;this.markings.frustumCulled=false;scene.add(this.markings);
     this.streetLights=Array.from({length:DAY_NIGHT.STREET_LIGHT_COUNT},()=>{const l=new THREE.PointLight(DAY_NIGHT.STREET_LIGHT_COLOR,0,DAY_NIGHT.STREET_LIGHT_RANGE);scene.add(l);return l;});
     eventBus.on(Events.WORLD_IMPACT,e=>this.impact(e));
+    eventBus.on(Events.PROP_UNSUPPORTED,({id})=>{const p=this.items.find(p=>p.id===id);if(p){this.disableControl(p);this.flow.release(id);p.driving=false;}});
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.items.find(p=>p.id===id);if(p){this.disableControl(p);this.flow.release(p.id);p.attached=true;p.driving=false;eventBus.emit(Events.PROP_SUSPEND,{id});}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.items.find(p=>p.id===id);if(p){p.attached=false;p.loose=true;p.mesh.position.set(position.x,ground+p.half[1]+C.CLEARANCE,position.z);eventBus.emit(Events.PROP_RELEASE,{id,position:p.mesh.position});}});
     this.vehicles=[];this.ready=false;

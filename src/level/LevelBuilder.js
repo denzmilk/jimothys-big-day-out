@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {InstanceBatches} from '../core/InstanceBatches.js';
-import { WORLD, COLORS, HIDE_SPOTS, TERRAIN, HORIZON, VOXEL, ATMOSPHERE as A, STREET } from '../core/Constants.js';
+import { WORLD, COLORS, HIDE_SPOTS, TERRAIN, HORIZON, VOXEL, ATMOSPHERE as A, STREET, SUPPORT } from '../core/Constants.js';
 import * as Terrain from './Terrain.js';
 import * as Masterplan from './CityPlanner.js';
 import { gameState } from '../core/GameState.js';
@@ -64,6 +64,9 @@ export class LevelBuilder {
     }
 
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.bushes.find(p=>p.id===id);if(p){p.attached=true;if(p.loose)eventBus.emit(Events.PROP_SUSPEND,{id});gameState.world.disabledHideSpots.add(`${p.x},${p.z}`);}});
+    eventBus.on(Events.WORLD_DEMOLISHED,({bounds})=>{if(!bounds)return;for(const p of this.bushes){const q=p.mesh.position;if(p.attached||p.loose||q.x<bounds.min[0]||q.x>bounds.max[0]||q.z<bounds.min[2]||q.z>bounds.max[2])continue;
+      const feet=p.origin.y-HIDE_SPOTS.RADIUS*STREET.BUSH_BURIED;if(voxels.groundHeightAt(q.x,q.z,feet)<feet-SUPPORT.GAP){p.loose=true;gameState.world.disabledHideSpots.add(`${p.x},${p.z}`);eventBus.emit(Events.PROP_CREATE,p);}
+    }});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.bushes.find(p=>p.id===id);if(p){p.attached=false;p.mesh.position.set(position.x,ground+p.half[1],position.z);if(!p.loose){p.loose=true;eventBus.emit(Events.PROP_CREATE,p);}else eventBus.emit(Events.PROP_RELEASE,{id,position:p.mesh.position});}});
     eventBus.on(Events.WORLD_IMPACT,({x,y,z,radius})=>{for(const p of this.bushes){if(p.attached||p.mesh.position.distanceTo(new THREE.Vector3(x,y,z))>radius+p.size/2)continue;gameState.world.disabledHideSpots.add(`${p.x},${p.z}`);if(!p.loose){p.loose=true;eventBus.emit(Events.PROP_CREATE,p);}const dx=p.mesh.position.x-x,dz=p.mesh.position.z-z,d=Math.hypot(dx,dz)||1;eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity:[dx/d*STREET.IMPULSE,STREET.LIFT,dz/d*STREET.IMPULSE],spin:STREET.SPIN});}});
     this.wallMat = new THREE.MeshStandardMaterial({ color: COLORS.WALL });

@@ -1,5 +1,5 @@
 import * as CANNON from 'cannon-es';
-import { WORLD, PHYSICS, VOXEL, STREET, RAGDOLL, WATER, TERRAIN, BODY_CONTACT } from '../core/Constants.js';
+import { WORLD, PHYSICS, VOXEL, STREET, RAGDOLL, WATER, TERRAIN, BODY_CONTACT, SUPPORT } from '../core/Constants.js';
 import {canPush,restrictMotion} from '../core/BodyContact.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
@@ -35,6 +35,12 @@ export class PhysicsSystem {
 
     this.buildWalls();
     this.props = new Map();
+    this.unsupported=new Set();
+    eventBus.on(Events.WORLD_DEMOLISHED,({bounds})=>{
+      if(!bounds)return;for(const [id,p] of this.props){const q=p.body.position,h=p.entity.half;
+        if(p.active&&p.body.type===CANNON.Body.KINEMATIC&&q.x+h[0]>=bounds.min[0]&&q.x-h[0]<=bounds.max[0]&&q.z+h[2]>=bounds.min[2]&&q.z-h[2]<=bounds.max[2])this.unsupported.add(id);
+      }
+    });
     eventBus.on(Events.PROP_CREATE, p => {
       const body = new CANNON.Body({mass:p.mass,type:p.loose?CANNON.Body.DYNAMIC:CANNON.Body.KINEMATIC,
         shape:new CANNON.Box(new CANNON.Vec3(...p.half)),linearDamping:STREET.DAMPING,angularDamping:STREET.DAMPING});
@@ -178,6 +184,7 @@ export class PhysicsSystem {
   }
 
   update(delta) {
+    this.checkSupport();
     this.accumulator += delta;
     while (this.accumulator >= this.fixedStep - 1e-9) {
       this._floatBodies(this.fixedStep);
@@ -191,6 +198,18 @@ export class PhysicsSystem {
     for (const { body, mesh } of this.pairs) {
       mesh.position.copy(body.position);
       mesh.quaternion.copy(body.quaternion);
+    }
+  }
+
+  checkSupport(){
+    let work=0;
+    for(const id of this.unsupported){
+      if(work++>=SUPPORT.PROP_WORK)break;this.unsupported.delete(id);const p=this.props.get(id);
+      if(!p?.active||p.body.type!==CANNON.Body.KINEMATIC)continue;
+      const q=p.body.position,s=this._support(p.body),feet=q.y-s.y;
+      const held=[[0,0],[s.x*SUPPORT.FOOTPRINT,0],[-s.x*SUPPORT.FOOTPRINT,0],[0,s.z*SUPPORT.FOOTPRINT],[0,-s.z*SUPPORT.FOOTPRINT]].some(([x,z])=>this.voxels.groundHeightAt(q.x+x,q.z+z,feet,0)>=feet-SUPPORT.GAP);
+      if(held)continue;
+      p.entity.loose=true;eventBus.emit(Events.PROP_UNSUPPORTED,{id});eventBus.emit(Events.PROP_RELEASE,{id,position:p.mesh.position});
     }
   }
 
@@ -225,13 +244,14 @@ export class PhysicsSystem {
    *  which is wrong but bounded rather than crashing. */
   _support(body) {
     const s=body.shapes[0];
-    if(!s?.halfExtents)return {y:s?.radius??VOXEL.SIZE/2,r:s?.radius??VOXEL.SIZE/2};
+    if(!s?.halfExtents){const r=s?.radius??VOXEL.SIZE/2;return {x:r,y:r,z:r,r};}
     // A knocked pole lies on its side. Keeping its upright half-height made
     // it float several metres above the ground after the physics rotation.
     const h=s.halfExtents,q=body.quaternion;
     const axes=[new CANNON.Vec3(h.x,0,0),new CANNON.Vec3(0,h.y,0),new CANNON.Vec3(0,0,h.z)];
     for(const v of axes)q.vmult(v,v);
-    return {y:axes.reduce((n,v)=>n+Math.abs(v.y),0),r:Math.max(axes.reduce((n,v)=>n+Math.abs(v.x),0),axes.reduce((n,v)=>n+Math.abs(v.z),0))};
+    const x=axes.reduce((n,v)=>n+Math.abs(v.x),0),z=axes.reduce((n,v)=>n+Math.abs(v.z),0);
+    return {x,z,y:axes.reduce((n,v)=>n+Math.abs(v.y),0),r:Math.max(x,z)};
   }
 
   /** Land every dynamic body on the voxel world, and stop it at walls.

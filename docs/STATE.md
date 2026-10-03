@@ -1,5 +1,13 @@
 # Session state
 
+## Destruction support — JIM-73 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Bounded support checks release undermined street props and their traffic reservations. Bushes lose their hiding function and fall; plant roots and ground animals follow excavated ground. Voxel support uses 0.88 m groups linked only across touching voxel faces, preserving connected spans and removing detached sections. Up to 24 pieces retain sampled original voxel shape/material, fall through shared physics and register for rolling collection. Collapse shares the existing work queue and cannot monopolise impact processing.
+
+The street/vegetation reproductions failed before repair, then passed. A generated craftsman roof loses all 1,854 sampled roof cells after its foundations are excavated; 24 falling pieces register and restart clears them. Two connectivity units cover a roof supported by one remaining pier, total support loss and yielding. A hillside reproduction corrected the air guard to use the travelling contact instead of rejecting lower soil across the furrow. All 64 units, the 12 support/impact/physics cases across final runs, eight final furrow/daylight/lighting cases, build and production pixel smoke pass. Native roll/floor views were inspected; steady timing and residual mesh backlog remain JIM-48, described below. All 15 traffic, street-life and environment regression cases pass (`support-traffic-environment.log`).
+
+Evidence: `output/iterate/support-*`, `crash-daylight-*`. Coarse connectivity and bounded representative rubble are the implementation; this is not a full rigid-body simulation of every voxel. Next: favour readable, varied carrying items and uprooted vegetation (JIM-29), then the approved content order in milestones 40–42.
+
 ## Open furrows retain daylight — JIM-48 — 2026-10-03
 
 **Implemented, awaiting playtest.** Depth detection now uses excavated outdoor grade. Entering a crash furrow was briefly classified as going underground, disabling sun shadows and synchronously compiling dozens of shader variants. A frame-by-frame regression failed first and now passes; all eight furrow/daylight/visible-shadow/clock checks pass. Build and production pixel smoke pass with no console errors.

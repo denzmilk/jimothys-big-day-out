@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone} from 'three/addons/utils/SkeletonUtils.js';
-import {ENVIRONMENT as C,BEACH} from '../core/Constants.js';
+import {ENVIRONMENT as C,BEACH,SUPPORT} from '../core/Constants.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 import * as Layout from './Layout.js';
@@ -43,6 +43,7 @@ export class EnvironmentLife {
    for(const p of this.plants)if(Math.hypot(p.x-h.x,p.y-h.y,p.z-h.z)<h.radius){this.flattened.add(p.key);p.flat=1;}
    for(const a of this.animals)if(a.mesh.position.distanceTo(new THREE.Vector3(h.x,h.y,h.z))<h.radius+C.FLEE_RADIUS)a.flee=C.FLEE_SECONDS;
   });
+  eventBus.on(Events.WORLD_DEMOLISHED,()=>{this.supportLeft=this.plants.length;});
  }
  _clear(x,z){
   if(Layout.terrain.sandAt(x,z)&&(this.voxels.terrainHeightAt(x,z)<BEACH.WET_BLEND_HIGH||hash(Math.floor(x),Math.floor(z))>BEACH.DUNE_GRASS_SHARE))return false;
@@ -57,7 +58,7 @@ export class EnvironmentLife {
    if(this.plants.length>=C.PLANT_LIMIT||Math.hypot(x-j.x,z-j.z)>R||!this._clear(x,z))continue;
    const y=this.voxels.terrainHeightAt(x,z),key=`${ix},${iz}`;
    const kind=Layout.terrain.sandAt(x,z)?(h<C.GRASS_SHARE/2?0:1):h<C.GRASS_SHARE?(h<C.GRASS_SHARE/2?0:1):2+Math.min(C.PLANTS.length-3,Math.floor((h-C.GRASS_SHARE)/(1-C.GRASS_SHARE)*(C.PLANTS.length-2)));
-   this.plants.push({x,y,z,key,kind,yaw:h*Math.PI*2,scale:C.SCALE_MIN+h*C.SCALE_RANGE,flat:this.flattened.has(key)?1:0});
+   this.plants.push({x,y,z,grade:y,key,kind,yaw:h*Math.PI*2,scale:C.SCALE_MIN+h*C.SCALE_RANGE,flat:this.flattened.has(key)?1:0});
   }
   for(const b of this.batches){b.items=this.plants.filter(p=>p.kind===b.index);b.mesh.count=b.items.length;}
   // Keep neighbours across window shifts: replacing them here cancels a flee
@@ -84,7 +85,9 @@ export class EnvironmentLife {
   this.wind.set(C.WIND_X*(1+C.GUST*Math.sin(this.time*C.GUST_HZ)),C.WIND_Z*(1+C.GUST*Math.cos(this.time*C.GUST_HZ)));
   gameState.world.wind=[this.wind.x,this.wind.y];this.uniforms.lifeTime.value=this.time;this.uniforms.lifePlayer.value.copy(j);this.uniforms.lifeRadius.value=this.jimothy.radius+C.BEND_RADIUS;
   this.bent=0;
+  for(let n=0;n<SUPPORT.PLANT_WORK&&this.supportLeft>0&&this.plants.length;n++,this.supportLeft--){this.supportCursor=((this.supportCursor||0)+1)%this.plants.length;const p=this.plants[this.supportCursor];p.floor=this.voxels.groundHeightAt(p.x,p.z,p.grade);}
   for(const p of this.plants){
+   const channel=this.voxels.channels?.sample(p.x,p.z)||0;p.y=channel?p.grade+channel:p.floor??p.grade;
    const near=Math.hypot(p.x-j.x,p.z-j.z)<this.uniforms.lifeRadius.value&&Math.abs(p.y-j.y)<C.TRAMPLE_HEIGHT;
    if(near){this.bent++;if(this.jimothy.move?.kind==='roll')p.flat=1;}
    if(!this.flattened.has(p.key))p.flat=Math.max(0,p.flat-dt/C.REBOUND_SECONDS);
@@ -94,13 +97,14 @@ export class EnvironmentLife {
   });b.mesh.instanceMatrix.needsUpdate=true;}
   for(const a of this.animals){
    const p=a.mesh.position,dx=p.x-j.x,dz=p.z-j.z,dist=Math.hypot(dx,dz);
+   if(!a.bird){const floor=this.voxels.groundHeightAt(p.x,p.z,Math.max(p.y,this.voxels.terrainHeightAt(p.x,p.z)));a.vy=(a.vy||0)-SUPPORT.FALL_GRAVITY*dt;p.y=Math.max(floor,p.y+a.vy*dt);if(p.y<=floor)a.vy=0;}
    if(dist<C.FLEE_RADIUS)a.flee=C.FLEE_SECONDS;else a.flee=Math.max(0,a.flee-dt);
    a.phase+=dt;const alarm=a.flee>0;
    if(alarm)a.heading=Math.atan2(dx,dz);else a.heading+=Math.sin(a.phase*C.WANDER_HZ)*dt*C.TURN_RATE;
    const speed=alarm?C.FLEE_SPEED:a.bird?C.BIRD_SPEED:C.WALK_SPEED;
    const nx=p.x+Math.sin(a.heading)*speed*dt,nz=p.z+Math.cos(a.heading)*speed*dt;
    if(a.bird||this._clear(nx,nz)){
-    const ground=this.voxels.terrainHeightAt(nx,nz);
+    const ground=this.voxels.groundHeightAt(nx,nz,Math.max(p.y,this.voxels.terrainHeightAt(nx,nz)));
     if(a.bird||Math.abs(ground-p.y)<C.MAX_STEP){p.x=nx;p.z=nz;p.y=a.bird?Math.max(p.y,ground+C.BIRD_HEIGHT):ground;}else a.heading+=Math.PI/2;
    }else a.heading+=Math.PI/2;
    if(Math.hypot(p.x-a.home.x,p.z-a.home.z)>C.ROAM_RADIUS&&!alarm)a.heading=Math.atan2(a.home.x-p.x,a.home.z-p.z);

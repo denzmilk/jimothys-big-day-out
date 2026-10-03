@@ -10,15 +10,17 @@ test('maximum-size rolling immediately leaves a broad gouge and raised dirt bank
  for(const p of report.points)expect(Math.abs(p.offset-p.render)).toBeLessThan(.25);
 });
 test('a crash furrow survives travel and clears on restart without millions of voxel edits',async({page})=>{
- await boot(page);const report=await page.evaluate(()=>{
+ await boot(page);const report=await page.evaluate(async()=>{
   const g=__game,v=g.voxels;setFatness(400);teleportJimothy(-2,-40);const y=v.terrainHeightAt(-2,-40);
   for(let z=-40;z<40;z+=4)v.queueGroundChannel({x:-2,y:v.terrainHeightAt(-2,z),z},{x:-2,y:v.terrainHeightAt(-2,z+4),z:z+4},28,6);advanceTime(4);
-  const x=-2,z=-20,grade=v.terrainHeightAt(x,z),before=v.groundHeightAt(x,z,grade+1)-grade,edits=v.stats().edits;
+  const x=-2,z=-20,grade=v.terrainHeightAt(x,z),before=v.groundHeightAt(x,z,grade+1)-grade;
+  const {VOXEL:V}=await import('/src/core/Constants.js');let edits=0;
+  for(const [key,map] of v.edits){const [cx,cy,cz]=key.split(',').map(Number);for(const index of map.keys()){const vx=cx*V.CHUNK_XZ+index%V.CHUNK_XZ,vy=cy*V.CHUNK_Y+Math.floor(index/V.CHUNK_XZ)%V.CHUNK_Y,vz=cz*V.CHUNK_XZ+Math.floor(index/(V.CHUNK_XZ*V.CHUNK_Y));if(vy<=v.terrain.topSolidVoxelY((vx+.5)*V.SIZE,(vz+.5)*V.SIZE))edits++;}}
   teleportJimothy(800,500);advanceTime(1);teleportJimothy(x,z);advanceTime(1);const after=v.groundHeightAt(x,z,grade+1)-grade;
   restartGame();return{before,after,edits,reset:v.groundHeightAt(x,z,grade+1)-grade};
  });expect(report.before).toBeLessThan(-3);expect(Math.abs(report.after-report.before)).toBeLessThan(.01);expect(report.edits).toBeLessThan(20000);expect(Math.abs(report.reset)).toBeLessThan(.25);
 });
 test('a live maximum-size roll keeps carving along the whole travelled path',async({page})=>{
  await boot(page);await page.evaluate(()=>{setFatness(400);teleportJimothy(-2,-40);faceJimothy(0);__game.military.update=()=>{};});await adv(page,.2);await page.keyboard.down('c');await adv(page,2);await page.keyboard.up('c');
- const out=await page.evaluate(()=>({z:__game.jimothy.position.z,cuts:[-30,-10,10,30].map(z=>__game.groundChannels.field.sample(-2,z))}));console.log(JSON.stringify(out));expect(out.z).toBeGreaterThan(60);for(const d of out.cuts)expect(d).toBeLessThan(-3);
+ const out=await page.evaluate(()=>({z:__game.jimothy.position.z,underground:JSON.parse(render_game_to_text()).underground.below,cuts:[-30,-10,10,30].map(z=>__game.groundChannels.field.sample(-2,z))}));console.log(JSON.stringify(out));expect(out.z).toBeGreaterThan(60);expect(out.underground).toBe(false);for(const d of out.cuts)expect(d).toBeLessThan(-3);
 });

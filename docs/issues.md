@@ -21,9 +21,11 @@
 
 ### JIM-73 — Assets remain floating after destruction
 
-**Status:** in-progress · **Reported:** 2026-10-03 (Chris).
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris).
 
 Check unsupported voxel building sections and previously grounded props/vegetation/actors after giant destruction. A persistent channel must expose an actual lower contact surface; assets whose support is removed must fall, detach or settle with it. Initial inspection: interiors periodically test support, but street objects only invalidate road markings on `WORLD_DEMOLISHED`, bushes respond to direct impacts only, vegetation samples original terrain, and voxel structures have no unsupported-section collapse pass. Reproduce each affected family before changing its behaviour. Related: JIM-48/JIM-70/JIM-29.
+
+**Repair:** street objects release from kinematic control when their footprint loses support; traffic reservations clear. Bushes fall, vegetation and animals follow deformed ground. Bounded voxel connectivity retains supported spans and detaches unsupported sections into at most 24 collectible physics pieces built from the actual removed cells. Three browser support cases and two connectivity units pass after failing reproductions; original impact/physics regressions pass. The house case removes 1,854 unsupported roof cells and resets cleanly. Render remeshing can still lag large destruction (JIM-48), and final collapse feel requires Chris's playtest. See STATE for limits and evidence.
 
 ### JIM-72 — Water reactions ignore body size and submerged contact
 

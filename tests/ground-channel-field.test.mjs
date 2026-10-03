@@ -15,3 +15,4 @@ test('a crossing gouge cuts through an earlier bank and reset removes all displa
  const f=new GroundChannelField(()=>0);f.centerAt(0,0);f.queue({x:0,y:0,z:-40},{x:0,y:0,z:40},28,6);drain(f);assert.ok(f.sample(33,0)>0);
  f.queue({x:-40,y:0,z:0},{x:40,y:0,z:0},28,6);drain(f);assert.ok(f.sample(33,0)<-5);f.reset();assert.equal(f.cells,0);assert.equal(f.sample(33,0),0);assert.equal(f.renderSample(33,0),0);
 });
+test('a grounded crash crosses sloping soil without leaving untouched terraces across its width',()=>{const f=new GroundChannelField(x=>x*.25);f.queue({x:0,y:0,z:-5},{x:0,y:0,z:5},20,6);drain(f);assert.ok(f.sample(-10,0)<-4);assert.ok(f.sample(10,0)<-4);});

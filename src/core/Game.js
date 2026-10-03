@@ -25,6 +25,7 @@ import { DayNight } from '../level/DayNight.js';
 import {OceanSystem} from '../level/OceanSystem.js';
 import {SandSystem} from '../level/SandSystem.js';
 import {GroundChannels} from '../level/GroundChannels.js';
+import {StructuralSupport} from '../level/StructuralSupport.js';
 import { WaterSystem } from '../level/WaterSystem.js';
 import { LevelBuilder } from '../level/LevelBuilder.js';
 import { VoxelWorld } from '../level/VoxelWorld.js';
@@ -137,6 +138,7 @@ class Game {
     this.trashCans = new TrashCans(this.scene, this.physics, this.jimothy, this.voxels);
     this.sand=new SandSystem(this.scene,this.jimothy,this.voxels);
     this.groundChannels=new GroundChannels(this.scene,this.jimothy,this.voxels);
+    this.structuralSupport=new StructuralSupport(this.scene,this.jimothy,this.voxels);
     this.water=new WaterSystem(this.scene,this.jimothy,this.voxels,this.level.sky,this.sand.uniforms,this.groundChannels.uniforms);
     this.ragdolls = new HumanRagdolls(this.jimothy,this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
@@ -229,7 +231,7 @@ class Game {
     eventBus.on(Events.GAME_RESTART, () => {
       this.collector.reset();
       this.ragdolls.reset();
-      this.water.reset();this.sand.reset();this.groundChannels.reset();this.ocean.reset();
+      this.water.reset();this.sand.reset();this.groundChannels.reset();this.structuralSupport.reset();this.ocean.reset();this.physics.unsupported.clear();
       gameState.reset();
       this.jimothy.reset();
       this.trashCans.reset();
@@ -388,7 +390,7 @@ class Game {
         : [[jp.x, jp.z]],
       this.flyCamera.active ? STREAM.FLY_COLUMNS_PER_FRAME : STREAM.COLUMNS_PER_FRAME,
     );
-    for(const {job,cells}of this.voxels.processDamage(this.manualTime?{maxSlices:WORK_BUDGET.DAMAGE_SLICES}:{maxMilliseconds:WORK_BUDGET.DAMAGE_MS}))this.demolitionEffects(cells,{x:job.cx,y:job.cy,z:job.cz});
+    for(const {job,cells}of this.voxels.processDamage(this.manualTime?{maxSlices:WORK_BUDGET.DAMAGE_SLICES}:{maxMilliseconds:WORK_BUDGET.DAMAGE_MS}))this.demolitionEffects(cells,{x:job.cx,y:job.cy,z:job.cz},job.kind==='support');
     this.voxels.processGeneration(this.manualTime?{maxSlices:WORK_BUDGET.GENERATION_SLICES}:{maxMilliseconds:WORK_BUDGET.GENERATION_MS});
     this.voxels.remeshDirty(this.manualTime?{maxSlices:WORK_BUDGET.MESH_SLICES}:{maxMilliseconds:WORK_BUDGET.MESH_MS});
     // Containers stay tied to HIM, never to the camera: streaming them around a
@@ -399,7 +401,7 @@ class Game {
     // camera is pointed, which the mouse already drives whenever the pointer is
     // locked. One frame stale, because the camera updates after him — which at
     // 60 Hz is nothing, and keeps the order of the loop unchanged.
-    this.groundChannels.update(delta);this.water.update(delta);
+    this.groundChannels.update(delta);this.structuralSupport.update(delta);this.water.update(delta);
     this.jimothy.update(delta, this.cameraSystem.yaw, this.cameraSystem.aimPitch);
     this.streetLife.update(delta);
     this.physics.update(delta);
@@ -726,7 +728,7 @@ class Game {
     return removed.length;
   }
 
-  demolitionEffects(removed,pos){
+  demolitionEffects(removed,pos,collapse=false){
     if(!removed.length)return;
     this.debris.spawnBurst(removed.filter(cell=>cell.mat!==GLAZING.MATERIAL_ID));
     const glass=removed.filter(cell=>cell.mat===GLAZING.MATERIAL_ID);
@@ -736,7 +738,7 @@ class Game {
     // rather than toward him, which is what makes demolition a decision.
     const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
     for(const cell of removed)for(const [i,key]of ['x','y','z'].entries()){min[i]=Math.min(min[i],cell[key]-VOXEL.SIZE/2);max[i]=Math.max(max[i],cell[key]+VOXEL.SIZE/2);}
-    eventBus.emit(Events.WORLD_DEMOLISHED, { voxels: removed.length, x: pos.x, z: pos.z,bounds:{min,max} });
+    eventBus.emit(Events.WORLD_DEMOLISHED, { voxels: removed.length, x: pos.x, z: pos.z,bounds:{min,max},cells:removed,collapse });
     return removed.length;
   }
 
@@ -918,6 +920,7 @@ class Game {
       explosions: this.carExplosions.snapshot(),
       arrival:this.arrival.snapshot(),
       collection: this.collector.snapshot(),
+      support:this.structuralSupport.snapshot(),groundChannels:this.groundChannels.snapshot(),
       world: { voxelSize: VOXEL.SIZE, atmosphereTime: this.level.time },
       render:{drawCalls:this.renderer.info.render.calls,triangles:this.renderer.info.render.triangles,quality:this.quality.snapshot(),farBuildings:this.farBuildings.snapshot()},
       voxels: {

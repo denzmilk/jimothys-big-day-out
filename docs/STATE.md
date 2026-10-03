@@ -1,5 +1,11 @@
 # Session state
 
+## Slinking walk repair — JIM-76 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Foot IK now keeps the original paw projection and knee bend direction, lowers step lift, limits reach and retains a supporting diagonal pair. Nine speed/frame-rate combinations have maximum 8.7 cm paw lift and 12.3 cm knee splay. All eight focused and 24 adjacent browser checks pass; 70 units, build and production pixel smoke pass. Headbutt recovery now excludes whole-rig ground correction from its neck measurement. Native original-rig studio and keyboard-driven world views are console-clean. Evidence: `output/iterate/slink-*`, `gait-final-*`. Play at **http://127.0.0.1:4174** to judge the restored walking character.
+
+**Next active request:** JIM-77 sewer full rework. Audit found flattened shell/eye placeholders without claws or legs and repetitive narrow rectangular tunnels. The proposed rework uses wider drains, maintenance passages, pump/overflow chambers, pipework/lights, readable exits and articulated crab people. Preserve destructibility, bounded streaming, treasure rules and escape/pursuit. A creature-theme question is pending; keep the existing crab-people theme unless Chris steers otherwise. The earlier downtown/keepsakes priority question remains pending.
+
 ## Animal-control net and arm repair — JIM-75 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** The net now pivots at the rear grip and swings hoop-first. Both MPFB arms use IK with held wrist/finger poses through carry, wind-up, contact, follow-through and recovery. Uphill ground raises the hoop angle; ragdolls retain the net through its primary-hand attachment while arm IK is suspended. A bubble shield also recovers the pose correctly when a catcher arrives before ever swinging. Capture balance is unchanged.

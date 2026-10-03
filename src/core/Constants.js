@@ -1094,14 +1094,14 @@ export const DEBRIS = {
 export const LEGS = {
   // M11/JIM-22: stride distance follows actual travel; feet remain world
   // contacts during stance even when the player turns or walks into a wall.
-  STRIDE: 0.65, MIN_SWING: 0.025, MAX_SWING: 0.18, PLANT_TRIGGER: 0.18,
-  MIN_SWING_FRAMES: 2, MAX_STANCE: 0.34,
+  STRIDE: 0.36, MIN_SWING: 0.025, MAX_SWING: 0.14, PLANT_TRIGGER: 0.12,
+  MIN_SWING_FRAMES: 2,
   PAW_CLEARANCE: 0.012, PAW_BAND: 0.045, PAW_SAMPLES: 24,
-  SPRAWL: 0.045, TOE_FORWARD: 0.06, CROUCH: 0.17, MAX_DROP: 0.38,
+  SPRAWL: 0.018, CROUCH: 0.05, MAX_DROP: 0.38, KNEE_SPLAY: .7, PAW_REACH_MARGIN: .9,
   BODY_RESPONSE: 18, BODY_SPEED: 5, VELOCITY_RESPONSE: 22,
   RESET_DISTANCE: 3, GROUND_SCAN: 0.55, MIN_SPEED: 0.05,
   MAX_REACH: 0.995, SOLE_PASSES: 5,
-  KNEE_FORWARD: 0.22, RECOVER_SECONDS: 0.16,
+  RECOVER_SECONDS: 0.16,
   TUBE_RADIUS: 0.09,
   FOOT_RADIUS: 0.11,
   // Hip anchor offsets in bodySlot space [x, y, z] — mirrored for left/right.
@@ -1111,7 +1111,7 @@ export const LEGS = {
   // Step when the planted foot drifts this far from its home under the hip.
   STEP_THRESHOLD: 0.45,
   STEP_SECONDS: 0.13,
-  STEP_LIFT: 0.22,
+  STEP_LIFT: 0.075,
   // Feet lead the body by velocity × this, so the trot reads as walking.
   STRIDE_LEAD: 0.12,
   // Real-leg swing mode: crude diagonal-pair flailing, on purpose.

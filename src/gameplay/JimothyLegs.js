@@ -128,9 +128,8 @@ export class JimothyLegs {
     else this._updateTubes(delta);
   }
 
-  // Like pedestrian grounding, stance contacts live in world space and the
-  // swing crosses a lifted arc. Fast scurrying permits overlapping transfers
-  // so a supporting leg is never forced to trail beyond its physical reach.
+  // JIM-76: preserve the model's natural paw locations and knee bend plane.
+  // Ground correction must not turn the original slink into a sideways squat.
   _updateBones(delta) {
     const c=this.controller,rig=this.rig,root=c.group;
     // A changed body shape moves the hips even at zero simulated time. Old
@@ -151,10 +150,14 @@ export class JimothyLegs {
     const fresh=!this.previous,velocity=pos.clone().sub(this.previous||pos);
     if(delta>0)velocity.divideScalar(delta);
     this.velocity.lerp(velocity,fresh?1:1-Math.exp(-LEGS.VELOCITY_RESPONSE*delta));this.previous=pos;
-    const speed=this.velocity.length(),direction=this.velocity.clone().normalize();
+    const speed=this.velocity.length(),direction=velocity.clone().normalize();
     const home=paw=>{
-      const p=paw.hip.getWorldPosition(new THREE.Vector3());
-      p.add(new THREE.Vector3(paw.side*LEGS.SPRAWL,0,LEGS.TOE_FORWARD).applyQuaternion(root.quaternion));
+      const h=paw.hip.getWorldPosition(new THREE.Vector3()),k=paw.knee.getWorldPosition(new THREE.Vector3());
+      const p=paw.end.getWorldPosition(new THREE.Vector3());
+      paw.pole=k.sub(h).projectOnPlane(p.clone().sub(h).normalize()).normalize();
+      paw.pole.applyQuaternion(root.quaternion.clone().invert());paw.pole.x*=LEGS.KNEE_SPLAY;
+      paw.pole.applyQuaternion(root.quaternion).normalize();
+      p.add(new THREE.Vector3(paw.side*LEGS.SPRAWL,0,0).applyQuaternion(root.quaternion));
       p.y=this.ground(p.x,p.z)+LEGS.PAW_CLEARANCE;return p;
     };
     for(const paw of this.paws){paw.home=home(paw);if(!paw.target)paw.target=paw.home.clone();}
@@ -165,13 +168,21 @@ export class JimothyLegs {
     }
     scratchPaw.scratch=scratching;
     const planted=this.paws.filter(p=>!p.swing);
-    if(delta>0&&!scratching&&planted.length){
+    if(delta>0&&!scratching&&planted.length===this.paws.length){
       const worst=planted.reduce((a,b)=>a.home.distanceTo(a.target)>b.home.distanceTo(b.target)?a:b);
-      const threshold=this.paws.some(p=>p.swing)?LEGS.MAX_STANCE:LEGS.PLANT_TRIGGER;
-      if(worst.home.distanceTo(worst.target)>threshold){
+      // One diagonal pair must land before the other leaves. Overlap made
+      // all four paws curl into the air even during a slow walk.
+      if(worst.home.distanceTo(worst.target)>LEGS.PLANT_TRIGGER){
         const duration=Math.max(delta*LEGS.MIN_SWING_FRAMES,THREE.MathUtils.clamp(LEGS.STRIDE/(2*Math.max(speed,LEGS.MIN_SPEED)),LEGS.MIN_SWING,LEGS.MAX_SWING));
         for(const paw of planted.filter(p=>p.pair===worst.pair)){
-          const end=paw.home.clone().addScaledVector(velocity,duration).addScaledVector(direction,LEGS.STRIDE/2);
+          const h=paw.hip.getWorldPosition(new THREE.Vector3()),k=paw.knee.getWorldPosition(new THREE.Vector3()),f=paw.end.getWorldPosition(new THREE.Vector3());
+          const reach=(h.distanceTo(k)+k.distanceTo(f))*LEGS.MAX_REACH,offset=paw.home.clone().sub(h);offset.y=0;
+          const height=Math.max(0,h.y-LEGS.CROUCH-paw.home.y),along=offset.dot(direction);
+          // The toes already project ahead of the hips. Adding half a stride
+          // unconditionally asks a landed front paw to reach beyond its leg.
+          const available=Math.max(0,Math.sqrt(Math.max(0,along*along+reach*reach-height*height-offset.lengthSq()))-along);
+          const lead=Math.min(LEGS.STRIDE/2,available*LEGS.PAW_REACH_MARGIN);
+          const end=paw.home.clone().addScaledVector(velocity,duration).addScaledVector(direction,lead);
           end.y=this.ground(end.x,end.z)+LEGS.PAW_CLEARANCE;
           paw.swing={start:paw.target.clone(),end,t:0,duration};
         }
@@ -216,7 +227,7 @@ export class JimothyLegs {
     rig.root.position.y=rig.baseY+this.bodyY-root.position.y;root.updateMatrixWorld(true);
     this.contacts=[];
     for(const paw of this.paws){
-      const pole=new THREE.Vector3(paw.side,0,paw.front*LEGS.KNEE_FORWARD).applyQuaternion(root.quaternion);
+      const pole=paw.pole;
       const solveTarget=paw.target.clone();
       // Blended skin weights mean the sole is not owned 100% by the shin.
       // Correct against sampled rendered vertices, not just the bone marker.

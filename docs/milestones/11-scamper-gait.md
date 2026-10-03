@@ -69,3 +69,7 @@ Sprawl and cadence are feel, and are explicitly playtest-verified.
 ## Verification — 2026-10-02
 
 The full regression passed 176/181 in `output/iterate/jimothy-animation-full-suite.log`; five known failures remain in JIM-03/JIM-48/JIM-49. After the final character-space sole calibration correction, all seven focused tests passed (`output/iterate/jimothy-animation-final.log`), including `tests/rig-load-grounding.spec.js`. Final build and rendered smoke pass without console errors. Captures are recorded in `docs/STATE.md`. Sprawl, cadence and idle character remain subject to Chris’s playtest. The contact checks use voxel terrain/paving; loose moving prop surfaces are not covered by the ground query.
+
+## Slink regression — JIM-76 — 2026-10-03
+
+Chris reported curled, dancing legs replacing the earlier balanced slink. Ground correction now preserves rest-pose paw projection and knee bend direction, with lower steps and non-overlapping diagonal transfers. `tests/slink-gait.spec.js` checks slow/normal walking at 30/60/120 Hz: at least two supporting paws, less than 13 cm actual sole lift, less than 14 cm lateral knee excursion and no tightly folded knee. All eight focused and 24 adjacent checks pass, plus 70 units, build and production pixel smoke. The headbutt recovery test measures the neck independently of whole-rig kerb grounding. Native captures: `output/iterate/gait-final-*` and `slink-world-*`. **Implemented, awaiting Chris’s playtest:** numerical contact checks do not establish a natural slink.

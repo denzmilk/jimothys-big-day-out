@@ -19,6 +19,14 @@
 
 ## Open
 
+### JIM-76 — Foot IK replaces Jimothy's slinking walk with curled, dancing legs
+
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 11 refinement.
+
+Chris preferred the earlier low, balanced slinking gait; the current IK produces curled/dancing legs. Inspect actual posed skin, knee direction, stride/lift and support timing against the earlier bone-driven gait. Preserve terrain contact, idle gestures, original model and growth/action transitions. Locations: `JimothyLegs._updateBones`, `Grounding.solveTwoBone`, `LEGS` tuning. Foot-height checks alone do not establish a good gait.
+
+**Repair:** preserve the original paw reach and knee bend plane, reduce lateral knee correction/crouch/lift, cap landing lead by each leg’s remaining reach, and land one diagonal pair before lifting the other. The reproduction failed before repair; nine speed/frame-rate combinations now retain two supports, with maximum 8.7 cm paw lift and 12.3 cm knee splay. All eight focused and 24 adjacent browser checks pass, alongside 70 units, build and production pixel smoke. The head-return fixture now removes whole-rig grounding translation: its lunge crosses a kerb, and the previous measurement mistook a 23 cm body-height correction for neck drift. Head motion/recovery thresholds are unchanged. Native original-rig studio and keyboard-driven world views are console-clean. Evidence: `output/iterate/slink-*`, `gait-final-*`; movement feel still needs Chris’s judgement.
+
 ### JIM-75 — Animal control swings the net handle-first with idle arms
 
 **Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 29 refinement.

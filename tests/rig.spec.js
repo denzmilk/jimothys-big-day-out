@@ -229,7 +229,14 @@ test('the headbutt drives the head from the neck, and returns it', async ({ page
   await boot(page, { withRig: true });
   await waitForRig(page);
   await adv(page, 0.2);
-  const rest = (await state(page)).rig.parts.head;
+  // The lunge crosses a kerb at spawn. Grounding is allowed to lower the
+  // whole rig there; only the head's pose relative to that rig must return.
+  const headPose = () => page.evaluate(() => {
+    const c = window.__game.jimothy;
+    const p = c.rig.partOffsets(c.group).head;
+    return { ...p, y: p.y - c.rig.root.position.y };
+  });
+  const rest = await headPose();
 
   // Sample across windup, lunge AND recover. On the split path the head was a
   // separate solid translated 0.47 units forward on a 1.7-unit raccoon, which
@@ -241,13 +248,13 @@ test('the headbutt drives the head from the neck, and returns it', async ({ page
   let worst = 0;
   for (let i = 0; i < 12; i++) {
     await adv(page, 0.05);
-    const p = (await state(page)).rig.parts.head;
+    const p = await headPose();
     worst = Math.max(worst, Math.hypot(p.x - rest.x, p.y - rest.y, p.z - rest.z));
   }
   expect(worst).toBeGreaterThan(0.05);
 
   await adv(page, 1.5); // well past RECOVER
-  const after = (await state(page)).rig.parts.head;
+  const after = await headPose();
   // A pose composed onto a stale quaternion instead of the captured bind one
   // drifts a little further every headbutt; this is what catches that.
   expect(Math.hypot(after.x - rest.x, after.y - rest.y, after.z - rest.z)).toBeLessThan(0.05);

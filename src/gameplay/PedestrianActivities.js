@@ -20,9 +20,9 @@ export class PedestrianActivities {
   eventBus.on(Events.ENTITY_RELEASE,({id,position})=>{const p=this.dropped.find(p=>p.id===id);if(p){p.attached=false;p.mesh.position.copy(position);p.life=C.DROP_LIFE;eventBus.emit(Events.PROP_RELEASE,{id,position});}});
  }
  init(p){p.activityPose=new HumanActivityPose(p);p.activityWait=C.START_DELAY+(this.owner.people.length%C.START_SPREAD);p.activity=null;}
- ground(x,z){const v=this.owner.voxels;return v.groundHeightAt(x,z,v.terrainHeightAt(x,z)+PED.GROUND_SCAN);}
+ ground(x,z){const v=this.owner.voxels;return v.physicalGroundHeightAt(x,z,v.terrainHeightAt(x,z)+PED.GROUND_SCAN);}
  safe(p,x=p.x,z=p.z){
-  return Layout.isFootpathAtWorld(x,z)&&this.owner._clear(x,z)&&Math.abs(this.ground(x,z)-p.y)<C.GROUND_TOLERANCE&&!this.owner.voxels.solidAtWorld(x,p.y+PED.BODY_PROBE,z);
+  return Layout.isFootpathAtWorld(x,z)&&this.owner._clear(x,z)&&Math.abs(this.ground(x,z)-p.y)<C.GROUND_TOLERANCE&&!this.owner.voxels.physicalSolidAtWorld(x,p.y+PED.BODY_PROBE,z);
  }
  path(p,to){
   const length=Math.hypot(to.x-p.x,to.z-p.z),steps=Math.max(1,Math.ceil(length/C.PATH_SAMPLE));

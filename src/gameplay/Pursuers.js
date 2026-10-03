@@ -310,7 +310,7 @@ export class Pursuers {
   _groundY(x, z) {
     if (!this.voxels) return 0;
     const surface = this.voxels.terrainHeightAt(x, z);
-    return this.voxels.groundHeightAt(x, z, surface + 1);
+    return this.voxels.physicalGroundHeightAt(x, z, surface + 1);
   }
 
   /** How far this pursuer can see, before geometry and bushes. */
@@ -506,9 +506,9 @@ export class Pursuers {
   _blocked(p, x, z) {
     if (!this.voxels) return false;
     const y = p.group.position.y;
-    const ground = this.voxels.groundHeightAt(x, z, y + PLAYER_CONFIG.CLIMB_HEIGHT);
+    const ground = this.voxels.physicalGroundHeightAt(x, z, y + PLAYER_CONFIG.CLIMB_HEIGHT);
     if (ground - y > PLAYER_CONFIG.CLIMB_HEIGHT) return true;
-    return this.voxels.solidAtWorld(x, ground + 1.0, z);
+    return this.voxels.physicalSolidAtWorld(x, ground + 1.0, z);
   }
 
   /** Which way round an obstacle leaves the pursuer nearer its target. Only a

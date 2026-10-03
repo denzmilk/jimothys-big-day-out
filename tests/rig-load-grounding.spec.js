@@ -5,7 +5,7 @@ test('loading the rig during a tumble produces the same grounded pose as upright
   await boot(page,{withRig:true});
   const difference=await page.evaluate(()=>{
     const c=window.__game.jimothy,rig=c.rig,mesh=rig.skinned,ground=()=>20;
-    window.setFatness(0);c.voxels={groundHeightAt:ground,terrainHeightAt:ground,solidAtWorld:()=>false};
+    window.setFatness(0);c.voxels={groundHeightAt:ground,physicalGroundHeightAt:ground,terrainHeightAt:ground,solidAtWorld:()=>false};
     const loadAt=pitch=>{
       c.reset();c.yaw=0;c.elapsed=0;c.body.position.set(0,20+c.radius,0);rig.root.position.y=rig.baseY;
       for(const name of Object.keys(rig.bones)){

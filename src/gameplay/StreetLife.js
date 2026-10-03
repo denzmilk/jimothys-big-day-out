@@ -277,7 +277,7 @@ export class StreetLife {
       const box=new THREE.Box3().setFromObject(mesh),center=box.getCenter(new THREE.Vector3()),half=box.getSize(new THREE.Vector3()).multiplyScalar(.5);
       if(isCar)half.max(new THREE.Vector3().setScalar(C.CAR.COLLIDER_MIN));
       for(const part of mesh.children)part.position.sub(center);mesh.position.copy(center);
-      const q={id:`fragment-${this.serial++}`,kind:p.kind,mesh,half:half.toArray(),mass:p.mass/sections.size,size:Math.max(...half.toArray())*2,fragment:true,life:C.FRAGMENT_LIFE,loose:true,driving:false,attached:false,sourceId:p.id,part:mesh.userData.part};
+      const q={id:`fragment-${this.serial++}`,kind:p.kind,mesh,half:half.toArray(),mass:p.mass/sections.size,size:Math.max(...half.toArray())*2,fragment:true,life:C.FRAGMENT_LIFE,loose:true,driving:false,attached:false,sourceId:p.id,spawnSafe:true,part:mesh.userData.part};
       if(isCar){q.collisionFilterGroup=C.CAR.PART_GROUP;q.collisionFilterMask=C.CAR.PART_MASK;}
       this.install(q);
       if(isCar){

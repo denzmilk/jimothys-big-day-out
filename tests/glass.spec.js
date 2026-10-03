@@ -72,7 +72,14 @@ test('glass shards are physical, bounded, collectable and removed on expiry or r
     const noGlassChunks=g.streetLife.items.filter(p=>p.fragment).every(p=>p.mesh.children.every(m=>!m.material?.transmission));
     if(!C)return {physical,noGlassChunks,count:0};
     window.advanceTime(3);
-    const carSettled=shards.every(s=>Math.abs(g.physics.props.get(s.id).body.velocity.y)<1&&s.mesh.position.y<g.voxels.terrainHeightAt(s.mesh.position.x,s.mesh.position.z)+.5);
+    // M52 allows shards to stack on wreckage. Bare terrain is no longer the only support;
+    // require a nearby physical surface or an actual contact, as well as low fall speed.
+    const carSettled=shards.every(s=>{
+      const b=g.physics.props.get(s.id).body,p=s.mesh.position;
+      const floor=g.voxels.physicalGroundHeightAt(p.x,p.z,p.y+.5,0);
+      const contact=g.physics.world.contacts.some(c=>c.enabled&&(c.bi===b||c.bj===b));
+      return Math.abs(b.velocity.y)<1&&(p.y<floor+.5||contact);
+    });
     const points=[{x:60,y:g.voxels.terrainHeightAt(60,10)+2,z:10}];
     for(let i=0;i<C.MAX*2;i++)eventBus.emit(Events.GLASS_SHATTER,{points,origin:points[0]});
     window.advanceTime(3);

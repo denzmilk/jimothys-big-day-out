@@ -112,13 +112,13 @@ export class OceanSystem {
   }
  }
  populateHabitat(){
-  const j=this.jimothy.position,R=C.PLANT_RADIUS,S=C.PLANT_GRID;this.habitat={x:j.x,z:j.z};this.plants=[];this.creatures=[];
+  const j=this.jimothy.position,R=C.PLANT_RADIUS,S=C.PLANT_GRID;this.habitat={x:j.x,z:j.z};this.plants=[];this.clearCreatures();
   for(let iz=Math.floor((j.z-R)/S);iz<=Math.ceil((j.z+R)/S);iz++)for(let ix=Math.floor((j.x-R)/S);ix<=Math.ceil((j.x+R)/S);ix++){
    const h=hash(ix,iz),x=(ix+h)*S,z=(iz+hash(iz,ix))*S,y=Terrain.surfaceHeight(x,z),id=`sea-plant:${ix}:${iz}`;
    if(this.plants.length>=C.PLANT_LIMIT||h>C.HABITAT_SHARE||y>-C.SITE_DEPTH||Math.hypot(x-j.x,z-j.z)>R||this.damage.has(id))continue;
    this.plants.push({id,x,y,z,kind:hash(ix+7,iz)>.5?'kelp':'seagrass',scale:C.PLANT_SCALE_MIN+hash(iz,ix+13)*C.PLANT_SCALE_RANGE,yaw:h*Math.PI*2});
   }
-  for(let i=0;i<Math.min(C.CREATURE_COUNT,this.plants.length);i++){const p=this.plants[Math.floor(i*this.plants.length/C.CREATURE_COUNT)];this.creatures.push({...p,kind:i%2?'crab':'starfish',phase:i});}
+  for(let i=0;i<Math.min(C.CREATURE_COUNT,this.plants.length);i++){const p=this.plants[Math.floor(i*this.plants.length/C.CREATURE_COUNT)];const kind=i%2?'crab':'starfish',mesh=this.models[kind].scene.clone();mesh.position.set(p.x,p.y,p.z);const creature={...p,id:`ocean-creature:bed:${this.serial++}`,kind,mesh,phase:i};this.creatures.push(creature);if(kind==='crab')eventBus.emit(Events.PHYSICAL_ACTOR_CREATE,{id:creature.id,kind:'animal',mesh});}
   this.clearFish(f=>Math.hypot(f.home.x-j.x,f.home.z-j.z)>C.FISH_DESPAWN_RADIUS);
   for(let school=0;school<C.SCHOOL_COUNT;school++){
    const angle=hash(Math.floor(j.x),school)*Math.PI*2,r=C.SCHOOL_RADIUS,home={x:j.x+Math.sin(angle)*r,z:j.z+Math.cos(angle)*r};
@@ -132,9 +132,10 @@ export class OceanSystem {
   if(this.fish.length>=C.FISH_LIMIT||(!large&&this.fish.length>=C.FISH_LIMIT-1&&!this.fish.some(f=>f.large)))return;const asset=this.models[kind],visual=clone(asset.scene),mesh=new THREE.Group();mesh.add(visual);this.scene.add(mesh);
   const mixer=new THREE.AnimationMixer(visual);for(const clip of asset.animations)mixer.clipAction(clip).play();
   const phase=hash(index,Math.floor(home.x))*Math.PI*2;mesh.position.set(home.x+Math.sin(phase)*C.SCHOOL_RADIUS/2,Math.max(Terrain.surfaceHeight(home.x,home.z)+C.FISH_CLEARANCE,-C.SITE_DEPTH),home.z+Math.cos(phase)*C.SCHOOL_RADIUS/2);
-  this.fish.push({mesh,visual,mixer,kind,home,phase,large,animationClock:0});
+  const fish={id:`ocean-creature:fish:${this.serial++}`,mesh,visual,mixer,kind,home,phase,large,animationClock:0};this.fish.push(fish);eventBus.emit(Events.PHYSICAL_ACTOR_CREATE,{id:fish.id,kind:'fish',mesh,collisionOffset:[0,0,0]});
  }
- clearFish(remove=()=>true){for(const f of this.fish.filter(remove)){f.mixer.stopAllAction();f.mixer.uncacheRoot(f.visual);f.visual.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});f.mesh.removeFromParent();}this.fish=this.fish.filter(f=>!remove(f));}
+ clearFish(remove=()=>true){for(const f of this.fish.filter(remove)){eventBus.emit(Events.PHYSICAL_ACTOR_REMOVE,{id:f.id});f.mixer.stopAllAction();f.mixer.uncacheRoot(f.visual);f.visual.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});f.mesh.removeFromParent();}this.fish=this.fish.filter(f=>!remove(f));}
+ clearCreatures(){for(const p of this.creatures)eventBus.emit(Events.PHYSICAL_ACTOR_REMOVE,{id:p.id});this.creatures=[];}
  makeEffects(){
   const geo=new THREE.BufferGeometry();this.bubbleData=new Float32Array(C.BUBBLES*3);geo.setAttribute('position',new THREE.BufferAttribute(this.bubbleData,3));geo.setDrawRange(0,0);
   this.bubbleMesh=new THREE.Points(geo,new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{bubbleColor:{value:new THREE.Color(C.BUBBLE_COLOR)}},vertexShader:`void main(){vec4 p=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*p;gl_PointSize=${(C.BUBBLE_SIZE*C.BUBBLE_SCREEN_SCALE).toFixed(2)}/max(1.,-p.z);}`,fragmentShader:`uniform vec3 bubbleColor;void main(){float r=length(gl_PointCoord-.5)*2.;if(r>1.)discard;float a=smoothstep(.5,.85,r)*(1.-smoothstep(.9,1.,r));gl_FragColor=vec4(bubbleColor,a*${C.BUBBLE_OPACITY.toFixed(3)});}` }));this.scene.add(this.bubbleMesh);
@@ -153,12 +154,12 @@ export class OceanSystem {
    const target=this.fishTarget.set(f.home.x+Math.sin(f.phase)*C.SCHOOL_RADIUS,p.y,f.home.z+Math.cos(f.phase)*C.SCHOOL_RADIUS);
    if(flee)target.copy(p).add(this.fishAway.copy(p).sub(this.jimothy.body.position).setY(0));const direction=target.sub(p).setY(0).normalize(),speed=flee?C.FLEE_SPEED:f.large?C.LARGE_SPEED:C.FISH_SPEED;
    const nx=p.x+direction.x*speed*dt,nz=p.z+direction.z*speed*dt,bottom=Terrain.surfaceHeight(nx,nz);
-   if(bottom<-C.SITE_DEPTH){p.x=nx;p.z=nz;p.y=THREE.MathUtils.clamp(p.y+Math.sin(this.time+f.phase)*dt*C.FISH_BOB,bottom+C.FISH_CLEARANCE,TERRAIN.SEA_LEVEL-C.FISH_SURFACE);}else f.phase+=Math.PI*dt;
+   if(bottom<-C.SITE_DEPTH&&!this.voxels.physicalSolidAtWorld(nx,p.y,nz)){p.x=nx;p.z=nz;p.y=THREE.MathUtils.clamp(p.y+Math.sin(this.time+f.phase)*dt*C.FISH_BOB,bottom+C.FISH_CLEARANCE,TERRAIN.SEA_LEVEL-C.FISH_SURFACE);}else f.phase+=Math.PI*dt;
    f.mesh.rotation.y=Math.atan2(direction.x,direction.z);f.animationClock+=dt;if(d<C.FISH_ANIMATE_DISTANCE||f.animationClock>=C.FISH_ANIMATE_INTERVAL){f.mixer.update(f.animationClock);f.animationClock=0;}
   }
   for(const batch of this.plantMeshes){
    const items=(batch.name==='kelp'||batch.name==='seagrass'?this.plants:this.creatures).filter(p=>p.kind===batch.name&&!p.broken);batch.mesh.count=items.length;
-   items.forEach((p,i)=>{const crab=p.kind==='crab',offset=crab?Math.sin(this.time*C.CRAB_SPEED+p.phase)*C.CRAB_RANGE:0;this.pose.position.set(p.x+offset,crab?this.voxels.groundHeightAt(p.x+offset,p.z,Terrain.surfaceHeight(p.x+offset,p.z)+C.FISH_CLEARANCE):p.y,p.z);this.pose.rotation.set(0,p.yaw,0);this.pose.scale.setScalar(crab||p.kind==='starfish'?1:p.scale);this.pose.updateMatrix();batch.mesh.setMatrixAt(i,this.pose.matrix);});batch.mesh.instanceMatrix.needsUpdate=true;if(items.length)batch.mesh.computeBoundingSphere();
+   items.forEach((p,i)=>{const crab=p.kind==='crab',offset=crab?Math.sin(this.time*C.CRAB_SPEED+p.phase)*C.CRAB_RANGE:0;this.pose.position.set(p.x+offset,crab?this.voxels.physicalGroundHeightAt(p.x+offset,p.z,Terrain.surfaceHeight(p.x+offset,p.z)+C.FISH_CLEARANCE):p.y,p.z);this.pose.rotation.set(0,p.yaw,0);this.pose.scale.setScalar(crab||p.kind==='starfish'?1:p.scale);this.pose.updateMatrix();batch.mesh.setMatrixAt(i,this.pose.matrix);if(p.mesh){p.mesh.position.copy(this.pose.position);p.mesh.quaternion.copy(this.pose.quaternion);}});batch.mesh.instanceMatrix.needsUpdate=true;if(items.length)batch.mesh.computeBoundingSphere();
    const u=batch.mesh.material.userData.uniforms;if(u){u.currentTime.value=this.time;u.swimmer.value.copy(j);u.swimmerRadius.value=this.jimothy.radius+C.FLEE_RADIUS;}
   }
   this.bubbleClock+=dt;this.ventClock+=dt;
@@ -186,6 +187,6 @@ export class OceanSystem {
   }
   this.rayMesh.instanceMatrix.needsUpdate=true;this.rayMesh.geometry.attributes.rayFloor.needsUpdate=true;
  }
- reset(){for(const p of [...this.parts])this.removePart(p);this.batches.clear();this.clearFish();this.active.clear();this.damage.clear();this.plants=[];this.creatures=[];this.habitat=null;this.bubbles=[];this.bubbleMesh.geometry.setDrawRange(0,0);this.rayMesh.count=0;this.time=this.streamClock=this.bubbleClock=this.ventClock=0;this.underwater=false;this.sky.visible=true;for(const b of this.plantMeshes||[])b.mesh.count=0;}
+ reset(){for(const p of [...this.parts])this.removePart(p);this.batches.clear();this.clearFish();this.active.clear();this.damage.clear();this.plants=[];this.clearCreatures();this.habitat=null;this.bubbles=[];this.bubbleMesh.geometry.setDrawRange(0,0);this.rayMesh.count=0;this.time=this.streamClock=this.bubbleClock=this.ventClock=0;this.underwater=false;this.sky.visible=true;for(const b of this.plantMeshes||[])b.mesh.count=0;}
  snapshot(){return{ready:this.ready,underwater:this.underwater,sites:[...this.active].map(id=>{const s=this.sites.find(s=>s.id===id);return{id,kind:s.kind,family:s.family,x:s.x,z:s.z};}),totalSites:this.sites.length,parts:this.parts.length,loose:this.parts.filter(p=>p.loose).length,damage:this.damage.size,fish:this.fish.length,fishKinds:[...new Set(this.fish.map(f=>f.kind))],plants:this.plants.filter(p=>!p.broken).length,creatures:this.creatures.length,bubbles:this.bubbles.length,rays:this.rayMesh.visible?this.rayMesh.count:0};}
 }

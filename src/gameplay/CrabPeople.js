@@ -23,8 +23,8 @@ export class CrabPeople {
   for(const spot of nodes){
    if(this.crabs.length>=C.COUNT)break;
    if(Math.hypot(spot.x-j.x,spot.z-j.z)<C.SPAWN_GAP||this.crabs.some(c=>Math.hypot(c.x-spot.x,c.z-spot.z)<C.SPAWN_GAP))continue;
-   const p=profile(spot.x,spot.z),y=this.voxels.groundHeightAt(spot.x,spot.z,p.floor+C.GROUND_SCAN);
-   if(Math.abs(y-p.floor)>C.GROUND_SCAN||this.voxels.solidAtWorld(spot.x,y+C.WALL_SCAN,spot.z))continue;
+   const p=profile(spot.x,spot.z),y=this.voxels.physicalGroundHeightAt(spot.x,spot.z,p.floor+C.GROUND_SCAN);
+   if(Math.abs(y-p.floor)>C.GROUND_SCAN||this.voxels.physicalSolidAtWorld(spot.x,y+C.WALL_SCAN,spot.z))continue;
    const index=this.serial%C.MODELS.length,mesh=new THREE.Group(),visual=this.models[index].scene.clone(true);mesh.add(visual);mesh.position.set(spot.x,y,spot.z);this.scene.add(mesh);mesh.updateMatrixWorld(true);
    const legs=Array.from({length:4},(_,i)=>{const hip=mesh.getObjectByName(`leg_${i}`),knee=mesh.getObjectByName(`knee_${i}`),foot=mesh.getObjectByName(`foot_${i}`);return {hip,knee,foot,rest:mesh.worldToLocal(foot.getWorldPosition(new THREE.Vector3())),hipQ:hip.quaternion.clone(),kneeQ:knee.quaternion.clone(),target:null};});
    const c={id:`crab:${this.serial++}`,kind:C.MODELS[index],x:spot.x,z:spot.z,y,vy:0,yaw:0,mesh,visual,legs,alarm:0,phase:0,wait:0,tx:spot.x,tz:spot.z,attached:false};
@@ -32,8 +32,8 @@ export class CrabPeople {
   }
  }
  walkable(c,x,z){
-  const y=this.voxels.groundHeightAt(x,z,c.y+C.GROUND_SCAN);
-  return Math.abs(y-c.y)<=C.FLOOR_STEP&&!this.voxels.solidAtWorld(x,y+C.WALL_SCAN,z)&&!this.voxels.solidAtWorld(x,y+C.WALL_SCAN*2,z);
+  const y=this.voxels.physicalGroundHeightAt(x,z,c.y+C.GROUND_SCAN);
+  return Math.abs(y-c.y)<=C.FLOOR_STEP&&!this.voxels.physicalSolidAtWorld(x,y+C.WALL_SCAN,z)&&!this.voxels.physicalSolidAtWorld(x,y+C.WALL_SCAN*2,z);
  }
  animate(c,dt,speed){
   const root=c.mesh;root.position.set(c.x,c.y,c.z);root.rotation.y=c.yaw+Math.PI/2;root.updateMatrixWorld(true);
@@ -41,11 +41,11 @@ export class CrabPeople {
   for(let i=0;i<c.legs.length;i++){
    const l=c.legs[i];l.hip.quaternion.copy(l.hipQ);l.knee.quaternion.copy(l.kneeQ);root.updateMatrixWorld(true);
    const phase=c.phase*Math.PI*2+(i===0||i===3?0:Math.PI),wave=Math.sin(phase);
-   const home=root.localToWorld(l.rest.clone());home.y=this.voxels.groundHeightAt(home.x,home.z,c.y+C.GROUND_SCAN)+C.FOOT_CLEARANCE;
+   const home=root.localToWorld(l.rest.clone());home.y=this.voxels.physicalGroundHeightAt(home.x,home.z,c.y+C.GROUND_SCAN)+C.FOOT_CLEARANCE;
    // Alternate diagonal supports. The world target stays still during stance;
    // terrain only adjusts height, so lateral motion cannot skate the feet.
    if(!l.target||wave>0||home.distanceTo(l.target)>C.FOOT_STRIDE*2){l.target=home; l.target.addScaledVector(new THREE.Vector3(Math.sin(c.yaw),0,Math.cos(c.yaw)),wave*C.FOOT_STRIDE);}
-   l.target.y=this.voxels.groundHeightAt(l.target.x,l.target.z,c.y+C.GROUND_SCAN)+C.FOOT_CLEARANCE+Math.max(0,wave)*C.FOOT_LIFT;
+   l.target.y=this.voxels.physicalGroundHeightAt(l.target.x,l.target.z,c.y+C.GROUND_SCAN)+C.FOOT_CLEARANCE+Math.max(0,wave)*C.FOOT_LIFT;
    solveTwoBone(l.hip,l.knee,l.foot,l.target,new THREE.Vector3(i<2?-1:1,0,0).applyQuaternion(root.quaternion));
   }
   for(const [i,side] of ['L','R'].entries()){
@@ -73,7 +73,7 @@ export class CrabPeople {
    let moved=false;const nx=c.x+(c.kick?vx*dt:dx/dist*step),nz=c.z+(c.kick?vz*dt:dz/dist*step);
    if(this.walkable(c,nx,nz)){c.x=nx;c.z=nz;moved=true;}else if(this.walkable(c,nx,c.z)){c.x=nx;moved=true;}else if(this.walkable(c,c.x,nz)){c.z=nz;moved=true;}else c.wait=0;
    if(c.kick){c.kick.t-=dt;if(c.kick.t<=0)c.kick=null;}
-   const floor=this.voxels.groundHeightAt(c.x,c.z,c.y+C.GROUND_SCAN);if(Math.abs(c.y-floor)<=C.FLOOR_STEP){c.y=floor;c.vy=0;}else {c.vy-=C.FALL_GRAVITY*dt;c.y=Math.max(floor,c.y+c.vy*dt);if(c.y===floor)c.vy=0;}
+   const floor=this.voxels.physicalGroundHeightAt(c.x,c.z,c.y+C.GROUND_SCAN);if(Math.abs(c.y-floor)<=C.FLOOR_STEP){c.y=floor;c.vy=0;}else {c.vy-=C.FALL_GRAVITY*dt;c.y=Math.max(floor,c.y+c.vy*dt);if(c.y===floor)c.vy=0;}
    const target=Math.atan2(vx,vz),angle=Math.atan2(Math.sin(target-c.yaw),Math.cos(target-c.yaw));c.yaw+=angle*(1-Math.exp(-C.TURN_RESPONSE*dt));
    this.animate(c,dt,moved?speed:0);
   }

@@ -44,7 +44,6 @@ export class Debris {
       // run. Invisible before milestone 22 and expensive after it, since the
       // ground clamp walks every dynamic body the physics system holds.
       body.sleep();
-      physics.add(body);
       this.slots.push({ body, alive: false, ttl: 0, color: new THREE.Color() });
     }
     this.next = 0;
@@ -57,6 +56,7 @@ export class Debris {
       const cell = cells[Math.floor((i / take) * cells.length)];
       const slot = this.slots[this.next];
       this.next = (this.next + 1) % DEBRIS.MAX; // oldest recycles at the cap
+      if(!slot.alive)this.physics.add(slot.body);
       slot.alive = true;
       slot.ttl = DEBRIS.LIFETIME;
       slot.color.set(VOXEL.MATERIALS[cell.mat]?.color ?? 0x888888);
@@ -83,6 +83,7 @@ export class Debris {
       if (!slot.alive) continue;
       slot.ttl -= delta;
       if (slot.ttl <= 0 || slot.body.position.y < -TERRAIN.SEABED_DEPTH-TERRAIN.DEPTH-OCEAN.DEBRIS_FLOOR_MARGIN) {
+        this.physics.remove(slot.body);
         slot.alive = false;
         slot.body.sleep();
         slot.body.position.set(0, -1000, 0);
@@ -111,6 +112,7 @@ export class Debris {
 
   reset() {
     for (const slot of this.slots) {
+      if(slot.alive)this.physics.remove(slot.body);
       slot.alive = false;
       slot.ttl = 0;
       slot.body.sleep();

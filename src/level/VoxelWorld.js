@@ -450,6 +450,17 @@ export class VoxelWorld {
    *  otherwise the highest voxel anywhere in the column wins and walking past
    *  a house snaps the player onto its roof (and re-hopping off that climbs
    *  him into the sky). `stepUp` is the small lip he's allowed to mount. */
+  physicalGroundHeightAt(x,z,fromY=0,stepUp=VOXEL.SIZE*.75){
+    let height=this.groundHeightAt(x,z,fromY,stepUp);
+    eventBus.emit(Events.PHYSICAL_GROUND,{x,z,fromY,stepUp,receive:y=>{height=Math.max(height,y);}});
+    return height;
+  }
+
+  physicalSolidAtWorld(x,y,z){
+    if(this.solidAtWorld(x,y,z))return true;
+    let solid=false;eventBus.emit(Events.PHYSICAL_OBSTACLE,{x,y,z,receive:hit=>{solid ||= hit;}});return solid;
+  }
+
   groundHeightAt(x, z, fromY = 0, stepUp = VOXEL.SIZE * 0.75) {
     this._ensureAtWorld(x, z);
     const channel=this.channels?.sample(x,z)||0;

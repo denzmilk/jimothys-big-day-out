@@ -6,7 +6,7 @@ test('real Jimothy paws plant through walking, scurrying, turns and stops',async
   const reports=await page.evaluate(()=>{
     const c=window.__game.jimothy,reports=[];
     for(const hz of [30,60,120])for(const grade of [0,.35,-.35]){
-      const ground=(x,z)=>20+grade*z;c.voxels={groundHeightAt:ground,terrainHeightAt:ground,solidAtWorld:()=>false};
+      const ground=(x,z)=>20+grade*z;c.voxels={groundHeightAt:ground,physicalGroundHeightAt:ground,terrainHeightAt:ground,solidAtWorld:()=>false,raycast:()=>null};
       c.reset();c.yaw=0;c.group.rotation.set(0,0,0);c.body.position.set(0,20+c.radius,0);
       let previous=null,drift=0,contacts=0,lift=0;const errors=[];
       for(let frame=0;frame<hz*4;frame++){
@@ -51,7 +51,7 @@ test('paws negotiate cross slopes and kerbs without body jumps or zero-time drif
     const c=window.__game.jimothy,reports=[];
     for(const kind of ['cross','kerb']){
       const ground=(x,z)=>20+(kind==='cross'?.4*x:z>1&&z<3?.22:0);
-      c.voxels={groundHeightAt:ground,terrainHeightAt:ground,solidAtWorld:()=>false};c.reset();c.yaw=0;
+      c.voxels={groundHeightAt:ground,physicalGroundHeightAt:ground,terrainHeightAt:ground,solidAtWorld:()=>false,raycast:()=>null};c.reset();c.yaw=0;
       c.body.position.set(0,20+c.radius,0);let previous=null,jump=0;const errors=[];
       for(let f=0;f<240;f++){
         c.vel.set(0,0,1.4);c.body.position.z+=1.4/60;c.body.position.y=ground(0,c.body.position.z)+c.radius;c.elapsed+=1/60;c.postUpdate(1/60);

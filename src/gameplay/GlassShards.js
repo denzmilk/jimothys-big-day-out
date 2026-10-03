@@ -27,10 +27,8 @@ export class GlassShards {
       const mesh=new THREE.Mesh(this.geometry,this.material),point=points[Math.floor(i*points.length/count)];
       mesh.scale.set(length,length*C.WIDTH_RATIO,C.THICKNESS);mesh.position.copy(point);
       mesh.rotation.set(phase,phase/2,-phase);this.scene.add(mesh);
-      // Vehicle box colliders fill their empty cabins. Shards born at a window
-      // would overlap those boxes and shoot skyward; use the world's existing
-      // voxel ground/wall clamp and gravity, excluding prop-to-shard contacts.
-      const p={id:`glass-${n}`,mesh,half:[length/2,length*C.WIDTH_RATIO/2,C.THICKNESS/2],mass:C.MASS,collisionFilterMask:C.COLLISION_MASK,loose:true,attached:false,life:C.LIFETIME};
+      // Only pairs overlapping at birth get a short separation grace (M52).
+      const p={id:`glass-${n}`,mesh,half:[length/2,length*C.WIDTH_RATIO/2,C.THICKNESS/2],mass:C.MASS,kind:'glass',spawnSafe:true,collisionFilterMask:C.COLLISION_MASK,loose:true,attached:false,life:C.LIFETIME};
       this.items.push(p);
       eventBus.emit(Events.PROP_CREATE,p);
       eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh,kind:'glass',size:length});

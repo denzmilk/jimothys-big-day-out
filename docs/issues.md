@@ -12,9 +12,11 @@
 
 ### JIM-82 — Destruction debris does not interact consistently with moving objects
 
-**Status:** in-progress · **Severity:** high · **Reported:** Chris, 2026-10-04 · Milestone 52.
+**Status:** implemented, awaiting Chris’s playtest · **Severity:** high · **Reported:** Chris, 2026-10-04 · Milestone 52.
 
 Chris requests physical contact between all visible solid debris and moving objects, including cars, animals and other debris. Audit: glass uses collision mask 0, car parts use group 2/mask 1 and cannot collide with one another, soil clods use a separate ballistic effect, and walking wildlife/people have no shared collision body. Existing ordinary voxel rubble already has Cannon bodies. Locations: `PhysicsSystem`, `GlassShards`, `StreetLife`, `GroundChannels`, actor movement/ground queries. Reproduce actual contact and lifecycle behaviour before enabling filters so initially overlapping fragments do not explode.
+
+**Repair:** glass, car parts, ragdolls, voxel fragments and soil clods share contact. Nearby walkers/creatures have bounded kinematic proxies; moving cars impart velocity, substantial rubble obstructs movement and supports feet, and falling heavy sections can knock people down. Hollow section colliders preserve openings. Newborn overlaps receive temporary pair-specific grace followed by gentle separation, avoiding a second explosion. Expiry, attachment, streaming and reset remove owned bodies. All 105 units and 56 unique focused/adjacent browser cases pass, including the original car-settling and loaded-gait limits. Native cave-in inspection is console-clean; build and production pixel smoke pass. See milestone 52 for captures, timing and evidence. Giant-scale frame cost remains JIM-48.
 
 ### JIM-81 — Run counters retain old values after restart
 
@@ -116,6 +118,8 @@ Jimothy uses one fixed point ripple and 12 identical droplets at all sizes. Dyna
 The spherical GiantCoat hides the original torso; fixed-size extremities disappear at Block/Absurd size. The wobble only scales the hidden placeholder. Retain the original continuous mesh, photographic markings and readable head/paws/tail at every size, with a round swollen body and visible jiggle during sustained rolling. This supersedes the old exact-sphere/fixed-extremity giant treatment. Locations: `JimothyRig`, `JimothyController`, `build_jimothy_growth.py`.
 
 **Repair:** the original textured mesh now supplies the whole surface; proportional anatomy growth preserves readable features, and bounded root squash supplies jiggle. Attachments follow posed triangle coordinates, and IK handles minimum folded-leg/sole reach. The identity/jiggle regressions first failed; 25 model/footing/arrival checks pass across final runs, including the unchanged skin-contact checks. Build/rendered smoke and native size/roll views are clean. See the current STATE entry for evidence and the intermediate failures.
+
+**Open visual follow-up, M52 inspection (2026-10-04):** the fatness-400 rolling underside shows long stretched folds/triangles around the limb roots. This remains visible after a second render, so it needs a posed-skin/growth review, not a stale-frame assumption. No growth weights or morphology were changed in the rubble pass. Evidence: `output/iterate/rubble-giant-profile-roll-400.png`; retain JIM-69 as visually unapproved.
 
 ### JIM-70 — Giant rolls do not carve continuous ground channels
 
@@ -269,6 +273,8 @@ Chris's 2026-10-02 playtest confirms a visible shape failure. Actual posed mesh 
 **Repair, 2026-10-02:** Blender radial growth and a smooth coat keep the giant torso spherical while preserving original head/tail/paw dimensions. Held roll spin follows distance; attachments meet the grown surface. Twenty loaded-rig/footing checks and three final giant checks pass, alongside the 27-case adjacent run. See the latest STATE entry and `output/iterate/giant-street-carry.png`. Performance/destruction remain JIM-48/JIM-61.
 
 ### JIM-48 — Populated world exceeds the legacy draw-call budget
+
+**M52 final contact samples, 2026-10-04:** original-rig Chrome/Metal at 1280×800 with live work budgets. Final 480-frame house collapse: median/p95/max update plus render submission 42.3 / 47.3 / 72.9 ms; physics 7.1 / 9.4 / 11.5 ms, up to 420 world bodies and 48 building sections. The 100.8 m Absurd roll reaches 543 bodies: update plus submission 59.1 / 101.9 / 161.0 ms; physics 8.0 / 11.8 / 19.5 ms. Its instrumented repeat puts median street traffic at 11.7 ms, physics at 8.6 ms and pedestrians at 5.4 ms; support fragment emission median is 0.5 ms and voxel work remains sliced. All 33 pending meshes clear after six deterministic settling seconds; one support job remains. No console errors. These local CPU/submission samples do not establish FPS or performance improvement. Evidence: `output/iterate/rubble-native.json`, `rubble-giant-native.log`, `rubble-giant-profile.log`. The broader optimisation issue remains open.
 
 **Sparse remesh work, 2026-10-03:** row occupancy skips empty-space work and immediately clears wholly empty stored chunks. The one-cube reproduction falls from 5,127 to eight slices; all 67 units and twelve terrain/support/destruction browser checks pass, plus build/pixel smoke. The Absurd route’s 21 remaining meshes after six simulated settling seconds fall to zero. Native median/p95 are not better in this comparison; overall frame cost and visible live-budget latency remain open. See STATE for exact measurements and the distinction between live movement and deterministic settling.
 

@@ -650,7 +650,7 @@ export class JimothyController {
       // and drop him out of the world.
       const feetY = p.y - rad;
       const scanFrom = Math.max(feetY, this._prevFeetY ?? feetY);
-      const floorY = this.voxels ? this.voxels.groundHeightAt(p.x, p.z, scanFrom) : 0;
+      const floorY = this.voxels ? this.voxels.physicalGroundHeightAt(p.x, p.z, scanFrom) : 0;
       const standY = floorY + rad;
       // Only land when descending — rising through a lip shouldn't snap him to it.
       if (p.y <= standY && this.vy <= 0) {

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {GroundChannelField,groundChannelShader} from '../core/GroundChannelField.js';
-import {GROUND_CHANNEL as C,VOXEL} from '../core/Constants.js';
+import {GROUND_CHANNEL as C,VOXEL,RUBBLE} from '../core/Constants.js';
 import {eventBus,Events} from '../core/EventBus.js';
 
 export class GroundChannels {
@@ -44,15 +44,19 @@ export class GroundChannels {
   for(let i=0;i<Math.min(C.DUST_PER_FRAME,this.field.changed.length);i++){
    const p=this.field.changed[Math.floor(i*this.field.changed.length/C.DUST_PER_FRAME)],a=this.serial++*Math.PI*(3-Math.sqrt(5)),d=Math.hypot(p.dx,p.dz)||1,dx=p.dx/d,dz=p.dz/d;
    if(this.dust.length<C.DUST_COUNT)this.dust.push({x:p.x,y:p.y,z:p.z,vx:dx*C.DUST_SPEED,vz:dz*C.DUST_SPEED,life:C.DUST_LIFE});
-   if(this.clods.length<C.CLOD_COUNT)this.clods.push({x:p.x,y:p.y,z:p.z,vx:dx*C.CLOD_SPEED,vz:dz*C.CLOD_SPEED,vy:C.CLOD_LIFT,life:C.CLOD_LIFE,a});
+   if(this.clods.length<C.CLOD_COUNT){
+    const mesh=new THREE.Object3D();mesh.position.set(p.x,p.y+RUBBLE.CLOD_HALF,p.z);mesh.rotation.set(a,a/2,a);
+    const clod={id:`soil-clod:${this.serial}`,mesh,half:[RUBBLE.CLOD_HALF,RUBBLE.CLOD_HALF,RUBBLE.CLOD_HALF],mass:RUBBLE.CLOD_MASS,loose:true,spawnSafe:true,life:C.CLOD_LIFE};
+    this.clods.push(clod);eventBus.emit(Events.PROP_CREATE,clod);eventBus.emit(Events.PROP_IMPULSE,{id:clod.id,velocity:[dx*C.CLOD_SPEED,C.CLOD_LIFT,dz*C.CLOD_SPEED],spin:Math.sin(a)});
+   }
   }
   this.dust=this.dust.filter(p=>{p.life-=dt;p.x+=p.vx*dt;p.z+=p.vz*dt;p.y+=C.DUST_RISE*dt;return p.life>0;});
   const pos=this.cloud.geometry.attributes.position,opacity=this.cloud.geometry.attributes.opacity;
   this.dust.forEach((p,i)=>{pos.setXYZ(i,p.x,p.y,p.z);opacity.setX(i,C.DUST_OPACITY*p.life/C.DUST_LIFE);});pos.needsUpdate=opacity.needsUpdate=true;this.cloud.geometry.setDrawRange(0,this.dust.length);
-  this.clods=this.clods.filter(p=>{p.life-=dt;p.vy-=C.CLOD_GRAVITY*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;return p.life>0&&p.y>this.voxels.terrainHeightAt(p.x,p.z)+this.field.sample(p.x,p.z);});
-  this.clods.forEach((p,i)=>{this.pose.position.set(p.x,p.y,p.z);this.pose.rotation.set(p.a+p.life,p.a,p.life);this.pose.scale.setScalar(p.life/C.CLOD_LIFE);this.pose.updateMatrix();this.chunks.setMatrixAt(i,this.pose.matrix);});this.chunks.count=this.clods.length;this.chunks.instanceMatrix.needsUpdate=true;
+  this.clods=this.clods.filter(p=>{p.life-=dt;if(p.life>0)return true;eventBus.emit(Events.PROP_REMOVE,{id:p.id});return false;});
+  this.clods.forEach((p,i)=>{this.pose.position.copy(p.mesh.position);this.pose.quaternion.copy(p.mesh.quaternion);this.pose.scale.setScalar(1);this.pose.updateMatrix();this.chunks.setMatrixAt(i,this.pose.matrix);});this.chunks.count=this.clods.length;this.chunks.instanceMatrix.needsUpdate=true;
  }
  sync(){if(this.version!==this.field.version){this.version=this.field.version;this.texture.needsUpdate=true;this.uniforms.channelOrigin.value.set(this.field.x,this.field.z);}}
- reset(){this.field.reset();this.dust=[];this.clods=[];this.chunks.count=0;this.cloud.geometry.setDrawRange(0,0);this.sync();}
+ reset(){for(const p of this.clods)eventBus.emit(Events.PROP_REMOVE,{id:p.id});this.field.reset();this.dust=[];this.clods=[];this.chunks.count=0;this.cloud.geometry.setDrawRange(0,0);this.sync();}
  snapshot(){return {cells:this.field.cells,pending:this.field.pending.length,work:this.field.work,dust:this.dust.length,clods:this.clods.length};}
 }

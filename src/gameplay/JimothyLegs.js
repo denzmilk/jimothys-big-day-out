@@ -242,7 +242,7 @@ export class JimothyLegs {
 
   ground(x,z){
     const c=this.controller;
-    return c.voxels?c.voxels.groundHeightAt(x,z,c.body.position.y-c.radius+LEGS.GROUND_SCAN):0;
+    return c.voxels?c.voxels.physicalGroundHeightAt(x,z,c.body.position.y-c.radius+LEGS.GROUND_SCAN):0;
   }
 
   sole(paw){

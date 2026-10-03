@@ -134,15 +134,15 @@ export class EnvironmentLife {
   for(const a of this.animals){
    if(a.attached){a.mixer.update(dt);continue;}
    const p=a.mesh.position,dx=p.x-j.x,dz=p.z-j.z,dist=Math.hypot(dx,dz);
-   if(!a.bird){const floor=this.voxels.groundHeightAt(p.x,p.z,Math.max(p.y,this.voxels.terrainHeightAt(p.x,p.z)));a.vy=(a.vy||0)-SUPPORT.FALL_GRAVITY*dt;p.y=Math.max(floor,p.y+a.vy*dt);if(p.y<=floor)a.vy=0;}
+   if(!a.bird){const floor=this.voxels.physicalGroundHeightAt(p.x,p.z,p.y+C.MAX_STEP,0);a.vy=(a.vy||0)-SUPPORT.FALL_GRAVITY*dt;p.y=Math.max(floor,p.y+a.vy*dt);if(p.y<=floor)a.vy=0;}
    if(dist<C.FLEE_RADIUS){a.flee=C.FLEE_SECONDS;a.threat=null;}else a.flee=Math.max(0,a.flee-dt);
    a.phase+=dt;const alarm=a.flee>0;
    if(alarm)a.heading=a.threat?Math.atan2(p.x-a.threat.x,p.z-a.threat.z):Math.atan2(dx,dz);else a.heading+=Math.sin(a.phase*C.WANDER_HZ)*dt*C.TURN_RATE;
    const speed=alarm?C.FLEE_SPEED:a.bird?C.BIRD_SPEED:C.WALK_SPEED;
    const nx=p.x+Math.sin(a.heading)*speed*dt,nz=p.z+Math.cos(a.heading)*speed*dt;
    if(a.bird||this._clear(nx,nz)){
-    const ground=this.voxels.groundHeightAt(nx,nz,Math.max(p.y,this.voxels.terrainHeightAt(nx,nz)));
-    if(a.bird||Math.abs(ground-p.y)<C.MAX_STEP){p.x=nx;p.z=nz;p.y=a.bird?Math.max(p.y,ground+C.BIRD_HEIGHT):ground;}else a.heading+=Math.PI/2;
+    const ground=this.voxels.physicalGroundHeightAt(nx,nz,p.y+C.MAX_STEP,0);
+    if(a.bird||Math.abs(ground-p.y)<C.MAX_STEP&&!this.voxels.physicalSolidAtWorld(nx,ground+C.MAX_STEP,nz)){p.x=nx;p.z=nz;p.y=a.bird?Math.max(p.y,ground+C.BIRD_HEIGHT):ground;}else a.heading+=Math.PI/2;
    }else a.heading+=Math.PI/2;
    if(Math.hypot(p.x-a.home.x,p.z-a.home.z)>C.ROAM_RADIUS&&!alarm)a.heading=Math.atan2(a.home.x-p.x,a.home.z-p.z);
    if(a.bird)p.y+=Math.sin(a.phase)*dt*C.BIRD_BOB;

@@ -94,7 +94,7 @@ export class Pedestrians {
     const mixer=new THREE.AnimationMixer(visual),actions={};
     for(const clip of source.animations) actions[clip.name]=mixer.clipAction(clip);
     const p={height:box.max.y-box.min.y,id:`ped-${this.serial++}`,x:node.x,z:node.z,y:0,yaw:0,node:node.key,previous:null,target:null,mesh,visual,mixer,actions,animation:null,model:PED.MODELS[modelIndex],flee:0,scaredRecently:false,steps:index,pause:0,attached:false};
-    p.grounding=new FootGrounding(mesh,visual,(x,z)=>this.voxels.groundHeightAt(x,z,this.voxels.terrainHeightAt(x,z)+PED.GROUND_SCAN));
+    p.grounding=new FootGrounding(mesh,visual,(x,z)=>this.voxels.physicalGroundHeightAt(x,z,p.y+PED.MAX_STEP,0));
     this.activities.init(p);eventBus.emit(Events.HUMAN_REGISTER,{id:p.id,group:mesh,visual});
     this.people.push(p);this._animate(p,'Idle');eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:'person',size:COLLECTION.PERSON_SIZE});return p;
   }
@@ -177,14 +177,14 @@ export class Pedestrians {
         // instant U-turn otherwise drags a planted foot behind the pelvis.
         const speed=(p.flee>0?PED.FLEE_SPEED:PED.SPEED)*Math.max(0,Math.cos(p.yaw-p.mesh.rotation.y));
         const step=Math.min(speed*delta,d),nx=p.x+dx/(d||1)*step,nz=p.z+dz/(d||1)*step;
-        const surface=this.voxels.terrainHeightAt(nx,nz), ground=this.voxels.groundHeightAt(nx,nz,surface+PED.GROUND_SCAN);
+        const surface=this.voxels.terrainHeightAt(nx,nz), ground=this.voxels.physicalGroundHeightAt(nx,nz,p.y+PED.MAX_STEP,0);
         const givesWay=p.flee<=0&&Math.hypot(nx-jp.x,nz-jp.z)<PED.GIVE_WAY_RADIUS;
-        if(!givesWay&&this.activities.personClear(p,nx,nz,{performersOnly:true})&&(!Layout.isFootpathAtWorld(p.x,p.z)||Layout.isFootpathAtWorld(nx,nz))&&this._clear(nx,nz)&&Math.abs(ground-p.y)<PED.MAX_STEP&& !this.voxels.solidAtWorld(nx,ground+PED.BODY_PROBE,nz)) {
+        if(!givesWay&&this.activities.personClear(p,nx,nz,{performersOnly:true})&&(!Layout.isFootpathAtWorld(p.x,p.z)||Layout.isFootpathAtWorld(nx,nz))&&this._clear(nx,nz)&&Math.abs(ground-p.y)<PED.MAX_STEP&& !this.voxels.physicalSolidAtWorld(nx,ground+PED.BODY_PROBE,nz)) {
           p.x=nx;p.z=nz;p.y=ground;p.yaw=Math.atan2(dx,dz);moving=step>0;
         } else {p.target=null;p.previous=null;p.steps++;}
       }
       const surface=this.voxels.terrainHeightAt(p.x,p.z);
-      p.y=this.voxels.groundHeightAt(p.x,p.z,surface+PED.GROUND_SCAN);
+      p.y=this.voxels.physicalGroundHeightAt(p.x,p.z,p.y+PED.MAX_STEP,0);
       p.mesh.position.set(p.x,p.y+PED.FOOT_CLEARANCE,p.z);
       const difference=Math.atan2(Math.sin(p.yaw-p.mesh.rotation.y),Math.cos(p.yaw-p.mesh.rotation.y));
       p.mesh.rotation.y+=difference*Math.min(1,delta*PED.TURN_SPEED);

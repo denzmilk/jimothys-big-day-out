@@ -1,5 +1,7 @@
 import * as CANNON from 'cannon-es';
-import { WORLD, PHYSICS, VOXEL, STREET, RAGDOLL, WATER, TERRAIN, BODY_CONTACT, SUPPORT } from '../core/Constants.js';
+import * as THREE from 'three';
+import {RubbleSurfaces} from '../core/RubbleSurfaces.js';
+import { WORLD, PHYSICS, VOXEL, STREET, RAGDOLL, WATER, TERRAIN, BODY_CONTACT, SUPPORT, RUBBLE as R } from '../core/Constants.js';
 import {canPush,restrictMotion} from '../core/BodyContact.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
@@ -15,6 +17,31 @@ export class PhysicsSystem {
   constructor() {
     this.world = new CANNON.World({ gravity: new CANNON.Vec3(0, -WORLD.GRAVITY, 0) });
     this.world.allowSleep = true;
+    this.world.broadphase=new CANNON.SAPBroadphase(this.world);
+    this.world.broadphase.axisIndex=0;this.world.broadphase.useBoundingBoxes=true;
+    this.surfaces=new RubbleSurfaces();this.actors=new Map();this.grace=new Map();this.time=0;
+    const broadphase=this.world.broadphase,need=broadphase.needBroadphaseCollision.bind(broadphase);
+    broadphase.needBroadphaseCollision=(a,b)=>{const pair=this.grace.get(this.contactKey(a,b));return need(a,b)&&!(pair&&(pair.permanent||this.time<pair.until));};
+    const narrowphase=this.world.narrowphase,contacts=narrowphase.getContacts.bind(narrowphase);
+    narrowphase.getContacts=(...args)=>{
+      contacts(...args);
+      // M52: birth overlaps need gentle positional correction, not an abrupt
+      // second blast when grace expires. Impact velocity and friction still solve.
+      for(const c of args[3])if(this.grace.has(this.contactKey(c.bi,c.bj))){
+        const a=c.bi.position,b=c.bj.position,n=c.ni;
+        const gap=n.x*(b.x+c.rj.x-a.x-c.ri.x)+n.y*(b.y+c.rj.y-a.y-c.ri.y)+n.z*(b.z+c.rj.z-a.z-c.ri.z);
+        if(gap<-R.EPSILON)c.a=Math.min(c.a,R.SPAWN_SEPARATION/-gap);
+      }
+    };
+    eventBus.on(Events.PHYSICAL_GROUND,q=>q.receive(this.surfaces.height(q.x,q.z,q.fromY,q.stepUp)));
+    eventBus.on(Events.PHYSICAL_OBSTACLE,q=>q.receive(this.surfaces.solid(q.x,q.y,q.z)));
+    eventBus.on(Events.ENTITY_REGISTER,p=>this.registerActor(p));
+    eventBus.on(Events.PHYSICAL_ACTOR_CREATE,p=>this.registerActor(p));
+    eventBus.on(Events.PHYSICAL_ACTOR_REMOVE,({id})=>{this.setActorActive(id,false);this.actors.delete(id);});
+    eventBus.on(Events.ENTITY_UNREGISTER,({id})=>{this.setActorActive(id,false);this.actors.delete(id);});
+    eventBus.on(Events.ENTITY_ATTACH,({id})=>{const a=this.actors.get(id);if(a){a.attached=true;this.setActorActive(id,false);}});
+    eventBus.on(Events.ENTITY_RELEASE,({id})=>{const a=this.actors.get(id);if(a){a.attached=false;this.placeActor(a);this.setActorActive(id,!a.down);}});
+    eventBus.on(Events.HUMAN_DOWN,({id,active})=>{const a=this.actors.get(id);if(a){a.down=active;this.placeActor(a);this.setActorActive(id,!active&&!a.attached);}});
     this.fixedStep = 1 / 60;
     this.accumulator = 0;
     this.pairs = [];
@@ -37,6 +64,9 @@ export class PhysicsSystem {
     eventBus.on(Events.TOOL_FORCE,({mesh,velocity,spin})=>{const pair=this.pairs.find(p=>p.mesh===mesh);if(!pair)return;const b=pair.body;b.type=CANNON.Body.DYNAMIC;b.updateMassProperties();if(!this.dynamic.includes(b))this.dynamic.push(b);b.velocity.set(...velocity);if(spin)b.angularVelocity.set(...spin);b.wakeUp();});
     this.props = new Map();
     this.unsupported=new Set();
+    eventBus.on(Events.TRAFFIC_OBSTACLES,({obstacles})=>{
+      for(const [id,p]of this.props)if(p.active&&p.body.type===CANNON.Body.DYNAMIC&&p.body.mass>=STREET.CAR.MASS*R.PUSH_RATIO){const q=p.body.position,h=this._support(p.body);obstacles.push({id,x:q.x,y:q.y,z:q.z,width:h.x,length:h.z});}
+    });
     eventBus.on(Events.WORLD_DEMOLISHED,({bounds})=>{
       if(!bounds)return;for(const [id,p] of this.props){const q=p.body.position,h=p.entity.half;
         if(p.active&&p.body.type===CANNON.Body.KINEMATIC&&q.x+h[0]>=bounds.min[0]&&q.x-h[0]<=bounds.max[0]&&q.z+h[2]>=bounds.min[2]&&q.z-h[2]<=bounds.max[2])this.unsupported.add(id);
@@ -44,15 +74,16 @@ export class PhysicsSystem {
     });
     eventBus.on(Events.PROP_CREATE, p => {
       const body = new CANNON.Body({mass:p.mass,type:p.loose?CANNON.Body.DYNAMIC:CANNON.Body.KINEMATIC,
-        shape:new CANNON.Box(new CANNON.Vec3(...p.half)),linearDamping:STREET.DAMPING,angularDamping:STREET.DAMPING});
+        linearDamping:STREET.DAMPING,angularDamping:STREET.DAMPING});
+      for(const shape of p.shapes||[{half:p.half,offset:[0,0,0]}])body.addShape(new CANNON.Box(new CANNON.Vec3(...shape.half)),new CANNON.Vec3(...shape.offset));
       body.position.copy(p.mesh.position);body.quaternion.copy(p.mesh.quaternion);
       if(p.collisionFilterMask!==undefined)body.collisionFilterMask=p.collisionFilterMask;
       if(p.collisionFilterGroup!==undefined)body.collisionFilterGroup=p.collisionFilterGroup;
       body.sleepSpeedLimit=STREET.SLEEP_SPEED;body.sleepTimeLimit=STREET.SLEEP_TIME;
-      this.props.set(p.id,{body,mesh:p.mesh,active:true,entity:p});this.add(body,p.mesh);
+      this.props.set(p.id,{body,mesh:p.mesh,active:true,entity:p});this.add(body,p.mesh);if(p.spawnSafe)this.protectSpawn(body);
     });
     eventBus.on(Events.PROP_REMOVE, ({id}) => {const p=this.props.get(id);if(p){if(p.active)this.remove(p.body,p.mesh);this.props.delete(id);}});
-    eventBus.on(Events.PROP_POSE, ({id,position,quaternion}) => {const p=this.props.get(id);if(p?.active){p.body.position.copy(position);p.body.quaternion.copy(quaternion);p.body.aabbNeedsUpdate=true;this.resetSweep(p.body);}});
+    eventBus.on(Events.PROP_POSE, ({id,position,quaternion}) => {const p=this.props.get(id);if(p?.active){p.targetPosition=new CANNON.Vec3(position.x,position.y,position.z);p.targetQuaternion=new CANNON.Quaternion(quaternion.x,quaternion.y,quaternion.z,quaternion.w);}});
     eventBus.on(Events.PROP_SUSPEND, ({id}) => {const p=this.props.get(id);if(p?.active){this.remove(p.body,p.mesh);p.active=false;}});
     eventBus.on(Events.PROP_RELEASE, ({id,position}) => {
       const p=this.props.get(id);if(!p)return;
@@ -68,10 +99,10 @@ export class PhysicsSystem {
     });
 
 
-    eventBus.on(Events.PLAYER_BODY_READY,({body})=>{this.playerBody=body;});
+    eventBus.on(Events.PLAYER_BODY_READY,({body})=>{this.playerBody=body;body._player=true;body.collisionFilterMask &= ~R.ACTOR_GROUP;});
     eventBus.on(Events.PLAYER_CONTACT,m=>{
       for(const {body,entity:p,active} of this.props.values()){
-        if(!active||p.kind!=='car'||p.fragment||canPush(m.fatness,p.mass,BODY_CONTACT.CAR_PUSH_RATIO))continue;
+        if(!active||canPush(m.fatness,p.mass,p.kind==='car'?BODY_CONTACT.CAR_PUSH_RATIO:R.PUSH_RATIO)||!(p.kind==='car'||body.type===CANNON.Body.DYNAMIC))continue;
         if(Math.hypot(m.position.x-body.position.x,m.position.z-body.position.z)>
           m.radius+Math.hypot(p.half[0],p.half[1],p.half[2])+Math.hypot(m.velocity.x,m.velocity.z)*m.dt+BODY_CONTACT.SKIN)continue;
         const support=this._support(body),forward=body.quaternion.vmult(new CANNON.Vec3(0,0,1));
@@ -85,7 +116,7 @@ export class PhysicsSystem {
       body.type=CANNON.Body.DYNAMIC;body.mass=mass;body.updateMassProperties();body.velocity.set(...velocity);body.wakeUp();
     });
     eventBus.on(Events.PLAYER_CONTROLLED,()=>{
-      const body=this.playerBody;if(!body)return;body.type=CANNON.Body.KINEMATIC;body.mass=0;body.updateMassProperties();body.angularVelocity.setZero();body.quaternion.set(0,0,0,1);this.resetSweep(body);
+      const body=this.playerBody;if(!body)return;body.type=CANNON.Body.KINEMATIC;body.mass=0;body.updateMassProperties();body.angularVelocity.setZero();body.quaternion.set(0,0,0,1);this.resetSweep(body);this.dynamic=this.dynamic.filter(b=>b!==body);
     });
 
     this.ragdolls=new Map();
@@ -94,7 +125,7 @@ export class PhysicsSystem {
         const b=new CANNON.Body({mass:C.MASS,shape:new CANNON.Box(new CANNON.Vec3(...p.half)),
           linearDamping:C.DAMPING,angularDamping:C.DAMPING,collisionFilterGroup:C.GROUP,collisionFilterMask:C.MASK});
         b.position.copy(p.position);b.quaternion.copy(p.quaternion);b.velocity.set(...velocity);
-        b.angularVelocity.set(C.SPIN,0,-C.SPIN);this.add(b);return b;
+        b._ragdoll=true;b.angularVelocity.set(C.SPIN,0,-C.SPIN);this.add(b);return b;
       });
       const constraints=[];
       parts.forEach((p,i)=>{
@@ -105,6 +136,8 @@ export class PhysicsSystem {
           axisA:a.vectorToLocalFrame(axis),axisB:new CANNON.Vec3(0,1,0),angle:C.ANGLE,twistAngle:C.TWIST,maxForce:C.FORCE,collideConnected:false});
         constraints.push(c);this.world.addConstraint(c);
       });
+      // Limbs within one ragdoll keep their joint spacing; other ragdolls and wreckage collide.
+      for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++)this.grace.set(this.contactKey(bodies[i],bodies[j]),{a:bodies[i],b:bodies[j],permanent:true});
       const r={bodies,constraints};this.ragdolls.set(id,r);receive(r);
     });
     eventBus.on(Events.RAGDOLL_REMOVE,({id})=>{
@@ -176,6 +209,7 @@ export class PhysicsSystem {
   remove(body, mesh = null) {
     this.waterContacts.delete(body);
     this.world.removeBody(body);
+    for(const [key,pair]of this.grace)if(pair.a===body||pair.b===body)this.grace.delete(key);
     const d = this.dynamic.indexOf(body);
     if (d !== -1) this.dynamic.splice(d, 1);
     if (mesh) {
@@ -185,10 +219,11 @@ export class PhysicsSystem {
   }
 
   update(delta) {
-    this.checkSupport();
+    this.time+=delta;this.checkSupport();this.moveActors(delta);this.moveProps(delta);this.updateGrace();
     this.accumulator += delta;
     while (this.accumulator >= this.fixedStep - 1e-9) {
       this._floatBodies(this.fixedStep);
+      for(const body of [...this.dynamic,...[...this.actors.values()].filter(a=>a.active).map(a=>a.body)]){body._contactVelocity??=new CANNON.Vec3();body._contactVelocity.copy(body.velocity);}
       this.world.step(this.fixedStep);
       // Inside the loop, not once per frame: a chunk at blast speed crosses a
       // 0.55 m voxel in about one step, so clamping per FRAME would let it
@@ -196,10 +231,67 @@ export class PhysicsSystem {
       this._groundBodies();
       this.accumulator -= this.fixedStep;
     }
+    for(const p of this.props.values())if(p.active&&p.body.type===CANNON.Body.KINEMATIC&&p.targetPosition){p.body.position.copy(p.targetPosition);p.body.quaternion.copy(p.targetQuaternion);p.targetPosition=null;p.body.aabbNeedsUpdate=true;}
+    this.surfaces.rebuild(this.dynamic);this.actorImpacts();
     for (const { body, mesh } of this.pairs) {
       mesh.position.copy(body.position);
       mesh.quaternion.copy(body.quaternion);
     }
+  }
+
+  contactKey(a,b){return a.id<b.id?`${a.id}:${b.id}`:`${b.id}:${a.id}`;}
+  protectSpawn(body){
+    body.updateAABB();
+    for(const b of this.world.bodies){if(b===body||b.type===CANNON.Body.STATIC)continue;b.updateAABB();if(body.aabb.overlaps(b.aabb))this.grace.set(this.contactKey(body,b),{a:body,b,until:this.time+R.SPAWN_GRACE});}
+  }
+  updateGrace(){
+    for(const [key,p]of this.grace){
+      if(p.permanent)continue;p.a.updateAABB();p.b.updateAABB();
+      if(!p.a.aabb.overlaps(p.b.aabb))this.grace.delete(key);
+    }
+  }
+  registerActor(p){
+    if(!['person','animal','crab-person','fish'].includes(p.kind)||this.actors.has(p.id)||this.actors.size>=R.ACTOR_LIMIT)return;
+    let half=R.HUMAN_HALF,offset=R.HUMAN_OFFSET;
+    if(p.kind!=='person'){
+      p.mesh.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(p.mesh),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
+      half=[size.x/2,size.y/2,size.z/2].map(v=>Math.max(R.ANIMAL_MIN,Math.min(R.ANIMAL_MAX,v)));
+      offset=[0,Math.max(half[1],center.y-p.mesh.position.y),0];
+    }
+    half=p.collisionHalf||half;offset=p.collisionOffset||offset;
+    const body=new CANNON.Body({type:CANNON.Body.KINEMATIC,shape:new CANNON.Box(new CANNON.Vec3(...half)),collisionFilterGroup:R.ACTOR_GROUP,collisionFilterMask:R.ACTOR_MASK});
+    const a={...p,body,offset,active:false,down:false,attached:false,hitAfter:0};body._actor=a;this.actors.set(p.id,a);this.placeActor(a);this.setActorActive(p.id,true);
+  }
+  placeActor(a){const p=a.mesh.position;a.body.position.set(p.x+a.offset[0],p.y+a.offset[1],p.z+a.offset[2]);a.body.quaternion.copy(a.mesh.quaternion);a.body.velocity.setZero();a.body.aabbNeedsUpdate=true;}
+  setActorActive(id,active){const a=this.actors.get(id);if(!a||a.active===active)return;a.active=active;if(active)this.add(a.body);else this.remove(a.body);}
+  moveActors(dt){
+    for(const a of this.actors.values()){
+      const near=!this.playerBody||a.mesh.position.distanceTo(this.playerBody.position)<R.ACTOR_RANGE;
+      const active=near&&!a.down&&!a.attached;this.setActorActive(a.id,active);if(!active)continue;
+      const p=a.mesh.position,b=a.body,target=new CANNON.Vec3(p.x+a.offset[0],p.y+a.offset[1],p.z+a.offset[2]),distance=b.position.distanceTo(target);
+      if(distance>R.ACTOR_TELEPORT||dt<=0)this.placeActor(a);
+      else{target.vsub(b.position,b.velocity);b.velocity.scale(1/dt,b.velocity);b.quaternion.copy(a.mesh.quaternion);b.aabbNeedsUpdate=true;}
+    }
+  }
+  moveProps(dt){
+    for(const p of this.props.values())if(p.active&&p.body.type===CANNON.Body.KINEMATIC){
+      const b=p.body,target=p.targetPosition;
+      if(!target){b.velocity.setZero();continue;}
+      if(dt>0&&b.position.distanceTo(target)<R.ACTOR_TELEPORT){target.vsub(b.position,b.velocity);b.velocity.scale(1/dt,b.velocity);}
+      else{b.position.copy(target);b.velocity.setZero();this.resetSweep(b);}
+      b.quaternion.copy(p.targetQuaternion);b.aabbNeedsUpdate=true;
+    }
+  }
+  actorImpacts(){
+    const hits=[];
+    for(const c of this.world.contacts){
+      const body=c.bi._actor?c.bi:c.bj._actor?c.bj:null;if(!body)continue;
+      const a=body._actor,b=c.bi===body?c.bj:c.bi;if(a.kind!=='person'||a.hitAfter>this.time||b.type!==CANNON.Body.DYNAMIC||b.mass<R.HIT_MASS)continue;
+      const incoming=b._contactVelocity||b.velocity,actorVelocity=body._contactVelocity||body.velocity;
+      const speed=Math.abs(c.ni.x*(incoming.x-actorVelocity.x)+c.ni.y*(incoming.y-actorVelocity.y)+c.ni.z*(incoming.z-actorVelocity.z));if(speed<R.HIT_SPEED||b.mass*speed<R.HIT_MOMENTUM)continue;
+      a.hitAfter=this.time+R.HIT_COOLDOWN;hits.push({id:a.id,x:b.position.x,y:b.position.y,z:b.position.z,radius:this._support(b).r,power:R.HIT_POWER,source:'rubble'});
+    }
+    for(const hit of hits)eventBus.emit(Events.HUMAN_IMPACT,hit);
   }
 
   checkSupport(){
@@ -231,8 +323,8 @@ export class PhysicsSystem {
       // ragdoll limbs displace their actual footprint through the same path.
       if(body!==this.playerBody)eventBus.emit(Events.WATER_DISTURB,{id:body.id,x:p.x,z:p.z,radius:sup.r,halfHeight:sup.y,
         fraction,entering,speed:Math.hypot(body.velocity.x,body.velocity.z),verticalSpeed:body.velocity.y,vx:body.velocity.x,vz:body.velocity.z});
-      body.wakeUp();const s=body.shapes[0],h=s?.halfExtents;
-      const volume=h?8*h.x*h.y*h.z:4/3*Math.PI*(s?.radius||sup.r)**3;
+      body.wakeUp();
+      const volume=body.shapes.reduce((n,shape)=>n+shape.volume(),0);
       const lift=Math.min(body.mass*C.MAX_BUOYANCY,C.DENSITY*volume)*WORLD.GRAVITY*fraction;
       body.force.y+=lift-body.velocity.y*body.mass*C.BUOYANCY_DAMPING*fraction;
       const drag=Math.exp(-C.DRAG*fraction*dt);body.velocity.x*=drag;body.velocity.z*=drag;
@@ -240,19 +332,12 @@ export class PhysicsSystem {
     }
   }
 
-  /** Half-height and half-width of a body, cached on it. Everything dynamic in
-   *  this game is a box or a sphere; anything else gets the sphere treatment,
-   *  which is wrong but bounded rather than crashing. */
+  // Compound wall pieces and fallen poles need their rotated full extent.
+  // Shape zero alone would leave the rest of the section below the floor.
   _support(body) {
-    const s=body.shapes[0];
-    if(!s?.halfExtents){const r=s?.radius??VOXEL.SIZE/2;return {x:r,y:r,z:r,r};}
-    // A knocked pole lies on its side. Keeping its upright half-height made
-    // it float several metres above the ground after the physics rotation.
-    const h=s.halfExtents,q=body.quaternion;
-    const axes=[new CANNON.Vec3(h.x,0,0),new CANNON.Vec3(0,h.y,0),new CANNON.Vec3(0,0,h.z)];
-    for(const v of axes)q.vmult(v,v);
-    const x=axes.reduce((n,v)=>n+Math.abs(v.x),0),z=axes.reduce((n,v)=>n+Math.abs(v.z),0);
-    return {x,z,y:axes.reduce((n,v)=>n+Math.abs(v.y),0),r:Math.max(x,z)};
+    body.updateAABB();const a=body.aabb,p=body.position;
+    const x=Math.max(p.x-a.lowerBound.x,a.upperBound.x-p.x),y=Math.max(p.y-a.lowerBound.y,a.upperBound.y-p.y),z=Math.max(p.z-a.lowerBound.z,a.upperBound.z-p.z);
+    return {x,y,z,r:Math.max(x,z)};
   }
 
   /** Land every dynamic body on the voxel world, and stop it at walls.
@@ -353,10 +438,10 @@ export class PhysicsSystem {
       const rest = this.voxels.groundHeightAt(p.x, p.z, scanFrom, 0) + sup.y;
 
       if (sleeping) {
-        // Never move a sleeping body — only notice that its floor has gone.
-        // Also what keeps the debris pool's parked slots parked: they sleep at
-        // y = -1000, where the scan reports a floor just beneath them.
-        if (p.y - rest > PHYSICS.WAKE_GAP) body.wakeUp();
+        // A supported stack may sleep above the voxel floor. Wake only when
+        // both terrain and the supporting piece are gone.
+        const stack=this.surfaces.height(p.x,p.z,p.y-sup.y+R.STACK_GAP,0,body);
+        if(p.y-Math.max(rest,stack+sup.y)>PHYSICS.WAKE_GAP)body.wakeUp();
         continue;
       }
 

@@ -742,7 +742,7 @@ class Game {
 
   demolitionEffects(removed,pos,collapse=false){
     if(!removed.length)return;
-    this.debris.spawnBurst(removed.filter(cell=>cell.mat!==GLAZING.MATERIAL_ID));
+    if(!collapse)this.debris.spawnBurst(removed.filter(cell=>cell.mat!==GLAZING.MATERIAL_ID));
     const glass=removed.filter(cell=>cell.mat===GLAZING.MATERIAL_ID);
     if(glass.length)eventBus.emit(Events.GLASS_SHATTER,{points:glass,origin:pos});
     // WHERE, not just how much (milestone 19). Destruction is loud, and the
@@ -941,6 +941,7 @@ class Game {
       voxels: {
         ...this.voxels.stats(),
         debris: this.debris.liveCount,
+        physicsBodies:this.physics.world.bodies.length, awakeBodies:this.physics.dynamic.filter(b=>b.sleepState!==2).length, actorContacts:[...this.physics.actors.values()].filter(a=>a.active).length,
         drawCalls: this.renderer.info.render.calls,
       },
       rig: {

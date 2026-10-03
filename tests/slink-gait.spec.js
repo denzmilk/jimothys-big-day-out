@@ -5,7 +5,7 @@ test('the original raccoon walks with low steps, restrained knee splay and a sup
   await boot(page,{withRig:true});
   const reports=await page.evaluate(()=>{
     const c=window.__game.jimothy,reports=[];window.setFatness(0);
-    const ground=()=>20;c.voxels={groundHeightAt:ground,terrainHeightAt:ground,solidAtWorld:()=>false};
+    const ground=()=>20;c.voxels={groundHeightAt:ground,physicalGroundHeightAt:ground,terrainHeightAt:ground,solidAtWorld:()=>false};
     for(const hz of [30,60,120])for(const speed of [1.5,3,6]){
       c.reset();c.yaw=0;c.elapsed=0;c.body.position.set(0,20+c.radius,0);
       let splay=0,lift=0,minSupport=4,fold=0;

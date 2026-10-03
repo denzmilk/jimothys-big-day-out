@@ -185,14 +185,14 @@ export class InteriorSystem{
  }
  removeResident(p){eventBus.emit(Events.HUMAN_UNREGISTER,{id:p.id});eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});p.mixer.stopAllAction();p.mixer.uncacheRoot(p.visual);p.visual.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});p.mesh.removeFromParent();this.residents.splice(this.residents.indexOf(p),1);}
  animate(p,name){if(p.animation===name)return;p.actions[p.animation]?.fadeOut(PED.FADE_TIME);p.actions[name]?.reset().fadeIn(PED.FADE_TIME).play();p.animation=name;}
- ground(x,z,y){return this.voxels.groundHeightAt(x,z,y+C.GROUND_SCAN);}
+ ground(x,z,y){return this.voxels.physicalGroundHeightAt(x,z,y+C.MAX_STEP,0);}
  path(p,goal){
   const nodes=p.plan.nodes,start=[...nodes].sort((a,b)=>p.mesh.position.distanceToSquared(a)-p.mesh.position.distanceToSquared(b))[0],seen=new Map([[start.key,null]]),queue=[start];
   while(queue.length){const n=queue.shift();if(n.key===goal.key)break;for(const k of n.links)if(!seen.has(k)){seen.set(k,n.key);queue.push(nodes.find(n=>n.key===k));}}
   const result=[];let k=goal.key;while(k){result.unshift(nodes.find(n=>n.key===k));k=seen.get(k);}return result;
  }
  walkClear(x,y,z,p){
-  for(const [dx,dz]of[[0,0],[C.BODY_RADIUS,0],[-C.BODY_RADIUS,0],[0,C.BODY_RADIUS],[0,-C.BODY_RADIUS]])if(this.voxels.solidAtWorld(x+dx,y+C.BODY_HEIGHT,z+dz)||this.voxels.solidAtWorld(x+dx,y+C.MAX_STEP,z+dz))return false;
+  for(const [dx,dz]of[[0,0],[C.BODY_RADIUS,0],[-C.BODY_RADIUS,0],[0,C.BODY_RADIUS],[0,-C.BODY_RADIUS]])if(this.voxels.physicalSolidAtWorld(x+dx,y+C.BODY_HEIGHT,z+dz)||this.voxels.physicalSolidAtWorld(x+dx,y+C.MAX_STEP,z+dz))return false;
   for(const item of this.items){if(item.attached||item.fragment||Math.abs(item.mesh.position.y-y)>item.half[1]+C.BODY_HEIGHT)continue;const v=new THREE.Vector3(x,y+C.BODY_HEIGHT/2,z);item.mesh.worldToLocal(v);if(Math.abs(v.y)<item.half[1]+C.BODY_HEIGHT/2-C.MAX_STEP&&Math.abs(v.x)<item.half[0]+C.BODY_RADIUS&&Math.abs(v.z)<item.half[2]+C.BODY_RADIUS)return false;}
   return !this.residents.some(q=>q!==p&&!q.ragdoll&&!q.attached&&q.mesh.position.distanceTo(new THREE.Vector3(x,y,z))<C.BODY_RADIUS*2);
  }

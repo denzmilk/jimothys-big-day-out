@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {SUPPORT as C,VOXEL,BUILDINGS,GLAZING} from '../core/Constants.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import * as Layout from './Layout.js';
+import {rubbleBoxes} from '../core/RubbleShapes.js';
 
 export class StructuralSupport {
  constructor(scene,jimothy,voxels){
@@ -34,11 +35,17 @@ export class StructuralSupport {
   const distance=b=>Math.hypot((b.min[0]+b.max[0])/2-this.jimothy.position.x,(b.min[2]+b.max[2])/2-this.jimothy.position.z);
   for(const [key,bounds]of [...this.pending].sort((a,b)=>distance(a[1])-distance(b[1]))){
    const active=this.voxels.damageQueue.filter(j=>j.kind==='support').length;if(active>=C.ACTIVE)break;
-   if(!this.voxels.isLoadedAtWorld(bounds.min[0],bounds.min[2])||!this.voxels.isLoadedAtWorld(bounds.max[0],bounds.max[2])){continue;}
+   if(!this.footprintLoaded(bounds))continue;
    if(this.voxels.queueSupport(bounds,key))this.pending.delete(key);break;
   }
   for(const p of [...this.fragments])if(!p.attached){p.life-=dt;if(p.life<=0||p.mesh.position.distanceTo(this.jimothy.position)>Layout.Masterplan.BOUNDS)this.remove(p);}
   const first=this.pieces.entries().next().value;if(first){this.pieces.delete(first[0]);this.spawn(first[1]);}
+ }
+ footprintLoaded(bounds){
+  // A partially streamed building must not lose a support that has yet to load.
+  const span=VOXEL.SIZE*VOXEL.CHUNK_XZ;
+  for(let x=Math.floor(bounds.min[0]/span);x<=Math.floor(bounds.max[0]/span);x++)for(let z=Math.floor(bounds.min[2]/span);z<=Math.floor(bounds.max[2]/span);z++)if(!this.voxels.isLoadedAtWorld((x+.5)*span,(z+.5)*span))return false;
+  return true;
  }
  spawn(cells){
   if(this.fragments.length>=C.SECTION_LIMIT){const old=this.fragments.find(p=>!p.attached);if(!old)return;this.remove(old);}
@@ -55,8 +62,9 @@ export class StructuralSupport {
   if(!positions.length)return;
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.computeBoundingSphere();
   const mesh=new THREE.Mesh(geo,this.material);mesh.position.copy(center);mesh.castShadow=mesh.receiveShadow=true;this.scene.add(mesh);
-  const p={id:`structure-piece:${this.serial++}`,kind:'building',mesh,half:half.toArray(),size:Math.max(half.x,half.y,half.z)*2,mass:C.SECTION_MASS,loose:true,attached:false,life:C.SECTION_LIFE};
+  const p={id:`structure-piece:${this.serial++}`,kind:'building',mesh,half:half.toArray(),size:Math.max(half.x,half.y,half.z)*2,mass:Math.max(C.SECTION_MASS_MIN,Math.min(C.SECTION_MASS_MAX,cells.length*VOXEL.SIZE**3*C.SECTION_DENSITY)),shapes:rubbleBoxes(cells,center),spawnSafe:true,loose:true,attached:false,life:C.SECTION_LIFE};
   this.fragments.push(p);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,p);
+  eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity:[0,-C.SECTION_DROP,0],spin:Math.sin(this.serial)*C.SECTION_SPIN});
  }
  key(x,y,z){return `${Math.round(x/VOXEL.SIZE-.5)},${Math.round(y/VOXEL.SIZE-.5)},${Math.round(z/VOXEL.SIZE-.5)}`;}
  remove(p){eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});eventBus.emit(Events.PROP_REMOVE,{id:p.id});p.mesh.removeFromParent();p.mesh.geometry.dispose();this.fragments.splice(this.fragments.indexOf(p),1);}

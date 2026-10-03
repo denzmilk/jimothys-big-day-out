@@ -80,6 +80,8 @@ export const Events = {
   ENTITY_UNREGISTER: 'entity:unregister',
   ENTITY_ATTACH: 'entity:attach',
   ENTITY_RELEASE: 'entity:release',
+  PHYSICAL_ACTOR_CREATE:'physics:actor-create', PHYSICAL_ACTOR_REMOVE:'physics:actor-remove',
+  PHYSICAL_GROUND:'physics:ground', PHYSICAL_OBSTACLE:'physics:obstacle',
   PROP_CREATE: 'prop:create',
   PROP_REMOVE: 'prop:remove',
   PROP_POSE: 'prop:pose',

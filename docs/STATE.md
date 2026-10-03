@@ -1,5 +1,17 @@
 # Session state
 
+## Building collapse and shared rubble — JIM-73 / JIM-82 / milestone 52 — 2026-10-04
+
+**Implemented, awaiting Chris’s playtest.** Removing real building supports now releases face-disconnected sections after ordinary digging or giant channels. Full-footprint loading prevents a partly streamed building from losing an unseen support. Up to 48 original-voxel pieces use occupied compound colliders, preserving holes and leaving a settled cave-in instead of a floating upper shell.
+
+Glass, car parts, building pieces, ragdolls, soil clods and ordinary voxel rubble share contact. Birth overlaps separate gently instead of producing another explosion. Moving cars impart velocity; nearby people/enemies, land animals and underwater creatures have bounded contact proxies. Heavy rubble blocks movement and supports feet; falling heavy pieces knock people down. Expiry, attachment, streaming and restart remove owned bodies. Dust and similar effects remain particles.
+
+**Validation:** 105 units, 56 unique focused/adjacent browser cases, build and production pixel smoke pass. Original car-settling, pedestrian activities and eight loaded-rig/gait checks pass. Native original-rig cave-in and giant-roll captures are console-clean. Evidence and limits: [milestone 52](milestones/52-collapse-and-rubble.md), `output/iterate/rubble-*`. JIM-73 was pushed separately as `59a9f2a`; the coupled JIM-82 change follows in its own commit.
+
+**Performance remains open (JIM-48).** The final 480-frame house sample records median/p95/max update plus render submission of 42.3 / 47.3 / 72.9 ms, with up to 420 bodies. A 100.8 m Absurd roll carries 64 objects and reaches 543 bodies; its sample is 59.1 / 101.9 / 161.0 ms. Instrumentation identifies substantial street-traffic, physics and pedestrian costs. Mesh backlog clears after six deterministic settling seconds, with one support job still pending. These measurements establish neither FPS nor a performance improvement. Maximum-size underside skin stretching also remains a recorded JIM-69 visual follow-up.
+
+**Play at http://127.0.0.1:4174.** Remove a house’s lower supports, then walk/roll or drive through its rubble and judge the cave-in, resistance and weight. Chris’s feel/sign-off remains the M52 exit gate. Earlier wanted pacing and content requests remain recorded; no unrelated milestones were added to this diff.
+
 ## Cave-in support repair — JIM-73 / milestone 52 — 2026-10-04
 
 **Support repair implemented, awaiting Chris’s playtest; shared rubble contact is in progress (JIM-82).** Support now follows remaining face-connected voxels, including real ground contact after ordinary excavation. A one-cell cut no longer inherits support from a coarse 4-cell group. Wide channel damage schedules nearer buildings first so a distant large structure cannot delay the visible house. Five support units pass; generated house/apartment cuts remove all 4,077 / 51,694 sampled upper cells, and the existing channel, prop and vegetation support checks pass. Native original-rig cave-in inspection is console-clean (`output/iterate/collapse-{before,after}.png`). Debris hulls still need refinement in the coupled JIM-82 pass. A manual-time 360-step update sample measured p95 96.6 ms; this unbudgeted diagnostic is not a performance sign-off.

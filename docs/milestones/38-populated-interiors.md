@@ -39,6 +39,6 @@ The route ends with 42–43 furniture roots and 4–8 indoor residents. Block ca
 
 Ignored local evidence is under `output/iterate/`: `interiors-red.log`, `interiors-green.log`, `interiors-paths.log`, `interiors-regression.log`, `interior-native-tests.log`, `interior-batches-green.log`, `interior-passing-red.log`, `interior-headroom-red.log`, `interior-final-paths.log`, `interior-final-units.log`, `interior-build-final.log`, `interior-smoke-final.log`, `interior-profile-final.log`, `interior-follow-final.log`, `interior-follow.png` and `interior-{craftsman,apartment,shop,warehouse}.png`.
 
-Doorways are open passages. Hinged doors and house-specific lore remain explicit backlog items. Residents currently walk, idle and flee; sitting/working animations and whole-city household simulation are not included. Furnishings activate near the player, with fixed population budgets. Chris's visual and feel sign-off remains pending.
+Milestone 50 supersedes the original open-passage-only scope with hinged doors, wider circulation and fuller furnishing groups. House-specific lore remains a backlog item. Residents currently walk, idle and flee; sitting/working animations and whole-city household simulation are not included. Furnishings activate near the player, with fixed population budgets. Chris's visual and feel sign-off remains pending.
 
 Preview: http://127.0.0.1:4174. Open Dev → Level → **Visit next building interior** to cycle houses and commercial spaces.

@@ -87,6 +87,8 @@ export const Events = {
   PROP_SUSPEND: 'prop:suspend',
   PROP_RELEASE: 'prop:release',
   WORLD_DEMOLISHED: 'world:demolished',
+  WORLD_OCCLUSION: 'world:occlusion',
+  WORLD_OCCLUSION_CHANGED: 'world:occlusion-changed',
   PROP_UNSUPPORTED: 'prop:unsupported',
   // underground:* (milestone 18)
   TREASURE_FOUND: 'treasure:found',

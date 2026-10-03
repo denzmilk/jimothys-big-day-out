@@ -91,8 +91,8 @@
 - [ ] Temporary pickups/weapons — fire extinguisher (propulsion + fog), taser, suction-cap gun, plus the earlier list (bubble blower, dance ray, sick ray, food magnet, super jump, long legs). Timed pickups with a duration meter.
   - Source: 2026-07-23 Chris ("temporary pickups/weapons (extinguishers, tazers, suction cap guns etc.)")
   - Rough size: L · Rough value: L · Roadmap: Phase 5 — depends on ragdoll
-- [x] Enterable houses, furniture, food and residents → milestone 38 / ADR-0006. Continuous destructible voxel rooms, open doorways and stairs. Hinged door interactions and house-specific lore dressing remain deferred below.
-  - Follow-up: hinged doors and house-specific lore props remain on the backlog; this pass implements open entrances and furnished inhabited rooms.
+- [x] Enterable houses, furniture, food and residents → milestone 38 / ADR-0006. Continuous destructible voxel rooms, open doorways and stairs. Hinged doors promoted to milestone 50; house-specific lore dressing remains deferred.
+  - Follow-up: milestone 50 adds hinged doors and roomier furnished layouts; house-specific lore props remain on the backlog.
   - Source: 2026-07-23 Chris ("houses to enter"); expanded 2026-10-02 food/interiors request
   - Rough size: L · Rough value: L · Roadmap: Phase 4
 - [ ] Streaming / virtual ground — stop allocating undamaged ground voxels up front; render intact terrain as merged tiles and materialise chunks only where damaged. MEASURED BLOCKER: 5×-per-side map costs 19 s boot, 1007 draw calls, 3.5 GB heap; currently capped at 5× area instead.

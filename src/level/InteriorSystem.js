@@ -7,17 +7,31 @@ import{INTERIORS as C,PEDESTRIANS as PED,COLLECTION,VOXEL,FOOD_MODELS}from'../co
 import{eventBus,Events}from'../core/EventBus.js';
 import{gameState}from'../core/GameState.js';
 import * as Layout from './Layout.js';
-import{planInterior,interiorPoint}from'./InteriorLayout.js';
+import{planInterior,interiorPoint,blocksInteriorRoute}from'./InteriorLayout.js';
+
+import {doorTemplate,doorIntersection} from './DoorModels.js';
+import {restrictMotion} from '../core/BodyContact.js';
 
 export class InteriorSystem{
  constructor(scene,jimothy,voxels){
   Object.assign(this,{scene,jimothy,voxels});this.templates=new Map();this.plans=new Map();this.active=new Map();this.items=[];this.residents=[];this.destroyed=new Set();this.saved=new Map();this.eaten=new Set();this.models=[];this.serial=0;this.clock=0;this.ready=false;
+  this.doorVisitors=[];this.visitorClock=0;
   this.batches=new RigidBatches(scene,C.BATCH_CAPACITY,C.BATCH_VERTICES);this.fragmentCache=new Map();
   eventBus.on(Events.HUMAN_MODELS_READY,({models})=>{this.models=models;this.stream();});
   eventBus.on(Events.FOOD_TAKEN,({owner})=>this.eaten.add(owner));
   eventBus.on(Events.WORLD_IMPACT,h=>this.impact(h));
+  eventBus.on(Events.WORLD_OCCLUSION,line=>{
+   for(const p of this.items)if(p.door&&!p.loose&&!p.attached&&!p.fragment)line.fraction=Math.min(line.fraction,doorIntersection(p,line));
+  });
+  eventBus.on(Events.PLAYER_CONTACT,m=>{
+   for(const p of this.items)if(p.door&&!p.loose&&!p.attached&&!p.fragment){
+    if(Math.hypot(m.position.x-p.mesh.position.x,m.position.z-p.mesh.position.z)>m.radius+p.size+Math.hypot(m.velocity.x,m.velocity.z)*m.dt)continue;
+    restrictMotion(m,{id:p.id,position:p.mesh.position,half:p.half,yaw:p.mesh.rotation.y,bottom:p.mesh.position.y-p.half[1],top:p.mesh.position.y+p.half[1]});
+   }
+  });
+  eventBus.on(Events.PROP_UNSUPPORTED,({id})=>{const p=this.items.find(p=>p.id===id);if(p?.door){this.destroyed.add(id);p.loose=true;this.doorChanged(p);}});
   eventBus.on(Events.ENTITY_ATTACH,({id})=>{
-   const item=this.items.find(p=>p.id===id);if(item){item.attached=true;this.destroyed.add(id);eventBus.emit(Events.PROP_SUSPEND,{id});}
+   const item=this.items.find(p=>p.id===id);if(item){item.attached=true;this.doorChanged(item);this.destroyed.add(id);eventBus.emit(Events.PROP_SUSPEND,{id});}
    const p=this.residents.find(p=>p.id===id);if(p){p.attached=true;this.animate(p,'Idle');}
   });
   eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{
@@ -47,41 +61,87 @@ export class InteriorSystem{
   for(const p of [...this.items])if(!p.attached&&!p.fragment&&p.mesh.position.distanceTo(j)>C.RADIUS){if(p.loose)this.save(p);this.removeItem(p);}
   for(const p of [...this.residents])if(!p.attached&&!p.ragdoll&&p.mesh.position.distanceTo(j)>C.RADIUS)this.removeResident(p);
   for(const [id,saved]of this.saved){
-   if(this.items.filter(p=>!p.fragment).length>=C.MAX_ITEMS)break;
+   if(saved.kind!=='door'&&this.items.filter(p=>!p.fragment&&!p.door).length>=C.MAX_ITEMS)continue;
    if(this.items.some(p=>p.id===id)||new THREE.Vector3().fromArray(saved.position).distanceTo(j)>C.RADIUS)continue;
-   const t=this.templates.get(saved.kind),mesh=t.root.clone();mesh.position.fromArray(saved.position);mesh.quaternion.fromArray(saved.quaternion);
-   this.install({id,kind:saved.kind,key:saved.kind,floor:saved.floor,worldHalf:saved.worldHalf,mesh,half:t.half,size:t.size,mass:C.MASS,loose:true,attached:false,fragment:false});
+   if(saved.kind==='door'&&this.items.filter(p=>p.door&&!p.fragment).length>=C.MAX_DOORS)continue;
+   const t=this.templates.get(saved.key||saved.kind);if(!t)continue;const mesh=t.root.clone();mesh.position.fromArray(saved.position);mesh.quaternion.fromArray(saved.quaternion);
+   this.install({id,kind:saved.kind,key:saved.key||saved.kind,door:saved.door,floor:saved.floor,worldHalf:saved.worldHalf,mesh,half:t.half,size:t.size,mass:saved.mass||C.MASS,loose:true,attached:false,fragment:false});
   }
   for(const a of near){
    if(!this.active.has(a.floor.id)){this.active.set(a.floor.id,a);this.furnish(a.plan,a.floor);}
+   this.installDoors(a.plan,a.floor);
    if(this.models.length&&a.d<C.RESIDENT_DISTANCE){
     for(let k=0;k<C.RESIDENTS_PER_FLOOR&&this.residents.length<C.MAX_RESIDENTS;k++)if(!this.residents.some(p=>p.id===`${a.floor.id}:resident:${k}`))this.addResident(a.plan,a.floor,k);
    }
   }
  }
+ installDoors(plan,floor){
+  for(const door of plan.doors.filter(d=>d.floor===floor.id)){
+   if(this.items.filter(p=>p.door&&!p.fragment).length>=C.MAX_DOORS)break;
+   if(this.destroyed.has(door.id)||this.items.some(p=>p.id===door.id)||this.saved.has(door.id))continue;
+   const width=door.width-C.DOOR_GAP*2,height=door.height-C.DOOR_GAP*2;
+   const color=door.exterior?C.DOOR_COLORS[plan.seed%C.DOOR_COLORS.length]:C.DOOR_INNER_COLOR,key=`door:${width}:${height}:${color}`;
+   if(!this.templates.has(key))this.templates.set(key,doorTemplate(width,height,color));
+   const t=this.templates.get(key),gap=C.DOOR_GAP/VOXEL.SIZE;
+   const hinge=new THREE.Vector3().copy(interiorPoint(plan.b,door.x+(door.axis==='z'?gap:0),door.y,door.z+(door.axis==='x'?gap:0)));
+   hinge.y+=height/2+C.DOOR_GAP;
+   const supportPoints=C.DOOR_HINGE_HEIGHTS.map(h=>interiorPoint(plan.b,door.x-(door.axis==='z'?.5:0),door.y+h/VOXEL.SIZE,door.z-(door.axis==='x'?.5:0)));
+   const p={id:door.id,kind:'door',key,door,hinge,supportPoints,closedYaw:(door.axis==='x'?-Math.PI/2:0)-(plan.b.front||0)*Math.PI/2,angle:0,hold:0,
+    mesh:t.root.clone(),half:t.half,size:t.size,mass:C.DOOR_MASS,floor:floor.id,worldHalf:[width/2,width/2],attached:false,loose:false,fragment:false};
+   this.poseDoor(p);this.install(p);
+  }
+ }
+ doorChanged(p){if(p.door&&!p.fragment)eventBus.emit(Events.WORLD_OCCLUSION_CHANGED);}
+ poseDoor(p){
+  const yaw=p.closedYaw+p.angle;p.mesh.rotation.y=yaw;
+  const step=Math.round(p.angle/C.DOOR_SIGHT_STEP);if(step!==p.sightStep){p.sightStep=step;this.doorChanged(p);}
+  p.mesh.position.set(p.hinge.x+Math.cos(yaw)*p.half[0],p.hinge.y,p.hinge.z-Math.sin(yaw)*p.half[0]);
+  eventBus.emit(Events.PROP_POSE,{id:p.id,position:p.mesh.position,quaternion:p.mesh.quaternion});
+ }
+ updateDoor(p,dt){
+  p.support=(p.support||0)-dt;
+  if(p.support<=0){
+   p.support=C.DOOR_SUPPORT_INTERVAL;
+   if(p.supportPoints.every(q=>this.voxels.isLoadedAtWorld(q.x,q.z))&&!p.supportPoints.some(q=>this.voxels.solidAtWorld(q.x,q.y,q.z))){
+    p.loose=true;this.destroyed.add(p.id);this.doorChanged(p);eventBus.emit(Events.PROP_RELEASE,{id:p.id,position:p.mesh.position});return;
+   }
+  }
+  const near=(q,r=0)=>Math.abs(q.y-(p.hinge.y-p.half[1]))<C.DOOR_FLOOR_RANGE&&Math.hypot(q.x-p.hinge.x,q.z-p.hinge.z)<C.DOOR_REACH+r;
+  if(near(this.jimothy.position,this.jimothy.radius)||this.residents.some(q=>!q.attached&&near(q.mesh.position))||this.doorVisitors.some(q=>near(q)))p.hold=C.DOOR_WAIT;
+  else p.hold=Math.max(0,p.hold-dt);
+  const target=p.hold?p.door.sign*C.DOOR_OPEN:0,step=C.DOOR_SPEED*dt;
+  const angle=p.angle+THREE.MathUtils.clamp(target-p.angle,-step,step);if(angle!==p.angle){p.angle=angle;this.poseDoor(p);}
+ }
  furnish(plan,floor){
   const s=VOXEL.SIZE,seed=plan.seed+floor.index;
-  for(const [ri,room]of floor.rooms.entries()){
-   const choices=C.FURNISHINGS[room.purpose];
-   for(let slot=0;slot<choices.length;slot++){
-    if(this.items.filter(p=>!p.fragment).length>=C.MAX_ITEMS)break;
+  const budget=Math.floor(C.MAX_ITEMS/C.MAX_FLOORS),full=()=>this.items.filter(p=>!p.fragment&&!p.door&&p.floor===floor.id).length>=budget||this.items.filter(p=>!p.fragment&&!p.door).length>=C.MAX_ITEMS;
+  // Give every room its main furniture before spending the floor's remaining
+  // budget on extra pieces. The first large lounge must not empty the kitchen.
+  const slots=Math.max(...floor.rooms.map(r=>C.FURNISHINGS[r.purpose].length));
+  for(let slot=0;slot<slots;slot++)for(const [ri,room]of floor.rooms.entries()){
+   const choices=C.FURNISHINGS[room.purpose];if(slot>=choices.length||full())continue;
     const kind=choices[slot][((seed>>>(slot*3))+ri)%choices[slot].length],t=this.templates.get(kind),id=`${room.id}:prop:${slot}`;
     if(this.destroyed.has(id)||this.items.some(p=>p.id===id)||this.saved.has(id))continue;
-    const [hx,,hz]=t.half,edge=C.CLEARANCE,rug=kind==='rugRectangle';
-    const x=rug?(room.x0+room.x1+1)*s/2:slot===1||slot===3?(room.side?room.x0*s+hx+edge: (room.x1+1)*s-hx-edge):(room.side?(room.x1+1)*s-hx-edge:room.x0*s+hx+edge);
-    const z=rug?(room.z0+room.z1+1)*s/2:slot===1||slot===2?(room.z1+1)*s-hz-edge:room.z0*s+hz+edge;
-    const yaw=slot===1?Math.PI:0,point=interiorPoint(plan.b,x/s,floor.localY,z/s),node=plan.nodes.find(n=>n.key===room.node);
-    // Keep the entire hall-to-activity segment clear, including Jimothy's width.
-    const nx=node.local.x*s,nz=node.local.z*s;
-    if(x-hx<room.x0*s||x+hx>(room.x1+1)*s||z-hz<room.z0*s||z+hz>(room.z1+1)*s)continue;
-    const approachMin=Math.min(nx,plan.w*s/2),approachMax=Math.max(nx,plan.w*s/2);
-    if(!rug&&x+hx+C.ROOM_CLEARANCE>approachMin&&x-hx-C.ROOM_CLEARANCE<approachMax&&Math.abs(z-nz)<hz+C.ROOM_CLEARANCE)continue;
-    const angle=yaw-(plan.b.front||0)*Math.PI/2,halfXZ=(plan.b.front||0)%2?[hz,hx]:[hx,hz];
-    if(!rug&&this.items.some(p=>p.kind!=='rugRectangle'&&p.floor===floor.id&&!p.fragment&&Math.abs(p.mesh.position.x-point.x)<p.worldHalf[0]+halfXZ[0]+C.FURNITURE_GAP&&Math.abs(p.mesh.position.z-point.z)<p.worldHalf[1]+halfXZ[1]+C.FURNITURE_GAP))continue;
+    const [hx,,hz]=t.half,edge=C.CLEARANCE,rug=C.FLOOR_FURNISHINGS.includes(kind),halfXZ=(plan.b.front||0)%2?[hz,hx]:[hx,hz];
+    let placement;
+    for(let attempt=0;attempt<(rug?1:C.FURNISH_ANCHORS.length);attempt++){
+     const [ax,az]=rug?[.5,.5]:C.FURNISH_ANCHORS[(slot+attempt)%C.FURNISH_ANCHORS.length];
+     const x=THREE.MathUtils.lerp(room.x0*s+hx+edge,(room.x1+1)*s-hx-edge,ax),z=THREE.MathUtils.lerp(room.z0*s+hz+edge,(room.z1+1)*s-hz-edge,az);
+     if(x-hx<room.x0*s||x+hx>(room.x1+1)*s||z-hz<room.z0*s||z+hz>(room.z1+1)*s)continue;
+     if(!rug&&blocksInteriorRoute(plan,floor,x,z,hx,hz))continue;
+     const point=interiorPoint(plan.b,x/s,floor.localY,z/s);
+     if(!rug&&this.items.some(p=>!C.FLOOR_FURNISHINGS.includes(p.kind)&&p.floor===floor.id&&!p.fragment&&Math.abs(p.mesh.position.x-point.x)<p.worldHalf[0]+halfXZ[0]+C.FURNITURE_GAP&&Math.abs(p.mesh.position.z-point.z)<p.worldHalf[1]+halfXZ[1]+C.FURNITURE_GAP))continue;
+     placement={point,angle:(az===1?Math.PI:0)-(plan.b.front||0)*Math.PI/2};break;
+    }
+    if(!placement)continue;const {point,angle}=placement;
     const mesh=t.root.clone();mesh.position.set(point.x,point.y+t.half[1]+C.CLEARANCE,point.z);mesh.rotation.y=angle;
     const item={id,kind,key:kind,mesh,half:t.half,size:t.size,mass:C.MASS,floor:floor.id,worldHalf:halfXZ,loose:false,attached:false,fragment:false};
      this.install(item);
-   }
+     const decor=C.DECOR[kind],detail=this.templates.get(decor),detailId=`${id}:decor`;
+     if(detail&&!this.destroyed.has(detailId)&&!this.saved.has(detailId)&&!full()){
+      const mesh=detail.root.clone();mesh.position.copy(item.mesh.position);mesh.position.y+=item.half[1]+detail.half[1]+C.DECOR_CLEARANCE;mesh.rotation.y=angle;
+      this.install({id:detailId,kind:decor,key:decor,mesh,half:detail.half,size:detail.size,mass:C.MASS,floor:floor.id,worldHalf:(plan.b.front||0)%2?[detail.half[2],detail.half[0]]:[detail.half[0],detail.half[2]],supportedBy:item.id,loose:false,attached:false,fragment:false});
+     }
   }
   for(let k=0;k<Math.min(C.MAX_FOOD_PER_FLOOR,floor.rooms.length);k++){
    const room=floor.rooms[k],node=plan.nodes.find(n=>n.key===room.node),owner=`${floor.id}:food:${k}`;
@@ -89,8 +149,8 @@ export class InteriorSystem{
   }
  }
  install(p){this.items.push(p);this.scene.add(p.mesh);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:'furniture',size:p.size});}
- save(p){this.saved.set(p.id,{kind:p.kind,floor:p.floor,worldHalf:p.worldHalf,position:p.mesh.position.toArray(),quaternion:p.mesh.quaternion.toArray()});}
- removeItem(p){eventBus.emit(Events.PROP_REMOVE,{id:p.id});eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});p.mesh.removeFromParent();this.items.splice(this.items.indexOf(p),1);}
+ save(p){this.saved.set(p.id,{kind:p.kind,floor:p.floor,key:p.key,door:p.door,mass:p.mass,worldHalf:p.worldHalf,position:p.mesh.position.toArray(),quaternion:p.mesh.quaternion.toArray()});}
+ removeItem(p){this.doorChanged(p);eventBus.emit(Events.PROP_REMOVE,{id:p.id});eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});p.mesh.removeFromParent();this.items.splice(this.items.indexOf(p),1);}
  fragments(kind){
   if(this.fragmentCache.has(kind))return this.fragmentCache.get(kind);
   const t=this.templates.get(kind),parts=[];
@@ -103,10 +163,10 @@ export class InteriorSystem{
   }
   const result=parts.filter(Boolean).map((root,i)=>{const box=new THREE.Box3().setFromObject(root),center=box.getCenter(new THREE.Vector3()),half=box.getSize(new THREE.Vector3()).multiplyScalar(.5);for(const m of root.children)m.geometry.translate(-center.x,-center.y,-center.z);return{root,center,half:half.toArray().map(v=>Math.max(C.FRAGMENT_MIN,v)),key:`${kind}:piece:${i}`};});this.fragmentCache.set(kind,result);return result;
  }
- loosen(p,origin){p.loose=true;const direction=p.mesh.position.clone().sub(origin);direction.y=0;if(!direction.lengthSq())direction.x=1;direction.normalize().multiplyScalar(C.IMPULSE);direction.y=C.LIFT;eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity:direction.toArray(),spin:C.SPIN});}
+ loosen(p,origin){p.loose=true;if(p.door){this.destroyed.add(p.id);this.doorChanged(p);}const direction=p.mesh.position.clone().sub(origin);direction.y=0;if(!direction.lengthSq())direction.x=1;direction.normalize().multiplyScalar(C.IMPULSE);direction.y=C.LIFT;eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity:direction.toArray(),spin:C.SPIN});}
  breakItem(p,origin){
   this.destroyed.add(p.id);this.saved.delete(p.id);p.mesh.updateWorldMatrix(true,true);const matrix=p.mesh.matrixWorld.clone(),rotation=p.mesh.quaternion.clone();this.removeItem(p);
-  for(const part of this.fragments(p.kind)){
+  for(const part of this.fragments(p.key||p.kind)){
    while(this.items.filter(q=>q.fragment).length>=C.FRAGMENTS){const old=this.items.find(q=>q.fragment&&!q.attached);if(!old)return;this.removeItem(old);}
    const mesh=part.root.clone();mesh.position.copy(part.center).applyMatrix4(matrix);mesh.quaternion.copy(rotation);
    const q={...p,id:`interior-piece:${this.serial++}`,key:part.key,mesh,half:part.half,size:Math.max(...part.half)*2,fragment:true,life:C.FRAGMENT_LIFE,attached:false,loose:true};this.install(q);this.loosen(q,origin);
@@ -139,13 +199,16 @@ export class InteriorSystem{
  update(dt,isVisible=()=>true){
   if(!this.ready||!gameState.game.isPlaying)return;this.clock-=dt;if(this.clock<=0){this.clock=C.REFRESH;this.stream();}
   const j=this.jimothy.position;
+  this.visitorClock-=dt;if(this.visitorClock<=0){this.visitorClock=C.DOOR_VISITOR_REFRESH;const visitors={obstacles:[]};eventBus.emit(Events.TRAFFIC_OBSTACLES,visitors);this.doorVisitors=visitors.obstacles;}
   for(const item of [...this.items]){
    if(item.attached)continue;
    if(item.fragment){item.life-=dt;if(item.life<=0)this.removeItem(item);continue;}
+   if(!item.loose&&item.door){this.updateDoor(item,dt);continue;}
    if(!item.loose){
     item.support=(item.support||0)-dt;
-    if(item.support<=0){item.support=C.SUPPORT_INTERVAL;const p=item.mesh.position,y=this.ground(p.x,p.z,p.y-item.half[1]);if(y<p.y-item.half[1]-C.MAX_STEP){item.loose=true;eventBus.emit(Events.PROP_RELEASE,{id:item.id,position:p});}}
-    if(this.jimothy.speed>C.BONK_SPEED&&item.mesh.position.distanceTo(this.jimothy.body.position)<this.jimothy.radius+item.size/2)this.loosen(item,new THREE.Vector3(j.x,j.y,j.z));
+    if(item.support<=0){item.support=C.SUPPORT_INTERVAL;const p=item.mesh.position,y=this.ground(p.x,p.z,p.y-item.half[1]);const support=this.items.find(q=>q.id===item.supportedBy&&!q.loose&&!q.attached);if(!support&&y<p.y-item.half[1]-C.MAX_STEP){item.loose=true;eventBus.emit(Events.PROP_RELEASE,{id:item.id,position:p});}}
+    // A rug is underfoot; its wide bounds must not turn a footstep into a launch.
+    if(!C.FLOOR_FURNISHINGS.includes(item.kind)&&this.jimothy.speed>C.BONK_SPEED&&item.mesh.position.distanceTo(this.jimothy.body.position)<this.jimothy.radius+item.size/2)this.loosen(item,new THREE.Vector3(j.x,j.y,j.z));
    }
   }
   for(const p of this.residents){
@@ -174,6 +237,6 @@ export class InteriorSystem{
   }
  }
  afterUpdate(){this.batches.update(this.items.map(p=>({key:p.key,root:p.mesh})));}
- reset(){this.batches.clear();for(const p of [...this.items])this.removeItem(p);for(const p of [...this.residents])this.removeResident(p);this.active.clear();this.destroyed.clear();this.saved.clear();this.eaten.clear();this.clock=0;this.serial=0;this.stream();}
- snapshot(){return{ready:this.ready,buildings:[...this.active.values()].map(({plan,floor})=>({id:plan.id,type:plan.b.type,floor:floor.index,entry:plan.entrance,rooms:floor.rooms.map(r=>({purpose:r.purpose,node:plan.nodes.find(n=>n.key===r.node)}))})),furniture:this.items.map(p=>({id:p.id,kind:p.kind,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,fragment:p.fragment,attached:p.attached,loose:p.loose})),residents:this.residents.map(p=>({id:p.id,model:p.model,floor:p.floor,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,animation:p.animation,flee:p.flee,attached:p.attached,ragdoll:p.ragdoll,feet:p.grounding.contacts})),destroyed:this.destroyed.size};}
+ reset(){this.doorVisitors=[];this.visitorClock=0;this.batches.clear();for(const p of [...this.items])this.removeItem(p);for(const p of [...this.residents])this.removeResident(p);this.active.clear();this.destroyed.clear();this.saved.clear();this.eaten.clear();this.clock=0;this.serial=0;this.stream();}
+ snapshot(){return{ready:this.ready,buildings:[...this.active.values()].map(({plan,floor})=>({id:plan.id,type:plan.b.type,floor:floor.index,entry:plan.entrance,rooms:floor.rooms.map(r=>({purpose:r.purpose,node:plan.nodes.find(n=>n.key===r.node)}))})),furniture:this.items.map(p=>({id:p.id,kind:p.kind,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,fragment:p.fragment,attached:p.attached,loose:p.loose,angle:p.door?p.angle:undefined})),residents:this.residents.map(p=>({id:p.id,model:p.model,floor:p.floor,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,animation:p.animation,flee:p.flee,attached:p.attached,ragdoll:p.ragdoll,feet:p.grounding.contacts})),destroyed:this.destroyed.size};}
 }

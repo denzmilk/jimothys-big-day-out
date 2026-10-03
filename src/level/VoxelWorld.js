@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {eventBus,Events} from '../core/EventBus.js';
 import {VoxelBatches} from '../core/VoxelBatches.js';
 import {supportTask} from '../core/VoxelSupport.js';
 import { VOXEL, STREAM, TERRAIN, PAVING, VOXEL_BATCH, BEACH, GROUND_CHANNEL, SUPPORT, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
@@ -521,6 +522,10 @@ export class VoxelWorld {
    *  The endpoints' own voxels are skipped. An eye inside a wall and a target
    *  inside rubble are both states the game can legitimately be in, and neither
    *  should mean "blind". */
+  _clearDynamicSight(ax,ay,az,bx,by,bz){
+    const line={ax,ay,az,bx,by,bz,fraction:1};eventBus.emit(Events.WORLD_OCCLUSION,line);return line.fraction>=1;
+  }
+
   hasLineOfSight(ax, ay, az, bx, by, bz) {
     const s = VOXEL.SIZE;
     const dx = bx - ax;
@@ -546,21 +551,21 @@ export class VoxelWorld {
     // amount rather than freezing the game.
     const maxSteps = Math.ceil((Math.abs(dx) + Math.abs(dy) + Math.abs(dz)) / s) + 3;
     for (let n = 0; n < maxSteps; n++) {
-      if (x === ex && y === ey && z === ez) return true;
+      if (x === ex && y === ey && z === ez) return this._clearDynamicSight(ax,ay,az,bx,by,bz);
       if (tMaxX < tMaxY && tMaxX < tMaxZ) {
-        if (tMaxX > 1) return true;
+        if (tMaxX > 1) return this._clearDynamicSight(ax,ay,az,bx,by,bz);
         x += stepX; tMaxX += tDeltaX;
       } else if (tMaxY < tMaxZ) {
-        if (tMaxY > 1) return true;
+        if (tMaxY > 1) return this._clearDynamicSight(ax,ay,az,bx,by,bz);
         y += stepY; tMaxY += tDeltaY;
       } else {
-        if (tMaxZ > 1) return true;
+        if (tMaxZ > 1) return this._clearDynamicSight(ax,ay,az,bx,by,bz);
         z += stepZ; tMaxZ += tDeltaZ;
       }
-      if (x === ex && y === ey && z === ez) return true;
+      if (x === ex && y === ey && z === ez) return this._clearDynamicSight(ax,ay,az,bx,by,bz);
       if (this.get(x, y, z) !== 0) return false;
     }
-    return true;
+    return this._clearDynamicSight(ax,ay,az,bx,by,bz);
   }
 
   /** The first solid cell a ray enters, with the face normal of the side it

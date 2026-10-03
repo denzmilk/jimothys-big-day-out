@@ -18,9 +18,11 @@ Walking inside buildings glitches onto the roof. The controller permits a 2.6 m 
 
 ### JIM-80 — Buildings have missing doors, cramped rooms and sparse furnishing
 
-**Status:** in progress · **Severity:** medium · **Reported:** Chris, 2026-10-03
+**Status:** implemented, awaiting Chris’s playtest · **Severity:** medium · **Reported:** Chris, 2026-10-03
 
 M38 supplies open passages only. A central hall, two landings and a stair lane consume small footprints; room splits can create very shallow rooms. Add visible usable front/inter-room doors, connected routes, sensible room dimensions and purpose-specific dressing without blocking paths. Milestone 50 follows JIM-79's collision repair.
+
+**Repair:** front/internal door metadata shares the voxel layout; animated leaves open for Jimothy, residents and pursuers, block sight/camera, and release or break through shared physics/collection/support. Compact homes have open living areas; remaining splits retain minimum 3 m rooms. Alternate furniture placements preserve door swings/routes and complete living groups. TV/computer/book details retain their supporting furniture; ordinary footsteps leave rugs on the floor. Door damage and released leaves survive travel/reset correctly. Initial layout, door, furnishing, crossing and closed-door sight checks failed before their repairs. All 25 final door/interior/radar/support browser checks, 86 units, build and production pixel smoke pass; native original-rig house/apartment/shop views are console-clean. See milestone 50 for evidence and bounded timing. Room comfort and door feel still need Chris’s playtest.
 
 ### JIM-78 — Enemy approaches lack readable detection and search strategy
 
@@ -505,7 +507,7 @@ Adding one more ring of voxel columns to see 35 m further costs far more than th
 
 ### JIM-35 — One headbutt is a five-star wanted level
 
-**Status:** implemented, awaiting Chris's balance playtest · **Severity:** low · **Found:** 2026-08-07, milestone 19
+**Status:** reopened, queued after M50 · **Severity:** medium · **Found:** 2026-08-07, milestone 19
 
 `HEAT.PER_DEMOLITION` is 0.4 *per voxel destroyed*. A single fat headbutt into open ground removes about **1,075 voxels**, which is **430 heat points** — against a tier-5 threshold of 100. So one swing at maximum fatness takes the run from calm to the army.
 

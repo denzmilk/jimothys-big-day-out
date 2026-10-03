@@ -136,7 +136,9 @@ export class CameraSystem {
     const len = Math.hypot(dx, dy, dz);
     if (len < 1e-4) return point;
     const hit = this.voxels.raycast(ox, oy, oz, dx, dy, dz, len);
-    if (!hit) return point;
+    const line={ax:ox,ay:oy,az:oz,bx:point.x,by:point.y,bz:point.z,fraction:1};eventBus.emit(Events.WORLD_OCCLUSION,line);
+    const distance=Math.min(hit?.t??Infinity,line.fraction<1?line.fraction*len:Infinity);
+    if (!Number.isFinite(distance)) return point;
     // Never past the wall, never inside him. In a pipe this bottoms out at
     // COLLIDE_MIN, which is what puts the underground camera near-first-person
     // — correct for the space, and why he fades at this range.
@@ -144,7 +146,7 @@ export class CameraSystem {
     // giant, so a wall behind a block-sized Jimothy would otherwise park the
     // camera in his ribcage (milestone 23).
     const floor = CAMERA.COLLIDE_MIN + this._girth * CAMERA.GIRTH_COLLIDE_MIN;
-    const want = Math.max(hit.t - CAMERA.COLLIDE_MARGIN, floor);
+    const want = Math.max(distance - CAMERA.COLLIDE_MARGIN, floor);
     if (want >= len) return point;
     const k = want / len;
     return point.set(ox + dx * k, oy + dy * k, oz + dz * k);

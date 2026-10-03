@@ -14,6 +14,7 @@ export class Minimap {
     this.background=document.createElement('canvas');this.background.width=this.background.height=C.SIZE*C.PIXEL_RATIO;
     this.sights=new SightSampler();
     eventBus.on(Events.WORLD_DEMOLISHED,()=>this.sights.invalidate());
+    eventBus.on(Events.WORLD_OCCLUSION_CHANGED,()=>this.sights.invalidate());
     this.status=this.panel.querySelector('#radar-status');this.scale=this.panel.querySelector('#radar-scale');this.reset();
     eventBus.on(Events.GAME_RESTART,()=>this.reset());
   }

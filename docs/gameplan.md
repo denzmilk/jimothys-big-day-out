@@ -21,11 +21,13 @@ Play as Jimothy — Seattle's viral short-spine raccoon — in a third-person 3D
 - No timer. The day lasts until animal control's **net** catches Jimothy — the net is the *only* way the run ends.
 - Heat tiers (0–5), GTA wanted-star style:
   - **0** — quiet block.
-  - **1** — paparazzi appear and follow.
-  - **2** — paparazzi swarm; camera flashes stun (comedy stagger, not run-ending).
+  - **1** — paparazzi follow with camera flashes.
+  - **2** — angry locals kick at Jimothy while paparazzi continue flashing.
   - **3** — animal-control chaser with the net spawns. The net is lethal to the run; nothing else is.
-  - **4** — police cordon: more/faster pursuers, roadblocks.
-  - **5** — **the ARMY.** Tanks roll in and fire shells at Jimothy. Shells ragdoll-launch him (dropping the combo, comedic knockback — possibly across the map) but never end the run. Shells can blast him out of trees.
+  - **4** — police cars pursue Jimothy and armed police shoot at him.
+  - **5** — **the ARMY.** Tanks, jets and soldiers with automatic rifles respond. Hits launch/stagger Jimothy and can drop his combo; the net remains the only run ender.
+- **Wanted pacing requested 2026-10-03:** progress through those stages gradually, led by the destruction Jimothy causes. A crowd of frightened people or one small scrape must not skip directly to the army. The new kicking locals, police pursuit and rifle infantry remain planned; current runtime still has paparazzi, animal control, tanks and jets. JIM-35 is reopened for pacing work.
+- **Building exploration (milestone 50):** wider connected rooms and hinged front/room doors remain in the continuous destructible world. Doors open on approach, obstruct sight/camera when closed, and break/fall when hit or unsupported. Furnishing groups leave clear paths; Jimothy's ceiling/overlap recovery retains the current floor.
 - **Fatness:** every snack makes Jimothy visibly fatter and jigglier — body distortion grows (a rounded version of the original raccoon, with readable head, paws and tail) with a springy wobble kicked by every bite. Score = points × combo; fatness = raw fat eaten (the body, and the capture screen's headline number). Fatness trade-offs (decided 2026-07-23): the fatter he is, the SLOWER he waddles and the harder he is to hide — bushes stop fitting entirely past a width threshold. Getting fat is winning and losing at the same time.
 - **Food comes in two tiers** (2026-07-23 playtest feedback): **scraps** scoop instantly at full waddle (fat 1, 10 pts); **feasts** (WHOLE PIZZA, TURKEY LEG…) demand standing still to chomp through a channel (fat 5, 50 pts) — a deliberate risk commitment at high heat. Interrupting the chomp loses the progress.
 - **Chaos raises heat** (not eating itself): tipping cans, wrecking/making a mess, **smashing the neighbourhood apart**, scaring locals, blasting powerups at people. Heat drains slowly while hidden and out of sight.

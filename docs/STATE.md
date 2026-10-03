@@ -1,5 +1,15 @@
 # Session state
 
+## Enemy searches and local radar — JIM-78 / milestone 49 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** Foot enemies investigate approximate reports, build notice before chasing, then search a fixed last-seen area and give up. Close contact remains immediate. Noise, bushes, night and underground affect the chase. Tanks use remembered targets and require sight before choosing new shots; committed jet/shell strikes remain dodgeable. The lower-right radar shows streets or sewer routes, heading/waypoint, sampled sight cones and proximity areas, notice/search status and incoming strike zones. Outdoor crash channels retain their surface layer.
+
+All **83 units and 33 unique browser checks pass**, as do build and production pixel smoke. Native original-rig Chrome/Metal views are console-clean and show notice → chase → search → sewer layers. The old sewer test assumed exact hidden dispatch knowledge; it now provides an actual bin-noise lead at the entrance and still proves pursuers descend and capture. Radar work is capped at 12 ray jobs / a 1 ms budget between rays per game frame; completed sight shapes are cached. Six moving contacts at 90/180 m map range: radar-only median **1.1/1.1 ms**, p95 **1.7/1.6**, worst **1.8/1.8**, down from roughly 10 ms synchronously. This is not an overall FPS or giant-rampage sign-off. The authored map retains building footprints after destruction, while sight shading uses live sampled geometry and may briefly lag movement. Evidence and exact scope: `docs/milestones/49-search-radar.md`, `output/iterate/search-*`, `radar-*`.
+
+**Play at http://127.0.0.1:4174.** At heat 3, attract animal control, duck behind a building, then move out of the amber search circle while its timer runs down. Judge whether the notice window, radar and escape chances feel fair. Net-only run ending and the existing M destination map remain in place. Full-map pan/zoom and arbitrary waypoints are still M13.
+
+**Next approved content order remains 40 food tiers/edible landmarks → 41 tourists → 42 drivers.** The city/skyscraper and 36-keepsake priority proposal remains unanswered. Earlier net, gait and sewer passes still await Chris’s playtest.
+
 ## Sewer rework — JIM-77 / milestone 48 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Sewers now have 3.6–5.8 m arched drains, shallow channels and 21 pump/overflow/maintenance chambers. Three original Blender crab-person variants have visible eye stalks, claws and articulated legs; they scuttle, react and can be carried/released alive. Five physical equipment models, four local lights and readable two-sided exit signs add detail. Structure/pipework remain destructible voxels; equipment falls when unsupported, and displaced props persist. Both sewer and surface releases preserve their objects. Drainage uses animated shallow-water surfaces and ripples, not fluid-volume/pressure simulation.

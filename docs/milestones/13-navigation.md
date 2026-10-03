@@ -64,3 +64,7 @@ User opens the map on a city far larger than one screen, sees where he is, drops
 - The minimap is the first thing in this project that renders a *view of the world* rather than the world. Prefer a canvas overlay driven by layout queries over a second three.js camera: a top-down camera would only see loaded chunks, which is the exact problem this milestone exists to avoid.
 - Update rate is a real budget. Redrawing every frame is wasteful for something that changes slowly; redraw on a threshold of player movement.
 - The waypoint indicator is also the natural home for anything later that wants to point at something — the den, a feast, a landmark. Build it as "point at a world position", not as "point at the waypoint".
+
+## Search radar refinement — milestone 49
+
+The always-on local map, player heading, nearby threats and selected landmark destination are implemented under the coupled enemy-search request. This does not complete M13: arbitrary waypoints, full-map pan/zoom and an offscreen edge navigation indicator remain open. The radar reads bounded authored-plan windows, with live voxel-clipped sight; it is not a live destruction map.

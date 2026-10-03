@@ -118,6 +118,13 @@ test('pursuers follow him down, and the net does not reach through the ceiling',
   const id = await page.evaluate(
     (q) => window.spawnPursuerAt('animal-control', q.x + 18, q.z), e,
   );
+  // M49 dispatch deliberately does not know a quiet raccoon's exact location.
+  // A bin clattering at the entrance supplies an audible lead, preserving the
+  // promise that a pursuer can follow downstairs without granting wall vision.
+  await page.evaluate(async(q)=>{
+    const {eventBus,Events}=await import('/src/core/EventBus.js');
+    eventBus.emit(Events.CAN_TIPPED,{x:q.x,z:q.z});
+  },e);
   const depthOf = () => page.evaluate((i) => {
     const ac = window.__game.pursuers.animalControl;
     const p = ac.group.position;

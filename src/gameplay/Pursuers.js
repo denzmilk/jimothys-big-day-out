@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import {sightFan,belowGround} from '../core/Perception.js';
 import { FootGrounding, solveTwoBone } from '../core/Grounding.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import {
   PAPARAZZI, ANIMAL_CONTROL, PURSUER_SPAWN_POINTS, COLORS, WORLD,
-  VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, SEWER, COLLECTION, PEDESTRIANS, CAPTURE, TRAFFIC,
+  VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, COLLECTION, PEDESTRIANS, CAPTURE, TRAFFIC, RADAR,
 } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { fatFactor } from '../core/MathUtils.js';
@@ -64,6 +65,8 @@ export class Pursuers {
       if(!active){p.group.position.copy(position);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
     // Shared across the whole pack so a crowd can't chain-stun the player.
     this.globalFlashCooldown = 0;
+
+    eventBus.on(Events.TACTICAL_QUERY, packet => packet.contacts.push(...this.radarContacts(packet)));
 
     this.bodyGeo = new THREE.CylinderGeometry(0.28, 0.32, 1.2, 10);
     this.headGeo = new THREE.SphereGeometry(0.22, 12, 10);
@@ -153,16 +156,13 @@ export class Pursuers {
       id: this._nextId,
       type,
       group,
-      // SUSPICIOUS at spawn, briefed with where he was. They appear BECAUSE the
-      // wanted level says someone reported him, so "dispatch told me roughly
-      // where" is both the honest fiction and the thing that keeps the pursuit
-      // from depending on a lucky sightline. Patrol at spawn would mean a
-      // tier-3 animal controller wandering a street two blocks away while the
-      // run had no lose condition.
+      // Dispatch names an area, not a GPS fix. Each investigator gets a
+      // deterministic offset, so fresh arrivals do not converge on one pixel.
       state: 'suspicious',
-      lastKnown: { x: jp.x, z: jp.z },
-      target: { x: jp.x, z: jp.z },
-      sees: false,
+      lastKnown: this._dispatchReport(jp, this._nextId),
+      target: null,
+      sees: false, visible: false, awareness: 0, reportKind: 'dispatch',
+      repickTimer: SEARCH.REPICK_SECONDS,
       // Suspicion is on the same clock as a search, and it runs while they are
       // still WALKING to the lead. Without that, a lead they cannot reach —
       // across the canal, up a bluff, behind a building they keep sliding along
@@ -175,9 +175,18 @@ export class Pursuers {
       wanderStep: 0,
       flashCooldown: 1 + this.paparazzi.length * 0.7,
     };
+    person.target = { ...person.lastKnown };
     this._human(person);
     eventBus.emit(Events.ENTITY_REGISTER,{id:`pursuer-${person.id}`,mesh:group,kind:'person',size:COLLECTION.PERSON_SIZE});
     return person;
+  }
+
+  _dispatchReport(position, id) {
+    const angle = id * Math.PI * (3 - Math.sqrt(5));
+    const radius = SEARCH.DISPATCH_RADIUS * (SEARCH.DISPATCH_MIN_ERROR +
+      (id % SEARCH.DISPATCH_VARIANTS) / SEARCH.DISPATCH_VARIANTS * (1 - SEARCH.DISPATCH_MIN_ERROR));
+    return {x: THREE.MathUtils.clamp(position.x + Math.cos(angle) * radius, -WORLD.BOUNDS, WORLD.BOUNDS),
+      z: THREE.MathUtils.clamp(position.z + Math.sin(angle) * radius, -WORLD.BOUNDS, WORLD.BOUNDS)};
   }
 
   _human(p) {
@@ -312,6 +321,24 @@ export class Pursuers {
     return VISION.RANGE * scale * (1 + Math.max(0, tier - 1) * VISION.TIER_RANGE_GAIN);
   }
 
+  isUnderground(position) {
+    return belowGround(this.voxels,position);
+  }
+
+  effectiveSightRange(p) {
+    let range = this.sightRange(p.type);
+    if (gameState.player.hidden) range *= VISION.BUSH_RANGE_SCALE;
+    const underground = this.isUnderground(this.jimothy.position);
+    return range * (underground ? VISION.DARK_RANGE_SCALE :
+      THREE.MathUtils.lerp(VISION.NIGHT_RANGE_SCALE, 1, gameState.world.daylight ?? 1));
+  }
+
+  searchRadius(p) {
+    if (p.state === 'suspicious') return p.reportKind === 'dispatch' ? SEARCH.DISPATCH_RADIUS : SEARCH.WANDER_RADIUS;
+    return THREE.MathUtils.lerp(SEARCH.WANDER_RADIUS, SEARCH.MAX_RADIUS,
+      1 - THREE.MathUtils.clamp(p.searchTimer / this._searchDuration(p), 0, 1));
+  }
+
   /** Cone, then range, then geometry — cheapest test first, because the DDA
    *  march is the only expensive one. */
   _canSee(p) {
@@ -324,19 +351,7 @@ export class Pursuers {
     // raccoon nine metres below it (milestone 18).
     const d = Math.hypot(dx, jp.y - pos.y, dz);
 
-    let range = this.sightRange(p.type);
-    // The bush is a vision modifier, not a flag. Hiding works because they
-    // cannot see you — which also means hiding in a bush somebody is already
-    // standing beside does not work, and that is the right answer.
-    if (gameState.player.hidden) range *= VISION.BUSH_RANGE_SCALE;
-    // …and so is the dark (milestone 18). They follow him down — Chris: "Nah
-    // they can follow you in" — but a sewer is unlit, so the same corner is
-    // worth far more down there than it is on the street. This is what makes a
-    // tunnel a place to lose someone rather than a corridor with no exits.
-    if (this.voxels
-      && this.voxels.terrainHeightAt(jp.x, jp.z) - jp.y > SEWER.BELOW) {
-      range *= VISION.DARK_RANGE_SCALE;
-    }
+    const range = this.effectiveSightRange(p);
     if (d > range) return false;
 
     // Facing, except at arm's length: you cannot sneak up onto someone's toes.
@@ -361,6 +376,7 @@ export class Pursuers {
       const d = Math.hypot(p.group.position.x - x, p.group.position.z - z);
       if (d > radius) continue;
       p.state = 'suspicious';
+      p.reportKind = 'noise';
       p.lastKnown = { x, z };
       p.target = { x, z };
       p.searchTimer = this._searchDuration(p);
@@ -386,15 +402,23 @@ export class Pursuers {
 
   _think(p, delta) {
     const jp = this.jimothy.position;
-    p.sees = gameState.game.isPlaying && this._canSee(p);
-
-    if (p.sees) {
-      p.state = 'chase';
+    p.visible = gameState.game.isPlaying && this._canSee(p);
+    p.sees = false;
+    if (p.visible) {
+      const distance = p.group.position.distanceTo(jp);
+      const noticeTime = VISION.NOTICE_SECONDS + VISION.NOTICE_DISTANCE_SECONDS * distance / this.effectiveSightRange(p);
+      p.awareness = distance <= VISION.CONTACT_RANGE ? 1 : Math.min(1, p.awareness + delta / noticeTime);
+      p.sees = p.awareness >= 1;
+      p.state = p.sees ? 'chase' : 'noticing';
       p.lastKnown = { x: jp.x, z: jp.z };
-      p.target = p.lastKnown;
+      p.reportKind = 'seen';
+      p.target = { ...p.lastKnown };
       p.searchTimer = this._searchDuration(p);
+      p.repickTimer = SEARCH.REPICK_SECONDS;
       return;
     }
+    p.awareness = Math.max(0, p.awareness - delta * VISION.NOTICE_DECAY);
+    if (p.state === 'noticing') p.state = 'suspicious';
 
     const arrived = p.target
       && Math.hypot(p.group.position.x - p.target.x, p.group.position.z - p.target.z);
@@ -406,6 +430,7 @@ export class Pursuers {
         p.state = 'search';
         p.searchTimer = this._searchDuration(p);
         p.target = { ...p.lastKnown };
+        p.repickTimer = SEARCH.REPICK_SECONDS;
         break;
 
       case 'suspicious':
@@ -417,16 +442,18 @@ export class Pursuers {
           // there was investigating, not searching.
           p.state = 'search';
           p.searchTimer = this._searchDuration(p);
-          this._wanderAround(p, p.lastKnown.x, p.lastKnown.z, SEARCH.WANDER_RADIUS);
+          this._wanderAround(p, p.lastKnown.x, p.lastKnown.z, this.searchRadius(p));
         }
         break;
 
       case 'search':
         p.searchTimer -= delta;
+        p.repickTimer -= delta;
         if (p.searchTimer <= 0) {
           this._giveUp(p);
-        } else if (arrived !== null && arrived < SEARCH.ARRIVE_RADIUS) {
-          this._wanderAround(p, p.lastKnown.x, p.lastKnown.z, SEARCH.WANDER_RADIUS);
+        } else if (p.repickTimer <= 0 || (arrived !== null && arrived < SEARCH.ARRIVE_RADIUS)) {
+          p.repickTimer = SEARCH.REPICK_SECONDS;
+          this._wanderAround(p, p.lastKnown.x, p.lastKnown.z, this.searchRadius(p));
         }
         break;
 
@@ -444,6 +471,7 @@ export class Pursuers {
   /** Back to a beat, anchored where the trail went cold. */
   _giveUp(p) {
     p.state = 'patrol';
+    p.awareness = 0;
     p.anchor = { ...p.lastKnown };
     p.loiterTimer = 0;
     this._wanderAround(p, p.anchor.x, p.anchor.z, PATROL.RADIUS);
@@ -461,6 +489,7 @@ export class Pursuers {
   _speed(p) {
     const base = p.type === 'animal-control' ? ANIMAL_CONTROL.SPEED : PAPARAZZI.SPEED;
     if (p.state === 'patrol') return base * PATROL.SPEED_SCALE;
+    if (p.state === 'noticing') return 0;
     // Photographers stop at photo range and loiter rather than dogpiling.
     if (p.type === 'paparazzo' && p.sees) {
       const jp = this.jimothy.position;
@@ -498,7 +527,7 @@ export class Pursuers {
   _steer(p, delta, speed) {
     const pos = p.group.position;
     if (p.detourTimer > 0) p.detourTimer -= delta;
-    const target = (p.detourTimer > 0 ? p.detour : p.target) || { x: pos.x, z: pos.z };
+    const target = (p.state !== 'noticing' && p.detourTimer > 0 ? p.detour : p.target) || { x: pos.x, z: pos.z };
     const dx = target.x - pos.x;
     const dz = target.z - pos.z;
     const d = Math.hypot(dx, dz);
@@ -692,6 +721,20 @@ export class Pursuers {
       this.animalControl = null;
     }
     this.spawnIndex = 0;
+    this._nextId = 0;
+  }
+
+  radarContacts({player = this.jimothy.position, range = RADAR.MAX_RANGE, sampleSight = (_id,args)=>sightFan(...args)} = {}) {
+    return this.all.filter(p => !p.attached && !p.ragdoll &&
+      Math.hypot(p.group.position.x-player.x,p.group.position.z-player.z) <= range + this.effectiveSightRange(p) &&
+      this.isUnderground(p.group.position) === this.isUnderground(player)).slice(0,RADAR.MAX_CONTACTS).map(p => {
+      const pos=p.group.position, range=this.effectiveSightRange(p);
+      const sight=sampleSight(`pursuer-${p.id}:cone`,[this.voxels,pos,p.group.rotation.y,range,VISION.HALF_ANGLE,this.isUnderground(pos)]);
+      return {id:`pursuer-${p.id}`,kind:p.type,x:pos.x,z:pos.z,yaw:p.group.rotation.y,state:p.state,
+        awareness:p.awareness,sightRange:range,sight,
+        nearSight:sampleSight(`pursuer-${p.id}:near`,[this.voxels,pos,0,Math.min(range,VISION.PERIPHERAL_RANGE),Math.PI,this.isUnderground(pos)]),searchRemaining:Math.max(0,p.searchTimer),
+        search:['search','suspicious'].includes(p.state)?{...p.lastKnown,radius:this.searchRadius(p)}:null};
+    });
   }
 
   snapshot() {
@@ -708,6 +751,11 @@ export class Pursuers {
       // and the specs stay eyeball-only.
       state: p.state,
       sees: p.sees,
+      awareness: +(p.awareness || 0).toFixed(3),
+      sightRange: +this.effectiveSightRange(p).toFixed(2),
+      yaw: +p.group.rotation.y.toFixed(3),
+      searchRadius: this.searchRadius(p),
+      searchRemaining: +Math.max(0,p.searchTimer).toFixed(2),
       lastKnown: p.lastKnown ? { x: round(p.lastKnown.x), z: round(p.lastKnown.z) } : null,
       target: p.target ? { x: round(p.target.x), z: round(p.target.z) } : null,
     }));

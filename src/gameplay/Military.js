@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import {sightFan,belowGround} from '../core/Perception.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {MILITARY as C} from '../core/Constants.js';
+import {MILITARY as C, RADAR, VISION, SEARCH} from '../core/Constants.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 import {groundVehicle} from '../core/Grounding.js';
@@ -12,6 +13,7 @@ import * as Layout from '../level/Layout.js';
 export class Military {
  constructor(scene,jimothy,voxels){
   this.scene=scene;this.jimothy=jimothy;this.voxels=voxels;this.units=[];this.wreckage=[];this.projectiles=[];this.templates={};this.serial=0;this.time=0;this.cooldown={tank:0,jet:0};this.shots=0;this.impacts=0;this.launches=0;this.launchCooldown=0;this.ready=false;
+  eventBus.on(Events.TACTICAL_QUERY,packet=>packet.contacts.push(...this.radarContacts(packet)));
   this.routes=buildTrafficRoutes();this.flow=new TrafficFlow(this.routes,(x,z)=>Layout.roadAtWorld(x,z));
   this.markerGeometry=new THREE.RingGeometry(C.WARNING_INNER,1,C.WARNING_SEGMENTS);this.markerMaterial=new THREE.MeshBasicMaterial({color:C.WARNING_COLOR,side:THREE.DoubleSide,transparent:true,opacity:C.WARNING_OPACITY,depthWrite:false,toneMapped:false});
   this.shellGeometry=new THREE.SphereGeometry(C.SHELL_SIZE,C.SHELL_SEGMENTS,C.SHELL_SEGMENTS);this.shellMaterial=new THREE.MeshBasicMaterial({color:C.SHELL_COLOR,toneMapped:false});
@@ -31,6 +33,7 @@ export class Military {
  register(p,loose=false){this.scene.add(p.mesh);eventBus.emit(Events.PROP_CREATE,{...p,mass:C.MASS,loose});eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:p.kind,size:Math.max(...p.half)*2});}
  spawn(kind){
   const j=this.jimothy,mesh=this.templates[kind].clone(),half=[...mesh.userData.half],u={id:`army-${this.serial++}`,kind,mesh,half,phase:'approach',clock:0,life:C.WRECK_LIFE,seed:this.serial,attached:false};
+  const reportCell=SEARCH.DISPATCH_RADIUS*2;u.lastKnown={x:Math.round(j.position.x/reportCell)*reportCell,z:Math.round(j.position.z/reportCell)*reportCell};u.awareness='search';u.searchTimer=RADAR.TANK_SEARCH_SECONDS;
   if(kind==='tank'){
    const candidates=this.routes.roads.map(road=>{const d=road.length/2,point={x:road.start.x+road.dir.x*d,z:road.start.z+road.dir.z*d};return{road,d,point,distance:Math.hypot(point.x-j.position.x,point.z-j.position.z)};}).filter(p=>p.distance>j.radius+C.TANK_MIN_SPAWN&&p.distance<j.radius+C.TANK_MAX_SPAWN&&!this.units.some(u=>u.mesh.position.distanceTo(new THREE.Vector3(p.point.x,u.mesh.position.y,p.point.z))<C.TANK_SEPARATION));
    candidates.sort((a,b)=>Math.abs(a.distance-(j.radius+C.TANK_SPAWN))-Math.abs(b.distance-(j.radius+C.TANK_SPAWN)));if(!candidates.length)return null;
@@ -44,8 +47,8 @@ export class Military {
   this.units.push(u);this.register(u);return u;
  }
  aimRoute(u){
-  const r=u.route,options=r.road.to.outgoing.filter(next=>this.flow.path(r.road,next).valid),j=this.jimothy.position;
-  const onward=options.filter(next=>next.to!==r.road.from);const choices=onward.length?onward:options;choices.sort((a,b)=>Math.hypot(a.end.x-j.x,a.end.z-j.z)-Math.hypot(b.end.x-j.x,b.end.z-j.z));r.next=choices[0]||null;
+  const r=u.route,options=r.road.to.outgoing.filter(next=>this.flow.path(r.road,next).valid),j=u.lastKnown;
+  const onward=options.filter(next=>next.to!==r.road.from);const choices=onward.length?onward:options;if(u.awareness==='patrol')choices.sort((a,b)=>a.end.x-b.end.x||a.end.z-b.end.z);else choices.sort((a,b)=>Math.hypot(a.end.x-j.x,a.end.z-j.z)-Math.hypot(b.end.x-j.x,b.end.z-j.z));r.next=choices[0]||null;
  }
  drive(u,dt){
   const r=u.route;r.distance+=C.TANK_SPEED*dt;
@@ -90,11 +93,19 @@ export class Military {
    if(u.mesh.position.distanceTo(j.body.position)>C.DESPAWN_DISTANCE+j.radius){this.remove(u);continue;}
    u.clock+=dt;
    if(u.kind==='tank'){
-    const distance=u.mesh.position.distanceTo(j.body.position),targetYaw=Math.atan2(j.position.x-u.mesh.position.x,j.position.z-u.mesh.position.z)-u.mesh.rotation.y;
+    const distance=u.mesh.position.distanceTo(j.body.position);
+    const sightRange=RADAR.TANK_SIGHT+j.radius;
+    const range=sightRange*(gameState.player.hidden?VISION.BUSH_RANGE_SCALE:1)*THREE.MathUtils.lerp(VISION.NIGHT_RANGE_SCALE,1,gameState.world.daylight??1);
+    const eye=u.mesh.position.clone();eye.y+=u.half[1]*C.MUZZLE_HEIGHT;
+    u.sees=distance<=range&&this.voxels.hasLineOfSight(eye.x,eye.y,eye.z,j.body.position.x,j.body.position.y,j.body.position.z);
+    u.sightRange=range;
+    if(u.sees){u.lastKnown={x:j.position.x,z:j.position.z};u.awareness='chase';u.searchTimer=RADAR.TANK_SEARCH_SECONDS;}
+    else{u.searchTimer=Math.max(0,u.searchTimer-dt);u.awareness=u.searchTimer>0?'search':'patrol';}
+    const targetYaw=u.awareness==='patrol'?0:Math.atan2(u.lastKnown.x-u.mesh.position.x,u.lastKnown.z-u.mesh.position.z)-u.mesh.rotation.y;
     u.turret.rotation.y=targetYaw;
     if(u.phase==='approach'){
      this.drive(u,dt);
-     if(distance<C.TANK_RANGE+j.radius&&u.clock>=C.TANK_APPROACH_SECONDS){u.target=new THREE.Vector3(j.position.x,this.ground(j.position.x,j.position.z),j.position.z);u.warning=this.warning(u.target,C.TANK_BLAST);u.phase='aim';u.clock=0;}
+     if(u.sees&&distance<C.TANK_RANGE+j.radius&&u.clock>=C.TANK_APPROACH_SECONDS){u.target=new THREE.Vector3(j.position.x,this.ground(j.position.x,j.position.z),j.position.z);u.warning=this.warning(u.target,C.TANK_BLAST);u.phase='aim';u.clock=0;}
     }else if(u.phase==='aim'&&u.clock>=C.TANK_WARNING){this.fire(u,u.target,C.TANK_BLAST);u.phase='cooldown';u.clock=0;}
     else if(u.phase==='cooldown'&&u.clock>=C.TANK_COOLDOWN){u.phase='approach';u.clock=0;}
    }else{
@@ -121,5 +132,23 @@ export class Military {
   if(warning!==gameState.world.military?.warning)eventBus.emit(Events.MILITARY_WARNING,{warning});gameState.world.military={warning};
  }
  reset(){for(const p of [...this.units,...this.wreckage])this.remove(p);for(const p of this.projectiles){p.mesh.removeFromParent();p.warning?.removeFromParent();}this.projectiles=[];this.cooldown={tank:0,jet:0};this.time=0;this.shots=this.impacts=this.launches=0;this.flow.reset();this.launchCooldown=0;gameState.world.military={warning:''};eventBus.emit(Events.MILITARY_WARNING,{warning:''});}
- snapshot(){return{ready:this.ready,warning:gameState.world.military?.warning||'',units:this.units.map(u=>({id:u.id,kind:u.kind,phase:u.phase,x:u.mesh.position.x,y:u.mesh.position.y,z:u.mesh.position.z,clock:u.clock,attached:!!u.attached})),projectiles:this.projectiles.length,wreckage:this.wreckage.length,shots:this.shots,impacts:this.impacts,launches:this.launches};}
+ radarContacts({player,range,sampleSight=(_id,args)=>sightFan(...args)}){
+  if(belowGround(this.voxels,player))return [];
+  const contacts=[];
+  for(const u of this.units){
+   if(u.attached||u.phase==='wreck')continue;
+   const nearby=Math.hypot(u.mesh.position.x-player.x,u.mesh.position.z-player.z)<=range+RADAR.TANK_SIGHT;
+   const incoming=u.warning&&Math.hypot(u.warning.position.x-player.x,u.warning.position.z-player.z)<=range+u.warning.userData.radius;
+   if(!nearby&&!incoming)continue;
+   contacts.push({id:u.id,kind:u.kind,x:u.mesh.position.x,z:u.mesh.position.z,yaw:u.mesh.rotation.y,
+    state:u.kind==='jet'?'airstrike':u.awareness,awareness:u.sees?1:0,
+    search:u.kind==='tank'&&u.awareness==='search'?{...u.lastKnown,radius:RADAR.TANK_SEARCH_RADIUS}:null,
+    sight:u.kind==='tank'?sampleSight(u.id,[this.voxels,u.mesh.position,0,u.sightRange||RADAR.TANK_SIGHT,Math.PI,false,u.half[1]*C.MUZZLE_HEIGHT,this.jimothy.radius]):null,
+    searchRemaining:u.searchTimer,
+    strike:u.warning?{x:u.warning.position.x,z:u.warning.position.z,radius:u.warning.userData.radius}:null});
+  }
+  for(const [i,p]of this.projectiles.entries())contacts.push({id:`shell-${i}`,kind:'shell',state:'airstrike',x:p.target.x,z:p.target.z,strike:{x:p.target.x,z:p.target.z,radius:p.warning?.userData.radius||p.radius}});
+  return contacts;
+ }
+ snapshot(){return{ready:this.ready,warning:gameState.world.military?.warning||'',units:this.units.map(u=>({id:u.id,kind:u.kind,phase:u.phase,awareness:u.awareness,sees:!!u.sees,lastKnown:u.lastKnown,searchRemaining:u.searchTimer,x:u.mesh.position.x,y:u.mesh.position.y,z:u.mesh.position.z,clock:u.clock,attached:!!u.attached})),projectiles:this.projectiles.length,wreckage:this.wreckage.length,shots:this.shots,impacts:this.impacts,launches:this.launches};}
 }

@@ -351,3 +351,16 @@ body {
 #landmark-map button{padding:12px;border:1px solid #687d70;border-radius:6px;background:#28443f;color:#fff1c4;font:600 14px system-ui;text-align:left;cursor:pointer;}
 #landmark-map button:hover,#landmark-map button:focus-visible{background:#496456;border-color:#ffcf75;}
 @media(max-width:750px){#landmark-map{inset:3vh 3vw;grid-template-columns:1fr;}#landmark-map svg{max-height:36vh;}}
+
+#tactical-radar {position:fixed;right:16px;bottom:82px;z-index:50;padding:10px;background:#13262bed;border:1px solid #79928d;border-radius:12px;color:#eeefdf;font:12px/1.4 system-ui;pointer-events:none;box-shadow:0 5px 24px #0005;}
+#tactical-radar[hidden]{display:none;}
+.radar-heading {display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:10px;letter-spacing:.07em;}
+#radar-scale {color:#b8c9c2;font-size:11px;}
+#radar-canvas {display:block;border-radius:6px;}
+#radar-status {padding-top:8px;font-weight:750;letter-spacing:.03em;}
+#radar-status[data-state="chase"] {color:#ff918b;}
+#radar-status[data-state="noticing"] {color:#ffde76;}
+#radar-status[data-state="search"] {color:#e9ad67;}
+.radar-legend {display:flex;justify-content:space-between;margin-top:5px;color:#bccbc6;font-size:11px;}
+#devtools-toggle {right:200px;}
+@media(max-height:650px){#tactical-radar{bottom:70px;transform:scale(.78);transform-origin:bottom right;}}

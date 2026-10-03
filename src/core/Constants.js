@@ -450,6 +450,9 @@ export const ANIMAL_CONTROL = {
 // made, and tunnel walls for free.
 export const VISION = {
   RANGE: 34,
+  NIGHT_RANGE_SCALE: 0.65,
+  NOTICE_SECONDS: 0.5, NOTICE_DISTANCE_SECONDS: 0.35,
+  NOTICE_DECAY: 0.8, CONTACT_RANGE: 2,
   // Half-angle of the cone: a 120° field of view, which is generous for a
   // human and stops "he was directly behind me" feeling arbitrary.
   HALF_ANGLE: 1.05,
@@ -487,7 +490,8 @@ export const HEARING = {
 export const SEARCH = {
   DURATION: 14,
   // How far around the last known position they cast about.
-  WANDER_RADIUS: 9,
+  WANDER_RADIUS: 9, MAX_RADIUS: 16,
+  DISPATCH_RADIUS: 12, DISPATCH_MIN_ERROR: 0.5, DISPATCH_VARIANTS: 7,
   ARRIVE_RADIUS: 2,
   REPICK_SECONDS: 2.2,
 };
@@ -1632,4 +1636,17 @@ export const LANDMARKS = {
   {id:'big-pinch-diner',name:'Big Pinch Diner',preferred:[-180,570]},
   {id:'banana-snacks',name:'Banana Republic of Snacks',preferred:[390,430]},
  ]
+};
+
+// M49: a bounded 2D view; no second render of the voxel city.
+export const RADAR = {
+ SIZE: 224, PIXEL_RATIO: 2, INTERVAL: 0.2, RANGE: 90, MAX_RANGE: 180, BODY_RANGE_GAIN: 4,
+ GRID: 72, CACHE_MARGIN: 1.4, RECENTER: 20, RANGE_EPSILON: 1, CONE_STEPS: 12, SIGHT_STEP: 12, SIGHT_MAX_STEPS: 4, SLOPE_REFINE: 5, MAX_CONTACTS: 16, SIGHT_BUDGET_MS: 1, SIGHT_RAYS_PER_FRAME: 12,
+ SIGHT_POSITION_EPS: .25, SIGHT_ANGLE_EPS: .035, SIGHT_RANGE_EPS: .5,
+ MARKER: 4, PLAYER_SIZE: 7, NORTH_FONT: 12, NORTH_TOP: 16, LINE: 1.2, SEARCH_ALPHA: 0.09, CONE_ALPHA: 0.13,
+ MAP_COLORS: ['#233b3a','#526c70','#455957','#2d5144','#68706a','#173749','#79918a'],
+ UNDERGROUND: '#192329', TUNNEL: '#657977', BUILDING: '#82928b', BUILDING_EDGE: '#384b49',
+ PLAYER: '#fff7d4', WAYPOINT: '#a9e4ff', TEXT: '#f0efdf', GRID_COLOR: '#d6e4db15',
+ PATROL: '#83b7c9', NOTICE: '#ffde76', CHASE: '#ff766e', SEARCH: '#e9ad67', STRIKE: '#ee89c4',
+ TANK_SIGHT: 110, TANK_SEARCH_SECONDS: 24, TANK_SEARCH_RADIUS: 28,
 };

@@ -103,3 +103,7 @@ User is chased into an alley, breaks line of sight, hides, and watches animal co
 
 - **Resolved 2026-08-07:** pursuers **follow Jimothy underground**. Chris: *"Nah they can follow you in."* That closes milestone 18's open question — and is only a good decision if this milestone lands first, since it is vision and search that make an underground chase a chase rather than a formality.
 - Keep the steering. The bug was never *how* they move, it was that the target was always Jimothy. Point the existing `_steer` at a `target` that the state machine owns and most of this milestone is the state machine.
+
+## Follow-up — milestone 49 / JIM-78
+
+Chris requested readable search radii and radar on 2026-10-03. Approximate dispatch reports and gradual notice replace the exact briefing and instant acquisition above. Fixed last-seen searches gain a bounded re-pick timer; live state and cover-clipped cones feed the local radar. Tank sight-gated target selection is included in the follow-up. Existing net/capture and underground contracts remain.

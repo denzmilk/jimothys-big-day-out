@@ -10,6 +10,14 @@
 
 ## Current interior and food reports — 2026-10-02
 
+### JIM-78 — Enemy approaches lack readable detection and search strategy
+
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 49.
+
+Foot enemies already have cone/voxel vision and finite memory, but spawn with Jimothy's exact location and acquire instantly. No radar exposes their awareness/search areas. Tanks choose routes and turret headings from the current player position without sight checks. Refine perception and show the actual pursuit state so avoiding sight and leaving a search area become readable choices. Locations: `Pursuers`, `Military`, `HUD`; M13 navigation and M19 pursuit supply existing contracts.
+
+**Repair:** approximate dispatch reports, accumulating/decaying notice, finite last-seen searches and nighttime range modifiers feed a small surface/sewer radar. Cover clips sight cones and proximity areas; investigation/search timers, waypoint and immediate committed strike marks explain nearby risk. Tanks retain their last report and require sight before selecting a new shot. Cached sight sampling has a per-frame work budget; restart clears contacts and dispatch seeds. All 83 units, 33 unique browser checks, build and production pixel smoke pass. Native inspected views are console-clean; six-moving-contact radar p95 is 1.6–1.7 ms. The sewer follow-down fixture now supplies a real noise lead, preserving descent/capture without exact hidden dispatch knowledge. See milestone 49 for evidence and limits. Chase fairness still needs Chris’s playtest.
+
 ### JIM-66 — Food models do not resemble their pickup names
 **Status:** implemented, awaiting playtest · Milestone 37. `TrashCans` previously rendered spheres/discs and selected the name only when eaten. Sixteen prepared food models now retain matching identities, use actual floor support and preserve the existing economy. Asset, pickup, restart, build and rendered smoke checks pass; native lineup/spill inspected. Pushed as `8362b9e`.
 

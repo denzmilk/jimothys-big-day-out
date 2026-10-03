@@ -22,6 +22,7 @@ export class Landmarks {
      vec2 uv=(floor(landmarkWorld.xz/landmarkGrid.z)-landmarkGrid.x+.5)/landmarkGrid.y;
      if(all(greaterThanEqual(uv,vec2(0.)))&&all(lessThan(uv,vec2(1.)))&&texture2D(landmarkCoverage,uv).r>.5)discard;`);};material.customProgramCacheKey=()=> 'landmark-coverage';
    }});scene.add(model);this.models.set(s.id,model);model.visible=!this.damaged.has(s.id);})).then(()=>{this.ready=true;this.stream();}).catch(e=>console.error('Landmark model load failed',e));
+  eventBus.on(Events.TACTICAL_QUERY,packet=>{const s=this.sites.find(s=>s.id===this.target);if(s)packet.waypoint={id:s.id,name:s.name,x:s.x,z:s.z};});
   this.buildMap();
  }
  furniture(){

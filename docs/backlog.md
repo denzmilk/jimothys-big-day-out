@@ -275,3 +275,5 @@ The later beach/underwater briefs extend the earlier water scope; finite pond dr
 ## Underground rework — 2026-10-03
 
 - [x] **Rebuild the sewer as a readable, varied place.** Moved to milestone 48; implemented, awaiting Chris’s playtest. Chris: “sewer/underground needs a full rework”, creatures are “brown blobs”. Size L; value L; defect JIM-77. Follow the walking repair (JIM-76) with wider main drains, maintenance passages, distinct pump/overflow chambers, pipework, local lighting, clear exit routes and recognisable animated creatures. Preserve voxel destruction, tunnel escapes, pursuit, no-utility treasure and bounded populations/rendering. Creature-theme preference is pending; existing fiction is crab people. This remains separate from the city/keepsake proposal.
+
+- [x] Enemy search strategy and local radar — promoted directly to milestone 49 / JIM-78 by Chris, 2026-10-03. Distinguish detection from last-seen search areas and remove exact hidden-target tracking. Full-map navigation stays M13.

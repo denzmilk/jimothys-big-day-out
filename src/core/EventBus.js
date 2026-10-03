@@ -41,6 +41,7 @@ export const eventBus = new EventBus();
 
 // Define ALL events as constants — use domain:action naming
 export const Events = {
+  TACTICAL_QUERY: 'tactical:query',
   // player:*
   PLAYER_PICKUP: 'player:pickup',
   PLAYER_TOOL_MOTION:'player:tool-motion', VEHICLE_TOOL_SLOW:'vehicle:tool-slow',

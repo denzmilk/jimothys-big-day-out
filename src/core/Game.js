@@ -45,6 +45,7 @@ import { Pedestrians } from '../gameplay/Pedestrians.js';
 import { Treasures } from '../gameplay/Treasures.js';
 import { CrabPeople } from '../gameplay/CrabPeople.js';
 import { HUD } from '../ui/HUD.js';
+import {Minimap} from '../ui/Minimap.js';
 import { GameOverScreen } from '../ui/GameOverScreen.js';
 import { DevTools } from '../ui/DevTools.js';
 
@@ -162,6 +163,7 @@ class Game {
     this.ocean=new OceanSystem(this.scene,this.jimothy,this.voxels,this.camera,this.level.sky);
     this.flyCamera = new FlyCamera(this.camera, this.input);
     this.hud = new HUD();
+    this.radar = new Minimap();
     this.gameOverScreen = new GameOverScreen();
     this.devTools = new DevTools(this.input);
     this.arrival=new CometArrival(this.scene,this.camera,this.jimothy,this.voxels,()=>
@@ -437,6 +439,7 @@ class Game {
     // height disabled sunlight and rebuilt every shadow shader mid-roll.
     this._setUnderground(this.voxels.terrainHeightAt(jp.x,jp.z)+(this.voxels.channels?.sample(jp.x,jp.z)||0)-jp.y>SEWER.BELOW);
     this.dayNight.update(delta,this.underground);
+    this.radar.update(delta,{x:jp.x,y:jp.y,z:jp.z,yaw:this.jimothy.group.rotation.y,radius:this.jimothy.radius,underground:this.underground});
     this.lamp.position.set(jp.x, jp.y + 1.6, jp.z);
     this.updateReticle();
     if(this.arrival.active)this.arrival.cameraPose();
@@ -906,6 +909,7 @@ class Game {
       },
       game: gameState.game,
       pursuers: this.pursuers.snapshot(),
+      radar: this.radar.snapshot(),
       military:this.military.snapshot(),
       underground: {
         below: this.underground,

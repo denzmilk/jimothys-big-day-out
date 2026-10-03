@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned — authorised by Chris’s 20+ tools request and confirmed ordering, 2026-10-03.
+Implemented, awaiting Chris’s playtest — 2026-10-03.
 
 ## Objective
 
@@ -23,11 +23,11 @@ Crafting, persistent unlock trees, lethal combat, tourist/driver simulation and 
 
 ## Acceptance criteria
 
-- [ ] All 24 tools have distinct identities, usable models and discoverable world pickup locations — test: `tests/tool-arsenal.spec.js`.
-- [ ] Crowd tools produce their intended interrupted/animated/fleeing states and recover safely — test: `tests/tool-arsenal.spec.js`.
-- [ ] Grappling, towing, skates, pogo, glider and trampoline change movement with collision and size limits — test: `tests/tool-arsenal.spec.js`.
-- [ ] Foam blocks traffic briefly, shield interrupts capture, jackhammer digs locally and fireworks produce delayed impacts — test: `tests/tool-arsenal.spec.js`.
-- [ ] Energy, heat, interruption, streaming and reset preserve bounded bodies/effects at lean and giant sizes — test: `tests/tool-arsenal.spec.js`.
+- [x] All 24 tools have distinct identities, usable models and discoverable world pickup locations — test: `tests/tool-arsenal.spec.js`.
+- [x] Crowd tools produce their intended interrupted/animated/fleeing states and recover safely — test: `tests/tool-arsenal.spec.js`.
+- [x] Grappling, towing, skates, pogo, glider and trampoline change movement with collision and size limits — test: `tests/tool-arsenal.spec.js`.
+- [x] Foam blocks traffic briefly, shield interrupts capture, jackhammer digs locally and fireworks produce delayed impacts — test: `tests/tool-arsenal.spec.js`.
+- [x] Energy, heat, interruption, streaming and reset preserve bounded bodies/effects at lean and giant sizes — test: `tests/tool-arsenal.spec.js`.
 - [ ] Chris can distinguish the tools and finds them useful during a rampage — verified by user playtest.
 
 ## Exit condition
@@ -41,3 +41,11 @@ Fail each new behaviour check before implementation. Verify actual affected phys
 ## Notes
 
 The full roster is in `docs/tool-landmark-roster.md`. Visual and feel approval stays open until Chris plays it.
+
+## Implementation evidence
+
+All ten new behaviour checks failed before implementation. Final combined regression: 35 passing arsenal, first-eight, controller, traffic, net/capture, ragdoll, weight/contact and restart cases. An additional paired traffic run confirms the plunger reduces actual route travel and expires. All 67 units, build and production pixel smoke pass. Native original-rig effect/held views were inspected, with no console errors.
+
+Movement tools use the existing swept collision path and a 3 m body-radius limit. Limits: six temporary devices, eight fireworks, three stink clouds and six interrupted people. Crowd poses restore their previous skeleton and owner on release. The first tow fixture put its target beyond the grapple wall; moving that fixture sideways preserves the occlusion rule. The traffic comparison runs two seconds so the shared initial acceleration does not dominate the travel comparison.
+
+Native Chrome/Metal 1280×800 lean firework firing, military disabled: update plus render submission median 8.3 ms, p95 9.2, worst 36.4, 225 draw calls. Asset baking was paused during this timing sample. This is a microbenchmark, not an FPS/giant-rampage or feel sign-off. Evidence: `output/iterate/arsenal-*`.

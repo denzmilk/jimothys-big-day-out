@@ -30,6 +30,7 @@ export class StreetLife {
     this.markings=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0xffffff,roughness:1}),T.MARK_LIMIT);
     this.markings.count=0;this.markings.frustumCulled=false;scene.add(this.markings);
     this.streetLights=Array.from({length:DAY_NIGHT.STREET_LIGHT_COUNT},()=>{const l=new THREE.PointLight(DAY_NIGHT.STREET_LIGHT_COLOR,0,DAY_NIGHT.STREET_LIGHT_RANGE);scene.add(l);return l;});
+    eventBus.on(Events.VEHICLE_TOOL_SLOW,({id,seconds})=>{const p=this.items.find(p=>p.id===id);if(p)p.toolSlow=seconds;});
     eventBus.on(Events.WORLD_IMPACT,e=>this.impact(e));
     eventBus.on(Events.PROP_UNSUPPORTED,({id})=>{const p=this.items.find(p=>p.id===id);if(p){this.disableControl(p);this.flow.release(id);p.driving=false;}});
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.items.find(p=>p.id===id);if(p){this.disableControl(p);this.flow.release(p.id);p.attached=true;p.driving=false;eventBus.emit(Events.PROP_SUSPEND,{id});}});

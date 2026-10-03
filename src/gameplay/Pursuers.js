@@ -584,6 +584,7 @@ export class Pursuers {
 
   _net(ac,dt,d){
     const C=CAPTURE,bar=gameState.capture,j=this.jimothy.position,pos=ac.group.position;
+    if(gameState.tools.shield>0){ac.netPhase='recovery';ac.netTimer=0;bar.holding=false;return;}
     const reach=ANIMAL_CONTROL.NET_RANGE+Math.max(0,this.jimothy.radius-PLAYER_CONFIG.RADIUS);
     ac.netPhase ||= 'idle';ac.netTimer=(ac.netTimer||0)+dt;
     const phase=s=>{ac.netPhase=s;ac.netTimer=0;};

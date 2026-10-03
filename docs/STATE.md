@@ -1,5 +1,13 @@
 # Session state
 
+## Twenty-four usable tools — milestone 44 — 2026-10-03
+
+**Implemented, awaiting Chris’s playtest.** The complete 24-tool roster is enabled. New tools supply sonic stun, dance/queasy reactions, repelling clouds, spring punches, collision-respecting grapple/skates/pogo/gliding, light-prop towing, car slowdown, physical foam, bounce pads, temporary capture shielding, local digging and delayed fireworks. Six devices/eight projectiles/three clouds/six interrupted people are hard limits. Movement gear is limited to compact bodies (3 m radius); fatness and score are preserved.
+
+All ten new checks failed before implementation; the combined 35-case regression and a stronger paired traffic-travel test now pass. All 67 units, build and production pixel smoke pass; native views are console-clean. Lean native firework microbenchmark: median 8.3 ms, p95 9.2, worst 36.4 update-plus-render submission, 225 calls; no FPS/giant claim. Evidence: `output/iterate/arsenal-*`.
+
+**Next: 45 sixteen landmark sites.** The reference, Blender recipe and asset export are in progress; four site/map/cache/damage/stream/restart checks fail before runtime integration. Preserve those untracked milestone-45 assets separately from the 44 commit. Then 40 food progression → 41 tourists → 42 drivers, per the approved order.
+
 ## First eight food-powered gadgets — milestone 43 — 2026-10-03
 
 **Implemented, awaiting Chris’s playtest.** Physical T/LB equip/swap, mouse/V/RB use, G/B drop; eating refills a separate energy meter. Washer/air, bubbles, suction/magnet, extinguisher propulsion, paint and confetti share bounded targeting, model and effect lifecycles. Walls block use, bins tip, affected people recover alive and reset clears ownership. Twenty-four original editable Blender sources and GLBs are prepared; only the first eight behaviours ship in 43.

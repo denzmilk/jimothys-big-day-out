@@ -170,7 +170,7 @@ export class InputSystem {
         axes: (gp.axes || []).map((a) => +a.toFixed(2)),
       };
     } else {
-      this.gamepadInfo = null;
+      this.gamepadInfo = null;this._gpTool=this._gpDrop=false;
     }
 
     const len = Math.hypot(x, z);

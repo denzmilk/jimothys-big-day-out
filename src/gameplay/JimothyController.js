@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  GIANT_IMPACT, RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  TOOLS, GIANT_IMPACT, RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -103,7 +103,7 @@ export class JimothyController {
     eventBus.emit(Events.PLAYER_BODY_READY,{body:this.body});
 
     this.vel = new THREE.Vector3();
-    this.vy = 0;
+    this.vy = 0;this.toolMotion=null;
     this.grounded = true;
     // Face -z (away from the boot camera) so the follow cam starts where the
     // placeholder scene's did.
@@ -144,6 +144,13 @@ export class JimothyController {
       this._prevX=undefined;this._prevZ=undefined;
     });
 
+    eventBus.on(Events.PLAYER_TOOL_MOTION,m=>{
+      if(m.mode==='clear'){this.toolMotion=null;return;}
+      if(this.radius>TOOLS.MOTION_RADIUS||!gameState.game.isPlaying||gameState.player.stunned)return;
+      if(m.mode==='pogo'||m.mode==='bounce'){
+        if(m.mode==='bounce'||this.grounded){this.vy=m.force;this.body.velocity.y=m.force;this.grounded=false;this.toolMotion={...m,mode:'hop'};}
+      }else this.toolMotion={...m};
+    });
     eventBus.on(Events.PLAYER_LAUNCHED,({velocity,seconds})=>{
       this.launched=seconds;this.launchSpin=0;this.move=null;this.stunTimer=0;this.grounded=false;gameState.player.stunned=true;this.vel.set(velocity[0],0,velocity[2]);this.vy=velocity[1];
     });
@@ -184,7 +191,7 @@ export class JimothyController {
     this.body.position.set(0, this._spawnY(), 0);
     this.body.velocity.set(0, 0, 0);
     this.vel.set(0, 0, 0);
-    this.vy = 0;
+    this.vy = 0;this.toolMotion=null;
     this.grounded = true;
     this.yaw = Math.PI;
     // Stale sweep origin would have the ground scan start from wherever he
@@ -429,6 +436,18 @@ export class JimothyController {
       }
     }else this._updateMoves(delta, controllable);
 
+    const motion=this.toolMotion;
+    if(motion){
+      motion.life-=delta;
+      if(motion.life<=0||!controllable||this.input.suppressed||this.move||this.swimming||this.radius>TOOLS.MOTION_RADIUS)this.toolMotion=null;
+      else {
+        const acceleration=TOOLS.MOTION_ACCEL*delta;
+        this.vel.x+=THREE.MathUtils.clamp(motion.dir[0]*motion.force-this.vel.x,-acceleration,acceleration);
+        this.vel.z+=THREE.MathUtils.clamp(motion.dir[2]*motion.force-this.vel.z,-acceleration,acceleration);
+        if(motion.mode==='grapple'){this.vy=motion.dir[1]*motion.force;this.grounded=false;}
+        if(motion.mode==='glider'&&!this.grounded)this.vy=Math.max(this.vy,-TOOLS.GLIDER_FALL);
+      }
+    }
     this.body.velocity.set(this.vel.x, this.vy, this.vel.z);
     const contact={position:this.body.position,velocity:this.body.velocity,radius:this.radius,
       fatness:gameState.player.fatness,dt:delta,blocked:false};

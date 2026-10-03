@@ -1,6 +1,6 @@
 # Tools and landmarks
 
-Chris approved tools → landmarks → food progression → tourists → drivers on 2026-10-03. Milestones 43–45 implement the new content before the previously numbered 40–42. Twenty-four tools and sixteen destinations are the working roster; they are not yet claims of implementation.
+Chris approved tools → landmarks → food progression → tourists → drivers on 2026-10-03. Milestones 43–45 implement the new content before the previously numbered 40–42. The twenty-four tools are implemented, awaiting playtest (43–44). The sixteen landmark destinations are being built in 45.
 
 ## Tool roster
 

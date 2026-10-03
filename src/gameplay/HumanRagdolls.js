@@ -47,7 +47,7 @@ export class HumanRagdolls {
     for(const part of parts){let parent=part.bone.parent;while(parent&&!parts.some(p=>p.bone===parent))parent=parent.parent;part.parent=parts.findIndex(p=>p.bone===parent);}
     const d=p.group.position.clone().sub(new THREE.Vector3(hit.x,p.group.position.y,hit.z));
     if(d.lengthSq()===0)d.set(Math.sin(this.jimothy.yaw),0,Math.cos(this.jimothy.yaw));d.normalize();
-    const strength=hit.source?THREE.MathUtils.lerp(BODY_CONTACT.LEAN_HIT_SCALE,1,Math.min(1,gameState.player.fatness/BODY_CONTACT.FULL_HIT_FATNESS)):1;
+    const strength=hit.power??(hit.source?THREE.MathUtils.lerp(BODY_CONTACT.LEAN_HIT_SCALE,1,Math.min(1,gameState.player.fatness/BODY_CONTACT.FULL_HIT_FATNESS)):1);
     const speed=Math.min(C.MAX_SPEED,C.IMPULSE+hit.radius*C.POWER_GAIN)*strength;
     const rag={...p,parts,saved,age:0,rootOffset:parts[0].start.clone().sub(p.group.position),recovery:0};
     eventBus.emit(Events.RAGDOLL_CREATE,{id:p.id,parts,velocity:[d.x*speed,C.LIFT*strength,d.z*speed],receive:physics=>rag.physics=physics});

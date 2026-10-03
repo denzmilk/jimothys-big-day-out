@@ -1,4 +1,4 @@
-import {TRAFFIC as C,STREET} from './Constants.js';
+import {TRAFFIC as C,STREET,TOOLS} from './Constants.js';
 
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const dot=(a,b)=>a.x*b.x+a.z*b.z;
@@ -80,7 +80,8 @@ export class TrafficFlow {
      const gap=Math.max(0,d-p.half[2]-C.GAP);if(gap<limit){limit=gap;r.reason='obstacle';}break;
     }
    }
-   const desired=Math.min(r.connector?C.TURN_SPEED:STREET.SPEED,Math.sqrt(2*C.BRAKE*limit));
+   p.toolSlow=Math.max(0,(p.toolSlow||0)-dt);
+   const desired=Math.min((r.connector?C.TURN_SPEED:STREET.SPEED)*(p.toolSlow>0?TOOLS.PLUNGER_SPEED:1),Math.sqrt(2*C.BRAKE*limit));
    r.speed=Math.max(0,r.speed+clamp(desired-r.speed,-C.BRAKE*dt,C.ACCELERATION*dt));
    const step=Math.min(r.speed*dt,limit);if(limit<C.STOP_SPEED)r.speed=0;
    r.distance+=step;

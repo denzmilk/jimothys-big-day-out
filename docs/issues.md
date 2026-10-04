@@ -98,9 +98,13 @@ Final native blue-fish views cover eight seconds of cruising, avoidance and retu
 
 ### JIM-91 — Jimothy's underwater bubbles emerge only from his centre
 
-**Status:** reported, queued · **Reported:** Chris, 2026-10-04.
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** Chris, 2026-10-04.
 
-Spread bubble emission over the submerged body and movement wake, scaling breadth with Jimothy's size. Keep a bounded particle pool and avoid emitting through roofs or from dry body parts. Verify lean/medium/giant views while swimming, diving, surfacing and stationary. This is separate from fish motion (JIM-90).
+Baseline at 30/60/120 Hz has zero fore/aft bubble spread, about 0.4 m of current drift regardless of size, and no bubbles when the giant's centre is above water despite submerged skin. A real voxel ceiling records 1,420 sampled crossings; emission also accepts dry and solid positions (`output/iterate/bubble-red.log`).
+
+The repair caches 24 contacts on the original animated skin, samples submerged contacts around the body and gives moving bubbles a short inherited wake. Breadth follows the body; particle size/rise scale is capped. Water samples, actual voxel sweeps and wreck checks reject dry/solid emission and stop rising bubbles at cover. The 160-particle draw buffers are reused; older emissions yield to fresh ones, with a player cap of 144. Reset clears the contact cache and active draw count.
+
+Four focused cases pass. The lean/medium/giant plumes span about 1.2 / 5.3 / 26.4 m horizontally, consistently at all three rates. Ceiling crossings and dry/solid emissions are zero. A 24-second, 48 m swim retains a fresh wake within 0.15 seconds, stays at/below 160 particles, reuses both buffers and clears on reset. Isolated OceanSystem update is 0.9 ms median / 1.0 ms p95 in the final run; no whole-game FPS claim. All twenty bubble/ocean/water cases, 168 units and build pass. The giant view prompted slightly larger bubbles and a minimum screen size; all four focused cases pass again, along with the final original-rig native views at all three sizes. Both distant and close giant views show emission around the submerged skin; native console errors are empty. Final production pixel smoke also passes without errors (`bubble-smoke-final.log`). Evidence: `bubble-gameplay.log`, `bubble-gameplay-final.log`, `bubble-units.log`, `bubble-build-final.log`, `bubble-native-final.log`, `bubble-native/`. Scope: `OceanSystem.js`, `OCEAN` constants, `tests/bubble-body.spec.js`, `tools/inspect-bubbles.mjs`.
 
 ### JIM-92 — People in water need swimming behaviour
 

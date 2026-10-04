@@ -4,6 +4,14 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## JIM-91 wider bubbles checkpoint — 2026-10-05
+
+**Implemented, awaiting Chris’s playtest.** JIM-90 is committed/pushed as `bc4b52b`. Bubbles use 24 cached original-skin contacts, spread with body size, leave a fresh moving wake and stop at water/voxel/wreck boundaries. The 160-entry buffers remain fixed and reset cleanly. Giant visibility review added capped size scaling and a minimum screen size.
+
+All 168 units, twenty distinct bubble/ocean/water cases and the final four-case follow-up pass, along with build and original-rig native views at lean/medium/giant sizes. Final isolated OceanSystem cost is 0.9 ms median / 1.0 ms p95 over 24 seconds of travel; this is not whole-game FPS. Native distant and close giant views are console-clean. Final production pixel smoke passes with distinct sky/ground pixels and no console errors (`bubble-smoke-final.log`). Evidence: JIM-91 and `output/iterate/bubble-*`.
+
+**Next authorised item: JIM-92 swimming people**, including civilians, residents, pursuers, ejected drivers and ragdoll/collection handoff; then the recorded queue. Read-only preparation: `output/iterate/jim92-investigation.md`. No additional scope approval needed. JIM-48 remains open.
+
 ## JIM-90 fish stability checkpoint — 2026-10-05
 
 **Implemented, awaiting Chris’s playtest.** M61 is committed/pushed as `b589ea8`. Fish now share bounded heading and velocity, ease speed, hold an escape direction around obstacles and spawn above their actual seabed location. Small-fish Blender clips have matching endpoints; all thirteen rigs animate every frame. Review also repaired heading-inflated contact boxes, preserving shared physics ownership.

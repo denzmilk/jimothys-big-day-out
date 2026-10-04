@@ -17,7 +17,7 @@ export class OceanSystem {
   const generator=voxels.generator;voxels.generator=function*(world,cx,cz){yield*generator(world,cx,cz);yield*generateOceanColumn(world,cx,cz);};
   const loader=new GLTFLoader(),names=[...C.WRECKS,...C.FISH,'kelp','seagrass','crab','starfish','urn','barrel'];
   this.loading=Promise.all(names.map(async name=>{const g=await loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/ocean/${name}.glb`);this.models[name]=g;if(C.WRECKS.includes(name))this.wrecks[name]=g.scene.children.map((part,i)=>this.preparePart(part,`${name}-${i}`));})).then(()=>{this.makePlants();this.ready=true;}).catch(e=>console.error('Ocean assets failed',e));
-  this.makeEffects();this.contactRay=new THREE.Raycaster();
+  this.makeEffects();this.contactRay=new THREE.Raycaster();this.bubbleRay=new THREE.Raycaster();this.bubbleBox=new THREE.Box3();this.bubbleCentre=new THREE.Vector3();this.bubbleRadii=new THREE.Vector3();this.bubblePoint=new THREE.Vector3();this.bubbleDirection=new THREE.Vector3();this.bubbleStep=new THREE.Vector3();this.bubbleContacts=null;this.bubbleSite=0;
   eventBus.on(Events.SWIM_CONTACT,q=>this.swimContact(q));
   eventBus.on(Events.WORLD_IMPACT,h=>this.impact(h));
   eventBus.on(Events.WORLD_DEMOLISHED,h=>{
@@ -159,12 +159,52 @@ export class OceanSystem {
  clearFish(remove=()=>true){for(const f of this.fish.filter(remove)){eventBus.emit(Events.PHYSICAL_ACTOR_REMOVE,{id:f.id});f.mixer.stopAllAction();f.mixer.uncacheRoot(f.visual);f.visual.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});f.mesh.removeFromParent();}this.fish=this.fish.filter(f=>!remove(f));}
  clearCreatures(){for(const p of this.creatures)eventBus.emit(Events.PHYSICAL_ACTOR_REMOVE,{id:p.id});this.creatures=[];}
  makeEffects(){
-  const geo=new THREE.BufferGeometry();this.bubbleData=new Float32Array(C.BUBBLES*3);geo.setAttribute('position',new THREE.BufferAttribute(this.bubbleData,3));geo.setDrawRange(0,0);
-  this.bubbleMesh=new THREE.Points(geo,new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{bubbleColor:{value:new THREE.Color(C.BUBBLE_COLOR)}},vertexShader:`void main(){vec4 p=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*p;gl_PointSize=${(C.BUBBLE_SIZE*C.BUBBLE_SCREEN_SCALE).toFixed(2)}/max(1.,-p.z);}`,fragmentShader:`uniform vec3 bubbleColor;void main(){float r=length(gl_PointCoord-.5)*2.;if(r>1.)discard;float a=smoothstep(.5,.85,r)*(1.-smoothstep(.9,1.,r));gl_FragColor=vec4(bubbleColor,a*${C.BUBBLE_OPACITY.toFixed(3)});}` }));this.scene.add(this.bubbleMesh);
+  const geo=new THREE.BufferGeometry();this.bubbleData=new Float32Array(C.BUBBLES*3);this.bubbleStyle=new Float32Array(C.BUBBLES*2);geo.setAttribute('position',new THREE.BufferAttribute(this.bubbleData,3));geo.setAttribute('bubbleStyle',new THREE.BufferAttribute(this.bubbleStyle,2));geo.setDrawRange(0,0);
+  this.bubbleMesh=new THREE.Points(geo,new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{bubbleColor:{value:new THREE.Color(C.BUBBLE_COLOR)}},vertexShader:`attribute vec2 bubbleStyle;varying float fade;void main(){vec4 p=modelViewMatrix*vec4(position,1.);gl_Position=projectionMatrix*p;gl_PointSize=max(${C.BUBBLE_MIN_PIXELS.toFixed(2)},${(C.BUBBLE_SIZE*C.BUBBLE_SCREEN_SCALE).toFixed(2)}*bubbleStyle.x/max(1.,-p.z));fade=bubbleStyle.y;}`,fragmentShader:`uniform vec3 bubbleColor;varying float fade;void main(){float r=length(gl_PointCoord-.5)*2.;if(r>1.)discard;float a=smoothstep(.5,.85,r)*(1.-smoothstep(.9,1.,r));gl_FragColor=vec4(bubbleColor,a*fade*${C.BUBBLE_OPACITY.toFixed(3)});}` }));this.scene.add(this.bubbleMesh);
   const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,uniforms:{strength:{value:0},rayTime:{value:0},rayColor:{value:new THREE.Color(C.RAY_COLOR)}},vertexShader:'attribute float rayFloor;varying float aboveFloor;varying vec2 v;varying vec3 rayNormal,rayView;void main(){v=uv;aboveFloor=(modelMatrix*instanceMatrix*vec4(position,1.)).y-rayFloor;vec4 p=modelViewMatrix*instanceMatrix*vec4(position,1.);mat3 im=mat3(instanceMatrix);vec3 squaredScale=vec3(dot(im[0],im[0]),dot(im[1],im[1]),dot(im[2],im[2]));rayNormal=mat3(modelViewMatrix)*im*(normal/squaredScale);rayView=-p.xyz;gl_Position=projectionMatrix*p;}',fragmentShader:`varying float aboveFloor;varying vec2 v;varying vec3 rayNormal,rayView;uniform vec3 rayColor;uniform float strength,rayTime;void main(){float edge=pow(abs(dot(normalize(rayNormal),normalize(rayView))),2.);float fade=smoothstep(0.,.25,v.y)*(1.-smoothstep(.65,1.,v.y));float shafts=.85+.15*sin(v.y*25.+rayTime*.2);gl_FragColor=vec4(rayColor,edge*fade*shafts*strength*smoothstep(0.,${C.RAY_FLOOR_FADE.toFixed(3)},aboveFloor));}`});
   this.rayMesh=new THREE.InstancedMesh(new THREE.CylinderGeometry(.1,C.RAY_RADIUS,1,C.RAY_SEGMENTS,1,true),material,C.RAYS);this.rayMesh.geometry.setAttribute('rayFloor',new THREE.InstancedBufferAttribute(new Float32Array(C.RAYS),1));this.rayMesh.count=0;this.rayMesh.frustumCulled=false;this.scene.add(this.rayMesh);
  }
- emitBubbles(p,count=1){for(let i=0;i<count&&this.bubbles.length<C.BUBBLES;i++)this.bubbles.push({x:p.x,y:p.y,z:p.z,life:C.BUBBLE_LIFE,phase:this.serial++});}
+ bubbleClear(p,from=null){
+  let water;eventBus.emit(Events.WATER_SAMPLE,{x:p.x,z:p.z,receive:w=>water=w});
+  if(!water||p.y>=water.height-C.BUBBLE_WATER_MARGIN||p.y<=water.height-water.depth||this.voxels.physicalSolidAtWorld(p.x,p.y,p.z))return false;
+  let length=0;if(from){this.bubbleStep.set(p.x-from.x,p.y-from.y,p.z-from.z);length=this.bubbleStep.length();if(length>0){this.bubbleStep.divideScalar(length);if(this.voxels.raycast(from.x,from.y,from.z,this.bubbleStep.x,this.bubbleStep.y,this.bubbleStep.z,length))return false;this.bubbleRay.set(this.bubblePoint.copy(from),this.bubbleStep);this.bubbleRay.far=length;}}
+  for(const part of this.parts){
+   if(part.attached||Math.hypot(p.x-part.mesh.position.x,p.y-part.mesh.position.y,p.z-part.mesh.position.z)>Math.hypot(...part.half)+length)continue;
+   this.fishPoint.copy(p).sub(part.mesh.position).applyQuaternion(this.fishInverse.copy(part.mesh.quaternion).invert());
+   if(Math.abs(this.fishPoint.x)<part.half[0]&&Math.abs(this.fishPoint.y)<part.half[1]&&Math.abs(this.fishPoint.z)<part.half[2])return false;
+   if(from&&length>0){part.mesh.updateWorldMatrix(true,true);if(this.bubbleRay.intersectObject(part.mesh,true).length)return false;}
+  }return true;
+ }
+ emitBubbles(p,count=1,{source='environment',scale=1,vx=0,vz=0}={}){
+  if(!this.bubbleClear(p))return;
+  for(let i=0;i<count;i++){
+   const playerFull=source==='player'&&this.bubbles.filter(b=>b.source==='player').length>=C.BUBBLE_PLAYER_LIMIT;
+   if(playerFull||this.bubbles.length>=C.BUBBLES){let index=this.bubbles.findIndex(b=>b.source===source);if(index<0&&source==='player')index=0;if(index<0)return;this.bubbles.splice(index,1);}
+   this.bubbles.push({x:p.x,y:p.y,z:p.z,life:C.BUBBLE_LIFE,phase:this.serial++,source,scale,vx,vz});
+  }
+ }
+ emitPlayerBubbles(){
+  const j=this.jimothy,rig=j.rig;j.group.updateMatrixWorld(true);
+  const skinned=rig?.loaded&&rig.skinned&&rig.surfaceIndex;
+  if(skinned)rig.bellyLocalBox(j.group,this.bubbleBox);
+  if(skinned&&!this.bubbleBox.isEmpty()){this.bubbleBox.getCenter(this.bubbleCentre);this.bubbleBox.getSize(this.bubbleRadii).multiplyScalar(.5);}
+  else{this.bubbleCentre.copy(j.body.position);j.group.worldToLocal(this.bubbleCentre);this.bubbleRadii.setScalar(j.radius);}
+  if(!this.bubbleContacts||this.bubbleGrowth!==rig?.growthWidth||this.bubbleSkinned!==!!skinned){
+   this.bubbleGrowth=rig?.growthWidth;this.bubbleSkinned=!!skinned;
+   this.bubbleContacts=Array.from({length:C.BUBBLE_BODY_SITES},(_,i)=>{
+    const y=(i+.5)/C.BUBBLE_BODY_SITES*2-1,a=i*Math.PI*(3-Math.sqrt(5)),r=Math.sqrt(1-y*y),direction=new THREE.Vector3(Math.cos(a)*r,y,Math.sin(a)*r);
+    return{direction,contact:skinned?rig.surfaceContact(direction,this.bubbleCentre,this.bubbleRadii):null};
+   });
+  }
+  const count=Math.min(C.BUBBLE_BODY_MAX,Math.ceil(C.BUBBLE_BODY_COUNT+Math.sqrt(j.radius)*C.BUBBLE_COUNT_GAIN)),scale=Math.min(C.BUBBLE_SCALE_MAX,1+Math.sqrt(j.radius)*C.BUBBLE_SCALE_GAIN);let emitted=0;
+  for(let attempt=0;attempt<C.BUBBLE_BODY_SITES&&emitted<count;attempt++){
+   const site=this.bubbleContacts[this.bubbleSite++%C.BUBBLE_BODY_SITES],p=this.bubblePoint;
+   if(site.contact)rig.contactPosition(site.contact,p);else p.copy(site.direction).multiply(this.bubbleRadii).add(this.bubbleCentre);
+   p.addScaledVector(this.bubbleDirection.copy(site.direction).divide(this.bubbleRadii).normalize(),C.BUBBLE_SKIN_OFFSET*scale);j.group.localToWorld(p);
+   if(!this.bubbleClear(p))continue;
+   this.emitBubbles(p,1,{source:'player',scale,vx:j.vel.x*C.BUBBLE_WAKE_SHARE,vz:j.vel.z*C.BUBBLE_WAKE_SHARE});emitted++;
+  }
+ }
  update(dt){
   if(!this.ready||!gameState.game.isPlaying)return;this.time+=dt;this.streamClock+=dt;const j=this.jimothy.position;
   if(this.streamClock>=C.STREAM_INTERVAL){this.stream();this.streamClock=0;}
@@ -181,11 +221,15 @@ export class OceanSystem {
    items.forEach((p,i)=>{const crab=p.kind==='crab',offset=crab?Math.sin(this.time*C.CRAB_SPEED+p.phase)*C.CRAB_RANGE:0;this.pose.position.set(p.x+offset,crab?this.voxels.physicalGroundHeightAt(p.x+offset,p.z,Terrain.surfaceHeight(p.x+offset,p.z)+C.FISH_CLEARANCE):p.y,p.z);this.pose.rotation.set(0,p.yaw,0);this.pose.scale.setScalar(crab||p.kind==='starfish'?1:p.scale);this.pose.updateMatrix();batch.mesh.setMatrixAt(i,this.pose.matrix);if(p.mesh){p.mesh.position.copy(this.pose.position);p.mesh.quaternion.copy(this.pose.quaternion);}});batch.mesh.instanceMatrix.needsUpdate=true;if(items.length)batch.mesh.computeBoundingSphere();
    const u=batch.mesh.material.userData.uniforms;if(u){u.currentTime.value=this.time;u.swimmer.value.copy(j);u.swimmerRadius.value=this.jimothy.radius+C.FLEE_RADIUS;}
   }
-  this.bubbleClock+=dt;this.ventClock+=dt;
-  if(this.jimothy.diving&&this.bubbleClock>=C.BUBBLE_INTERVAL){this.emitBubbles(this.jimothy.body.position);this.bubbleClock=0;}
+  this.bubbleClock=Math.min(this.bubbleClock+dt,C.BUBBLE_INTERVAL*C.BUBBLE_MAX_BURSTS);this.ventClock+=dt;
+  if(this.jimothy.diving||this.jimothy.swimming){while(this.bubbleClock>=C.BUBBLE_INTERVAL){this.emitPlayerBubbles();this.bubbleClock-=C.BUBBLE_INTERVAL;}}else this.bubbleClock=0;
   if(this.ventClock>=C.VENT_INTERVAL){for(const id of this.active){const s=this.sites.find(s=>s.id===id);if(s.seed%2===0)this.emitBubbles(new THREE.Vector3(s.x,s.y+C.FISH_CLEARANCE,s.z));}this.ventClock=0;}
-  this.bubbles=this.bubbles.filter(p=>{p.life-=dt;p.y+=C.BUBBLE_SPEED*dt;p.x+=Math.sin(this.time+p.phase)*C.BUBBLE_DRIFT*dt;return p.life>0&&p.y<TERRAIN.SEA_LEVEL&&Math.hypot(p.x-j.x,p.z-j.z)<C.PLANT_RADIUS;});
-  this.bubbles.forEach((p,i)=>{this.bubbleData[i*3]=p.x;this.bubbleData[i*3+1]=p.y;this.bubbleData[i*3+2]=p.z;});this.bubbleMesh.geometry.setDrawRange(0,this.bubbles.length);this.bubbleMesh.geometry.attributes.position.needsUpdate=true;this.bubbleMesh.geometry.computeBoundingSphere();
+  this.bubbles=this.bubbles.filter(p=>{
+   p.life-=dt;const next={x:p.x+(Math.sin(this.time+p.phase)*C.BUBBLE_DRIFT+p.vx)*dt,y:p.y+C.BUBBLE_SPEED*Math.sqrt(p.scale)*dt,z:p.z+p.vz*dt};
+   if(p.life<=0||Math.hypot(next.x-j.x,next.z-j.z)>=C.PLANT_RADIUS+this.jimothy.radius||!this.bubbleClear(next,p))return false;
+   Object.assign(p,next);p.vx*=Math.exp(-C.BUBBLE_WAKE_DRAG*dt);p.vz*=Math.exp(-C.BUBBLE_WAKE_DRAG*dt);return true;
+  });
+  this.bubbles.forEach((p,i)=>{this.bubbleData[i*3]=p.x;this.bubbleData[i*3+1]=p.y;this.bubbleData[i*3+2]=p.z;this.bubbleStyle[i*2]=p.scale;this.bubbleStyle[i*2+1]=Math.min(1,(C.BUBBLE_LIFE-p.life)/C.BUBBLE_FADE_IN,p.life/C.BUBBLE_FADE_OUT);});this.bubbleMesh.geometry.setDrawRange(0,this.bubbles.length);this.bubbleMesh.geometry.attributes.position.needsUpdate=true;this.bubbleMesh.geometry.attributes.bubbleStyle.needsUpdate=true;this.bubbleMesh.geometry.computeBoundingSphere();
   this.batches.update(this.parts.map(p=>({key:p.key,root:p.mesh})));
  }
  afterCamera(){
@@ -206,6 +250,6 @@ export class OceanSystem {
   }
   this.rayMesh.instanceMatrix.needsUpdate=true;this.rayMesh.geometry.attributes.rayFloor.needsUpdate=true;
  }
- reset(){for(const p of [...this.parts])this.removePart(p);this.batches.clear();this.clearFish();this.active.clear();this.damage.clear();this.plants=[];this.clearCreatures();this.habitat=null;this.bubbles=[];this.bubbleMesh.geometry.setDrawRange(0,0);this.rayMesh.count=0;this.time=this.streamClock=this.bubbleClock=this.ventClock=0;this.underwater=false;this.sky.visible=true;for(const b of this.plantMeshes||[])b.mesh.count=0;}
+ reset(){for(const p of [...this.parts])this.removePart(p);this.batches.clear();this.clearFish();this.active.clear();this.damage.clear();this.plants=[];this.clearCreatures();this.habitat=null;this.bubbles=[];this.bubbleContacts=null;this.bubbleSite=0;this.bubbleMesh.geometry.setDrawRange(0,0);this.rayMesh.count=0;this.time=this.streamClock=this.bubbleClock=this.ventClock=0;this.underwater=false;this.sky.visible=true;for(const b of this.plantMeshes||[])b.mesh.count=0;}
  snapshot(){return{ready:this.ready,underwater:this.underwater,sites:[...this.active].map(id=>{const s=this.sites.find(s=>s.id===id);return{id,kind:s.kind,family:s.family,x:s.x,z:s.z};}),totalSites:this.sites.length,parts:this.parts.length,loose:this.parts.filter(p=>p.loose).length,damage:this.damage.size,fish:this.fish.length,fishKinds:[...new Set(this.fish.map(f=>f.kind))],plants:this.plants.filter(p=>!p.broken).length,creatures:this.creatures.length,bubbles:this.bubbles.length,rays:this.rayMesh.visible?this.rayMesh.count:0};}
 }

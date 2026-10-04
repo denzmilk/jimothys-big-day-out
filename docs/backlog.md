@@ -6,6 +6,29 @@
 
 ## Gameplay & features
 
+### Authorised sequential expansion — 2026-10-04
+
+Chris asked to finish M53 cars (including ditch recovery), then plan and implement the fourteen additions plus area raccoon bosses in sequence. Full inventory, dependencies, location activities and boss source research: [playground expansion](playground-expansion.md). The original motorbike/bicycle/skateboard/combat-outfit request below remains in that order's equipment step. These entries are recorded work, not implemented capabilities.
+
+- [ ] **Jetpack and late superman flight:** controlled flight, top-speed comet aura and speed/mass-scaled crash explosions/damage. Size L; depends on movement ownership, skill gates and equipment charges.
+- [ ] **Food treasure hoards and deliberate purge:** varied finite stashes, including high/underwater sites, plus a deliberate comic shrink action with no food duplication. Size L; extends M40 and JIM-44. Pure collectible keepsakes remain separate.
+- [x] **Refine Jimothy's rapid land gait** → M54 / reopened JIM-76; planned, not repaired. Size M; next after car follow-up. Measure cadence, travel per stride, foot planting and native appearance.
+- [ ] **Momentum-led fat rolling:** original fat jiggly Jimothy rotates physically with motion/terrain and carries collected things; carve the requested boulder/crash trail and profile giant cost. Size L; extends M34/39 and JIM-48/69/70.
+- [ ] **Wanted pacing:** renewed JIM-35 report requires mass destruction for five stars, keeping the five-stage response below. Size M for balance; additional response roles remain separate milestones.
+- [ ] **Fish stability and body-wide bubbles:** JIM-90/91, including the repeated blue-fish report, slope/structure avoidance and size-scaled emission footprint. Size M; preserve underwater site variety and bounded effects.
+- [ ] **Floating cars on grades:** JIM-89, check all models and parked/NPC/player/streamed states; sampled M53 slope tests are insufficient to close the report. Size M; adjacent to current cars.
+- [ ] **Swimming people:** JIM-92, with wading, deep-water strokes, reachable shore exits and impact/ragdoll/driver handoffs. Size L.
+- [ ] **Per-item ammunition/charge and discard:** visible remaining amount, defined costs, cannot fire empty, and throw an exhausted item into physical debris once. Size L; coordinate with JIM-88's full projectile/SFX/particles pass.
+- [ ] **Collectible hats and scarves:** party hats, fedoras, googly-eye hats and a broad wardrobe; direction targets 20 hats/12 scarves. Size L; fit original rig through size/roll/swim/ragdoll/riding and preserve discovery across reloads.
+- [ ] **A minigame at every significant location:** physical Raccoon Side Hustles, with 16 distinct landmark directions and additional site-family activities in the expansion plan. Size XL, deliver in tested groups; cancellation/destruction/restart must remain safe.
+- [ ] **Grapple/tethers/swinging/car surfing:** connect objects, reel/swing, pull supported structures apart and ride on moving cars. Size XL; extend suction-grappler/tow-reel with finite tension and breakable anchors, shared physics ownership and budgets.
+- [ ] **Exploration skills bought with fatness:** discover powers, spend current body fatness, and gate exceptional powers by ultimate fatness. Grapple/firearm handling/speed/flight/strength branches. Size L for unlock/save foundation, then individual ability milestones; this explicitly extends the older energy-only tool rule.
+- [x] **Smooth ground traversal and usable sewer stairs** → M55 / JIM-43/93/94; planned, not repaired. Size L; crisp buildings and destructibility remain.
+- [ ] **Size-sensitive Jimothy ragdolls:** small bodies go floppy when hit by cars, kicks or blasts, large bodies resist more, followed by safe recovery. Size L; couples to movement ownership, preserves original rig and net-only ending.
+- [ ] **Area raccoon bosses:** normal long-spined textured raccoon base sourced under a compatible free licence, separate costumes, special moves, telegraphs/counters and progression gates. Size XL; six initial boss directions and candidate sources recorded in the expansion plan. Implement one complete boss before extending the roster.
+
+### Earlier authorised work
+
 - [x] **Hijack and drive cars** → milestone 53 (selected first by Chris, 2026-10-04). Extends the existing stealable-vehicles entry below: visible occupants, hijacking, player driving, safe entry/exit, grounded wheels, crashes and strong vehicle SFX/effects. Size L; value L. NPC destination trips remain M42. Full request: [vehicle and equipment design](vehicle-and-equipment-request.md).
 - [ ] **Motorbikes and bicycles.** Mountable, steerable, physically grounded rides with rider poses, wheel/pedal motion, braking and recoverable spills. Source: Chris, 2026-10-04. Size L; value M. Reuse M53 rider ownership; use free sourced models with recorded licences and editable Blender preparation.
 - [ ] **Skateboarding with ollies, grinds and tricks.** Push/coast/brake, ollie, kickflip/shuvit/180, balance on real rails/ledges, land trick chains and bail. Source: Chris, 2026-10-04. Size L; value L. Extends the silly-rideables entry; broken rails release the grind, and grounded feet follow the board. Depends on rider ownership; see the full request design.

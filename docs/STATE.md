@@ -1,5 +1,13 @@
 # Session state
 
+## Sequential playground queue — 2026-10-04
+
+**All fourteen additions plus bosses are recorded; M53 cars are implemented and pushed as `5252d5c`, awaiting playtest.** Chris explicitly asked to finish car driving with stronger ditch pull, then plan and implement the additions sequentially. The complete mapping, dependencies, 16 distinct landmark minigame directions, six boss directions and source research are in [playground expansion](playground-expansion.md). The earlier bikes/skateboards/combat outfits remain in that queue. This plan does not claim those later features are implemented.
+
+**Next:** investigate the broader car-floating report (JIM-89), then [M54 slower balanced land gait](milestones/54-balanced-land-gait.md) and [M55 smooth ground/sewer stair traversal](milestones/55-ground-and-sewer-traversal.md). Subsequent work: physical rolling/player ragdolls → destruction-led wanted pacing → fish/bubbles → swimming people → equipment amounts/full feedback → food hoards/purge → fatness-funded skill foundation → grapple/tethers/car surfing → jetpack/flight → remaining rides/outfits → city/cosmetics/keepsakes → local minigames and visitors/drivers → area bosses. Each major row gets its own focused implementation and verification; current giant performance issues remain open.
+
+JIM-76 is reopened for rapid/skittery land steps; JIM-35 has the renewed mass-destruction requirement for five stars. New reports JIM-89–94 retain floating cars, blue-fish jitter, centre-only bubbles, swimming people, rough-slope sticking and unusable sewer stairs. The boss base candidate is WildMesh 3D's normal, textured raccoon listed CC BY; archive/licence/rig inspection and Blender integration remain future work. No boss asset has been imported.
+
 ## Hijacking and driving cars — milestone 53 — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** Chris selected cars first. The existing six CC0 Kenney cars now support Y/gamepad-Y entry, timed hijacking, visible MPFB drivers, throttle/braking/reverse, steering, handbrake, horn, a seated original Jimothy and a following camera. Displaced people blend upright, step clear of Jimothy, and use a short escape gait while rejoining pavement. All 36 civilians share the same bounded population, with up to eight assigned to traffic.

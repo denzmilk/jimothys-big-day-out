@@ -10,6 +10,44 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-89 — Some cars hover on inclines and declines
+
+**Status:** reproduced; suspension persistence repair next · **Reported:** Chris, 2026-10-04, during M53.
+
+Check actual rendered tyre bottoms on all six sourced models, both road directions, grade transitions, parked/traffic/player states and return after streaming. M53's six-model driving fixture passes a sampled slope; it does not close this broader report. Inspect suspension limits, saved wheel poses and the physics-to-mesh handoff. Locations: `Grounding.groundVehicle`, `StreetLife.poseVehicle/populate`, `PhysicsSystem`, `DrivingSystem`. Stronger pull/shallow-ditch recovery is separately included in M53.
+
+**Reproduction:** a spawn-area survey of 18 cars finds initial gaps below 1.7 cm. Travel away and return: parked car `parked-2:4:3>2:4:4:69` has rear tyres 21.7 cm above the road and front tyres equally buried. Its saved body orientation/position returns, but the wheel suspension offsets reset. No console errors. Evidence: `output/iterate/car-grade-survey.json`. Restore wheel poses with the car and add a real streaming regression; other roads/states remain part of the verification survey.
+
+### JIM-90 — Underwater fish, particularly blue fish, jitter or glitch
+
+**Status:** reported, reproduction pending · **Reported:** Chris, 2026-10-04 (twice).
+
+Trace normal swimming, near-player avoidance, seabed/structure contacts, actor proxy updates and streaming at 30/60/120 Hz. Verify continuous position/heading and recognisable swimming in native views; finite transforms alone cannot establish a repair. Keep the bounded schooling population and physical debris interaction. Scope: `OceanSystem` underwater creature motion and shared actor contact.
+
+### JIM-91 — Jimothy's underwater bubbles emerge only from his centre
+
+**Status:** reported, queued · **Reported:** Chris, 2026-10-04.
+
+Spread bubble emission over the submerged body and movement wake, scaling breadth with Jimothy's size. Keep a bounded particle pool and avoid emitting through roofs or from dry body parts. Verify lean/medium/giant views while swimming, diving, surfacing and stationary. This is separate from fish motion (JIM-90).
+
+### JIM-92 — People in water need swimming behaviour
+
+**Status:** reported, queued · **Reported:** Chris, 2026-10-04.
+
+People reaching deep water must switch from walking/wading to an animated swim and find a reachable shore. Include people knocked in, ejected drivers, ragdoll recovery, pursuers and carried/released people. Keep one pose/body owner through transitions and preserve the net-only run-ending rule. Use existing water sampling and bounded pedestrian populations.
+
+### JIM-93 — Walking hitches on unsmoothed inclines and declines
+
+**Status:** reported, queued to M55 · **Reported:** Chris, 2026-10-04.
+
+Reproduce travel in both directions on natural, road-edge and excavated ground; log visible/physical surface height, blocked movement and pose correction. Smooth appropriate ground surfaces while retaining crisp buildings. JIM-86 repaired road outlines/grades, but this report includes raw terrain outside roads; JIM-43 records the older damaged-terrain meshing limitation. Do not claim a fix by changing gait speed alone.
+
+### JIM-94 — Sewer stairs are not usable stairs
+
+**Status:** reported, queued to M55 · **Reported:** Chris, 2026-10-04.
+
+Audit each sewer entrance class for recognisable steps, continuous top/bottom landings, riser height, ceiling clearance and matching collision. Verify walking down and back up with original Jimothy, destruction and streamed return. M48's broader sewer pass does not close this new traversal report.
+
 ### JIM-88 — Most tools have small generic bursts and no use sounds
 
 **Status:** open · **Reported:** 2026-10-04 (Chris)
@@ -114,7 +152,9 @@ Foot enemies already have cone/voxel vision and finite memory, but spawn with Ji
 
 ### JIM-76 — Foot IK replaces Jimothy's slinking walk with curled, dancing legs
 
-**Status:** implemented, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 11 refinement.
+**Status:** reopened for M54 · **Reported:** 2026-10-03 (Chris) · Milestone 11 refinement.
+
+**2026-10-04 playtest:** Chris reports the land legs are still too skittery and move too fast. Preserve the earlier contact/reach fixes, then reproduce and retune distance-matched cadence, stride and turning. New scope and exit observation: [M54](milestones/54-balanced-land-gait.md). The previous automated passes below are historical evidence, not approval of gait feel.
 
 Chris preferred the earlier low, balanced slinking gait; the current IK produces curled/dancing legs. Inspect actual posed skin, knee direction, stride/lift and support timing against the earlier bone-driven gait. Preserve terrain contact, idle gestures, original model and growth/action transitions. Locations: `JimothyLegs._updateBones`, `Grounding.solveTwoBone`, `LEGS` tuning. Foot-height checks alone do not establish a good gait.
 
@@ -598,7 +638,9 @@ Adding one more ring of voxel columns to see 35 m further costs far more than th
 
 ### JIM-35 — One headbutt is a five-star wanted level
 
-**Status:** reopened, queued after M50 · **Severity:** medium · **Found:** 2026-08-07, milestone 19
+**Status:** reopened, queued after movement/contact repairs in the 2026-10-04 sequence · **Severity:** medium · **Found:** 2026-08-07, milestone 19
+
+**2026-10-04 playtest:** minor pedestrian hassling and small ground damage still escalate far too quickly. Five stars must require mass-scale destruction. Capture nuisance/house/block-scale examples, repeated-event attribution and time-to-tier measurements before changing constants. See [sequential plan](playground-expansion.md), step 4; no wanted fix is claimed by M53.
 
 `HEAT.PER_DEMOLITION` is 0.4 *per voxel destroyed*. A single fat headbutt into open ground removes about **1,075 voxels**, which is **430 heat points** — against a tier-5 threshold of 100. So one swing at maximum fatness takes the run from calm to the army.
 

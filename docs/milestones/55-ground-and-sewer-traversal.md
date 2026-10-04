@@ -1,0 +1,34 @@
+# Milestone 55: Traverse smooth ground and usable sewer stairs
+
+## Status
+
+Planned — follows M54 in the authorised sequential queue. Defects JIM-43, JIM-93 and JIM-94; no terrain or stair repair is claimed yet.
+
+## Objective
+
+Jimothy can walk over natural and damaged terrain and enter/leave the sewers without hitching on sharp voxel ledges or unusable steps.
+
+## Scope
+
+Survey reported incline/decline contacts, destruction surfaces and every sewer stair connection. Keep smoothing limited to terrain/appropriate ground materials, preserve crisp building structure and live destruction, and make rendered/physical steps agree.
+
+## Dependencies
+
+**Depends on:** M28 road/paving geometry, M48 sewers, M54 gait evidence, ADR-0002/0003 terrain contact and physics ownership.
+**Blocks:** physical rolling/ragdoll recovery, grapple/flight landings and sewer minigame routes.
+
+## Acceptance criteria
+
+- [ ] Record native views and deterministic walking traces that reproduce slope sticking and each unusable sewer entry; distinguish geometry, collision and pose faults.
+- [ ] Natural/damaged ground uses continuous traversable surfaces where appropriate, with matching render/contact heights and no invisible step after remeshing. Buildings retain sharp corners and interiors retain ceilings.
+- [ ] Sewer entrances have recognisable treads/risers or intentionally marked ramps, correct clear headroom and connected top/bottom landings. Walk down and back up every generated entrance class at normal speed.
+- [ ] Destruction/travel/restart retain surface continuity and route state. Destroyed stairs release unsupported parts; the player does not get teleported onto a roof or through a ceiling.
+- [ ] Original-rig uphill/downhill/entry routes remain console-clean and within recorded work budgets; Chris approves appearance and traversal feel — verified by user playtest.
+
+## Exit condition
+
+Chris crosses a rough slope, walks into the sewer and returns through its stairs → the terrain feels continuous and the steps are visibly and physically usable.
+
+## Verification
+
+Write failing contact/path tests before implementation. Preserve road/destruction/interior/underground checks, add surface seam and stair route coverage, then run build/pixel smoke and native route inspection. Full arbitrary tunnel meshing may require its own architecture decision after the reproduction; do not replace the voxel system speculatively.

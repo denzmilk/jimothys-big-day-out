@@ -1,6 +1,6 @@
 # Vehicles, wearable abilities and readable tool effects
 
-Requested by Chris, 2026-10-04. **Chris selected hijacking and driving cars first: milestone 53.** The remaining rides, wearables and full tool-feedback pass are retained in backlog; their order remains open. Existing traffic, tools and costumes do not imply these new capabilities already work.
+Requested by Chris, 2026-10-04. **Chris selected hijacking and driving cars first: milestone 53, now implemented and awaiting playtest.** The remaining rides, wearables and full tool-feedback pass are retained in the [expanded sequential plan](playground-expansion.md), alongside the fourteen additions and bosses. Existing traffic, tools and costumes do not imply these later capabilities already work. The new ammo/charge request extends the contracts below; skill purchases will separately spend current body fatness.
 
 ## Baseline before M53
 

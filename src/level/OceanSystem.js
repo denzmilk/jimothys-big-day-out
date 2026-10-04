@@ -3,16 +3,17 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone} from 'three/addons/utils/SkeletonUtils.js';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import {InstanceBatches} from '../core/InstanceBatches.js';
-import {OCEAN as C,TERRAIN,VOXEL} from '../core/Constants.js';
+import {OCEAN as C,TERRAIN,VOXEL,RUBBLE} from '../core/Constants.js';
 import {oceanSites,ruinPieces,oceanHash as hash,generateOceanColumn} from './OceanLayout.js';
 import * as Terrain from './Terrain.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
+import {FishMotion} from '../core/FishMotion.js';
 
 export class OceanSystem {
  constructor(scene,jimothy,voxels,camera,sky){
   Object.assign(this,{scene,jimothy,voxels,camera,sky});this.sites=oceanSites();this.active=new Set();this.damage=new Set();this.parts=[];this.fish=[];this.plants=[];this.creatures=[];this.bubbles=[];this.time=0;this.streamClock=0;this.bubbleClock=0;this.ventClock=0;this.serial=0;this.ready=false;this.underwater=false;
-  this.batches=new InstanceBatches(scene,C.MAX_PARTS+C.PLANT_LIMIT+C.CREATURE_COUNT);this.models={};this.wrecks={};this.pose=new THREE.Object3D();this.fishTarget=new THREE.Vector3();this.fishAway=new THREE.Vector3();this.rayForward=new THREE.Vector3();this.color=new THREE.Color();
+  this.batches=new InstanceBatches(scene,C.MAX_PARTS+C.PLANT_LIMIT+C.CREATURE_COUNT);this.models={};this.wrecks={};this.pose=new THREE.Object3D();this.fishPoint=new THREE.Vector3();this.fishInverse=new THREE.Quaternion();this.rayForward=new THREE.Vector3();this.color=new THREE.Color();
   const generator=voxels.generator;voxels.generator=function*(world,cx,cz){yield*generator(world,cx,cz);yield*generateOceanColumn(world,cx,cz);};
   const loader=new GLTFLoader(),names=[...C.WRECKS,...C.FISH,'kelp','seagrass','crab','starfish','urn','barrel'];
   this.loading=Promise.all(names.map(async name=>{const g=await loader.loadAsync(`${import.meta.env.BASE_URL}assets/models/ocean/${name}.glb`);this.models[name]=g;if(C.WRECKS.includes(name))this.wrecks[name]=g.scene.children.map((part,i)=>this.preparePart(part,`${name}-${i}`));})).then(()=>{this.makePlants();this.ready=true;}).catch(e=>console.error('Ocean assets failed',e));
@@ -129,10 +130,31 @@ export class OceanSystem {
   if(this.fish.length&&!this.fish.some(f=>f.large)&&Terrain.surfaceHeight(j.x,j.z)<-C.SITE_DEPTH)this.addFish(C.FISH[3+Math.floor(hash(Math.floor(j.x),Math.floor(j.z))*2)],{x:j.x+C.SCHOOL_RADIUS,z:j.z},0,true);
  }
  addFish(kind,home,index,large=false){
-  if(this.fish.length>=C.FISH_LIMIT||(!large&&this.fish.length>=C.FISH_LIMIT-1&&!this.fish.some(f=>f.large)))return;const asset=this.models[kind],visual=clone(asset.scene),mesh=new THREE.Group();mesh.add(visual);this.scene.add(mesh);
-  const mixer=new THREE.AnimationMixer(visual);for(const clip of asset.animations)mixer.clipAction(clip).play();
-  const phase=hash(index,Math.floor(home.x))*Math.PI*2;mesh.position.set(home.x+Math.sin(phase)*C.SCHOOL_RADIUS/2,Math.max(Terrain.surfaceHeight(home.x,home.z)+C.FISH_CLEARANCE,-C.SITE_DEPTH),home.z+Math.cos(phase)*C.SCHOOL_RADIUS/2);
-  const fish={id:`ocean-creature:fish:${this.serial++}`,mesh,visual,mixer,kind,home,phase,large,animationClock:0};this.fish.push(fish);eventBus.emit(Events.PHYSICAL_ACTOR_CREATE,{id:fish.id,kind:'fish',mesh,collisionOffset:[0,0,0]});
+  if(this.fish.length>=C.FISH_LIMIT||(!large&&this.fish.length>=C.FISH_LIMIT-1&&!this.fish.some(f=>f.large)))return;
+  const asset=this.models[kind];asset.userData??={};asset.userData.half??=new THREE.Box3().setFromObject(asset.scene).getSize(new THREE.Vector3()).multiplyScalar(.5).addScalar(C.FISH_MARGIN);
+  const half=asset.userData.half,phase=hash(index,Math.floor(home.x))*Math.PI*2,yaw=phase,fish={half,probes:[[0,0,0],[half.x,0,0],[-half.x,0,0],[0,0,half.z],[0,0,-half.z],[0,half.y,0],[0,-half.y,0]]};let at=null;
+  for(let i=0;i<C.FISH_SPAWN_ATTEMPTS;i++){
+   const a=phase+i*Math.PI*2/C.FISH_SPAWN_ATTEMPTS,x=home.x+Math.sin(a)*C.SCHOOL_RADIUS/2,z=home.z+Math.cos(a)*C.SCHOOL_RADIUS/2,y=Math.max(Terrain.surfaceHeight(x,z)+C.FISH_CLEARANCE+half.y,-C.SITE_DEPTH);
+   if(this.fishClear(fish,x,y,z,yaw)){at=new THREE.Vector3(x,y,z);break;}
+  }if(!at)return;
+  const visual=clone(asset.scene),mesh=new THREE.Group();mesh.add(visual);this.scene.add(mesh);mesh.position.copy(at);mesh.rotation.y=yaw;
+  const mixer=new THREE.AnimationMixer(visual);for(const clip of asset.animations)mixer.clipAction(clip).play();mixer.setTime(phase);
+  Object.assign(fish,{id:`ocean-creature:fish:${this.serial++}`,mesh,visual,mixer,kind,home,phase,large,depth:at.y,motion:new FishMotion(yaw,large?C.LARGE_SPEED:C.FISH_SPEED)});this.fish.push(fish);
+  // A rotated world AABB would rotate a second time with the actor proxy.
+  const collisionHalf=half.toArray().map(v=>THREE.MathUtils.clamp(v-C.FISH_MARGIN,RUBBLE.ANIMAL_MIN,RUBBLE.ANIMAL_MAX));
+  eventBus.emit(Events.PHYSICAL_ACTOR_CREATE,{id:fish.id,kind:'fish',mesh,collisionHalf,collisionOffset:[0,0,0]});
+ }
+ fishClear(f,x,y,z,yaw){
+  const sine=Math.sin(yaw),cosine=Math.cos(yaw);
+  for(const [dx,dy,dz] of f.probes){
+   const px=x+dx*cosine+dz*sine,py=y+dy,pz=z-dx*sine+dz*cosine,bottom=Terrain.surfaceHeight(px,pz);
+   if(bottom>=-C.SITE_DEPTH||py<bottom+C.FISH_CLEARANCE||py>TERRAIN.SEA_LEVEL-C.FISH_SURFACE||this.voxels.physicalSolidAtWorld(px,py,pz))return false;
+   for(const part of this.parts){
+    if(part.loose||part.attached||Math.hypot(px-part.mesh.position.x,py-part.mesh.position.y,pz-part.mesh.position.z)>Math.hypot(...part.half)+C.FISH_MARGIN)continue;
+    this.fishPoint.set(px,py,pz).sub(part.mesh.position).applyQuaternion(this.fishInverse.copy(part.mesh.quaternion).invert());
+    if(Math.abs(this.fishPoint.x)<part.half[0]+C.FISH_MARGIN&&Math.abs(this.fishPoint.y)<part.half[1]+C.FISH_MARGIN&&Math.abs(this.fishPoint.z)<part.half[2]+C.FISH_MARGIN)return false;
+   }
+  }return true;
  }
  clearFish(remove=()=>true){for(const f of this.fish.filter(remove)){eventBus.emit(Events.PHYSICAL_ACTOR_REMOVE,{id:f.id});f.mixer.stopAllAction();f.mixer.uncacheRoot(f.visual);f.visual.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});f.mesh.removeFromParent();}this.fish=this.fish.filter(f=>!remove(f));}
  clearCreatures(){for(const p of this.creatures)eventBus.emit(Events.PHYSICAL_ACTOR_REMOVE,{id:p.id});this.creatures=[];}
@@ -150,12 +172,9 @@ export class OceanSystem {
   if(this.jimothy.move?.kind==='roll')this.impact({...this.jimothy.body.position,radius:this.jimothy.radius});
   for(const p of [...this.parts])if(!p.attached&&(p.loose&&(p.life-=dt)<=0||p.mesh.position.distanceTo(j)>C.DESPAWN_RADIUS+this.jimothy.radius))this.removePart(p);
   for(const f of this.fish){
-   const p=f.mesh.position,d=p.distanceTo(this.jimothy.body.position),flee=d<C.FLEE_RADIUS+this.jimothy.radius;f.phase+=dt*(f.large?C.LARGE_SPEED:C.FISH_SPEED)/C.SCHOOL_RADIUS;
-   const target=this.fishTarget.set(f.home.x+Math.sin(f.phase)*C.SCHOOL_RADIUS,p.y,f.home.z+Math.cos(f.phase)*C.SCHOOL_RADIUS);
-   if(flee)target.copy(p).add(this.fishAway.copy(p).sub(this.jimothy.body.position).setY(0));const direction=target.sub(p).setY(0).normalize(),speed=flee?C.FLEE_SPEED:f.large?C.LARGE_SPEED:C.FISH_SPEED;
-   const nx=p.x+direction.x*speed*dt,nz=p.z+direction.z*speed*dt,bottom=Terrain.surfaceHeight(nx,nz);
-   if(bottom<-C.SITE_DEPTH&&!this.voxels.physicalSolidAtWorld(nx,p.y,nz)){p.x=nx;p.z=nz;p.y=THREE.MathUtils.clamp(p.y+Math.sin(this.time+f.phase)*dt*C.FISH_BOB,bottom+C.FISH_CLEARANCE,TERRAIN.SEA_LEVEL-C.FISH_SURFACE);}else f.phase+=Math.PI*dt;
-   f.mesh.rotation.y=Math.atan2(direction.x,direction.z);f.animationClock+=dt;if(d<C.FISH_ANIMATE_DISTANCE||f.animationClock>=C.FISH_ANIMATE_INTERVAL){f.mixer.update(f.animationClock);f.animationClock=0;}
+   f.phase+=dt*(f.large?C.LARGE_SPEED:C.FISH_SPEED)/C.SCHOOL_RADIUS;
+   f.motion.update(dt,{position:f.mesh.position,home:f.home,phase:f.phase,swimmer:this.jimothy.body.position,radius:this.jimothy.radius,large:f.large,depth:f.depth,time:this.time,clear:(x,y,z,yaw)=>this.fishClear(f,x,y,z,yaw)});
+   f.mesh.rotation.y=f.motion.yaw;f.mixer.update(dt);
   }
   for(const batch of this.plantMeshes){
    const items=(batch.name==='kelp'||batch.name==='seagrass'?this.plants:this.creatures).filter(p=>p.kind===batch.name&&!p.broken);batch.mesh.count=items.length;

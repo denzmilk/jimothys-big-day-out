@@ -186,6 +186,8 @@ Q descends, Space ascends, and release brakes vertical movement to hold depth. G
 
 Habitat budgets: 13 animated fish including one larger swimmer, 220 plant instances, ten seabed creatures, 72 registered parts with at most 20 loose, 160 bubbles and seven sunlight shafts. Fish skeletons/mixers are released on removal; nearby schools survive plant-window shifts. Effects and local fog follow camera depth and day/night. Shafts are soft additive geometry, tested against voxel cover, rather than a volumetric fluid renderer. Plants bend in the current and respond to Jimothy. All tuning lives in `OCEAN`.
 
+JIM-90 fish motion shares bounded heading with travel direction, uses flee hysteresis and a held obstacle-avoidance direction, and checks body clearance against terrain, voxels and intact wreck boxes. Spawns sample their actual seabed location. All thirteen rigs animate each frame; source small-fish loop endpoints are repaired with cyclic curves. Actor proxies receive local dimensions so initial heading cannot inflate their collision box. `tests/fish-stability.spec.js`, `fish-motion.test.mjs` and `fish-assets.test.mjs` cover travel, ownership and delivered skin continuity.
+
 Blender recipes: `tools/prepare_ocean.py`, `tools/build_ocean_dressing.py`, `tools/export_ocean_layouts.mjs`. Source files/licences, editable deliveries, exact ruin descriptors and runtime GLBs remain under the corresponding `assets/sources/ocean`, `assets/blender/ocean` and `public/assets/models/ocean` folders.
 
 ## Food deliveries — milestone 37

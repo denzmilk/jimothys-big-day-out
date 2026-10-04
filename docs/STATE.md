@@ -4,6 +4,14 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## JIM-90 fish stability checkpoint — 2026-10-05
+
+**Implemented, awaiting Chris’s playtest.** M61 is committed/pushed as `b589ea8`. Fish now share bounded heading and velocity, ease speed, hold an escape direction around obstacles and spawn above their actual seabed location. Small-fish Blender clips have matching endpoints; all thirteen rigs animate every frame. Review also repaired heading-inflated contact boxes, preserving shared physics ownership.
+
+All 168 units, fourteen distinct ocean gameplay cases (including a final four-case follow-up), build and eight-second native underwater capture pass. The wall fixture samples delivered animated vertices independently: zero penetrations, about 9.7 m travelled in twelve seconds at 30/60/120 Hz. Final isolated ocean update: 0.8 ms median / 1.0 ms p95. Native captures are console-clean; production pixel smoke also passes, with distinct sky/ground pixels and no console errors (`fish-smoke.log`). Evidence: JIM-90 and `output/iterate/fish-*`.
+
+**Next: JIM-91 wider underwater bubbles**, then swimming people and the existing authorised sequence. No additional scope approval is needed. JIM-48 giant performance remains open.
+
 ## M61 rifle infantry checkpoint — 2026-10-05
 
 **Implemented, awaiting Chris’s playtest.** [M61](milestones/61-rifle-infantry.md) adds four staggered soldiers, separate packed MPFB olive workwear, fitted helmets and CC0 rifles. Three-round bursts share cover, swept projectiles, human/player ragdolls, perception/radar, net coordination and bounded effects. Army dispatch starts at five stars; four-star police remain intact.

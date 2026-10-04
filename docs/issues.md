@@ -86,9 +86,15 @@ All seven additional traffic/heading/car-destruction cases pass across the final
 
 ### JIM-90 — Underwater fish, particularly blue fish, jitter or glitch
 
-**Status:** reported, reproduction pending · **Reported:** Chris, 2026-10-04 (twice).
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** Chris, 2026-10-04 (twice).
 
-Trace normal swimming, near-player avoidance, seabed/structure contacts, actor proxy updates and streaming at 30/60/120 Hz. Verify continuous position/heading and recognisable swimming in native views; finite transforms alone cannot establish a repair. Keep the bounded schooling population and physical debris interaction. Scope: `OceanSystem` underwater creature motion and shared actor contact.
+Repeated swimmer approaches reproduce 133–154° heading snaps in a single frame and instantaneous 1.5–1.75 m/s speed changes at 30/60/120 Hz. Coastal spawn sampling finds a blue fish 0.789 m inside the seabed because depth was taken at its school centre, not its actual position. Delivered small-fish skins also have loop seams of 8.60 / 20.62 / 11.69 mm (silver/blue/striped). Evidence: `output/iterate/fish-red.log`, `fish-assets-red.log`, `fish-blue-source-animation.log`.
+
+The local repair shares bounded heading with travel direction, eases speed, adds flee hysteresis and persistent obstacle steering, probes body clearance against seabed/voxels/intact wreck parts, and declines unsafe spawns. All thirteen fish animate every frame. Blender repairs the three small-fish curve endpoints with cyclic handles; geometry, normals, colours, skin weights/indices and topology remain byte-identical (`fish-asset-invariants.json`). Targeted rebuild leaves boats and large swimmers unchanged.
+
+All 168 units and fourteen distinct ocean gameplay cases pass, including a final four-case follow-up after collision-shape review. The final wall check samples the actual animated skin vertices: zero penetrations, about 9.7 m travelled in twelve seconds, and bounded 1.8 rad/s turns at all three rates. Review caught initial-heading inflation of contact boxes (0.338 m); explicit local dimensions remove that discrepancy. Actor proxies remain aligned and reset removes them. The isolated 13-fish update costs 0.8 ms median / 1.0 ms p95 in the final sample; this is not whole-game FPS.
+
+Final native blue-fish views cover eight seconds of cruising, avoidance and return, with thirteen fish, streamed wrecks and no console errors (`fish-native/`, including `swimming.mp4`). Small-fish loop seams are below 0.05 mm when sampled 0.1 ms before wrap, with bounded skin motion at all three rates. Build passes. Production pixel smoke passes with distinct sky/ground pixels and no console errors (`fish-smoke.log`). Evidence: `fish-gameplay-first.log`, `fish-gameplay-final.log`, `fish-proxy-red.log`, `fish-units.log`, `fish-animation-final.json`, `fish-native.log`, `fish-build-final.log`. Scope: `core/FishMotion.js`, `level/OceanSystem.js`, ocean constants, retained Blender sources/exports and `tools/prepare_ocean.py`. Chris still needs to judge swimming quality in play.
 
 ### JIM-91 — Jimothy's underwater bubbles emerge only from his centre
 

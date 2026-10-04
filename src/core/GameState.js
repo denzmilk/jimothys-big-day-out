@@ -21,7 +21,7 @@ class GameState {
       // exists so the game-over photo book (JIM-31) has something to print.
       finds: [],
     };
-    this.tools={equipped:null,energy:TOOLS.ENERGY_START,shield:0};
+    this.tools={equipped:null,supply:null,energy:TOOLS.ENERGY_START,shield:0};
     this.vehicle={id:null,phase:'onFoot',speed:0,steer:0,seatBlend:0};
     this.world = { disabledHideSpots: new Set() };
     this.capture = { progress: 0, holding: false, phase: 'idle' };

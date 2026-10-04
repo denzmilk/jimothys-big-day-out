@@ -4,10 +4,12 @@ import {TOOLS as C} from '../core/Constants.js';
 import {gameState} from '../core/GameState.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import * as Layout from '../level/Layout.js';
+import {ToolAudio} from '../core/ToolAudio.js';
 
 export class ToolSystem {
  constructor(scene,jimothy,input,voxels){
   Object.assign(this,{scene,jimothy,input,voxels});this.catalog=C.CATALOG;this.pickups=[];this.models=new Map();this.entities=new Map();this.statuses=new Map();this.paint=[];this.particles=[];this.cooldown=0;this.time=0;this.shots=0;this.equipped=null;this.ready=false;this.humans=new Map();this.devices=[];this.clouds=[];this.projectiles=[];this.serial=0;this.blasts=0;
+  this.notice='';this.noticeUntil=0;this.discards=0;this.sound=new ToolAudio(()=>this.jimothy.body.position);
   this.ball=new THREE.SphereGeometry(1,10,6);this.bubbleMaterial=new THREE.MeshStandardMaterial({color:C.BUBBLE_COLOR,transparent:true,opacity:C.BUBBLE_OPACITY,roughness:C.BUBBLE_ROUGHNESS,depthWrite:false});this.paintMaterial=new THREE.MeshStandardMaterial({color:C.PAINT_BASE,roughness:C.PAINT_ROUGHNESS});
   this.effects=new THREE.InstancedMesh(this.ball,new THREE.MeshBasicMaterial({transparent:true,opacity:C.EFFECT_OPACITY,depthWrite:false}),C.EFFECT_LIMIT);this.effects.count=0;this.effects.frustumCulled=false;scene.add(this.effects);this.matrix=new THREE.Object3D();
   this.foamMaterial=new THREE.MeshStandardMaterial({color:C.FOAM_COLOR,roughness:C.PAINT_ROUGHNESS});this.rocketGeometry=new THREE.ConeGeometry(C.PROJECTILE_RADIUS,C.PROJECTILE_LENGTH,8);this.rocketMaterial=new THREE.MeshStandardMaterial({color:C.FIREWORK_COLOR});
@@ -35,13 +37,25 @@ export class ToolSystem {
    }
    const site=Layout.Masterplan.landmarks().find(s=>s.tools.includes(d.id));if(site){const x=site.cache.x,z=site.cache.z,y=this.voxels.groundHeightAt(x,z,this.voxels.terrainHeightAt(x,z)+C.HEIGHT_REACH);spot=new THREE.Vector3(x,y+C.CLEARANCE+model.half.y,z);}
    if(!spot){console.error('No reachable tool site',d.id);continue;}
-   mesh.position.copy(spot);this.scene.add(mesh);const p={id:`tool:${d.id}`,type:d.id,kind:'tool',mesh,half:model.half.toArray(),size:Math.max(...model.half.toArray())*2,mass:C.MASS,loose:false,attached:false,held:false,home:spot.clone()};this.pickups.push(p);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,p);
+   mesh.position.copy(spot);this.scene.add(mesh);const p={id:`tool:${d.id}`,type:d.id,kind:'tool',mesh,half:model.half.toArray(),size:Math.max(...model.half.toArray())*2,mass:C.MASS,remaining:d.supply.capacity,loose:false,attached:false,held:false,home:spot.clone()};this.pickups.push(p);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,p);
   }
  }
  allowed(){return gameState.vehicle.phase==='onFoot'&&gameState.game.isPlaying&&!gameState.game.paused&&!gameState.player.stunned&&!this.input.suppressed&&gameState.arrival.phase==='done'&&this.jimothy.move?.kind!=='roll';}
- nearest(){let best=null,distance=C.PICKUP_REACH+this.jimothy.radius;const j=this.jimothy.body.position;for(const p of this.pickups){if(p.held||p.attached)continue;const v=p.mesh.position;if(Math.abs(v.y-(j.y-this.jimothy.radius))>C.HEIGHT_REACH+this.jimothy.radius)continue;const d=Math.hypot(v.x-j.x,v.z-j.z);if(d<distance&&this.clear(j,v)){best=p;distance=d;}}return best;}
- equip(p){if(!p||p.attached||p.held||!this.ready)return;this.drop();this.equipped=p;p.held=true;p.mesh.visible=true;eventBus.emit(Events.PROP_SUSPEND,{id:p.id});eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});gameState.tools.equipped=p.type;this.cooldown=0;this.pose();}
- drop(){this.towing=null;this.ropeLife=0;eventBus.emit(Events.PLAYER_TOOL_MOTION,{mode:'clear'});const p=this.equipped;if(!p)return;const j=this.jimothy.body.position,dir=this.direction(),r=this.jimothy.radius+C.PILE_DISTANCE,x=j.x+dir.x*r,z=j.z+dir.z*r,y=this.voxels.groundHeightAt(x,z,j.y+C.HEIGHT_REACH);p.mesh.scale.setScalar(1);p.mesh.quaternion.identity();p.mesh.position.set(x,y+p.half[1]+C.CLEARANCE,z);p.held=false;p.loose=true;this.equipped=null;gameState.tools.equipped=null;eventBus.emit(Events.ENTITY_REGISTER,p);eventBus.emit(Events.PROP_RELEASE,{id:p.id,position:p.mesh.position});}
+ nearest(){let best=null,distance=C.PICKUP_REACH+this.jimothy.radius;const j=this.jimothy.body.position;for(const p of this.pickups){if(p.held||p.attached||p.remaining<=0)continue;const v=p.mesh.position;if(Math.abs(v.y-(j.y-this.jimothy.radius))>C.HEIGHT_REACH+this.jimothy.radius)continue;const d=Math.hypot(v.x-j.x,v.z-j.z);if(d<distance&&this.clear(j,v)){best=p;distance=d;}}return best;}
+ syncSupply(){const p=this.equipped,d=this.catalog.find(d=>d.id===p?.type);gameState.tools.supply=d?{remaining:p.remaining,capacity:d.supply.capacity,unit:d.supply.unit}:null;}
+ notify(message,kind='dry'){if(this.notice!==message||this.time>=this.noticeUntil)this.sound.play(kind,this.jimothy.body.position);this.notice=message;this.noticeUntil=this.time+C.NOTICE_SECONDS;}
+ deny(message){this.notify(message);return null;}
+ equip(p){if(!p||p.attached||p.held||p.remaining<=0||!this.ready)return;this.drop();this.equipped=p;p.held=true;p.mesh.visible=true;eventBus.emit(Events.PROP_SUSPEND,{id:p.id});eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});gameState.tools.equipped=p.type;this.cooldown=0;this.notice='';this.syncSupply();this.pose();this.sound.play('pickup',p.mesh.position);}
+ drop({exhausted=false}={}){
+  this.towing=null;this.ropeLife=0;this.rope.visible=false;this.anchor=null;this.sound.stop();
+  // M63: the final movement pulse already has a short lifetime. Cancelling it
+  // here would charge for an action that never gets a simulation step.
+  if(!exhausted)eventBus.emit(Events.PLAYER_TOOL_MOTION,{mode:'clear'});
+  const p=this.equipped;if(!p)return;const j=this.jimothy.body.position,dir=this.direction();
+  if(!exhausted){const r=this.jimothy.radius+C.PILE_DISTANCE,x=j.x+dir.x*r,z=j.z+dir.z*r,y=this.voxels.groundHeightAt(x,z,j.y+C.HEIGHT_REACH);p.mesh.position.set(x,y+p.half[1]+C.CLEARANCE,z);p.mesh.quaternion.identity();}
+  p.mesh.scale.setScalar(1);p.held=false;p.loose=true;this.equipped=null;gameState.tools.equipped=null;this.syncSupply();eventBus.emit(Events.ENTITY_REGISTER,p);eventBus.emit(Events.PROP_RELEASE,{id:p.id,position:p.mesh.position});
+  if(exhausted){const velocity=this.jimothy.vel.clone().multiplyScalar(C.DISCARD_INHERIT).clampLength(0,C.DISCARD_INHERIT_MAX).addScaledVector(dir,C.DISCARD_SPEED);velocity.y+=C.DISCARD_LIFT;eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity:velocity.toArray(),spin:C.DISCARD_SPIN});this.discards++;this.notify(`${this.catalog.find(d=>d.id===p.type).name} EMPTY — THROWN AWAY`,'empty');}
+ }
  direction(){if(this.aimOverride)return new THREE.Vector3(this.aimOverride.x,this.aimOverride.y,this.aimOverride.z).normalize();const j=this.jimothy,yaw=j.aimYaw??j.yaw,pitch=j.aimPitch||0;return new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));}
  pose(){const p=this.equipped;if(!p)return;const j=this.jimothy,r=j.radius,dir=this.direction(),right=new THREE.Vector3(dir.z,0,-dir.x);p.mesh.visible=j.move?.kind!=='roll';p.mesh.position.copy(j.body.position).addScaledVector(dir,r*C.HOLD_FORWARD).addScaledVector(right,r*C.HOLD_SIDE);p.mesh.position.y+=Math.max(C.HOLD_MIN_HEIGHT,r*C.HOLD_HEIGHT);p.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),dir);p.mesh.scale.setScalar(Math.min(C.HOLD_SCALE_MAX,Math.max(1,Math.sqrt(r))));}
  clear(from,to){const d=to.clone().sub(from),length=d.length();if(!length)return true;d.divideScalar(length);for(let t=C.RAY_STEP;t<length-C.CONTACT_PAD;t+=C.RAY_STEP)if(this.voxels.solidAtWorld(from.x+d.x*t,from.y+d.y*t,from.z+d.z*t))return false;return true;}
@@ -64,7 +78,29 @@ export class ToolSystem {
  }
  removePaint(p){p.mesh.removeFromParent();p.mesh.material.dispose();this.paint.splice(this.paint.indexOf(p),1);}
  burst(d,point=null,count=C.CONTACTS){const origin=point||this.equipped?.mesh.position||this.jimothy.body.position,dir=this.direction();for(let i=0;i<count&&this.particles.length<C.EFFECT_LIMIT;i++){const phase=(this.shots*C.CONTACTS+i)*Math.PI*(3-Math.sqrt(5)),offset=new THREE.Vector3(Math.sin(phase),Math.cos(phase),Math.sin(phase/2)).multiplyScalar(C.EFFECT_SPREAD);this.particles.push({position:new THREE.Vector3().copy(origin),velocity:dir.clone().multiplyScalar(C.EFFECT_SPEED).add(offset),life:C.EFFECT_LIFE,color:d.color,size:C.EFFECT_SIZE*(d.mode==='extinguisher'?C.CONTACTS:1)});}}
- use(dt){if(!this.equipped||!this.allowed()||this.cooldown>0)return false;const d=this.catalog.find(d=>d.id===this.equipped.type);if(gameState.tools.energy<d.cost)return false;gameState.tools.energy-=d.cost;this.cooldown=d.interval;this.shots++;const targets=this.targets(d),dir=this.direction(),j=this.jimothy;let affected=0;
+ prepareUse(d,targets,dir){
+  const j=this.jimothy,plan={};
+  if(['grapple','skates','pogo','glider'].includes(d.mode)){
+   if(j.radius>C.MOTION_RADIUS)return this.deny('TOO BIG FOR THIS TOOL');
+   if(j.swimming||j.move)return this.deny('WAIT UNTIL YOU CAN MOVE FREELY');
+   if(d.mode==='glider'&&j.grounded)return this.deny('OPEN THE GLIDER WHILE AIRBORNE');
+   if(d.mode==='pogo'&&!j.grounded)return this.deny('LAND BEFORE THE NEXT HOP');
+  }
+  if(d.mode==='grapple'){plan.anchor=this.cast(d.range);if(!plan.anchor)return this.deny('AIM AT SOLID SCENERY');}
+  if(d.mode==='tow'){plan.target=targets.find(t=>t.entity.kind!=='person'&&t.entity.kind!=='food'&&(t.entity.mass||Infinity)<=Math.min(C.TOW_MASS_MAX,C.TOW_MASS*j.radius*j.radius));if(!plan.target)return this.deny('AIM AT A LIGHT MOVABLE OBJECT');}
+  if(['foam','trampoline'].includes(d.mode)){plan.site=this.deploySite(d.mode,dir);if(!plan.site)return this.deny('NO CLEAR PLACE TO DEPLOY');}
+  if(d.mode==='firework'&&this.projectiles.length>=C.PROJECTILE_LIMIT)return this.deny('WAIT FOR A ROCKET TO FINISH');
+  if(d.mode==='stink'&&this.clouds.length>=C.CLOUD_LIMIT)return this.deny('WAIT FOR A CLOUD TO CLEAR');
+  if(['bubble','stun','dance','sick'].includes(d.mode)&&this.statuses.size>=C.STATUS_LIMIT)return this.deny('WAIT FOR AN EFFECT TO FINISH');
+  return plan;
+ }
+ use(dt){
+  if(!this.equipped||!this.allowed()||this.cooldown>0)return false;
+  const p=this.equipped,d=this.catalog.find(d=>d.id===p.type);
+  if(p.remaining<d.supply.cost){this.drop({exhausted:true});return false;}
+  if(gameState.tools.energy<d.cost){this.deny('EAT FOOD TO RESTORE ENERGY');return false;}
+  const targets=this.targets(d),dir=this.direction(),j=this.jimothy,plan=this.prepareUse(d,targets,dir);if(!plan)return false;
+  gameState.tools.energy-=d.cost;p.remaining=Math.max(0,p.remaining-d.supply.cost);this.syncSupply();this.cooldown+=d.interval;this.shots++;this.notice='';let affected=0;
   for(const {entity:e,point}of targets){
    if(['water','air','extinguisher'].includes(d.mode)){
     if(e.kind==='person'){eventBus.emit(Events.HUMAN_IMPACT,{id:e.id,x:point.x-dir.x,y:point.y,z:point.z-dir.z,radius:C.CONTACT_PAD,source:'tool'});}else this.force(e,dir,d.force);affected++;
@@ -78,8 +114,9 @@ export class ToolSystem {
    else if(d.mode==='confetti'&&e.kind==='person'){eventBus.emit(Events.WORLD_IMPACT,{x:point.x,y:point.y,z:point.z,radius:C.CONTACT_PAD,source:'confetti',instigator:'player'});affected++;}
   }
   if(d.mode==='extinguisher'){const v=j.vel.clone().addScaledVector(dir,-d.force);eventBus.emit(Events.PLAYER_LAUNCHED,{velocity:[v.x,d.force,v.z],seconds:d.interval,mass:C.FORCE_MASS,keepTool:true,ragdoll:false});}
-  affected+=this.extraUse(d,targets,dir);
-  if(affected)eventBus.emit(Events.TOOL_CHAOS,{points:C.CHAOS});this.burst(d);return true;
+  affected+=this.extraUse(d,targets,dir,plan);
+  if(affected)eventBus.emit(Events.TOOL_CHAOS,{points:C.CHAOS});this.burst(d);
+  if(p.remaining<d.supply.cost&&this.equipped===p)this.drop({exhausted:true});return true;
  }
  interrupt(e,kind,d){
   if(e.kind!=='person'||e.attached||this.statuses.has(e.id)||this.statuses.size>=C.STATUS_LIMIT)return false;
@@ -106,24 +143,28 @@ export class ToolSystem {
  }
  cast(range){const origin=new THREE.Vector3().copy(this.jimothy.body.position),dir=this.direction();for(let t=this.jimothy.radius+C.CLEARANCE;t<=range;t+=C.RAY_STEP){const p=origin.clone().addScaledVector(dir,t);if(this.voxels.solidAtWorld(p.x,p.y,p.z))return p;}return null;}
  motion(mode,dir,force){eventBus.emit(Events.PLAYER_TOOL_MOTION,{mode,dir:dir.toArray(),force,life:C.MOTION_LIFE});}
- extraUse(d,targets,dir){
+ extraUse(d,targets,dir,plan){
   const j=this.jimothy;let affected=0;
   if(['stun','dance','sick'].includes(d.mode)){for(const {entity:e}of targets)if(this.interrupt(e,d.mode,d)){affected++;if(d.mode!=='stun')break;}}
   if(d.mode==='glove'){const target=targets.find(t=>t.entity.kind!=='food');if(target){const {entity:e,point}=target;if(e.kind==='person')eventBus.emit(Events.HUMAN_IMPACT,{id:e.id,x:point.x-dir.x,y:point.y,z:point.z-dir.z,radius:C.GLOVE_RADIUS,source:'glove',power:C.GLOVE_POWER});else this.force(e,dir,d.force);affected++;}}
   if(d.mode==='stink'&&this.clouds.length<C.CLOUD_LIMIT){const position=new THREE.Vector3().copy(j.body.position).addScaledVector(dir,C.CLOUD_THROW),material=this.bubbleMaterial.clone();material.color.setHex(d.color);const mesh=new THREE.Mesh(this.ball,material);mesh.position.copy(position);mesh.scale.setScalar(C.CLOUD_RADIUS);this.scene.add(mesh);this.clouds.push({mesh,life:C.CLOUD_LIFE,phase:0});}
   if(d.mode==='plunger'){const e=targets.find(t=>t.entity.kind==='car')?.entity;if(e){eventBus.emit(Events.VEHICLE_TOOL_SLOW,{id:e.id,seconds:C.PLUNGER_LIFE});this.splat(e,d.color);affected++;}}
-  if(d.mode==='tow'){const target=targets.find(t=>t.entity.kind!=='person'&&t.entity.kind!=='food'&&(t.entity.mass||Infinity)<=Math.min(C.TOW_MASS_MAX,C.TOW_MASS*j.radius*j.radius));if(target){this.towing={entity:target.entity,life:C.TOW_LIFE};this.pullTow();affected++;}}
-  if(d.mode==='grapple'&&j.radius<=C.MOTION_RADIUS){const anchor=this.cast(d.range);if(anchor){this.anchor=anchor;this.ropeLife=C.MOTION_LIFE;this.motion('grapple',anchor.clone().sub(j.body.position).normalize(),d.force);}}
+  if(d.mode==='tow'){this.towing={entity:plan.target.entity,life:C.TOW_LIFE};this.pullTow();affected++;}
+  if(d.mode==='grapple'){this.anchor=plan.anchor;this.ropeLife=C.MOTION_LIFE;this.motion('grapple',plan.anchor.clone().sub(j.body.position).normalize(),d.force);}
   if(['skates','pogo','glider'].includes(d.mode)&&j.radius<=C.MOTION_RADIUS)this.motion(d.mode,dir,d.force);
   if(d.mode==='shield'){gameState.tools.shield=C.SHIELD_LIFE;this.shieldMesh.visible=true;}
-  if(['foam','trampoline'].includes(d.mode))this.deploy(d.mode,dir);
+  if(['foam','trampoline'].includes(d.mode))this.deploy(d.mode,dir,plan.site);
   if(d.mode==='dig'){const x=j.body.position.x+dir.x*(j.radius+C.DIG_FORWARD),z=j.body.position.z+dir.z*(j.radius+C.DIG_FORWARD),y=this.voxels.groundHeightAt(x,z,j.body.position.y+C.HEIGHT_REACH);const hit={x,y:y-C.DIG_DEPTH,z,radius:C.DIG_RADIUS,digsTerrain:true,instigator:'player'};eventBus.emit(Events.WORLD_BLAST,hit);eventBus.emit(Events.WORLD_IMPACT,hit);this.burst(d,new THREE.Vector3(x,y,z));affected++;}
   if(d.mode==='firework'&&this.projectiles.length<C.PROJECTILE_LIMIT){const mesh=new THREE.Mesh(this.rocketGeometry,this.rocketMaterial);mesh.position.copy(j.body.position).addScaledVector(dir,j.radius+C.PROJECTILE_OFFSET);this.scene.add(mesh);this.projectiles.push({mesh,velocity:dir.clone().multiplyScalar(C.PROJECTILE_SPEED).add(new THREE.Vector3(0,C.PROJECTILE_LIFT,0)),life:C.PROJECTILE_LIFE});}
   return affected;
  }
- deploy(kind,dir){
+ deploySite(kind,dir){
   const j=this.jimothy.body.position,forward=this.jimothy.radius+C.DEVICE_FORWARD,position=new THREE.Vector3(j.x+dir.x*forward,j.y,j.z+dir.z*forward),ground=this.voxels.groundHeightAt(position.x,position.z,j.y+C.HEIGHT_REACH),half=kind==='foam'?C.FOAM_HALF:C.PAD_HALF;
   position.y=ground+half[1]+C.CLEARANCE;if(!this.clear(j,position)||this.voxels.solidAtWorld(position.x,position.y,position.z))return false;
+  return{position,half};
+ }
+ deploy(kind,dir,site=this.deploySite(kind,dir)){
+  if(!site)return false;const {position,half}=site;
   if(this.devices.length>=C.DEVICE_LIMIT)this.removeDevice(this.devices[0]);
   const mesh=new THREE.Group();if(kind==='foam'){const m=new THREE.Mesh(this.ball,this.foamMaterial);m.scale.set(...half);mesh.add(m);}else{const m=this.models.get('trampoline-popper').root.clone(true);m.scale.multiplyScalar(C.PAD_MODEL_SCALE);mesh.add(m);}
   mesh.position.copy(position);this.scene.add(mesh);const p={id:`tool-device:${this.serial++}`,kind,mesh,half:[...half],size:Math.max(...half)*2,mass:C.DEVICE_MASS,life:C.DEVICE_LIFE,bounce:0,loose:false,attached:false};this.devices.push(p);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,p);return true;
@@ -139,14 +180,17 @@ export class ToolSystem {
   for(const p of [...this.projectiles]){p.life-=dt;const old=p.mesh.position.clone();p.velocity.y-=C.PROJECTILE_GRAVITY*dt;p.mesh.position.addScaledVector(p.velocity,dt);p.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),p.velocity.clone().normalize());const contact=!this.clear(old,p.mesh.position)||this.voxels.solidAtWorld(p.mesh.position.x,p.mesh.position.y,p.mesh.position.z);if(p.life<=0||contact){const hit={...p.mesh.position,radius:C.FIREWORK_RADIUS,digsTerrain:false,source:'firework',instigator:'player'};eventBus.emit(Events.WORLD_BLAST,hit);eventBus.emit(Events.WORLD_IMPACT,hit);eventBus.emit(Events.EXPLOSION_SPAWN,hit);eventBus.emit(Events.TOOL_CHAOS,{points:C.CHAOS});p.mesh.removeFromParent();this.projectiles.splice(this.projectiles.indexOf(p),1);this.blasts++;}else this.burst({color:C.FIREWORK_COLOR,mode:'spark'},p.mesh.position,C.PROJECTILE_TRAIL);}
  }
  clearExtras(){for(const p of [...this.devices])this.removeDevice(p);for(const p of this.clouds){p.mesh.removeFromParent();p.mesh.material.dispose();}for(const p of this.projectiles)p.mesh.removeFromParent();this.clouds=[];this.projectiles=[];this.towing=null;this.anchor=null;this.ropeLife=0;this.rope.visible=false;this.shieldMesh.visible=false;gameState.tools.shield=0;eventBus.emit(Events.PLAYER_TOOL_MOTION,{mode:'clear'});this.blasts=0;this.serial=0;}
- update(dt){if(!this.ready||gameState.game.paused)return;this.time+=dt;this.cooldown=Math.max(0,this.cooldown-dt);const pickup=this.input.consumeTool(),drop=this.input.consumeDrop();if(this.allowed()){if(drop)this.drop();if(pickup)this.equip(this.nearest());if(this.input.toolUse)this.use(dt);}this.pose();
+ update(dt){if(!this.allowed())this.sound.stop();if(!this.ready||gameState.game.paused)return;this.time+=dt;if(this.time>=this.noticeUntil)this.notice='';
+  // Preserve the fractional interval remainder, with at most one use per
+  // frame. Clamping to zero made 30 Hz devices consume charge more slowly.
+  this.cooldown=Math.max(-dt,this.cooldown-dt);const pickup=this.input.consumeTool(),drop=this.input.consumeDrop();if(this.allowed()){if(drop)this.drop();if(pickup)this.equip(this.nearest());if(this.input.toolUse)this.use(dt);}this.pose();
   for(const [id,s]of this.statuses){s.age+=dt;if(s.age>=s.life||!gameState.game.isPlaying){this.releaseStatus(id);continue;}this.animateStatus(s,dt);}
   this.updateExtras(dt);
   for(const p of [...this.paint]){p.life-=dt;if(p.life<=0||!this.entities.has(p.owner.id))this.removePaint(p);}
   this.particles=this.particles.filter(p=>{p.life-=dt;p.position.addScaledVector(p.velocity,dt);return p.life>0;});this.effects.count=this.particles.length;this.particles.forEach((p,i)=>{this.matrix.position.copy(p.position);this.matrix.scale.setScalar(p.size*p.life/C.EFFECT_LIFE);this.matrix.updateMatrix();this.effects.setMatrixAt(i,this.matrix.matrix);this.effects.setColorAt(i,new THREE.Color(p.color));});this.effects.instanceMatrix.needsUpdate=true;if(this.effects.instanceColor)this.effects.instanceColor.needsUpdate=true;
   for(const p of this.pickups)if(!p.held&&!p.attached)p.mesh.visible=p.mesh.position.distanceTo(this.jimothy.body.position)<C.RENDER_DISTANCE+this.jimothy.radius;
-  const near=this.nearest(),d=this.catalog.find(d=>d.id===this.equipped?.type),energy=Math.round(gameState.tools.energy);const text=d?`${d.name} · FOOD ENERGY ${energy}/${C.ENERGY_MAX}\n${d.description}\nMouse / V / RB use · G / B drop${near?' · T / LB swap: '+this.catalog.find(d=>d.id===near.type).name:''}`:near?`T / LB pick up ${this.catalog.find(d=>d.id===near.type).name}`:'';if(this.panel.textContent!==text)this.panel.textContent=text;this.panel.hidden=!text;
+  const near=this.nearest(),d=this.catalog.find(d=>d.id===this.equipped?.type),energy=Math.round(gameState.tools.energy);const base=d?`${d.name} · ${this.equipped.remaining}/${d.supply.capacity} ${d.supply.unit.toUpperCase()}\nFOOD ENERGY ${energy}/${C.ENERGY_MAX} · ${d.description}\nMouse / V / RB use · G / B drop${near?' · T / LB swap: '+this.catalog.find(d=>d.id===near.type).name:''}`:near?`T / LB pick up ${this.catalog.find(d=>d.id===near.type).name}`:'';const text=[this.notice,base].filter(Boolean).join('\n');if(this.panel.textContent!==text)this.panel.textContent=text;this.panel.hidden=!text;
  }
- reset(){this.clearStatuses();this.clearExtras();this.equipped=null;for(const p of this.pickups){eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});eventBus.emit(Events.PROP_REMOVE,{id:p.id});p.mesh.removeFromParent();}this.pickups=[];for(const p of [...this.paint])this.removePaint(p);this.particles=[];this.effects.count=0;this.cooldown=0;this.time=0;this.shots=0;this.aimOverride=null;gameState.tools.equipped=null;if(this.ready)this.spawn();}
- snapshot(){return {devices:this.devices.length,clouds:this.clouds.length,projectiles:this.projectiles.length,blasts:this.blasts,towing:this.towing?.entity.id||null,shield:gameState.tools.shield||0,ready:this.ready,catalog:this.catalog.map(d=>d.id),equipped:this.equipped?.type||null,heldVisible:!!this.equipped?.mesh.visible,energy:+gameState.tools.energy.toFixed(2),pickups:this.pickups.map(p=>({id:p.id,type:p.type,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,held:p.held,attached:p.attached})),effects:this.particles.length,statuses:this.statuses.size,paint:this.paint.length,shots:this.shots,limit:C.LIMIT};}
+ reset(){this.sound.stop();this.notice='';this.noticeUntil=0;this.discards=0;this.clearStatuses();this.clearExtras();this.equipped=null;for(const p of this.pickups){eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});eventBus.emit(Events.PROP_REMOVE,{id:p.id});p.mesh.removeFromParent();}this.pickups=[];for(const p of [...this.paint])this.removePaint(p);this.particles=[];this.effects.count=0;this.cooldown=0;this.time=0;this.shots=0;this.aimOverride=null;gameState.tools.equipped=null;this.syncSupply();this.panel.textContent='';this.panel.hidden=true;if(this.ready)this.spawn();}
+ snapshot(){return {supply:gameState.tools.supply,notice:this.notice,discards:this.discards,audio:this.sound.snapshot(),devices:this.devices.length,clouds:this.clouds.length,projectiles:this.projectiles.length,blasts:this.blasts,towing:this.towing?.entity.id||null,shield:gameState.tools.shield||0,ready:this.ready,catalog:this.catalog.map(d=>d.id),equipped:this.equipped?.type||null,heldVisible:!!this.equipped?.mesh.visible,energy:+gameState.tools.energy.toFixed(2),pickups:this.pickups.map(p=>({id:p.id,type:p.type,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,held:p.held,attached:p.attached,remaining:p.remaining})),effects:this.particles.length,statuses:this.statuses.size,paint:this.paint.length,shots:this.shots,limit:C.LIMIT};}
 }

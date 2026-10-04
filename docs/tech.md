@@ -334,3 +334,12 @@ The headless audit launches Chromium with `--disable-audio-output`: the OS outpu
 `Pursuers` owns at most four managed infantry, dispatched three seconds apart on clear land. The existing sight/awareness/search, grounded navigation, human physics proxy, ragdoll and collector remain their owners. Carried soldiers count against the cap; far uncarried soldiers retire. The separate MPFB uniform is a packed derivative of the worker with identical geometry, skin weights, rig and clips. Its clothing texture and fitted helmet distinguish it; civilian models remain unchanged.
 
 `RifleBurst` commits one target for a 0.9-second warning, three rounds 0.14 seconds apart and 2.6 seconds of recovery. Cover, sight, net, shield and ownership are rechecked between rounds. `LocalResponse` stores the weapon profile and source on each projectile; police retain their existing timing and impulse. Both roles share the 12-projectile, 40-particle and four-voice limits. The rifle uses a distinct short audio cue, muzzle flash and existing impact particles. Enemy shots never grant wanted credit. Constants hold all tuning; the snapshot includes infantry actors, phases, readiness and rifle shot counts.
+
+
+## Tool supplies (M63)
+
+Each physical tool pickup retains `remaining`; Constants.js defines its capacity, per-use cost and unit. `GameState.tools.supply` mirrors the held item's visible amount, independently of food energy. Eating replenishes energy only. `ToolSystem.prepareUse` validates movement, anchors, towing, deployment and effect capacity before spending either resource. Successful misses still cost supply. Fractional cooldown time carries between frames, with at most one action per frame.
+
+Exhaustion releases the existing mesh/body once with `PROP_RELEASE` and `PROP_IMPULSE`. Empty pickups stay in the 24-item pool and remain collectable physical objects, but cannot equip or refill through drops, swaps or collection. Their final projectile/status continues; a last movement pulse retains its existing short lifetime. Restart recreates full supplies. The tool HUD and snapshot expose amounts and brief failure/empty notices.
+
+`ToolAudio` shares one reusable Web Audio graph and an eight-voice cap across the catalogue. M63 adds pickup, dry-use and empty cues; pause, blur, capture, drop and restart stop voices. Full tool start/loop/contact/end audio and distinct visible delivery remain JIM-88's subsequent work. No new models or per-spent-item bodies are created.

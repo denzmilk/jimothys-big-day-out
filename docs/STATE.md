@@ -4,6 +4,14 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## M63 tool supplies checkpoint — 2026-10-05
+
+**Implemented, awaiting Chris's playtest.** All 24 tools have finite supplies, a visible amount, validated spending and one physical empty-item throw. Eating restores food energy only. Drops/swaps/collection preserve supplies; the final projectile/status/short movement pulse survives exhaustion. Supply cues share one eight-voice tool audio graph and stop on interruptions.
+
+All eight focused and nineteen adjacent cases pass, plus 168 units, build, native original-rig/HUD inspection and production pixel smoke. Six seconds of continuous use consumes 51/50/50 charges at 30/60/120 Hz. Native inspection shows the spent launcher tumbling onto the road, with its last rocket still flying; consoles are clean. Evidence: [M63](milestones/63-tool-supplies.md), `output/iterate/tool-supplies-*`. JIM-101 is pushed as `3f0bab2`. Optional supply/throw playtest question is pending.
+
+**Next:** continue JIM-88's full tool feedback contracts, starting with the power washer, leaf blower, vacuum and extinguisher as a coherent continuous-tool family. Read-only preparation: `output/iterate/m64-preparation.md`. All other tool contracts and the recorded queue remain authorised. No additional scope approval is needed. Keep the open JIM-48 performance limit and Chris's hands-on sign-off explicit.
+
 ## JIM-101 stationary human turns — 2026-10-05
 
 **Implemented, awaiting Chris's playtest.** The shared human FootGrounding solver now takes short alternating steps after stationary turns instead of keeping crossed anchors. The twelve-body/rate and real shore tests reproduced the defect before the change. Shore horizontal foot errors fell from 445/537 mm to 1.8/21 mm; the original-rig native ending is balanced and console-clean.

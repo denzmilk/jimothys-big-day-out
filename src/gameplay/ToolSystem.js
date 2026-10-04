@@ -6,13 +6,14 @@ import {eventBus,Events} from '../core/EventBus.js';
 import * as Layout from '../level/Layout.js';
 import {ToolAudio} from '../core/ToolAudio.js';
 import {ToolFlow} from '../core/ToolFlow.js';
+import {ToolPulse} from '../core/ToolPulse.js';
 
 export class ToolSystem {
  constructor(scene,jimothy,input,voxels,camera=null){
   this.camera=camera;this.viewObscured=false;this.viewUntil=0;
   Object.assign(this,{scene,jimothy,input,voxels});this.catalog=C.CATALOG;this.pickups=[];this.models=new Map();this.entities=new Map();this.statuses=new Map();this.paint=[];this.particles=[];this.cooldown=0;this.time=0;this.shots=0;this.equipped=null;this.ready=false;this.humans=new Map();this.devices=[];this.clouds=[];this.projectiles=[];this.serial=0;this.blasts=0;
   this.notice='';this.noticeUntil=0;this.discards=0;this.sound=new ToolAudio(()=>this.jimothy.body.position);
-  this.flow=new ToolFlow(scene,voxels,()=>this.entities.values());window.addEventListener('blur',()=>{this.flow.stop();this.setView(false);});
+  this.pulses=new ToolPulse(scene,(kind,position)=>this.sound.play(kind,position));this.flow=new ToolFlow(scene,voxels,()=>this.entities.values());window.addEventListener('blur',()=>{this.flow.stop();this.pulses.stop();this.setView(false);});
   this.ball=new THREE.SphereGeometry(1,10,6);this.bubbleMaterial=new THREE.MeshStandardMaterial({color:C.BUBBLE_COLOR,transparent:true,opacity:C.BUBBLE_OPACITY,roughness:C.BUBBLE_ROUGHNESS,depthWrite:false});this.paintMaterial=new THREE.MeshStandardMaterial({color:C.PAINT_BASE,roughness:C.PAINT_ROUGHNESS});
   this.effects=new THREE.InstancedMesh(this.ball,new THREE.MeshBasicMaterial({transparent:true,opacity:C.EFFECT_OPACITY,depthWrite:false}),C.EFFECT_LIMIT);this.effects.count=0;this.effects.frustumCulled=false;scene.add(this.effects);this.matrix=new THREE.Object3D();
   this.foamMaterial=new THREE.MeshStandardMaterial({color:C.FOAM_COLOR,roughness:C.PAINT_ROUGHNESS});this.rocketGeometry=new THREE.ConeGeometry(C.PROJECTILE_RADIUS,C.PROJECTILE_LENGTH,8);this.rocketMaterial=new THREE.MeshStandardMaterial({color:C.FIREWORK_COLOR});
@@ -52,7 +53,7 @@ export class ToolSystem {
  drop({exhausted=false}={}){
   this.viewUntil=0;this.setView(false);
   this.towing=null;this.ropeLife=0;this.rope.visible=false;this.anchor=null;this.sound.stop();
-  if(!exhausted)this.flow.stop();
+  if(!exhausted){this.flow.stop();this.pulses.stop();}
   // M63: the final movement pulse already has a short lifetime. Cancelling it
   // here would charge for an action that never gets a simulation step.
   if(!exhausted)eventBus.emit(Events.PLAYER_TOOL_MOTION,{mode:'clear'});
@@ -62,8 +63,8 @@ export class ToolSystem {
   if(exhausted){const velocity=this.jimothy.vel.clone().multiplyScalar(C.DISCARD_INHERIT).clampLength(0,C.DISCARD_INHERIT_MAX).addScaledVector(dir,C.DISCARD_SPEED);velocity.y+=C.DISCARD_LIFT;eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity:velocity.toArray(),spin:C.DISCARD_SPIN});this.discards++;this.notify(`${this.catalog.find(d=>d.id===p.type).name} EMPTY — THROWN AWAY`,'empty');}
  }
  direction(){if(this.aimOverride)return new THREE.Vector3(this.aimOverride.x,this.aimOverride.y,this.aimOverride.z).normalize();const j=this.jimothy,yaw=j.aimYaw??j.yaw,pitch=j.aimPitch||0;return new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));}
- pose(){const p=this.equipped;if(!p)return;const j=this.jimothy,r=j.radius,dir=this.direction(),right=new THREE.Vector3(dir.z,0,-dir.x);p.mesh.visible=j.move?.kind!=='roll';p.mesh.position.copy(j.body.position).addScaledVector(dir,r*C.HOLD_FORWARD).addScaledVector(right,r*C.HOLD_SIDE);p.mesh.position.y+=Math.max(C.HOLD_MIN_HEIGHT,r*C.HOLD_HEIGHT);p.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(...(C.FLOW_PROFILES[p.type]?.axis||[0,0,1])).normalize(),dir);p.mesh.scale.setScalar(Math.min(C.HOLD_SCALE_MAX,Math.max(1,Math.sqrt(r))));}
- muzzle(){const p=this.equipped,profile=C.FLOW_PROFILES[p?.type];if(!profile)return p?.mesh.position.clone()||new THREE.Vector3().copy(this.jimothy.body.position);p.mesh.updateWorldMatrix(true,true);return p.mesh.children[0].localToWorld(new THREE.Vector3(...profile.outlet));}
+ pose(){const p=this.equipped;if(!p)return;const j=this.jimothy,r=j.radius,dir=this.direction(),right=new THREE.Vector3(dir.z,0,-dir.x);p.mesh.visible=j.move?.kind!=='roll';p.mesh.position.copy(j.body.position).addScaledVector(dir,r*C.HOLD_FORWARD).addScaledVector(right,r*C.HOLD_SIDE);p.mesh.position.y+=Math.max(C.HOLD_MIN_HEIGHT,r*C.HOLD_HEIGHT);p.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(...((C.FLOW_PROFILES[p.type]||C.PULSE_PROFILES[p.type])?.axis||[0,0,1])).normalize(),dir);p.mesh.scale.setScalar(Math.min(C.HOLD_SCALE_MAX,Math.max(1,Math.sqrt(r))));}
+ muzzle(){const p=this.equipped,profile=C.FLOW_PROFILES[p?.type]||C.PULSE_PROFILES[p?.type];if(!profile)return p?.mesh.position.clone()||new THREE.Vector3().copy(this.jimothy.body.position);p.mesh.updateWorldMatrix(true,true);return p.mesh.children[0].localToWorld(new THREE.Vector3(...profile.outlet));}
  setView(obscured){if(obscured===this.viewObscured)return;this.viewObscured=obscured;eventBus.emit(Events.TOOL_OCCLUSION,{obscured});}
  updateView(){
   const j=this.jimothy;let obscured=false;
@@ -74,7 +75,7 @@ export class ToolSystem {
    obscured=!!hit&&(box.containsPoint(eye)||eye.distanceTo(hit)<length-C.VIEW_MARGIN);
   }this.setView(obscured);
  }
- flowPlan(d){const muzzle=this.muzzle();if(muzzle.distanceTo(this.jimothy.body.position)>C.FLOW_BODY_REACH)return null;return this.flow.prepare(d,muzzle,this.direction(),this.jimothy.body.position,this.jimothy.radius);}
+ flowPlan(d){const muzzle=this.muzzle();if(muzzle.distanceTo(this.jimothy.body.position)>C.FLOW_BODY_REACH)return null;return this.flow.prepare(d,muzzle,this.direction(),this.jimothy.body.position,this.jimothy.radius,C.FLOW_PROFILES[d.id]||C.PULSE_PROFILES[d.id]);}
  flowAllowed(){return this.allowed()||(this.equipped?.type==='fire-extinguisher'&&this.jimothy.launched>0&&gameState.game.isPlaying&&!gameState.game.paused&&!this.input.suppressed&&!this.jimothy.move);}
  clear(from,to){const d=to.clone().sub(from),length=d.length();if(!length)return true;d.divideScalar(length);for(let t=C.RAY_STEP;t<length-C.CONTACT_PAD;t+=C.RAY_STEP)if(this.voxels.solidAtWorld(from.x+d.x*t,from.y+d.y*t,from.z+d.z*t))return false;return true;}
  targets(d){const origin=new THREE.Vector3().copy(this.jimothy.body.position),dir=this.direction(),range=d.range*Math.min(C.SIZE_REACH_MAX,Math.max(1,Math.sqrt(this.jimothy.radius))),list=[];for(const e of this.entities.values()){
@@ -109,6 +110,7 @@ export class ToolSystem {
   if(['foam','trampoline'].includes(d.mode)){plan.site=this.deploySite(d.mode,dir);if(!plan.site)return this.deny('NO CLEAR PLACE TO DEPLOY');}
   if(d.mode==='firework'&&this.projectiles.length>=C.PROJECTILE_LIMIT)return this.deny('WAIT FOR A ROCKET TO FINISH');
   if(d.mode==='stink'&&this.clouds.length>=C.CLOUD_LIMIT)return this.deny('WAIT FOR A CLOUD TO CLEAR');
+  if(C.PULSE_PROFILES[d.id]&&this.pulses.items.length>=C.PULSE_LIMIT)return this.deny('WAIT FOR A PULSE TO FINISH');
   if(['bubble','stun','dance','sick'].includes(d.mode)&&this.statuses.size>=C.STATUS_LIMIT)return this.deny('WAIT FOR AN EFFECT TO FINISH');
   return plan;
  }
@@ -120,8 +122,8 @@ export class ToolSystem {
   this.pose();
   // M64: growth is unbounded, but a handheld tool must not march thousands
   // of metres of voxels between the body and its oversized held position.
-  if(C.FLOW_PROFILES[d.id]&&this.muzzle().distanceTo(this.jimothy.body.position)>C.FLOW_BODY_REACH){this.deny('TOO BIG TO AIM THIS TOOL');return false;}
-  const delivery=C.FLOW_PROFILES[d.id]?this.flowPlan(d):null,targets=delivery?.targets||this.targets(d),dir=this.direction(),j=this.jimothy,plan=this.prepareUse(d,targets,dir);if(!plan)return false;
+  if((C.FLOW_PROFILES[d.id]||C.PULSE_PROFILES[d.id])&&this.muzzle().distanceTo(this.jimothy.body.position)>C.FLOW_BODY_REACH){this.deny('TOO BIG TO AIM THIS TOOL');return false;}
+  const delivery=(C.FLOW_PROFILES[d.id]||C.PULSE_PROFILES[d.id])?this.flowPlan(d):null,targets=delivery?.targets||this.targets(d),dir=this.direction(),j=this.jimothy,plan=this.prepareUse(d,targets,dir);if(!plan)return false;
   gameState.tools.energy-=d.cost;p.remaining=Math.max(0,p.remaining-d.supply.cost);this.syncSupply();this.cooldown+=d.interval;this.shots++;this.viewUntil=this.time+C.VIEW_HOLD;this.notice='';let affected=0;
   for(const {entity:e,point}of targets){
    if(['water','air','extinguisher'].includes(d.mode)){
@@ -138,14 +140,15 @@ export class ToolSystem {
   if(d.mode==='extinguisher'){const v=j.vel.clone().addScaledVector(dir,-d.force);eventBus.emit(Events.PLAYER_LAUNCHED,{velocity:[v.x,d.force,v.z],seconds:d.interval,mass:C.FORCE_MASS,keepTool:true,ragdoll:false});}
   affected+=this.extraUse(d,targets,dir,plan);
   if(affected)eventBus.emit(Events.TOOL_CHAOS,{points:C.CHAOS});
-  if(delivery){this.flow.pulse(delivery,d);if(delivery.paths[0].hit)this.sound.play('flow-hit',delivery.paths[0].end);}else this.burst(d);
-  if(p.remaining<d.supply.cost&&this.equipped===p)this.drop({exhausted:true});return true;
+  if(C.PULSE_PROFILES[d.id])this.pulses.fire(delivery,d);else if(delivery){this.flow.pulse(delivery,d);if(delivery.paths[0].hit)this.sound.play('flow-hit',delivery.paths[0].end);}else this.burst(d);
+  if(p.remaining<d.supply.cost&&this.equipped===p)this.drop({exhausted:true});
+  if(C.PULSE_PROFILES[d.id]){this.sound.play(d.mode+'-start',delivery.origin);const contact=delivery.paths.find(p=>p.hit);if(contact)this.sound.play(d.mode+'-hit',contact.end);}return true;
  }
  interrupt(e,kind,d){
   if(e.kind!=='person'||e.attached||this.statuses.has(e.id)||this.statuses.size>=C.STATUS_LIMIT)return false;
   eventBus.emit(Events.ENTITY_ATTACH,{id:e.id});e.attached=true;
   const saved=[],human=this.humans.get(e.id);human?.visual.traverse(b=>{if(b.isBone)saved.push({bone:b,q:b.quaternion.clone(),position:b.position.clone()});});
-  const material=this.bubbleMaterial.clone();material.color.setHex(d.color);const visual=new THREE.Mesh(this.ball,material);visual.scale.setScalar(C.STATUS_ICON);this.scene.add(visual);
+  const material=this.bubbleMaterial.clone();material.color.setHex(d.color);const visual=new THREE.Mesh(this.ball,material);visual.visible=!C.PULSE_MARK_KINDS.includes(kind);visual.scale.setScalar(C.STATUS_ICON);this.scene.add(visual);
   this.statuses.set(e.id,{entity:e,kind,age:0,life:d.life||C.STUN_LIFE,base:e.mesh.position.clone(),rotation:e.mesh.quaternion.clone(),saved,visual,ownMaterial:true});return true;
  }
  animateStatus(s,dt){
@@ -203,19 +206,19 @@ export class ToolSystem {
   for(const p of [...this.projectiles]){p.life-=dt;const old=p.mesh.position.clone();p.velocity.y-=C.PROJECTILE_GRAVITY*dt;p.mesh.position.addScaledVector(p.velocity,dt);p.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),p.velocity.clone().normalize());const contact=!this.clear(old,p.mesh.position)||this.voxels.solidAtWorld(p.mesh.position.x,p.mesh.position.y,p.mesh.position.z);if(p.life<=0||contact){const hit={...p.mesh.position,radius:C.FIREWORK_RADIUS,digsTerrain:false,source:'firework',instigator:'player'};eventBus.emit(Events.WORLD_BLAST,hit);eventBus.emit(Events.WORLD_IMPACT,hit);eventBus.emit(Events.EXPLOSION_SPAWN,hit);eventBus.emit(Events.TOOL_CHAOS,{points:C.CHAOS});p.mesh.removeFromParent();this.projectiles.splice(this.projectiles.indexOf(p),1);this.blasts++;}else this.burst({color:C.FIREWORK_COLOR,mode:'spark'},p.mesh.position,C.PROJECTILE_TRAIL);}
  }
  clearExtras(){for(const p of [...this.devices])this.removeDevice(p);for(const p of this.clouds){p.mesh.removeFromParent();p.mesh.material.dispose();}for(const p of this.projectiles)p.mesh.removeFromParent();this.clouds=[];this.projectiles=[];this.towing=null;this.anchor=null;this.ropeLife=0;this.rope.visible=false;this.shieldMesh.visible=false;gameState.tools.shield=0;eventBus.emit(Events.PLAYER_TOOL_MOTION,{mode:'clear'});this.blasts=0;this.serial=0;}
- update(dt){if(!this.flowAllowed()){this.sound.stop();this.flow.stop();this.setView(false);}if(!this.ready||gameState.game.paused)return;this.time+=dt;if(this.time>=this.noticeUntil)this.notice='';
+ update(dt){if(!this.flowAllowed()){this.sound.stop();this.flow.stop();this.pulses.stop();this.setView(false);}if(!this.ready||gameState.game.paused)return;this.time+=dt;if(this.time>=this.noticeUntil)this.notice='';
   // Preserve the fractional interval remainder, with at most one use per
   // frame. Clamping to zero made 30 Hz devices consume charge more slowly.
   this.cooldown=Math.max(-dt,this.cooldown-dt);const pickup=this.input.consumeTool(),drop=this.input.consumeDrop();if(this.allowed()){if(drop)this.drop();if(pickup)this.equip(this.nearest());if(this.input.toolUse)this.use(dt);}this.pose();this.updateView();
   const activeTool=this.catalog.find(d=>d.id===this.equipped?.type),flowing=activeTool&&this.flow.tool===activeTool.id&&this.flow.life>0&&this.input.toolUse&&this.flowAllowed()&&gameState.tools.energy>=activeTool.cost;
   if(flowing){const next=this.flowPlan(activeTool);if(next){this.flow.follow(next,activeTool);this.sound.sustain(activeTool.mode,this.flow.origin);}else{this.flow.stop();this.sound.stopFlow();}}else{this.sound.stopFlow();this.flow.life=Math.min(this.flow.life,C.FLOW_FADE);}this.flow.update(dt);
   for(const [id,s]of this.statuses){s.age+=dt;if(s.age>=s.life||!gameState.game.isPlaying){this.releaseStatus(id);continue;}this.animateStatus(s,dt);}
-  this.updateExtras(dt);
+  this.pulses.update(dt,this.statuses);this.updateExtras(dt);
   for(const p of [...this.paint]){p.life-=dt;if(p.life<=0||!this.entities.has(p.owner.id))this.removePaint(p);}
   this.particles=this.particles.filter(p=>{p.life-=dt;p.position.addScaledVector(p.velocity,dt);return p.life>0;});this.effects.count=this.particles.length;this.particles.forEach((p,i)=>{this.matrix.position.copy(p.position);this.matrix.scale.setScalar(p.size*p.life/C.EFFECT_LIFE);this.matrix.updateMatrix();this.effects.setMatrixAt(i,this.matrix.matrix);this.effects.setColorAt(i,new THREE.Color(p.color));});this.effects.instanceMatrix.needsUpdate=true;if(this.effects.instanceColor)this.effects.instanceColor.needsUpdate=true;
   for(const p of this.pickups)if(!p.held&&!p.attached)p.mesh.visible=p.mesh.position.distanceTo(this.jimothy.body.position)<C.RENDER_DISTANCE+this.jimothy.radius;
   const near=this.nearest(),d=this.catalog.find(d=>d.id===this.equipped?.type),energy=Math.round(gameState.tools.energy);const base=d?`${d.name} · ${this.equipped.remaining}/${d.supply.capacity} ${d.supply.unit.toUpperCase()}\nFOOD ENERGY ${energy}/${C.ENERGY_MAX} · ${d.description}\nMouse / V / RB use · G / B drop${near?' · T / LB swap: '+this.catalog.find(d=>d.id===near.type).name:''}`:near?`T / LB pick up ${this.catalog.find(d=>d.id===near.type).name}`:'';const text=[this.notice,base].filter(Boolean).join('\n');if(this.panel.textContent!==text)this.panel.textContent=text;this.panel.hidden=!text;
  }
- reset(){this.viewUntil=0;this.setView(false);this.sound.stop();this.flow.reset();this.notice='';this.noticeUntil=0;this.discards=0;this.clearStatuses();this.clearExtras();this.equipped=null;for(const p of this.pickups){eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});eventBus.emit(Events.PROP_REMOVE,{id:p.id});p.mesh.removeFromParent();}this.pickups=[];for(const p of [...this.paint])this.removePaint(p);this.particles=[];this.effects.count=0;this.cooldown=0;this.time=0;this.shots=0;this.aimOverride=null;gameState.tools.equipped=null;this.syncSupply();this.panel.textContent='';this.panel.hidden=true;if(this.ready)this.spawn();}
- snapshot(){return {viewObscured:this.viewObscured,flow:this.flow.snapshot(),supply:gameState.tools.supply,notice:this.notice,discards:this.discards,audio:this.sound.snapshot(),devices:this.devices.length,clouds:this.clouds.length,projectiles:this.projectiles.length,blasts:this.blasts,towing:this.towing?.entity.id||null,shield:gameState.tools.shield||0,ready:this.ready,catalog:this.catalog.map(d=>d.id),equipped:this.equipped?.type||null,heldVisible:!!this.equipped?.mesh.visible,energy:+gameState.tools.energy.toFixed(2),pickups:this.pickups.map(p=>({id:p.id,type:p.type,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,held:p.held,attached:p.attached,remaining:p.remaining})),effects:this.particles.length,statuses:this.statuses.size,paint:this.paint.length,shots:this.shots,limit:C.LIMIT};}
+ reset(){this.viewUntil=0;this.setView(false);this.sound.stop();this.flow.reset();this.pulses.reset();this.notice='';this.noticeUntil=0;this.discards=0;this.clearStatuses();this.clearExtras();this.equipped=null;for(const p of this.pickups){eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});eventBus.emit(Events.PROP_REMOVE,{id:p.id});p.mesh.removeFromParent();}this.pickups=[];for(const p of [...this.paint])this.removePaint(p);this.particles=[];this.effects.count=0;this.cooldown=0;this.time=0;this.shots=0;this.aimOverride=null;gameState.tools.equipped=null;this.syncSupply();this.panel.textContent='';this.panel.hidden=true;if(this.ready)this.spawn();}
+ snapshot(){return {pulses:this.pulses.snapshot(),viewObscured:this.viewObscured,flow:this.flow.snapshot(),supply:gameState.tools.supply,notice:this.notice,discards:this.discards,audio:this.sound.snapshot(),devices:this.devices.length,clouds:this.clouds.length,projectiles:this.projectiles.length,blasts:this.blasts,towing:this.towing?.entity.id||null,shield:gameState.tools.shield||0,ready:this.ready,catalog:this.catalog.map(d=>d.id),equipped:this.equipped?.type||null,heldVisible:!!this.equipped?.mesh.visible,energy:+gameState.tools.energy.toFixed(2),pickups:this.pickups.map(p=>({id:p.id,type:p.type,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,held:p.held,attached:p.attached,remaining:p.remaining})),effects:this.particles.length,statuses:this.statuses.size,paint:this.paint.length,shots:this.shots,limit:C.LIMIT};}
 }

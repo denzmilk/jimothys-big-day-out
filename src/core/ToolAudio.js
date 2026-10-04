@@ -21,13 +21,21 @@ export class ToolAudio {
   try{await this.context.resume();}catch{/* An unavailable output device must not block gameplay. */}
  }
  play(kind,position){
-  const profile=C.AUDIO_CUES[kind],context=this.context;if(!profile||context?.state!=='running'||this.voices.size>=C.AUDIO_VOICES)return;
+  const profile=C.AUDIO_CUES[kind]||C.PULSE_CUES[kind],context=this.context;if(!profile||context?.state!=='running'||this.voices.size>=C.AUDIO_VOICES)return;
   const at=this.listener(),distance=Math.hypot(position.x-at.x,position.y-at.y,position.z-at.z),volume=Math.max(0,1-distance/C.AUDIO_RANGE);if(!volume)return;
-  const oscillator=context.createOscillator(),gain=context.createGain(),now=context.currentTime;
-  oscillator.type=profile.wave;oscillator.frequency.setValueAtTime(profile.hz,now);oscillator.frequency.exponentialRampToValueAtTime(profile.end,now+profile.seconds);
-  gain.gain.setValueAtTime(C.AUDIO_FLOOR,now);gain.gain.linearRampToValueAtTime(volume,now+C.AUDIO_ATTACK);gain.gain.exponentialRampToValueAtTime(C.AUDIO_FLOOR,now+profile.seconds);
-  oscillator.connect(gain);gain.connect(this.master);const voice={oscillator,gain};this.voices.add(voice);
-  oscillator.onended=()=>this.remove(voice);oscillator.start();oscillator.stop(now+profile.seconds);
+  const harmonics=profile.harmonics||[1];
+  for(const harmonic of harmonics){
+   if(this.voices.size>=C.AUDIO_VOICES)break;
+   const oscillator=context.createOscillator(),gain=context.createGain(),now=context.currentTime,level=volume/harmonics.length;
+   oscillator.type=profile.wave;oscillator.frequency.setValueAtTime(profile.hz*harmonic,now);
+   if(profile.warble){for(let i=1;i<=C.AUDIO_WARBLE_STEPS;i++){const t=i/C.AUDIO_WARBLE_STEPS;oscillator.frequency.linearRampToValueAtTime((profile.hz+(profile.end-profile.hz)*t)*harmonic*(1+C.AUDIO_WARBLE_DEPTH*Math.sin(t*Math.PI*2*C.AUDIO_WARBLE_RATE)),now+t*profile.seconds);}}
+   else oscillator.frequency.exponentialRampToValueAtTime(profile.end*harmonic,now+profile.seconds);
+   gain.gain.setValueAtTime(C.AUDIO_FLOOR,now);gain.gain.linearRampToValueAtTime(level,now+C.AUDIO_ATTACK);
+   if(profile.beat){for(let time=profile.beat;time<profile.seconds;time+=profile.beat){gain.gain.exponentialRampToValueAtTime(C.AUDIO_FLOOR,now+time-C.AUDIO_ATTACK);gain.gain.linearRampToValueAtTime(level,now+time);gain.gain.exponentialRampToValueAtTime(C.AUDIO_FLOOR,now+Math.min(profile.seconds,time+profile.beat*C.AUDIO_BEAT_SHARE));}}
+   gain.gain.exponentialRampToValueAtTime(C.AUDIO_FLOOR,now+profile.seconds);
+   oscillator.connect(gain);gain.connect(this.master);const voice={oscillator,gain};this.voices.add(voice);
+   oscillator.onended=()=>this.remove(voice);oscillator.start();oscillator.stop(now+profile.seconds);
+  }
  }
  remove(voice){voice.oscillator.disconnect();voice.gain.disconnect();this.voices.delete(voice);}
  sustain(mode,position){

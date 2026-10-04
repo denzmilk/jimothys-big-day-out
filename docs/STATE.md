@@ -12,7 +12,11 @@ All 33 distinct gameplay cases across the broad/final runs pass, plus 168 units,
 
 **JIM-102 implemented, awaiting Chris’s playtest.** The camera was already 54.04 m away at radius 18.39 m; actual skin rays still found the nozzle occluded. A cheap cached-bound query now temporarily fades the original skin and disables its depth writing during obstructed tool use, restoring it shortly after release/drop/reset. All 29 distinct view/tool/giant-attack/underground cases, 168 units, final build, native use/release and production pixel smoke pass. The ordinary camera and original rig are retained. JIM-48 performance and JIM-69 skin limitations remain open.
 
-**Next authorised item: M65 air horn, disco ray and sick ray**, continuing JIM-88's twenty remaining contracts. Read-only preparation is `output/iterate/m65-preparation.md`; source outlet measurements are in `ray-outlets.json`. Follow with the other seventeen contracts and the recorded queue, one reviewed delivery at a time. No additional scope approval is needed.
+**M65 implemented, awaiting Chris’s playtest.** Air horn, disco ray and sick ray retain their Blender assets and use measured outlets, occluded delivery, distinct beams/rings, human markers and launch/contact/end sounds. A dancing person now remains cover for later shots. Seven of the twenty-four tool feedback contracts are implemented; seventeen remain open.
+
+All 38 distinct gameplay cases across the 37-case regression and two-case bounds follow-up pass, plus 168 units, build, production pixel smoke and original-rig day/night/large native inspection. Six human statuses occupy all eighteen markers; full pools reject before spending and release clears ownership. Eight-second use produces twelve shots at every 30/60/120 Hz rate; isolated tool update p95 is at or below 0.1 ms (not whole-game FPS). Audio RMS is 0.051/0.068/0.163 after silencing pickup cues; speaker mix remains unverified. Evidence: [M65](milestones/65-sonic-status-tools.md), `output/iterate/tool-pulses-*`.
+
+**Next: M66 travelling bubbles and paint**, within the authorised JIM-88 sequence. Read-only preparation is `output/iterate/m66-preparation.md`. Establish contact-time effects and bounded swept projectile delivery, retain the actual assets and test before integration. No additional scope approval is needed. Preserve the open JIM-48 performance and JIM-69 skin limits, and continue one reviewed/committed/pushed family at a time.
 
 ## M63 tool supplies checkpoint — 2026-10-05
 

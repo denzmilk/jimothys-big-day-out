@@ -164,6 +164,8 @@ Chris requests clear, strong tool/projectile feedback with SFX instead of subtle
 
 **M64 first feedback family:** washer, blower, vacuum and extinguisher now use measured Blender outlets, matching occluded delivery paths, distinct sustained visuals and start/loop/contact/end audio. Source assets are retained. Real-world props, food and near-nozzle cover are exercised; fixed effect/audio caps remain. See [M64](milestones/64-continuous-tool-feedback.md) for verification and the giant-camera limitation (JIM-102). The other twenty tools still need their individual feedback passes.
 
+**M65 sonic/status family:** measured outlets, occluded horn/rays, distinct path/contact visuals and sounds, stars/music/queasy markers and bounded pools are implemented, awaiting Chris’s playtest. Review repaired status-owned people failing to block later beams. All 38 distinct gameplay cases, 168 units, build, native day/night/large and production pixel smoke pass; see [M65](milestones/65-sonic-status-tools.md). Seven contracts are implemented; seventeen remain, beginning with travelling bubbles and paint.
+
 
 ### JIM-87 — Restart bin counts depend on the previous streamed terrain
 

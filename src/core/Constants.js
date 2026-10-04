@@ -1743,6 +1743,30 @@ export const DRIVING = {
 
 // M43–44: costs spend food energy, never the fatness used for body/score.
 export const TOOLS = {
+ // M65: retained Blender emitter measurements, in exported glTF coordinates.
+ PULSE_PROFILES:{
+  'air-horn':{outlet:[0,.53,.51],axis:[0,0,1],style:'horn',trace:'cone',color:0xffcf45},
+  'disco-ray':{outlet:[0,.32,.56],axis:[0,0,1],style:'disco',trace:'ray',color:0xef56ff},
+  'sick-ray':{outlet:[0,.32,.393],axis:[0,0,1],style:'sick',trace:'ray',color:0xa7df36},
+ },
+ PULSE_LIMIT:4,PULSE_SEGMENTS:24,PULSE_RINGS:156,PULSE_MARKS:18,PULSE_MARK_KINDS:['stun','dance','sick'],
+ PULSE_SECONDS:.32,PULSE_SPEED:55,PULSE_BANDS:3,PULSE_BAND_DELAY:.055,PULSE_TAIL:.05,
+ PULSE_RADIUS:.22,PULSE_CORE_RADIUS:.055,PULSE_RING_MIN:.1,PULSE_RING_MAX:.85,PULSE_RING_SPREAD:.13,PULSE_RING_WIDTH:.05,
+ PULSE_PALETTE:[0xff51c4,0x5ff5f2,0xffec66],PULSE_COLOR_RATE:14,PULSE_WAVE_AMPLITUDE:.14,PULSE_WAVE_RATE:20,PULSE_WAVES:4,
+ PULSE_OPACITY:.84,PULSE_CONTACT_SIZE:.2,PULSE_CONTACT_GROWTH:2.5,PULSE_ICON_SIZE:.24,PULSE_ICON_ORBIT:.52,PULSE_ICON_SPEED:3,PULSE_ICON_BOB:.14,
+ PULSE_ICON_PIXELS:64,PULSE_ICON_OUTLINE:0x24302c,PULSE_ICON_COLORS:[0xffd449,0xff52de,0xa7df36],
+ AUDIO_WARBLE_STEPS:20,AUDIO_WARBLE_RATE:7,AUDIO_WARBLE_DEPTH:.22,AUDIO_BEAT_SHARE:.6,
+ PULSE_CUES:{
+  'stun-start':{hz:185,end:175,seconds:.43,wave:'sawtooth',harmonics:[1,2,3]},
+  'stun-hit':{hz:650,end:420,seconds:.13,wave:'triangle'},
+  'stun-end':{hz:175,end:75,seconds:.13,wave:'sawtooth'},
+  'dance-start':{hz:440,end:440,seconds:.62,wave:'triangle',harmonics:[1,1.25,1.5],beat:.16},
+  'dance-hit':{hz:880,end:1320,seconds:.12,wave:'sine'},
+  'dance-end':{hz:660,end:330,seconds:.12,wave:'triangle'},
+  'sick-start':{hz:330,end:90,seconds:.5,wave:'sine',warble:true},
+  'sick-hit':{hz:190,end:55,seconds:.2,wave:'triangle',warble:true},
+  'sick-end':{hz:90,end:38,seconds:.17,wave:'sine'},
+ },
  // M64 outlet coordinates/axes measured from the retained Blender source parts.
  FLOW_PROFILES:{"power-washer":{"outlet":[-0.12999999523162842,0.17000000178813934,0.9399999976158142],"axis":[0.0,-0.31622788310050964,0.9486832618713379],"style":"jet","color":7920895},"leaf-blower":{"outlet":[0.0,0.22999994456768036,0.8500000238418579],"axis":[0.0,-0.06316487491130829,0.9980031251907349],"style":"gust","color":15195832},"vacuum":{"outlet":[0.20000000298023224,0.06499999761581421,0.8949999809265137],"axis":[0.0,0.0,1.0],"style":"suction","color":8632831},"fire-extinguisher":{"outlet":[0.18000000715255737,0.14000000059604645,0.6299999952316284],"axis":[0.0,-0.4190581738948822,0.9079594016075134],"style":"foam","color":16777215}},
  FLOW_BODY_REACH:48,FLOW_CORE_COLOR:0xffffff,FLOW_TUBE_SEGMENTS:10,FLOW_SPHERE_SEGMENTS:[16,10],FLOW_RING_SEGMENTS:[5,20],FLOW_MIST_EDGE:.15,

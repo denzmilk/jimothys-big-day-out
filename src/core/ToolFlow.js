@@ -34,7 +34,9 @@ export class ToolFlow {
   return null;
  }
  candidates(origin,range){
-  return [...this.entities()].filter(e=>!e.held&&!e.attached&&e.mesh.parent&&e.mesh.position.distanceTo(origin)<range+(e.size||0))
+  // M65: a dancing/bubbled human still blocks rays. Collection reparents
+  // carried meshes away from the scene, so they remain excluded here.
+  return [...this.entities()].filter(e=>!e.held&&(!e.attached||e.mesh.parent===this.scene)&&e.mesh.parent&&e.mesh.position.distanceTo(origin)<range+(e.size||0))
    .sort((a,b)=>a.mesh.position.distanceToSquared(origin)-b.mesh.position.distanceToSquared(origin)).slice(0,C.FLOW_CANDIDATES)
    .map(entity=>{const box=new THREE.Box3().setFromObject(entity.mesh);box.expandByScalar(C.FLOW_CONTACT_PAD);return{entity,box};});
  }
@@ -44,11 +46,11 @@ export class ToolFlow {
   for(const candidate of candidates){if(candidate.box.containsPoint(origin)){distance=0;end=origin.clone();entity=candidate.entity;hit=entity.id;break;}const point=ray.intersectBox(candidate.box,at);if(!point)continue;const d=origin.distanceTo(point);if(d<distance){distance=d;end=point.clone();entity=candidate.entity;hit=entity.id;}}
   return{end,hit,entity,distance};
  }
- prepare(definition,muzzle,direction,body,radius=1){
-  const profile=C.FLOW_PROFILES[definition.id],origin=muzzle.clone(),blocked=this.solid(new THREE.Vector3().copy(body),muzzle),range=definition.range*Math.min(C.SIZE_REACH_MAX,Math.max(1,Math.sqrt(radius)));
+ prepare(definition,muzzle,direction,body,radius=1,profile=C.FLOW_PROFILES[definition.id]){
+  const origin=muzzle.clone(),blocked=this.solid(new THREE.Vector3().copy(body),muzzle),range=definition.range*Math.min(C.SIZE_REACH_MAX,Math.max(1,Math.sqrt(radius)));
   if(blocked){const point=blocked.point;return{profile,origin:point.clone(),direction,blockedMuzzle:true,paths:[{end:point.clone(),hit:'world',entity:null,distance:0}],targets:[]};}
   const candidates=this.candidates(origin,range),paths=[this.trace(origin,direction,range,candidates)],targets=[];
-  if(profile.style==='jet'){
+  if(profile.style==='jet'||profile.trace==='ray'){
    const first=paths[0];if(first.entity)targets.push({entity:first.entity,point:first.end,distance:first.distance});
   }else{
    const right=new THREE.Vector3().crossVectors(direction,this.yAxis);if(right.lengthSq()<Number.EPSILON)right.set(1,0,0);right.normalize();const up=new THREE.Vector3().crossVectors(right,direction).normalize(),spread=Math.tan(Math.acos(definition.cone));

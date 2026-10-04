@@ -4,6 +4,10 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## Active: M55 terrain and sewer traversal — 2026-10-04
+
+M54 committed/pushed as `52980d0`. JIM-93's intact-slope contact mismatch is repaired: 12 uphill/downhill routes retain contact across 30/60/120 Hz, and native original-rig steep-street travel is console-clean. All 122 units, build/pixel smoke and the focused adjacent checks pass. The existing giant-channel support deadline still fails (JIM-48), unchanged. Details/evidence: JIM-93 / M55. **Next: JIM-94 broad connected sewer stairs and landings, then JIM-43 damaged-surface smoothing within M55.** No complete M55 claim; walls/ceilings remain crisp and Chris's feel sign-off is pending.
+
 ## M54 land gait — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** The car follow-ups are committed/pushed (`c019346`, `410d807`, `bb3ae9f`). Continuing the authorised queue, M54 replaces roughly 15–20 paw flicks/s with 5 walking / 6.67 scurrying cycles/s, consistent across 30/60/120 Hz; stride follows anatomy. Existing contact/reach limits pass. Review fixed paused-frame retargeting and stationary-turn body dips. Fifteen unique focused/adjacent browser checks, 120 units, build and production pixel smoke pass; native original-rig clips and keyboard world inspection are console-clean. Details and evidence: M54 / JIM-76. **Next: M55 terrain/sewer traversal**, then the remaining recorded queue.

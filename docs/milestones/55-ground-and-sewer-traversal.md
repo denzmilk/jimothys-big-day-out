@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned — follows M54 in the authorised sequential queue. Defects JIM-43, JIM-93 and JIM-94; no terrain or stair repair is claimed yet.
+In progress after M54 (`52980d0`) in the authorised sequential queue. Defects JIM-43, JIM-93 and JIM-94; no terrain or stair repair is claimed yet.
 
 ## Objective
 
@@ -32,3 +32,9 @@ Chris crosses a rough slope, walks into the sewer and returns through its stairs
 ## Verification
 
 Write failing contact/path tests before implementation. Preserve road/destruction/interior/underground checks, add surface seam and stair route coverage, then run build/pixel smoke and native route inspection. Full arbitrary tunnel meshing may require its own architecture decision after the reproduction; do not replace the voxel system speculatively.
+
+## Intact-slope contact checkpoint — 2026-10-04
+
+JIM-93's intact-slope hitch is reproduced and repaired. Near the exposed ground cap, `solidAtWorld` now shares the continuous surface instead of treating storage cells as a square obstruction. Twelve original-rig analytic routes cover uphill/downhill 30/60/120 Hz; the native generated steep street is traversed both ways. Walls, ceiling, excavated air, driving and underground damage checks are retained. All 122 units, build and pixel smoke pass. JIM-48's existing giant-channel support deadline remains failing. Details: JIM-93 and `output/iterate/terrain-contact-*`.
+
+Remaining M55 work: damaged-surface smoothing (JIM-43), broad connected sewer stairs/landings (JIM-94), rendered/destructible route verification, then Chris's playtest. This checkpoint does not check off those acceptance criteria.

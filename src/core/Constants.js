@@ -963,6 +963,7 @@ export const TERRAIN = {
   // fraction of DEPTH, so what a shallow hole looks like never changes when
   // DEPTH does — which is the whole point of the AC that measures both.
   TOPSOIL_DEPTH: 1.1,
+  SMOOTH_CONTACT_MATERIALS: [5,8,9,10,11,12,18,22,23,24,25],
   CLAY_DEPTH: 4.5,
   ROCK_DEPTH: 12,
   // Height of dry land at the waterline's inland end, before hills.

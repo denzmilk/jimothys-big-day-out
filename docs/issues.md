@@ -76,9 +76,13 @@ People reaching deep water must switch from walking/wading to an animated swim a
 
 ### JIM-93 — Walking hitches on unsmoothed inclines and declines
 
-**Status:** reported, queued to M55 · **Reported:** Chris, 2026-10-04.
+**Status:** intact-slope contact implemented, awaiting playtest; damaged surfaces remain M55/JIM-43 · **Reported:** Chris, 2026-10-04.
 
 Reproduce travel in both directions on natural, road-edge and excavated ground; log visible/physical surface height, blocked movement and pose correction. Smooth appropriate ground surfaces while retaining crisp buildings. JIM-86 repaired road outlines/grades, but this report includes raw terrain outside roads; JIM-43 records the older damaged-terrain meshing limitation. Do not claim a fix by changing gait speed alone.
+
+**2026-10-04 repair:** raw occupancy disagreed with the continuous surface at 646 sampled near-surface points. On a 0.95 grade at 120 Hz, this produced 41/42 unwanted airborne frames over three seconds and up to 0.83 m clearance. Exposed intact ground caps now share the visible height-field contact; structural cells, excavated air and underground ceilings retain their occupancy. All 12 uphill/downhill 30/60/120 Hz routes retain ground contact and travel 18 m without blocking. Native original-rig steep-street routes remain grounded and console-clean.
+
+**Verification:** 122 units, focused slope route, four interior/ledge checks, driving ditch/wall/steep-road tests, deep digging, intact/damaged terrain and underground headbutt checks pass. Build and production pixel smoke pass. Legacy source-import checks require the dev server; their initial preview-URL failures were rerun unchanged. The giant-channel regression still misses its three-second support deadline (one queued job), matching the existing JIM-48 failure; no limit was relaxed. Evidence: `output/iterate/terrain-contact-*`, `terrain-traversal-{red,pass1}.log`, `ground-travel-native.{json,log}`, `ground-travel-{1,-1}.png`; native tool: `tools/inspect-ground-travel.mjs`. This fixes intact ground collision; it does not smooth excavated voxel meshes.
 
 ### JIM-94 — Sewer stairs are not usable stairs
 

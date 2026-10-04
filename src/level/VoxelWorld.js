@@ -438,9 +438,17 @@ export class VoxelWorld {
 
   solidAtWorld(x, y, z) {
     this._ensureAtWorld(x, z);
-    const surface=this.terrainHeightAt(x,z),offset=this.sandOffsetAt(x,z);
+    const surface=this.terrainHeightAt(x,z)+(this.channels?.sample(x,z)||0),offset=this.sandOffsetAt(x,z);
     if(offset && Math.abs(y-surface)<=VOXEL.SIZE+BEACH.MAX_DEPTH)return y<=surface+offset;
-    const [vx, vy, vz] = this.worldToVoxel(x, y, z);
+    const [vx, vy, vz] = this.worldToVoxel(x, y, z),s=VOXEL.SIZE;
+    if(this.terrain&&Math.abs(y-surface)<=s){
+      const cx=(vx+.5)*s,cz=(vz+.5)*s,channel=this.channels?.sample(cx,cz)||0;
+      const top=channel?Math.ceil((this.terrain.surfaceHeight(cx,cz)+channel)/s)-1:this.terrain.topSolidVoxelY(cx,cz);
+      // M55/JIM-93: rendered terrain crosses the storage-cell boundary. Raw
+      // occupancy catches the uphill body probe on an invisible square lip.
+      // Only an intact, exposed ground cap may replace that cell's contact.
+      if(TERRAIN.SMOOTH_CONTACT_MATERIALS.includes(this.get(vx,top,vz))&&!this.get(vx,top+1,vz))return y<=surface;
+    }
     return this.get(vx, vy, vz) !== 0;
   }
 

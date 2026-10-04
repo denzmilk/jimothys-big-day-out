@@ -12,9 +12,13 @@
 
 ### JIM-97 — Vehicles stop at water without a substantial splash
 
-**Status:** open · **Reported:** Chris, 2026-10-04, during the M53 follow-up.
+**Status:** implemented, awaiting Chris's playtest · **Reported:** Chris, 2026-10-04, during the M53 follow-up.
 
-A moving car entering water should create a large, speed/size-scaled splash and ripples, carry its entry momentum into shared physics, and release the rider safely. Trigger once per actual crossing; no spray while resting underwater, and no water entry on a dry bridge. Follow JIM-96/JIM-95, before M54. Locations: `DrivingSystem.update`, PhysicsSystem prop release/water contacts, water effects. Verification pending.
+**Red → green:** a controlled car placed across the real sea surface released with velocity `[0,0,0]`, stopped, and made no splash. It now transfers its approach speed and slope into the existing dynamic body. A 14 m/s entry preserves that speed, travels 1.99 m over the next 0.15 s, emits one 45-particle entry burst and a broad foam/ripple response, and restores player collision/control. First-contact physics recognises horizontal entry; fully submerged rest and dry bridges do not trigger entry splashes.
+
+Water response now includes horizontal impact speed and footprint-scaled entry spray within the existing 96-particle/32-ring caps. Native review prompted fuller, stretched water jets instead of a ring of small droplets; ordinary swimming wakes retain small particles. The vehicle's bounded sound bank supplies a splash cue after engine/ride release. Native taxi inspection shows momentum, spray, ripples and Jimothy returning to swimming, without console errors; the cue produces a measured audio RMS of 0.045. Visual/sound balance still needs Chris's playtest.
+
+**Verification:** 15 final driving/water/swimming cases, all 120 units, build and production pixel smoke pass. Covers falling cars, MPFB ragdolls, debris, repeat-entry suppression, submerged quiet, shoreline transitions, buffer reuse/reset and audio lifecycle. Evidence: `output/iterate/car-water-{red,unit-red,unit-green,green,final,units,build,smoke}.log`, `vehicle-water-native.json`, `vehicle-water-{0.08,0.2,0.35}.png`; repeatable native tool `tools/inspect-vehicle-water.mjs`. This uses the existing bounded height-field water simulation; it does not add full fluid volumes. Next: M54 land gait, then the recorded queue.
 
 ### JIM-95 — Cars break/explode too readily
 

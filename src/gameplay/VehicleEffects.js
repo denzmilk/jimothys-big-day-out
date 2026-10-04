@@ -27,7 +27,7 @@ export class VehicleEffects {
     const t=this.audio.currentTime,seconds=C.CUE_DURATIONS[kind],o=this.audio.createOscillator(),gain=this.audio.createGain();o.type=kind==='horn'?'square':'triangle';o.frequency.setValueAtTime(C.CUE_HZ[kind],t);o.frequency.exponentialRampToValueAtTime(C.CUE_HZ[kind]/2,t+seconds);
     gain.gain.setValueAtTime(C.CUE_GAIN[kind],t);gain.gain.exponentialRampToValueAtTime(C.AUDIO_FLOOR,t+seconds);o.connect(gain);gain.connect(this.master);this.voices.add(o);
     let noise,filter;
-    if(['door','start','crash'].includes(kind)){noise=this.audio.createBufferSource();noise.buffer=this.skid.buffer;filter=this.audio.createBiquadFilter();filter.type='lowpass';filter.frequency.value=C.CRASH_NOISE_HZ;noise.connect(filter);filter.connect(gain);noise.start();noise.stop(t+seconds);}
+    if(['door','start','crash','splash'].includes(kind)){noise=this.audio.createBufferSource();noise.buffer=this.skid.buffer;filter=this.audio.createBiquadFilter();filter.type='lowpass';filter.frequency.value=C.CRASH_NOISE_HZ;noise.connect(filter);filter.connect(gain);noise.start();noise.stop(t+seconds);}
     o.onended=()=>{o.disconnect();noise?.disconnect();filter?.disconnect();gain.disconnect();this.voices.delete(o);};o.start();o.stop(t+seconds);
   }
   engineSound(active,speed,skid){

@@ -8,9 +8,11 @@ export function waveShader(){return `float waves(vec2 p,float t){return ${TERRAI
 
 export function waterReaction(radius,speed,fallSpeed,entering){
  const r=Math.max(C.REACTION_RADIUS_MIN,Math.min(C.REACTION_RADIUS_MAX,radius)),size=Math.sqrt(r/C.REACTION_BASE_RADIUS);
- const strength=Math.max(C.REACTION_MIN,Math.min(C.REACTION_MAX,size*(entering?C.ENTRY_GAIN*Math.max(C.ENTRY_MIN_SPEED,fallSpeed):C.WAKE_GAIN*speed)));
- const scale=Math.max(C.SPLASH_SCALE_MIN,Math.min(C.SPLASH_SCALE_MAX,size*Math.min(C.SPLASH_IMPACT_MAX,1+fallSpeed*C.SPLASH_IMPACT_GAIN)));
- return {radius:r,strength,scale};
+ // JIM-97: driving in from shore hits water sideways, even with no fall.
+ const impactSpeed=entering?Math.hypot(fallSpeed,speed*C.ENTRY_HORIZONTAL_SHARE):fallSpeed;
+ const strength=Math.max(C.REACTION_MIN,Math.min(C.REACTION_MAX,size*(entering?C.ENTRY_GAIN*Math.max(C.ENTRY_MIN_SPEED,impactSpeed):C.WAKE_GAIN*speed)));
+ const scale=Math.max(C.SPLASH_SCALE_MIN,Math.min(C.SPLASH_SCALE_MAX,size*Math.min(C.SPLASH_IMPACT_MAX,1+impactSpeed*C.SPLASH_IMPACT_GAIN)));
+ return {radius:r,strength,scale,impactSpeed};
 }
 
 // Local damped wave equation. Fixed steps obey the 2D CFL bound; a moving

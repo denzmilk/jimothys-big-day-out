@@ -69,7 +69,7 @@ export class WaterSystem {
    if(this.time-this.lastReflection<C.REFLECTION_INTERVAL)return;
    this.far.visible=false;reflect(renderer,s,camera);this.far.visible=true;this.lastReflection=this.time;u.reflectionReady.value=1;
   };
-  this.splashMesh=new THREE.InstancedMesh(new THREE.SphereGeometry(C.SPLASH_SIZE,4,3),new THREE.MeshBasicMaterial({color:C.FOAM}),C.SPLASH_COUNT);this.splashMesh.frustumCulled=false;this.splashMesh.count=0;scene.add(this.splashMesh);this.matrix=new THREE.Object3D();
+  this.splashMesh=new THREE.InstancedMesh(new THREE.SphereGeometry(C.SPLASH_SIZE,4,3),new THREE.MeshBasicMaterial({color:C.FOAM}),C.SPLASH_COUNT);this.splashMesh.frustumCulled=false;this.splashMesh.count=0;scene.add(this.splashMesh);this.matrix=new THREE.Object3D();this.sprayDirection=new THREE.Vector3();
   const ringGeometry=new THREE.RingGeometry(C.FOAM_INNER,1,C.FOAM_SEGMENTS);ringGeometry.rotateX(-Math.PI/2);
   this.ringOpacity=new THREE.InstancedBufferAttribute(new Float32Array(C.FOAM_RINGS),1);ringGeometry.setAttribute('ringOpacity',this.ringOpacity);
   this.ringWidth=new THREE.InstancedBufferAttribute(new Float32Array(C.FOAM_RINGS),1);ringGeometry.setAttribute('ringWidth',this.ringWidth);
@@ -126,17 +126,18 @@ export class WaterSystem {
    let weakest=0;for(let i=1;i<this.rings.length;i++)if(this.rings[i].strength*this.rings[i].life<this.rings[weakest].strength*this.rings[weakest].life)weakest=i;
    if(ring.strength*life>this.rings[weakest].strength*this.rings[weakest].life)this.rings[weakest]=ring;
   }
-  if(q.entering&&fall>=C.SPLASH_MIN_FALL)this.splash(q.x,q.z,r.radius,r.scale);
+  if(q.entering&&r.impactSpeed>=C.SPLASH_MIN_FALL)this.splash(q.x,q.z,r.radius,r.scale,C.SPLASH_PARTICLES*Math.max(1,Math.sqrt(r.radius/C.REACTION_BASE_RADIUS)),q);
   else if(!q.entering&&q.speed>C.SPLASH_WAKE_SPEED)this.splash(x,z,r.radius*C.WAKE_FOOTPRINT,r.scale*C.SPLASH_WAKE_SCALE,C.SPLASH_WAKE_PARTICLES);
   this.lastReaction={kind:q.kind,radius:r.radius,strength:r.strength,entering:!!q.entering,splashScale:r.scale};return true;
  }
- splash(x,z,radius=C.REACTION_BASE_RADIUS,scale=1,baseCount=C.SPLASH_PARTICLES){
+ splash(x,z,radius=C.REACTION_BASE_RADIUS,scale=1,baseCount=C.SPLASH_PARTICLES,impact=null){
   const count=Math.min(C.SPLASH_MAX_PARTICLES,Math.ceil(baseCount*Math.sqrt(scale))),duration=C.SPLASH_LIFE*Math.sqrt(scale);
   for(let i=0;i<count;i++){
    const a=(this.serial++ + i)*Math.PI*(3-Math.sqrt(5));if(this.drops.length>=C.SPLASH_COUNT)this.drops.shift();
    const variation=1+Math.sin(a)*C.SPLASH_VARIATION;
-   const px=x+Math.cos(a)*radius*C.SPLASH_RIM,pz=z+Math.sin(a)*radius*C.SPLASH_RIM;if(!this.sample(px,pz))continue;
-   this.drops.push({x:px,y:this.heightAt(px,pz)+C.SPLASH_CLEARANCE,z:pz,vx:Math.cos(a)*C.SPLASH_SPEED*Math.sqrt(scale)*variation,vz:Math.sin(a)*C.SPLASH_SPEED*Math.sqrt(scale)*variation,vy:C.SPLASH_LIFT*Math.sqrt(scale)*variation,life:duration,duration,scale:scale*variation});
+   const radial=C.SPLASH_RIM*(impact?C.SPLASH_INNER+(1-C.SPLASH_INNER)*(Math.sin(a*a)+1)/2:1);
+   const px=x+Math.cos(a)*radius*radial,pz=z+Math.sin(a)*radius*radial;if(!this.sample(px,pz))continue;
+   this.drops.push({x:px,y:this.heightAt(px,pz)+C.SPLASH_CLEARANCE,z:pz,vx:Math.cos(a)*C.SPLASH_SPEED*Math.sqrt(scale)*variation+(impact?.vx||0)*C.SPLASH_DRIFT,vz:Math.sin(a)*C.SPLASH_SPEED*Math.sqrt(scale)*variation+(impact?.vz||0)*C.SPLASH_DRIFT,streak:!!impact,vy:C.SPLASH_LIFT*Math.sqrt(scale)*variation,life:duration,duration,scale:scale*variation});
   }
  }
  update(dt){
@@ -160,13 +161,17 @@ export class WaterSystem {
   }
   this.playerWet=fraction>0||(this.playerWet&&!!water&&p.y-j.radius<=water.baseHeight+C.CONTACT_RESET_MARGIN);this.playerAbove=!!water&&p.y-j.radius>=water.height;
   this.rings=this.rings.filter(r=>{r.life-=dt;r.radius+=r.speed*dt;return r.life>0;});
-  this.ringMesh.count=this.rings.length;this.rings.forEach((r,i)=>{
+  this.matrix.quaternion.identity();this.ringMesh.count=this.rings.length;this.rings.forEach((r,i)=>{
    this.matrix.position.set(r.x,0,r.z);this.matrix.scale.setScalar(r.radius);this.matrix.updateMatrix();this.ringMesh.setMatrixAt(i,this.matrix.matrix);
    this.ringOpacity.setX(i,r.opacity*C.RING_OPACITY*Math.sqrt(r.life/r.duration)*Math.min(1,r.strength/C.WAKE_STRENGTH));
    this.ringWidth.setX(i,Math.min(1-C.FOAM_INNER,r.width/r.radius));
   });this.ringMesh.instanceMatrix.needsUpdate=true;this.ringOpacity.needsUpdate=true;this.ringWidth.needsUpdate=true;
   this.drops=this.drops.filter(p=>{p.life-=dt;if(p.life<=0)return false;p.vy-=C.GRAVITY*dt;p.x+=p.vx*dt;p.z+=p.vz*dt;p.y+=p.vy*dt;return p.y>this.heightAt(p.x,p.z);});
-  this.splashMesh.count=this.drops.length;this.drops.forEach((p,i)=>{this.matrix.position.set(p.x,p.y,p.z);this.matrix.scale.setScalar(p.scale*p.life/p.duration);this.matrix.updateMatrix();this.splashMesh.setMatrixAt(i,this.matrix.matrix);});this.splashMesh.instanceMatrix.needsUpdate=true;this.syncSurface();
+  this.splashMesh.count=this.drops.length;this.drops.forEach((p,i)=>{this.matrix.position.set(p.x,p.y,p.z);const remaining=p.life/p.duration,size=p.scale*remaining;
+   // Stretch only the short entry burst. Ordinary swimming wakes keep small
+   // droplets; the same instance budget now reads as displaced water volume.
+   this.matrix.quaternion.setFromUnitVectors(THREE.Object3D.DEFAULT_UP,this.sprayDirection.set(p.vx,p.vy,p.vz).normalize());
+   this.matrix.scale.set(size*(p.streak?C.SPLASH_ENTRY_WIDTH:1),size*(1+(p.streak?C.SPLASH_ENTRY_STRETCH:0)*remaining*remaining),size*(p.streak?C.SPLASH_ENTRY_WIDTH:1));this.matrix.updateMatrix();this.splashMesh.setMatrixAt(i,this.matrix.matrix);});this.splashMesh.instanceMatrix.needsUpdate=true;this.syncSurface();
  }
  reset(){this.field.reset();this.floating.clear();this.bodyWakes.clear();this.drops=[];this.rings=[];this.ringMesh.count=0;this.splashMesh.count=0;this.time=0;this.wakeClock=0;this.playerWet=false;this.playerAbove=false;this.reactions=0;this.lastReaction=null;this.lastReflection=-Infinity;gameState.player.swimming=false;this.syncSurface();}
  snapshot(){return {swimming:!!gameState.player.swimming,diving:!!gameState.player.diving,time:this.time,ripples:this.field.energy(),splashes:this.drops.length,foamRings:this.rings.length,rippleSpan:this.field.size*this.field.cell,lastReaction:this.lastReaction,floating:this.floating.size,waveHeight:this.heightAt(this.jimothy.body.position.x,this.jimothy.body.position.z)};}

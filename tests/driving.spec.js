@@ -222,3 +222,18 @@ test('a moderate road crash shatters glass but leaves a driveable car',async({pa
   return {intact,phase:d.phase,windows:p.brokenWindows.length,explosions:JSON.parse(render_game_to_text()).explosions.total,reversed:p.mesh.position.distanceTo(before)};
  });console.log('CAR_MODERATE_CRASH',r);expect(r.intact).toBe(true);expect(r.phase).toBe('driving');expect(r.windows).toBeGreaterThan(0);expect(r.explosions).toBe(0);expect(r.reversed).toBeGreaterThan(.4);
 });
+
+test('a driven car enters real water with momentum and one broad impact splash',async({page})=>{
+ await setup(page);await enter(page);
+ const r=await page.evaluate(()=>{
+  const g=__game,d=g.driving,p=testCar,w=g.water,body=g.physics.props.get(p.id).body;
+  // Keep the hijacked entity alive while placing the controlled vehicle at
+  // the sea surface; the actual water/physics paths perform the hand-off.
+  const stream=g.streetLife.update;g.streetLife.update=()=>{};g.voxels.streamAround(-850,0);
+  p.yaw=0;p.mesh.rotation.set(0,0,0);p.grounding={pitch:0,bank:0};p.mesh.position.set(-850,w.heightAt(-850,0)+p.half[1]-.3,0);d.playerPose();w.reset();w.update(0);
+  const entries=[],react=w.react;w.react=function(q){const ok=react.call(this,q);if(ok&&q.id===body.id&&q.entering)entries.push({radius:q.radius,speed:q.speed,splash:this.drops.length});return ok;};
+  d.speed=14;d.update(1/60);const released={velocity:body.velocity.toArray(),type:body.type,phase:d.phase,mask:g.jimothy.body.collisionFilterMask};
+  advanceTime(.15);const impact={entries:[...entries],water:w.snapshot(),travel:body.position.z};advanceTime(2);w.react=react;g.streetLife.update=stream;
+  return {released,impact,entries:entries.length,state:JSON.parse(render_game_to_text()).driving};
+ });console.log('CAR_WATER_ENTRY',JSON.stringify(r));expect(r.released.phase).toBe('onFoot');expect(r.released.type).toBe(1);expect(r.released.mask).not.toBe(0);expect(r.released.velocity[2]).toBeGreaterThan(12);expect(r.impact.travel).toBeGreaterThan(.8);expect(r.entries).toBe(1);expect(r.impact.entries[0].radius).toBeGreaterThan(2);expect(r.impact.entries[0].splash).toBeGreaterThanOrEqual(24);expect(r.impact.water.foamRings).toBeGreaterThan(0);
+});

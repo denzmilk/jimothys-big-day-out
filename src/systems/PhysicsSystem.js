@@ -333,7 +333,7 @@ export class PhysicsSystem {
       // genuine exit above the underlying wave surface releases this contact.
       const held=previous>0&&p.y-sup.y<=water.baseHeight+C.CONTACT_RESET_MARGIN;
       this.waterContacts.set(body,fraction||(held?previous:0));if(!fraction)continue;
-      const entering=previous===0||(previous===undefined&&fraction<1&&body.velocity.y<-C.SPLASH_MIN_FALL);
+      const entering=previous===0||(previous===undefined&&fraction<1&&(body.velocity.y<-C.SPLASH_MIN_FALL||Math.hypot(body.velocity.x,body.velocity.z)>C.ENTRY_MIN_SPEED));
       // Body support follows its rotation, so fallen poles, car panels and
       // ragdoll limbs displace their actual footprint through the same path.
       if(body!==this.playerBody)eventBus.emit(Events.WATER_DISTURB,{id:body.id,x:p.x,z:p.z,radius:sup.r,halfHeight:sup.y,

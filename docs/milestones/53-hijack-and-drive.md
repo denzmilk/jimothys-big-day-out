@@ -40,7 +40,7 @@ Let Jimothy take a car from a visible driver, drive around the physical world an
 
 - [x] JIM-96: start and continue downhill on generated steep streets, through their lower junctions; repeat uphill/reverse and retain solid wall/car collision.
 - [x] JIM-95: an 18 m/s crash leaves a driveable car with broken glass; a 22 m/s crash still explodes/ejects. A 5-fatness blast leaves the car intact, 25 breaks it without fire, and 60 retains the approved explosion and physical breakaway parts. These replace the old 25-fatness explosion fixture.
-- [ ] JIM-97: vehicle water entry creates a substantial speed/size-scaled splash and ripples, transfers momentum to physics and releases the rider; submerged rest/bridges do not retrigger it.
+- [x] JIM-97: vehicle water entry creates a substantial speed/size-scaled splash and ripples, transfers momentum to physics and releases the rider; submerged rest/bridges do not retrigger it.
 - [ ] Chris judges repaired handling and durability during play.
 
 ## Exit condition
@@ -75,3 +75,7 @@ The generated steep street now clears 48 m in each direction at 30/60/120 Hz. Ch
 ### Tougher cars — JIM-95
 
 The new moderate-crash/attack regressions failed before tuning, then pass alongside severe explosions, original model/parts preservation, collection, cleanup and restart (9/9 focused cases). All 119 units, build and production pixel smoke pass. The explosion implementation remains; only the strength thresholds change. See JIM-95 for exact thresholds/evidence. Chris still judges the balance.
+
+### Vehicle water impact — JIM-97
+
+Cars preserve entry momentum and release Jimothy into normal movement/swimming. Horizontal and falling entries create one footprint/speed-scaled spray burst and foam/ripples; the existing sound bank supplies a splash cue. Native review enlarged/stretched entry spray without increasing the pooled effect caps. Fifteen final browser cases, 120 units, build and pixel smoke pass; source-rig native inspection is console-clean. Exact reproduction, measurements and artifact paths are in JIM-97. Splash feel remains awaiting Chris's playtest.

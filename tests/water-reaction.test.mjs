@@ -25,3 +25,9 @@ test('entry response grows with footprint and impact speed',async()=>{
  const small=waterReaction(.3,0,3,true),large=waterReaction(3,0,3,true),fast=waterReaction(.3,0,12,true);
  assert.ok(large.radius>small.radius*5);assert.ok(large.strength>small.strength*2);assert.ok(fast.strength>small.strength*2);assert.ok(fast.scale>small.scale);
 });
+
+test('a fast surface entry throws more water than a gentle horizontal entry',async()=>{
+ const {waterReaction}=await import('../src/core/WaterField.js');
+ const slow=waterReaction(3,2,0,true),fast=waterReaction(3,18,0,true);
+ assert.ok(fast.strength>slow.strength*3);assert.ok(fast.scale>slow.scale);
+});

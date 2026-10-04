@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {DRIVING as C,STREET,WORLD,BODY_CONTACT} from '../core/Constants.js';
+import {DRIVING as C,STREET,WORLD,BODY_CONTACT,WATER} from '../core/Constants.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 import {groundVehicle,solveTwoBone} from '../core/Grounding.js';
@@ -131,7 +131,14 @@ export class DrivingSystem {
     if(p){
       if(p.loose||p.attached||!this.fits(p)){this.exit(true);return;}
       let water=null;eventBus.emit(Events.WATER_SAMPLE,{x:p.mesh.position.x,z:p.mesh.position.z,receive:value=>water=value});
-      if(water&&water.height>p.mesh.position.y-p.half[1]+C.WATER_CLEARANCE){p.loose=true;eventBus.emit(Events.PROP_RELEASE,{id:p.id,position:p.mesh.position});this.exit(true);return;}
+      if(water&&water.height>p.mesh.position.y-p.half[1]+C.WATER_CLEARANCE){
+        // JIM-97: releasing control must carry the approach velocity into
+        // buoyancy. A zeroed body stops dead and cannot produce an entry hit.
+        const speed=this.speed,velocity=[Math.sin(p.yaw)*speed,Math.tan(p.grounding?.pitch||0)*speed,Math.cos(p.yaw)*speed];
+        p.loose=true;eventBus.emit(Events.PROP_RELEASE,{id:p.id,position:p.mesh.position});
+        eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity,spin:0});this.exit(true);
+        if(Math.abs(speed)>WATER.ENTRY_MIN_SPEED)this.effects.cue('splash');return;
+      }
       if(this.phase==='boarding'){
         this.timer+=dt;
         if(this.timer>=C.BOARD_SECONDS*C.DRIVER_EXIT_SHARE)this.releaseDriver(p.id);

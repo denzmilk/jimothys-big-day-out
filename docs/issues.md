@@ -18,9 +18,15 @@ The unchanged streetlight restart test exposes 22 bins on the first restart vers
 
 ### JIM-86 — Roads have square edges and stepped uphill surfaces
 
-**Status:** reproducing · **Reported:** 2026-10-04 (Chris)
+**Status:** implemented, awaiting Chris's playtest · **Reported:** 2026-10-04 (Chris)
 
 Chris confirms both jagged outer road edges and bumpy/stair-stepped uphill surfaces. Reproduce the two-metre class-grid outline and any discontinuities between street grade profiles, then repair road/footpath geometry and matching ground queries while retaining destructive edits. Scope: `CityPlanner`, `StreetPaving`, `Layout`, terrain meshing; M28 refinement. Appearance and driving/walking feel require Chris's playtest.
+
+**Repair:** road classes use the authored rotated street frames, and district borders use their actual polygons near seams. Shared terrain vertices fit the road, kerb and district edges; the 22 cm destruction grid remains. Monotone curved grades replace abrupt planar joins and retain level cross-sections/junctions. Building clearance and landmark approaches check the same boundaries. Pedestrian route nodes move to pavement centres, keeping planted feet off the kerb edge without changing IK tuning.
+
+Six new regressions cover outlines, district seams, fitted corners, uphill pitch and rendered/contact agreement with damage. Original failures include a 0.398 pitch change across a 20 cm sample; the same sample is now 0.0208. All 114 units pass. Across targeted runs, 39 unique terrain/layout/paving/traffic/walking browser checks pass, including the final 27-case regression. Build and production pixel smoke pass with no console errors. Final original-rig street/hill/diagonal views are inspected: `output/iterate/road-*-verified.png`, state JSON beside them. Evidence: `road-red.log`, `road-region-red.log`, `road-seam-red.log`, `road-units.log`, `road-final-regression.log`, `road-smoke.log`. The seam fixture now samples at one-metre intervals, retaining its original height-error and coverage limits; the paving material fixture samples a voxel centre so it does not choose the raised half of an edge cell.
+
+The serial 960×600 Medium profile is 15.5 ms median / 16.8 p95 update plus render submission on a street, and 38.4 / 51.6 ms during a giant roll. Scene populations differ from the previous audit; this does not establish a performance improvement. JIM-48 remains open. Evidence: `output/iterate/road-performance/report.json`. JIM-87 records the separate restart-order repair exposed here.
 
 ### JIM-85 — Walking collision bodies oscillate at high simulation rates
 

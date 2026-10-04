@@ -875,6 +875,11 @@ export class VoxelWorld {
     // so a kerb has a vertical face instead of blending into the road.
     const Q = CX + 3;
     const cornerH = new Float32Array(Q * Q);
+    const cornerXZ = new Float64Array(Q * Q * 2);
+    const fitted = new Uint8Array(Q * Q);
+    const cornerIndex=(lx,lz)=>(lz+1)*Q+lx+1;
+    const cornerX=(lx,lz)=>cornerXZ[cornerIndex(lx,lz)*2];
+    const cornerZ=(lx,lz)=>cornerXZ[cornerIndex(lx,lz)*2+1];
     const intact = new Uint8Array(P * P);
     if (this.terrain) {
       for (let lz = -1; lz <= CX + 1; lz++) {
@@ -882,9 +887,10 @@ export class VoxelWorld {
         for (let lx = -1; lx <= CX + 1; lx++) {
           // LATTICE corners, not voxel centres — that is what makes the value
           // shared between the voxels either side of it.
-          cornerH[(lz + 1) * Q + (lx + 1)] = this.terrain.surfaceHeight(
-            (base[0] + lx) * s, (base[2] + lz) * s,
-          );
+          const x=(base[0]+lx)*s,z=(base[2]+lz)*s,k=cornerIndex(lx,lz);
+          const point=this.terrain.cornerPosition?.(x,z);
+          cornerXZ[k*2]=point?.[0]??x;cornerXZ[k*2+1]=point?.[1]??z;fitted[k]=point?1:0;
+          cornerH[k] = this.terrain.surfaceHeight(cornerXZ[k*2],cornerXZ[k*2+1]);
         }
       }
       for (let lz = -1; lz <= CX; lz++) {
@@ -924,7 +930,7 @@ export class VoxelWorld {
       if (!intact[(lz+1)*P+lx+1]) continue;
       for (let oz=0;oz<=1;oz++) for (let ox=0;ox<=1;ox++) {
         surfaceCorners[((lz+1)*P+lx+1)*4+oz*2+ox]=sided(
-          (base[0]+lx+ox)*s,(base[2]+lz+oz)*s,(base[0]+lx+.5)*s,(base[2]+lz+.5)*s);
+          cornerX(lx+ox,lz+oz),cornerZ(lx+ox,lz+oz),(base[0]+lx+.5)*s,(base[2]+lz+.5)*s);
       }
     }
     }
@@ -979,6 +985,8 @@ export class VoxelWorld {
         if(cy<0||cy>=CY||!intact[(z+dz+1)*P+x+dx+1]||chunk.data[x+dx+CX*(cy+CY*(z+dz))]!==mat){safe=false;break;}
       }
       for(let dz=0;dz<=stride&&safe;dz++)for(let dx=0;dx<=stride;dx++){
+        // A coarse square cannot cover a kerb fitted to a diagonal street.
+        if(fitted[cornerIndex(x+dx,z+dz)]){safe=false;break;}
         // Match the two rendered triangles, including their diagonal. Fine
         // cells remain where curvature, kerbs or damage exceed this error.
         const u=dx/stride,v=dz/stride,h=v>=u?h00+(h01-h00)*v+(h11-h01)*u:h00+(h10-h00)*u+(h11-h10)*v;
@@ -1036,7 +1044,7 @@ export class VoxelWorld {
                 const wall=f.v.map(([ox,oy,oz])=>{
                   const top=surfaceCorner(lx,lz,ox,oz),adjacent=surfaceCorner(nx,nz,ox-f.d[0],oz-f.d[2]);
                   if(top>adjacent+1e-6)exposed=true;
-                  return [(vx+ox)*s,oy?top:Math.min(top,adjacent),(vz+oz)*s];
+                  return [cornerX(lx+ox,lz+oz),oy?top:Math.min(top,adjacent),cornerZ(lx+ox,lz+oz)];
                 });
                 if(exposed)emitQuad(wall,color,f.d,sand,true);
               }
@@ -1061,9 +1069,9 @@ export class VoxelWorld {
             // the real surface. That covers the top face and the upper edge of
             // any side wall in one rule, so the two always meet.
             const quad = f.v.map(([ox, oy, oz]) => [
-              (vx + ox) * s,
+              smooth ? cornerX(lx+ox,lz+oz) : (vx + ox) * s,
               smooth && oy === 1 ? surfaceCorner(lx,lz,ox,oz) : (vy + oy) * s,
-              (vz + oz) * s,
+              smooth ? cornerZ(lx+ox,lz+oz) : (vz + oz) * s,
             ]);
             const paving=mat===PAVING.SLAB_MATERIAL||mat===PAVING.SLAB_VARIANT||mat===PAVING.KERB_MATERIAL;
             if (smooth && fi===2 && paving && sided) {
@@ -1071,7 +1079,9 @@ export class VoxelWorld {
               const inset=(n,offset)=>offset===0?(mod(n)===0?PAVING.JOINT_HALF:0)
                 :(mod(n)===PAVING.SLAB_CELLS-1?-PAVING.JOINT_HALF:0);
               const inner=f.v.map(([ox,,oz])=>{
-                const x=(vx+ox)*s+inset(vx,ox),z=(vz+oz)*s+inset(vz,oz);
+                const u=ox+inset(vx,ox)/s,v=oz+inset(vz,oz)/s;
+                const sample=fn=>(fn(lx,lz)*(1-u)+fn(lx+1,lz)*u)*(1-v)+(fn(lx,lz+1)*(1-u)+fn(lx+1,lz+1)*u)*v;
+                const x=sample(cornerX),z=sample(cornerZ);
                 return [x,sided(x,z,(vx+.5)*s,(vz+.5)*s),z];
               });
               emitQuad(inner,color,null,false,true);
@@ -1085,7 +1095,8 @@ export class VoxelWorld {
             // Terrain slopes keep their sampled corners; only genuinely planar
             // faces merge, so reducing cells cannot flatten a hill (JIM-34).
             const flat = smooth && fi === 2 && quad.every(q => Math.abs(q[1] - quad[0][1]) < 1e-6);
-            if (!smooth || (flat&&!sand)) {
+            const fittedFace=smooth&&f.v.some(([ox,,oz])=>fitted[cornerIndex(lx+ox,lz+oz)]);
+            if (!smooth || (flat&&!sand&&!fittedFace)) {
               mergeFace(fi, lx, ly, lz, mat, flat ? quad[0][1] : null,terrainCell);
               continue;
             }

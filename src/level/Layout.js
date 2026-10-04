@@ -29,6 +29,7 @@ export function roadAtWorld(x, z) {
 }
 export const pavingAtWorld=StreetPaving.at;
 export const isFootpathAtWorld=StreetPaving.isFootpath;
+export const footpathCentreAtWorld=StreetPaving.centreAt;
 
 export function roadAtVoxel(vx, vz) {
   return Masterplan.isRoad(vx * VOXEL.SIZE, vz * VOXEL.SIZE);
@@ -101,8 +102,8 @@ const parcelHeight=(x,z,rx,rz)=>{
  const mix=Math.max(0,Math.min(1,edge/LANDMARKS.PARCEL_BLEND));return base+(s.height-base)*mix;
 };
 const cornerHeight=(x,z,rx,rz)=>basinGround(x,z,parcelHeight(x,z,rx,rz),waterBasins());
-// Class borders follow voxel columns in both the mesh and collision queries.
-const streetHeight=(x,z)=>cornerHeight(x,z,(Math.floor(x/VOXEL.SIZE)+.5)*VOXEL.SIZE,(Math.floor(z/VOXEL.SIZE)+.5)*VOXEL.SIZE);
+// JIM-86: intact contact uses the same continuous kerb as the fitted mesh.
+const streetHeight=(x,z)=>cornerHeight(x,z,x,z);
 const terraceTop=(x,z)=>Math.floor(streetHeight(x,z)/VOXEL.SIZE-0.5);
 
 export const terrain = {
@@ -111,6 +112,7 @@ export const terrain = {
   sandAt: (x,z)=>StreetPaving.isPaved(x,z)?0:TerrainField.sandAt(x,z),
   // One-sided corners retain a real vertical kerb at a surface boundary.
   cornerHeight,
+  cornerPosition: StreetPaving.cornerPosition,
   topSolidVoxelY: terraceTop,
 
   /** Implicit ground. 0 is air; anything else is solid, whether or not a single

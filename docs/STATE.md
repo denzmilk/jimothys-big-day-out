@@ -1,5 +1,15 @@
 # Session state
 
+## Smooth roads and kerbs — JIM-86 / milestone 28 refinement — 2026-10-04
+
+**Implemented, awaiting Chris's playtest.** Diagonal roads and district borders now follow their authored outlines, with shared kerb/terrain vertices fitted to them. Curved uphill grades replace abrupt planar joins while retaining level junctions and cross-sections. The 22 cm destruction cells, paving joints and persistent damage remain. Buildings and landmark approaches respect the revised boundaries; pedestrian nodes use pavement centres to keep planted feet off kerb edges.
+
+**Verification:** six new road regressions, all **114 units**, and **39 unique adjacent browser cases** pass across targeted runs. The final layout/paving/traffic/walking batch is 27/27. Build and production pixel smoke pass without console errors. Final original-rig diagonal, hill and spawn views were inspected (`output/iterate/road-*-verified.png`, state JSON alongside). Render/contact error stays below 3 cm; cratering and paving travel/restart checks pass. Full evidence is in [milestone 28](milestones/28-raised-footpaths.md) and JIM-86. The separate JIM-87 restart-order repair is pushed as `15f6045`.
+
+The serial 960×600 Medium profile records update plus render submission median/p95 **15.5/16.8 ms** on a street and **38.4/51.6 ms** on a giant roll. Populations differ from the previous audit; these are neither presented FPS nor evidence of an improvement. Giant frame cost/collapse latency (JIM-48), stretched giant underside (JIM-69), and the prior wanted/content work remain open.
+
+**Play at http://127.0.0.1:4174.** Check diagonal streets and walk or drive uphill through a junction; Chris's appearance and feel sign-off remains the exit gate.
+
 ## Restart placement follow-up — JIM-87 — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** The road repair's regression checks exposed bins being placed against the previous run's terrain. Respawning them after fresh city installation makes the original exact restart-count check pass: 297 bodies / 460 entities / 17 signals on both restarts, previously two extra bins on the first. Evidence: `output/iterate/road-lamp-diagnostic.log`, `road-final-regression.log`. JIM-86 smooth road/kerb repair remains in final visual and production verification; earlier giant/wanted/content issues retain their ordering.

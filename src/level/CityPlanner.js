@@ -377,6 +377,9 @@ function fits(x, z, w, d, blockId, taken) {
       if (!inGrid(cx, cz)) return false;
       const i = idx(cx, cz);
       if (cells[i] !== CLASS.LAND || blockIdOf[i] !== blockId || taken.has(i)) return false;
+      for(const px of [Math.max(x,(cx-HALF)*CELL),Math.min(x+w,(cx-HALF+1)*CELL)])
+        for(const pz of [Math.max(z,(cz-HALF)*CELL),Math.min(z+d,(cz-HALF+1)*CELL)])
+          if(classAt(px,pz)!==CLASS.LAND)return false;
     }
   }
   return true;
@@ -425,7 +428,7 @@ function reserveLandmarks(){
    for(let pz=z0;pz<=z1&&valid;pz+=CELL)for(let px=x0;px<=x1;px+=CELL){const c=raw(px,pz);if(c!==CLASS.LAND&&c!==CLASS.PARK){valid=false;break;}const y=Terrain.surfaceHeight(px,pz);min=Math.min(min,y);max=Math.max(max,y);if(max-min>LM.MAX_GRADE_SPAN){valid=false;break;}}
    if(!valid)continue;
    const approaches=[];
-   for(const [sx,sz,vx,vz]of [[x,z0,0,-1],[x,z1,0,1],[x0,z,-1,0],[x1,z,1,0]])for(let step=CELL;step<LM.APPROACH_MAX;step+=CELL){const px=sx+vx*step,pz=sz+vz*step,c=raw(px,pz);if(c===CLASS.WATER||c===CLASS.PLAZA)break;if(c===CLASS.FOOTPATH||c===CLASS.ROAD){approaches.push({x:sx-vx*LM.CACHE_GAP,z:sz-vz*LM.CACHE_GAP,end:{x:px,z:pz},distance:step});break;}}
+   for(const [sx,sz,vx,vz]of [[x,z0,0,-1],[x,z1,0,1],[x0,z,-1,0],[x1,z,1,0]])for(let step=CELL;step<LM.APPROACH_MAX;step+=CELL){const px=sx+vx*step,pz=sz+vz*step,c=raw(px,pz);if(c===CLASS.WATER||c===CLASS.PLAZA)break;if(c===CLASS.FOOTPATH||c===CLASS.ROAD){const precise=surfaceClass(px,pz);if(precise!==CLASS.FOOTPATH&&precise!==CLASS.ROAD)continue;approaches.push({x:sx-vx*LM.CACHE_GAP,z:sz-vz*LM.CACHE_GAP,end:{x:px,z:pz},distance:step});break;}}
    if(approaches.length<2)continue;approaches.sort((a,b)=>a.distance-b.distance);best={...d,model,x,z,width,depth,height:Math.round(Terrain.surfaceHeight(x,z)/VOXEL.SIZE)*VOXEL.SIZE,approaches:approaches.slice(0,2)};bestCost=cost;
   }
   if(!best)throw Error('No valid landmark parcel: '+d.id);
@@ -509,10 +512,39 @@ export function bake() {
 
 export function classAt(x, z) {
   bake();
+  return surfaceClass(x,z);
+}
+function surfaceClass(x,z){
   const cx = toCell(x);
   const cz = toCell(z);
   if (!inGrid(cx, cz)) return CLASS.WATER;
-  return cells[idx(cx, cz)];
+  const i=idx(cx,cz),c=cells[i],r=regions[regionIndexAt(x,z,cx,cz)];
+  // JIM-86: the planning grid reserves lots, but its two-metre pixels must
+  // not become the visible kerb. Keep special parcels/bridges as authored.
+  if(!r)return regionOf[i]>=0&&(c===CLASS.ROAD||c===CLASS.FOOTPATH)?CLASS.LAND:c;
+  if(c===CLASS.WATER||c===CLASS.PLAZA||(c===CLASS.PARK&&regionOf[i]>=0))return c;
+  const f=r.streetFrame,u=x*f.cos+z*f.sin-f.originU,v=-x*f.sin+z*f.cos-f.originV;
+  const distance=Math.min(streetOffset(r,u,r.block[0]),streetOffset(r,v,r.block[1]));
+  if(distance<0)return CLASS.ROAD;
+  if(distance<PAVING.WIDTH)return CLASS.FOOTPATH;
+  if(c===CLASS.ROAD||c===CLASS.FOOTPATH)return CLASS.LAND;
+  return c;
+}
+
+function streetOffset(r,value,size){
+  const index=Math.floor(value/size),off=value-index*size,w=index%r.arterialEvery===0?ROAD_CLASSES.arterial.width:ROAD_CLASSES.street.width;
+  return Math.min(off<w/2?-off:off-w,size-off);
+}
+
+/** Signed distance and outward normal of the nearest authored street edge. */
+export function streetBoundaryAt(x,z){
+  const r=regionAtWorld(x,z);if(!r)return null;
+  const f=r.streetFrame,u=x*f.cos+z*f.sin-f.originU,v=-x*f.sin+z*f.cos-f.originV;
+  const du=streetOffset(r,u,r.block[0]),dv=streetOffset(r,v,r.block[1]),axis=du<=dv?0:1;
+  const value=axis?v:u,size=r.block[axis],index=Math.floor(value/size),off=value-index*size;
+  const w=index%r.arterialEvery===0?ROAD_CLASSES.arterial.width:ROAD_CLASSES.street.width;
+  const sign=off<w/2||size-off<off-w?-1:1;
+  return {distance:Math.min(du,dv),nx:sign*(axis?-f.sin:f.cos),nz:sign*(axis?f.cos:f.sin)};
 }
 
 export function isRoad(x, z) {
@@ -526,7 +558,37 @@ export function isAlley(x, z) {
 
 export function regionAtWorld(x,z){
   bake();const cx=toCell(x),cz=toCell(z);
-  return inGrid(cx,cz)?regions[regionOf[idx(cx,cz)]]||null:null;
+  return inGrid(cx,cz)?regions[regionIndexAt(x,z,cx,cz)]||null:null;
+}
+
+function regionIndexAt(x,z,cx,cz){
+  const i=idx(cx,cz),r=regionOf[i];
+  // Only border cells need polygon tests. Interior lookups retain the baked
+  // fast path; diagonal district boundaries must not cut roads into stairs.
+  if(cx===0||cz===0||cx===SIZE-1||cz===SIZE-1||cells[i]===CLASS.WATER)return r;
+  if(regionOf[i-1]===r&&regionOf[i+1]===r&&regionOf[i-SIZE]===r&&regionOf[i+SIZE]===r
+    &&regionOf[i-SIZE-1]===r&&regionOf[i-SIZE+1]===r&&regionOf[i+SIZE-1]===r&&regionOf[i+SIZE+1]===r)return r;
+  for(let n=regions.length-1;n>=0;n--)if(inPolygon(x,z,regions[n].polygon))return n;
+  return -1;
+}
+
+export function regionCornerPosition(x,z){
+  bake();const cx=toCell(x),cz=toCell(z);if(!inGrid(cx,cz)||cx===0||cz===0||cx===SIZE-1||cz===SIZE-1)return null;
+  const i=idx(cx,cz),r=regionOf[i];
+  if(regionOf[i-1]===r&&regionOf[i+1]===r&&regionOf[i-SIZE]===r&&regionOf[i+SIZE]===r
+    &&regionOf[i-SIZE-1]===r&&regionOf[i-SIZE+1]===r&&regionOf[i+SIZE-1]===r&&regionOf[i+SIZE+1]===r)return null;
+  const sides=new Set();for(const dx of [-VOXEL.SIZE/2,VOXEL.SIZE/2])for(const dz of [-VOXEL.SIZE/2,VOXEL.SIZE/2])sides.add(regionAtWorld(x+dx,z+dz));
+  if(sides.size<2)return null;
+  let best=null,distance=VOXEL.SIZE**2*2;
+  for(const side of sides){if(!side)continue;const poly=side.polygon;
+    for(let n=0;n<poly.length;n++){
+      const a=poly[n],b=poly[(n+1)%poly.length],dx=b[0]-a[0],dz=b[1]-a[1];
+      const t=Math.max(0,Math.min(1,((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz)));
+      const px=a[0]+t*dx,pz=a[1]+t*dz,d=(x-px)**2+(z-pz)**2;
+      if(d<distance){distance=d;best=[px,pz];}
+    }
+  }
+  return best;
 }
 
 // District grids meet at different angles. A shared border height prevents

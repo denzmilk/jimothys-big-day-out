@@ -14,7 +14,7 @@ function interval(region,value,size){
     start:index*size+w/2,end:(index+1)*size+next/2,distance:Math.min(Math.max(0,off-w),size-off)};
 }
 
-// Linear runs join level junctions. Each run has a single cross-section,
+// Graded runs join level junctions. Each run has a single cross-section,
 // rather than letting the hillside bank the road and pavement independently.
 function profile(x,z){
   const region=City.regionAtWorld(x,z);if(!region)return null;
@@ -40,8 +40,19 @@ function grade(p,x,z){
   if(!p)return Terrain.surfaceHeight(x,z);
   const t=p.axis===0?-x*p.f.sin+z*p.f.cos-p.f.originV:x*p.f.cos+z*p.f.sin-p.f.originU;
   const along=clamp((t-p.lo)/(p.hi-p.lo))*(p.heights.length-1),i=Math.min(p.heights.length-2,Math.floor(along));
-  const engineered=p.heights[i]+(p.heights[i+1]-p.heights[i])*(along-i);
-  const blend=clamp(City.regionInteriorAtWorld(x,z)/C.SEAM_BLEND);
+  // Monotone Hermite slopes join ramps without eight-metre pitch snaps or
+  // overshooting a level junction (JIM-86).
+  const slope=k=>{
+    if(k===0||k===p.heights.length-1)return 0;
+    const a=p.heights[k]-p.heights[k-1],b=p.heights[k+1]-p.heights[k];
+    return a*b>0?2*a*b/(a+b):0;
+  };
+  const t0=along-i,t2=t0*t0,t3=t2*t0;
+  const engineered=(2*t3-3*t2+1)*p.heights[i]+(t3-2*t2+t0)*slope(i)
+    +(-2*t3+3*t2)*p.heights[i+1]+(t3-t2)*slope(i+1);
+  // Both sides of the planning-cell seam share raw terrain before the
+  // district-specific grade starts blending in (JIM-86).
+  const blend=clamp((City.regionInteriorAtWorld(x,z)-City.CELL)/(C.SEAM_BLEND-City.CELL));
   if(blend===1)return engineered;
   const raw=Terrain.surfaceHeight(x,z);return raw+(engineered-raw)*blend*blend*(3-2*blend);
 }
@@ -56,7 +67,24 @@ export function landHeight(x,z,base=Terrain.surfaceHeight(x,z)){
   return base+(grade(profile(x,z),x,z)+C.HEIGHT-base)*weight;
 }
 export function isFootpath(x,z){return City.classAt(x,z)===City.CLASS.FOOTPATH;}
+export function centreAt(x,z){
+  if(!isFootpath(x,z))return null;
+  const e=City.streetBoundaryAt(x,z);if(!e)return {x,z};
+  const shift=C.WIDTH/2-e.distance,px=x+e.nx*shift,pz=z+e.nz*shift;
+  return isFootpath(px,pz)?{x:px,z:pz}:{x,z};
+}
 export function isPaved(x,z){const c=City.classAt(x,z);return c===City.CLASS.ROAD||c===City.CLASS.FOOTPATH;}
+export function cornerPosition(x,z){
+  const border=City.regionCornerPosition(x,z);if(border)return border;
+  const edge=City.streetBoundaryAt(x,z),s=VOXEL.SIZE;
+  if(!edge||Math.min(Math.abs(edge.distance),Math.abs(edge.distance-C.WIDTH))>s*Math.SQRT2)return null;
+  const classes=new Set();
+  for(const dx of [-s/2,s/2])for(const dz of [-s/2,s/2])classes.add(City.classAt(x+dx,z+dz));
+  if(classes.size<2||classes.has(City.CLASS.WATER)||classes.has(City.CLASS.PLAZA)||classes.has(City.CLASS.PARK)||classes.has(City.CLASS.ALLEY))return null;
+  const target=classes.has(City.CLASS.ROAD)?0:C.WIDTH,shift=target-edge.distance;
+  if(Math.abs(shift)>s*Math.SQRT2)return null;
+  return [x+edge.nx*shift,z+edge.nz*shift];
+}
 export function jointDepth(x,z){
   const span=C.SLAB_CELLS*VOXEL.SIZE,dx=mod(x,span),dz=mod(z,span);
   return C.JOINT_DEPTH*clamp(1-Math.min(dx,span-dx,dz,span-dz)/C.JOINT_HALF);

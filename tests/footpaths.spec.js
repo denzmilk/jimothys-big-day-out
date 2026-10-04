@@ -33,7 +33,9 @@ test('streets reserve raised pedestrian strips with level cross-sections and no 
 
 test('different district street grids meet without introducing cliffs',()=>{
   let joins=0;
-  for(let z=-998;z<998;z+=2)for(let x=-998;x<998;x+=2){
+  // Continuous kerbs no longer fill the old two-metre planning squares.
+  // Denser probes retain broad seam coverage and the original error bound.
+  for(let z=-998;z<998;z++)for(let x=-998;x<998;x++){
     const p=Layout.pavingAtWorld(x+1,z+1);if(!p)continue;
     for(const [dx,dz] of [[2,0],[0,2]]){
       const q=Layout.pavingAtWorld(x+1+dx,z+1+dz);
@@ -64,7 +66,7 @@ test('paving is meshed with joints, matches ground contact, breaks and survives 
   const report=await page.evaluate(async()=>{
     const L=await import('/src/level/Layout.js'),{VOXEL:V}=await import('/src/core/Constants.js'),THREE=await import('/node_modules/three/build/three.module.js');
     const g=window.__game,w=g.voxels;let target;
-    for(let z=15;z<60&&!target;z+=2)for(let x=-60;x<60;x+=2){const p=L.pavingAtWorld?.(x+1,z+1);if(p?.kind==='footpath'){target={x:x+1,z:z+1,...p};break;}}
+    for(let z=15;z<60&&!target;z+=2)for(let x=-60;x<60;x+=2){const px=(Math.floor((x+1)/V.SIZE)+.5)*V.SIZE,pz=(Math.floor((z+1)/V.SIZE)+.5)*V.SIZE,p=L.pavingAtWorld?.(px,pz);if(p?.kind==='footpath'){target={x:px,z:pz,...p};break;}}
     if(!target)return {found:false};
     const {x,z}=target,y=w.terrainHeightAt(x,z),ground=w.groundHeightAt(x,z,y+.5),v=w.worldToVoxel(x,ground-.06,z),material=w.get(...v);
     let bevelVertices=0;

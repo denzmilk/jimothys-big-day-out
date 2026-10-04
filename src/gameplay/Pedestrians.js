@@ -62,10 +62,11 @@ export class Pedestrians {
     const graph=new Map(),buildings=Layout.Masterplan.buildingsIn(x-R-S,z-R-S,x+R+S,z+R+S);
     for(let iz=Math.floor((z-R)/S);iz<=Math.ceil((z+R)/S);iz++) for(let ix=Math.floor((x-R)/S);ix<=Math.ceil((x+R)/S);ix++) {
       yield;
-      const px=(ix+.5)*S,pz=(iz+.5)*S;
+      const point=Layout.footpathCentreAtWorld((ix+.5)*S,(iz+.5)*S);if(!point)continue;
+      const {x:px,z:pz}=point;
       if(Math.hypot(px-x,pz-z)>R)continue;
-      // Pavement follows the baked road edges. People stay on its land side,
-      // instead of picking arbitrary destinations through rooms or the sea.
+      // JIM-86: grid nodes can sit directly on a diagonal kerb. Centre them
+      // on the path so a planted foot does not hang over its raised edge.
       if(!Layout.isFootpathAtWorld(px,pz)||!this._clear(px,pz,buildings))continue;
       graph.set(`${ix},${iz}`,{key:`${ix},${iz}`,ix,iz,x:px,z:pz,links:[]});
     }

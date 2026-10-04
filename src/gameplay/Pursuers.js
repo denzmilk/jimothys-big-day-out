@@ -197,7 +197,7 @@ export class Pursuers {
     p.visual.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
     p.mixer=new THREE.AnimationMixer(p.visual);p.actions={};for(const clip of model.animations)p.actions[clip.name]=p.mixer.clipAction(clip);
     eventBus.emit(Events.HUMAN_REGISTER,{id:`pursuer-${p.id}`,group:p.group,visual:p.visual});
-    p.grounding=new FootGrounding(p.group,p.visual,(x,z)=>this._groundY(x,z));
+    p.grounding=new FootGrounding(p.group,p.visual,(x,z)=>this._groundY(x,z,p.group.position.y));
     if(p.type==='animal-control')this._netRig(p);
   }
 
@@ -251,7 +251,7 @@ export class Pursuers {
       let lift=0;
       for(const [x,z] of [[0,-C.NET_RADIUS],[0,C.NET_RADIUS],[-C.NET_RADIUS,0],[C.NET_RADIUS,0]]){
         const point=p.netPose.localToWorld(new THREE.Vector3(x,0,head+z));
-        lift=Math.max(lift,this._groundY(point.x,point.z)+C.NET_CLEARANCE-point.y);
+        lift=Math.max(lift,this._groundY(point.x,point.z,point.y)+C.NET_CLEARANCE-point.y);
       }
       if(lift<=0)break;
       p.netPose.rotation.x=Math.max(poses.windup.pitch,p.netPose.rotation.x-Math.atan2(lift,head));p.netPose.updateWorldMatrix(false,true);
@@ -307,10 +307,11 @@ export class Pursuers {
   /** The ground under a pursuer. They used to be pinned to y = 0, which was
    *  fine on a flat world and leaves them buried in a hillside or hovering over
    *  a valley on the island (milestone 17). */
-  _groundY(x, z) {
+  _groundY(x, z, fromY) {
     if (!this.voxels) return 0;
     const surface = this.voxels.terrainHeightAt(x, z);
-    return this.voxels.physicalGroundHeightAt(x, z, surface + 1);
+    // M55: once on a stair or indoors, the road/roof above is not a floor.
+    return this.voxels.physicalGroundHeightAt(x,z,fromY??surface+1,SEARCH.GROUND_STEP);
   }
 
   /** How far this pursuer can see, before geometry and bushes. */
@@ -506,8 +507,8 @@ export class Pursuers {
   _blocked(p, x, z) {
     if (!this.voxels) return false;
     const y = p.group.position.y;
-    const ground = this.voxels.physicalGroundHeightAt(x, z, y + PLAYER_CONFIG.CLIMB_HEIGHT);
-    if (ground - y > PLAYER_CONFIG.CLIMB_HEIGHT) return true;
+    const ground = this.voxels.physicalGroundHeightAt(x,z,y,SEARCH.GROUND_STEP);
+    if (ground-y>SEARCH.GROUND_STEP) return true;
     return this.voxels.physicalSolidAtWorld(x, ground + 1.0, z);
   }
 
@@ -613,7 +614,7 @@ export class Pursuers {
       // the vision cone points wherever they last happened to walk.
       p.group.rotation.y = Math.atan2(dx, dz);
     }
-    pos.y = this._groundY(pos.x, pos.z);
+    pos.y = this._groundY(pos.x,pos.z,pos.y);
     const jp = this.jimothy.position;
     // Three dimensions, for the same reason the vision check uses them: this
     // number gates the NET and the flash, and a flat one nets him through a

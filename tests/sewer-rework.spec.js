@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
-import {boot,adv,state} from './helpers.mjs';
-const descend=async page=>{await boot(page);await page.evaluate(()=>window.teleportJimothy(69,-3));await adv(page,3);};
+import {boot,adv,state,placeInSewer} from './helpers.mjs';
+const descend=async page=>{await boot(page);await placeInSewer(page);await adv(page,3);};
 
 test('underground has three connected chamber families and a readable arched bore',async({page})=>{
  await descend(page);

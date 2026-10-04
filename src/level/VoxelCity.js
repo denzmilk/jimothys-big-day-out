@@ -3,6 +3,7 @@ import {planInterior,writeInterior} from './InteriorLayout.js';
 import * as Layout from './Layout.js';
 import {profile as sewerProfile,roomsIn as sewerRoomsIn} from './SewerLayout.js';
 import {writeLandmarks} from './LandmarkVoxels.js';
+import {planSewerStairs} from './SewerStairs.js';
 
 // Authored voxel content. Buildings are written as footprints + rules rather
 // than baked voxel data, so the city stays diffable, seed-reproducible, and
@@ -226,56 +227,52 @@ function* buildSewers(world,cx,cz) {
   }
 }
 
-/** A stairwell down to the tunnel: a square shaft with a one-voxel step
- *  spiralling round its wall.
- *
- *  One-voxel steps on purpose — walking back up is then the auto-climb
- *  (CLIMB_HEIGHT 2.6) doing its ordinary job, where a ladder or a sheer shaft
- *  would need a special case in the controller. It is a way IN and a way OUT,
- *  which is what makes the reachability guarantee mean anything. */
-function buildStairwell(world, e) {
-  const s = VOXEL.SIZE;
-  const half = Math.floor(SEWER.SHAFT / 2);
-  const ox = Math.round(e.x / s) - half;
-  const oz = Math.round(e.z / s) - half;
-  const top = Layout.terrain.topSolidVoxelY(e.x, e.z);
-  const floor = top - Math.round(SEWER.DEPTH / s);
-  const N = SEWER.SHAFT;
-
-  // Hollow the shaft from the street down to the tunnel.
-  for (let x = 0; x < N; x++) {
-    for (let z = 0; z < N; z++) {
-      world.set(ox+x,floor-1,oz+z,CONCRETE);
-      for (let y = floor; y <= top + 1; y++) world.set(ox + x, y, oz + z, VOXEL.EMPTY);
+function* buildStairwell(world,e){
+  const s=VOXEL.SIZE,plan=planSewerStairs(e,Layout.terrain),{ox,oz,n,floor,top}=plan;
+  for(let x=0;x<n;x++){yield;for(let z=0;z<n;z++){
+    const surface=Layout.terrain.topSolidVoxelY((ox+x+.5)*s,(oz+z+.5)*s);
+    world.set(ox+x,floor-1,oz+z,CONCRETE);
+    for(let y=floor;y<=Math.max(surface,top)+Math.ceil(SEWER.STAIR_HEADROOM/s);y++)world.set(ox+x,y,oz+z,VOXEL.EMPTY);
+  }
+  }
+  for(let x=-1;x<=n;x++){yield;for(let z=-1;z<=n;z++){
+    if(x>=0&&x<n&&z>=0&&z<n)continue;
+    const wx=(ox+x+.5)*s,wz=(oz+z+.5)*s;
+    const outsideX=wx+(x===-1?-s:x===n?s:0),outsideZ=wz+(z===-1?-s:z===n?s:0);
+    const bore=sewerProfile(outsideX,outsideZ),surface=Layout.terrain.topSolidVoxelY(wx,wz);
+    const opening=(plan.entrySide===0&&x===-1&&z>=0&&z<plan.width)
+      ||(plan.entrySide===1&&z===-1&&x>=n-plan.width&&x<n)
+      ||(plan.entrySide===2&&x===n&&z>=n-plan.width&&z<n)
+      ||(plan.entrySide===3&&z===n&&x>=0&&x<plan.width);
+    for(let y=floor-1;y<=surface;y++){
+      const height=(y+.5)*s;
+      const portal=bore.inside&&height>=Math.max(floor*s,bore.floor)&&height<bore.floor+bore.height;
+      world.set(ox+x,y,oz+z,portal||(opening&&y>top)?VOXEL.EMPTY:CONCRETE);
     }
   }
-  // …and line it, so it reads as a shaft rather than a hole.
-  for (let x = -1; x <= N; x++) {
-    for (let z = -1; z <= N; z++) {
-      if (x >= 0 && x < N && z >= 0 && z < N) continue;
-      // The lining must open into the bore. Depending on a sloping surface
-      // to expose an accidental exit seals the stairs after street grading.
-      const outsideX=(ox+x+.5+(x===-1?-1:x===N?1:0))*s;
-      const outsideZ=(oz+z+.5+(z===-1?-1:z===N?1:0))*s;
-      const meetsTunnel=Layout.Masterplan.sewerDistance(outsideX,outsideZ,SEWER.WIDTH)<=SEWER.WIDTH/2;
-      const boreFloor=Layout.terrain.topSolidVoxelY(outsideX,outsideZ)-Math.round(SEWER.DEPTH/s);
-      const boreCeiling=boreFloor+Math.round(SEWER.HEIGHT/s);
-      for (let y = floor - 1; y <= top; y++) {
-        const portal=meetsTunnel&&y>=Math.max(floor,boreFloor)&&y<=boreCeiling;
-        world.set(ox+x,y,oz+z,portal?VOXEL.EMPTY:CONCRETE);
-      }
+  }
+  // Each slab meets the outer lining. Thick treads remain ordinary voxels,
+  // so a blast removes the actual support instead of an invisible ramp.
+  for(const slab of plan.slabs){yield;for(let x=slab.x;x<slab.x+slab.dx;x++)for(let z=slab.z;z<slab.z+slab.dz;z++)
+    for(let y=Math.max(floor-1,slab.y-SEWER.STAIR_THICKNESS+1);y<=slab.y;y++)world.set(x,y,z,SEWER.WALKWAY_MATERIAL);
+  }
+  for(const landing of [plan.route[0],plan.exit].filter(Boolean)){
+    const {x,y,z}=landing,cx=Math.floor(x/s),cz=Math.floor(z/s),floorY=Math.round(y/s),half=Math.floor(SEWER.STAIR_DOOR_CELLS/2);
+    // Graded/diagonal bores need a flat threshold and a full-width opening.
+    // A point that fits at its centre can still bury Jimothy's shoulder.
+    for(let dx=-half;dx<=half;dx++)for(let dz=-half;dz<=half;dz++){
+      for(let vy=floorY-SEWER.STAIR_THICKNESS;vy<floorY;vy++)world.set(cx+dx,vy,cz+dz,SEWER.WALKWAY_MATERIAL);
+      for(let vy=floorY;vy<floorY+Math.ceil(SEWER.STAIR_HEADROOM/s);vy++)world.set(cx+dx,vy,cz+dz,VOXEL.EMPTY);
     }
   }
-  // The step, one voxel per perimeter cell, spiralling down the wall.
-  const ring = [];
-  for (let x = 0; x < N; x++) ring.push([x, 0]);
-  for (let z = 1; z < N; z++) ring.push([N - 1, z]);
-  for (let x = N - 2; x >= 0; x--) ring.push([x, N - 1]);
-  for (let z = N - 2; z >= 1; z--) ring.push([0, z]);
-  for (let step = 0; top - step >= floor; step++) {
-    const [sx, sz] = ring[step % ring.length];
-    world.set(ox + sx, top - step, oz + sz, BRICK);
-  }
+  // Keep the road over the shaft. Only the upper flights need an aperture;
+  // exposing the whole stairwell made an ordinary drive fall into the sewer.
+  for(let x=0;x<n;x++){yield;for(let z=0;z<n;z++){
+    const vx=ox+x,vz=oz+z,wx=(vx+.5)*s,wz=(vz+.5)*s,surface=Layout.terrain.topSolidVoxelY(wx,wz);
+    const underside=(surface-SEWER.STAIR_THICKNESS+1)*s;
+    if(plan.slabs.some(t=>vx>=t.x&&vx<t.x+t.dx&&vz>=t.z&&vz<t.z+t.dz&&(t.y+1)*s+SEWER.STAIR_HEADROOM>underside))continue;
+    for(let d=0;d<SEWER.STAIR_THICKNESS;d++)world.set(vx,surface-d,vz,Layout.terrain.materialAtVoxel(vx,surface-d,vz));
+  }}
 }
 
 /** Generate one chunk column: ground, every building that overlaps it, and
@@ -307,7 +304,7 @@ export function* generateColumn(world, cx, cz) {
     for (const entrance of e.entrances) {
       if (entrance.x < cx * C - pad || entrance.x > (cx + 1) * C + pad) continue;
       if (entrance.z < cz * C - pad || entrance.z > (cz + 1) * C + pad) continue;
-      buildStairwell(world, entrance);
+      yield*buildStairwell(world, entrance);
     }
   }
 

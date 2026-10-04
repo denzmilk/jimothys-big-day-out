@@ -520,11 +520,11 @@ export class VoxelWorld {
           mask=(mask&~(1<<y))>>>0;
         }
       }
-      return support===terrainTop?surface:(support+1)*s;
+      return support===terrainTop&&TERRAIN.SMOOTH_CONTACT_MATERIALS.includes(this.get(vx,support,vz))?surface:(support+1)*s;
     }
     for (let vy = top; vy >= bottom; vy--) {
       if (this.get(vx, vy, vz) === 0) continue;
-      return vy === terrainTop ? surface : (vy + 1) * s;
+      return vy===terrainTop&&TERRAIN.SMOOTH_CONTACT_MATERIALS.includes(this.get(vx,vy,vz))?surface:(vy+1)*s;
     }
     return bottom * s; // dug clean through: fall to bedrock
   }
@@ -912,7 +912,7 @@ export class VoxelWorld {
           // foundation on it fails the second, and a wall must not be smeared
           // into the hillside it stands on.
           intact[(lz + 1) * P + (lx + 1)] =
-            here && here !== VOXEL.EMPTY && (!above || above === VOXEL.EMPTY) ? 1 : 0;
+            TERRAIN.SMOOTH_CONTACT_MATERIALS.includes(here) && (!above || above === VOXEL.EMPTY) ? 1 : 0;
         }
       }
     }

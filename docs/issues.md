@@ -86,9 +86,13 @@ Reproduce travel in both directions on natural, road-edge and excavated ground; 
 
 ### JIM-94 — Sewer stairs are not usable stairs
 
-**Status:** reported, queued to M55 · **Reported:** Chris, 2026-10-04.
+**Status:** implemented, awaiting Chris's playtest · **Reported:** Chris, 2026-10-04.
 
 Audit each sewer entrance class for recognisable steps, continuous top/bottom landings, riser height, ceiling clearance and matching collision. Verify walking down and back up with original Jimothy, destruction and streamed return. M48's broader sewer pass does not close this new traversal report.
+
+**2026-10-04 repair:** the old 22 cm-wide spiral dropped 8.8 m within Jimothy's footprint. It now has 1.32 m-wide flights and corner landings, 44 cm treads, 22 cm risers, 2.2 m clear headroom and a checked lower connection to the graded bore. The 5.28 m shaft retains a destructible street cover wherever stair headroom permits; only upper flights remain open. Structural treads stay flat instead of inheriting hillside smoothing. Severed treads enter the bounded support/collision system, persist after travel and restore on restart. Pursuers now sample ground from their current storey for movement, foot IK and net clearance; the new cover exposed their old road-height query snapping them out of the sewer.
+
+**Verification:** all 21 entrance layouts and all 42 down/up walks pass with the loaded original rig: zero blocked frames, waypoint height error below 25 cm. All 126 units, focused collapse/persistence/restart checks, build and native inspection pass. The street-cover regression first reproduced an open roadway, then passed at every shaft; the cover is destructible. Seventeen sewer/carry/camera cases pass across the final runs after correcting the ground query and replacing obsolete fall-through-road fixtures with actual underground placement. Fading is exercised at a real narrow wall; assertions are retained. The 18 enemy/net/radar cases also pass across the final runs: net clearance samples the hoop height on slopes, and the sewer inspection shortcut explicitly enters below the new cover. Native inspection resets planted-paw history after deliberate vertical warps and refreshes skin matrices before readback. Evidence: `output/iterate/sewer-stairs-red.log`, `sewer-stair-collapse-red.log`, `sewer-cover-red.log`, `sewer-stairs-covered-{units,routes,adjacent,smoke,native}.log`, `sewer-stairs-{entrance,flight,lower}.png`, `sewer-stairs-{follow-fade,enemy-final,verified-smoke}.log`; `tools/inspect-sewer-stairs.mjs`. The shaft's existing road-centred placement remains; the upper stair aperture is still an opening. Appearance, tight-camera behaviour and traversal feel await Chris. M55's damaged-ground work remains open.
 
 ### JIM-88 — Most tools have small generic bursts and no use sounds
 

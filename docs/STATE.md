@@ -6,7 +6,7 @@ Chris supplied a screenshot of a taxi stuck while driving downhill and authorise
 
 ## Active: M55 terrain and sewer traversal — 2026-10-04
 
-M54 committed/pushed as `52980d0`. JIM-93's intact-slope contact mismatch is repaired: 12 uphill/downhill routes retain contact across 30/60/120 Hz, and native original-rig steep-street travel is console-clean. All 122 units, build/pixel smoke and the focused adjacent checks pass. The existing giant-channel support deadline still fails (JIM-48), unchanged. Details/evidence: JIM-93 / M55. **Next: JIM-94 broad connected sewer stairs and landings, then JIM-43 damaged-surface smoothing within M55.** No complete M55 claim; walls/ceilings remain crisp and Chris's feel sign-off is pending.
+JIM-93's intact-slope contact repair is pushed as `5b3d9db`. JIM-94 now has broad connected sewer stairs: all 21 layouts and 42 down/up routes pass with the loaded original rig, as do severed-tread rubble, travel persistence and restart. A destructible street cover protects the central shaft while preserving the upper stair opening. All 126 units, build and native inspection pass; focused adjacent and pixel-smoke evidence is recorded under JIM-94. **Next: JIM-43 damaged-surface smoothing within M55.** Existing giant-channel support latency (JIM-48) remains open. Chris's appearance/feel sign-off is pending; M55 is not complete.
 
 ## M54 land gait — 2026-10-04
 

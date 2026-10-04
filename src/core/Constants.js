@@ -491,6 +491,7 @@ export const HEARING = {
 // Losing sight of him is the interesting half of a chase.
 export const SEARCH = {
   DURATION: 14,
+  GROUND_STEP: .45,
   // How far around the last known position they cast about.
   WANDER_RADIUS: 9, MAX_RADIUS: 16,
   DISPATCH_RADIUS: 12, DISPATCH_MIN_ERROR: 0.5, DISPATCH_VARIANTS: 7,
@@ -1054,10 +1055,9 @@ export const SEWER = {
   // one whatever this says: that is the "no dead space you cannot get out of"
   // guarantee, and it is enforced at bake time rather than hoped for.
   ENTRANCE_SPACING: 190,
-  // The stairwell is a square shaft with a step spiralling down its wall. Steps
-  // are ONE voxel high, so walking up is the auto-climb doing its ordinary job
-  // rather than a special case — a vertical ladder would need one.
-  SHAFT: 13,
+  // Wide flights meet on level corners; dimensions are in voxel cells.
+  SHAFT: 24, STAIR_WIDTH: 6, STAIR_TREAD: 2, STAIR_THICKNESS: 2,
+  STAIR_HEADROOM: 2.2, STAIR_APPROACH: 3, STAIR_DOOR_CELLS: 5,
   // Underground light. The surface's golden-hour sun is useless down here, and
   // the milestone asks for lit enough to move through and dark enough to be
   // unpleasant.

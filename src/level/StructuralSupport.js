@@ -1,13 +1,15 @@
 import * as THREE from 'three';
-import {SUPPORT as C,VOXEL,BUILDINGS,GLAZING} from '../core/Constants.js';
+import {SUPPORT as C,VOXEL,BUILDINGS,GLAZING,SEWER} from '../core/Constants.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import * as Layout from './Layout.js';
 import {rubbleBoxes} from '../core/RubbleShapes.js';
+import {planSewerStairs} from './SewerStairs.js';
 
 export class StructuralSupport {
  constructor(scene,jimothy,voxels){
   this.scene=scene;this.jimothy=jimothy;this.voxels=voxels;this.pending=new Map();this.fragments=[];this.pieces=new Map();this.serial=0;
   this.material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:1});this.cube=new THREE.BoxGeometry(VOXEL.SIZE,VOXEL.SIZE,VOXEL.SIZE).toNonIndexed();
+  this.stairs=voxels.terrain===Layout.terrain?Layout.Masterplan.sewerNetwork().flatMap(n=>n.entrances).map(e=>planSewerStairs(e,voxels.terrain)):[];
   eventBus.on(Events.WORLD_DEMOLISHED,e=>{
    if(!e.bounds)return;
    if(!e.collapse)for(const b of [...Layout.buildingsIntersecting(e.bounds.min[0],e.bounds.min[2],e.bounds.max[0],e.bounds.max[2]),...Layout.landmarkStructuresIn(e.bounds.min[0],e.bounds.min[2],e.bounds.max[0],e.bounds.max[2])]){
@@ -17,6 +19,12 @@ export class StructuralSupport {
     const bottom=Math.min(e.bounds.min[1],b.type==='landmark'?b.vy*VOXEL.SIZE:Infinity,...[[0,0],[b.w,0],[0,b.d],[b.w,b.d]].map(([x,z])=>voxels.terrainHeightAt(b.x+x,b.z+z)))-VOXEL.SIZE;
     this.pending.set(key,{min:[b.x-margin,Math.min(bottom,previous?.min[1]??Infinity),b.z-margin],max:[b.x+b.w+margin,(b.vy+b.vh)*VOXEL.SIZE+Math.max(b.w,b.d)*Math.max(...BUILDINGS.ROOF_PITCH),b.z+b.d+margin]});
    }
+   if(!e.collapse)for(const p of this.stairs){
+    if(this.pending.size>=C.PENDING)break;
+    const s=VOXEL.SIZE,margin=SEWER.STAIR_DOOR_CELLS,bounds={min:[(p.ox-margin)*s,(p.floor-1)*s,(p.oz-margin)*s],max:[(p.ox+p.n+margin)*s,(p.top+1)*s,(p.oz+p.n+margin)*s]};
+    if(bounds.min.some((v,i)=>v>e.bounds.max[i])||bounds.max.some((v,i)=>v<e.bounds.min[i]))continue;
+    this.pending.set(`sewer:${p.ox},${p.oz}`,bounds);
+   }
    if(e.cells)this.gather(e.cells);
   });
   eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.fragments.find(p=>p.id===id);if(p){p.attached=true;eventBus.emit(Events.PROP_SUSPEND,{id});}});
@@ -25,7 +33,7 @@ export class StructuralSupport {
  gather(cells){
   const step=C.SECTION_CELLS*VOXEL.SIZE;
   for(const cell of cells){
-   if(cell.mat===GLAZING.MATERIAL_ID||cell.y<=this.voxels.terrainHeightAt(cell.x,cell.z)+VOXEL.SIZE)continue;
+   if(cell.mat===GLAZING.MATERIAL_ID||(cell.mat!==SEWER.WALKWAY_MATERIAL&&cell.y<=this.voxels.terrainHeightAt(cell.x,cell.z)+VOXEL.SIZE))continue;
    const key=`${Math.floor(cell.x/step)},${Math.floor(cell.y/step)},${Math.floor(cell.z/step)}`;
    let list=this.pieces.get(key);if(!list){if(this.pieces.size>=C.PENDING)continue;list=[];this.pieces.set(key,list);}if(list.length<C.SECTION_VOXELS)list.push(cell);
   }

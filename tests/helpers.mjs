@@ -1,9 +1,20 @@
 // Shared harness helpers for all gameplay specs. Everything drives the game
 // through render_game_to_text / advanceTime — the first advanceTime call
 // freezes wall-clock updates so simulated time is fully test-controlled.
+import {VOXEL} from '../src/core/Constants.js';
 
 export const state = (page) => page.evaluate(() => JSON.parse(window.render_game_to_text()));
 export const adv = (page, s) => page.evaluate((secs) => window.advanceTime(secs), s);
+
+// M55 covers the road above the shaft. Underground fixtures should start
+// below that cover; all real stair approaches are exercised separately.
+export async function placeInSewer(page,entry={x:69,z:-3}) {
+  await page.evaluate(({e,s})=>{
+    const g=window.__game;window.teleportJimothy(e.x,e.z);g.voxels.processGeneration();
+    const cell=g.standableUnder(e.x,e.z);if(!cell)throw new Error('No standable sewer floor');
+    window.dropJimothy(e.x,e.z,cell[1]*s+g.jimothy.radius);g.jimothy.legs.reset();g.jimothy.postUpdate(0);g.cameraSystem.snapToTarget();
+  },{e:entry,s:VOXEL.SIZE});
+}
 
 export async function boot(page, { withRig = false, arrival = false } = {}) {
   // Manual time from frame zero: no real-time sim ever runs under test, so

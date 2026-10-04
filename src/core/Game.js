@@ -222,6 +222,15 @@ class Game {
         (a, c) => (Math.hypot(c.x - jp.x, c.z - jp.z) < Math.hypot(a.x - jp.x, a.z - jp.z) ? c : a),
       );
       this.teleportJimothy(near.x, near.z);
+      // M55's road cover preserves traffic above the shaft. The sewer
+      // inspection shortcut must explicitly enter the lower floor now.
+      const column=this.voxels.columnOf(Math.floor(near.x/VOXEL.SIZE),Math.floor(near.z/VOXEL.SIZE));
+      this.voxels.ensureColumn(column.cx,column.cz);
+      const floor=this.standableUnder(near.x,near.z);
+      if(floor){
+        this.jimothy.body.position.y=floor[1]*VOXEL.SIZE+this.jimothy.radius;
+        this.jimothy._prevFeetY=undefined;this.jimothy.legs.reset();this.jimothy.postUpdate(0);this.cameraSystem.snapToTarget();
+      }
     });
 
     eventBus.on(Events.PLAYER_NETTED, () => {

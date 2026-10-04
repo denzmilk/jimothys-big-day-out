@@ -11,8 +11,8 @@
 // be sealed 200 m along it, and "there is an entrance" is exactly the kind of
 // proxy this repo has shipped twice.
 import { test, expect } from '@playwright/test';
-import { state, adv, boot } from './helpers.mjs';
-import { SEWER, TREASURE, VISION, STREAM, CAMERA } from '../src/core/Constants.js';
+import { state, adv, boot, placeInSewer } from './helpers.mjs';
+import { SEWER, TREASURE, VISION, STREAM, CAMERA, VOXEL } from '../src/core/Constants.js';
 import * as Masterplan from '../src/level/CityPlanner.js';
 import * as Terrain from '../src/level/Terrain.js';
 
@@ -47,7 +47,7 @@ test('the tunnels are navigable — you can walk out from deep inside one', asyn
 
   // Go down, then walk a long way ALONG the tunnel before asking. Testing the
   // route from the bottom of the stairs proves only that stairs are stairs.
-  await page.evaluate((e) => window.teleportJimothy(e.x, e.z), start);
+  await placeInSewer(page,start);
   await adv(page, 1.0);
   const deep = await page.evaluate((e) => {
     // March along the centreline away from the stairwell.
@@ -73,11 +73,11 @@ test('the tunnels are navigable — you can walk out from deep inside one', asyn
   expect(escape, `no way out of the tunnel ${deep.r} m from the stairs`).toBeTruthy();
 });
 
-test('dropping in puts him underground, and the world goes dark', async ({ page }) => {
+test('entering the sewer puts him underground, and the world goes dark', async ({ page }) => {
   await boot(page);
   const entrances = await page.evaluate(() => window.sewerEntrances());
   const e = nearestTo(entrances, 0, 0);
-  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await placeInSewer(page,e);
   await adv(page, 1.2);
 
   const s = await state(page);
@@ -111,7 +111,7 @@ test('pursuers follow him down, and the net does not reach through the ceiling',
   await boot(page);
   const entrances = await page.evaluate(() => window.sewerEntrances());
   const e = nearestTo(entrances, 0, 0);
-  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await placeInSewer(page,e);
   await adv(page, 1.0);
   expect((await state(page)).underground.below).toBe(true);
 
@@ -161,7 +161,7 @@ test('crab people live down there, and react to a raccoon', async ({ page }) => 
   await adv(page, 0.5);
   expect((await state(page)).underground.crabs.count).toBe(0);
 
-  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await placeInSewer(page,e);
   await adv(page, 2.5);
   const down = await state(page);
   expect(down.underground.crabs.count, 'the sewers are empty').toBeGreaterThan(0);
@@ -234,7 +234,7 @@ test('the underground costs memory only where it has been visited', async ({ pag
   await boot(page);
   const entrances = await page.evaluate(() => window.sewerEntrances());
   const e = nearestTo(entrances, 0, 0);
-  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await placeInSewer(page,e);
   await adv(page, 1.0);
   const s = await state(page);
   // The sewer is world, not damage: walking through one must not record a
@@ -259,7 +259,7 @@ test('a flat headbutt digs sideways underground, and still spares the road above
   await boot(page);
   const entrances = await page.evaluate(() => window.sewerEntrances());
   const e = nearestTo(entrances, 0, 0);
-  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await placeInSewer(page,e);
   await adv(page, 1.5);
   expect((await state(page)).underground.below, 'never got underground').toBe(true);
 
@@ -304,7 +304,7 @@ test('the follow camera never sits inside the rock (JIM-41)', async ({ page }) =
   await boot(page);
   const entrances = await page.evaluate(() => window.sewerEntrances());
   const e = nearestTo(entrances, 0, 0);
-  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await placeInSewer(page,e);
   await adv(page, 1.5);
   expect((await state(page)).underground.below, 'never got underground').toBe(true);
 
@@ -362,7 +362,20 @@ test('he fades when the camera is forced in close, so you can see past him (JIM-
   expect(surface.rig.materials.every((m) => m.opacity === 1), 'he is see-through on the street')
     .toBe(true);
 
-  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  // The wider M55 shaft allows a normal camera distance. Exercise the fade
+  // at an actual nearby wall, where the boom is physically shortened.
+  const narrow=await page.evaluate(({e,voxelSize})=>{
+    const g=__game,s=voxelSize;
+    for(let dx=-10;dx<=10;dx+=.5)for(let dz=-10;dz<=10;dz+=.5){
+      const x=e.x+dx,z=e.z+dz,cell=g.standableUnder(x,z);if(!cell)continue;
+      for(const yaw of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+        const hit=g.voxels.raycast(x,cell[1]*s+1.2,z,-Math.sin(yaw),0,-Math.cos(yaw),1.2);
+        if(hit&&Math.hypot(hit.x-x,hit.z-z)>.65)return {x,z,yaw};
+      }
+    }throw new Error('No narrow sewer camera fixture');
+  },{e,voxelSize:VOXEL.SIZE});
+  await placeInSewer(page,narrow);
+  await page.evaluate(q=>{lookJimothy(q.yaw);aimJimothy(0);},narrow);
   await adv(page, 1.5);
   const down = await state(page);
   expect(down.underground.below).toBe(true);

@@ -1,5 +1,5 @@
 import {chromium} from 'playwright';import fs from 'node:fs/promises';import {execFileSync} from 'node:child_process';
-const folder='output/iterate/momentum-roll-native';await fs.mkdir(folder,{recursive:true});
+const folder=process.env.ROLL_OUTPUT||'output/iterate/momentum-roll-native';await fs.mkdir(folder,{recursive:true});
 const browser=await chromium.launch({headless:true,channel:'chrome',args:['--use-angle=metal']}),errors=[],reports=[];
 try{
  const page=await browser.newPage({viewport:{width:960,height:600}});page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});

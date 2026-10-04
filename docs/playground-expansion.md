@@ -26,7 +26,7 @@ The immediate car follow-up also requests more ditch torque, tougher cars (JIM-9
 
 ## Sequential delivery
 
-The order puts contact/ownership and size rules ahead of powers that depend on them. The next two focused milestones are M54 and M55; later rows are work packages to split when reached, not a claim that each fits one session.
+The order puts contact/ownership and size rules ahead of powers that depend on them. Steps 0–2 and M56 momentum rolling are implemented, awaiting playtest. The JIM-69 skin checkpoint follows M56; player ragdolls are next within step 3. Later rows are work packages to split when reached, not a claim that each fits one session.
 
 | Step | Work | Exit observation and dependencies |
 | --- | --- | --- |

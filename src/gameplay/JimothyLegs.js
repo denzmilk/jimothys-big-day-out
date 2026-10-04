@@ -1,6 +1,8 @@
 import * as THREE from 'three';
-import { LEGS, MOVES, PLAYER_CONFIG, JIMOTHY_IDLE as IDLE } from '../core/Constants.js';
+import { RIG, LEGS, MOVES, PLAYER_CONFIG, JIMOTHY_IDLE as IDLE } from '../core/Constants.js';
 import { solveTwoBone } from '../core/Grounding.js';
+import {fatRoundness} from '../core/MathUtils.js';
+import {gameState} from '../core/GameState.js';
 
 // M11: the loaded rig uses planted paws and two-bone IK. The old split-model
 // swing and placeholder tubes remain fallbacks; drawing both caused eight legs.
@@ -141,7 +143,10 @@ export class JimothyLegs {
     rig.root.position.y=rig.baseY;
     if(!c.grounded||c.swimming||c.move?.kind==='roll'){
       this.reset();
-      LEG_NAMES.forEach((name,i)=>rig.pose(name,MOVES.ROLL.TUCK_LEG*(i<2?1:-1)*(this.tuck||0)));
+      // JIM-69: giant sockets share the gentle head/tail tuck. A full lean
+      // curl folds the expanded belly through the upper legs.
+      const tuckScale=THREE.MathUtils.lerp(1,RIG.GIANT_TUCK,fatRoundness(gameState.player.fatness));
+      LEG_NAMES.forEach((name,i)=>rig.pose(name,MOVES.ROLL.TUCK_LEG*(i<2?1:-1)*(this.tuck||0)*tuckScale));
       return;
     }
     root.updateMatrixWorld(true);

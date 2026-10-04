@@ -150,7 +150,7 @@ export class JimothyRig {
     const box=new THREE.Box3(),point=new THREE.Vector3();
     for(const v of this.torsoVertices)box.expandByPoint(point.fromBufferAttribute(a.position,v));
     const toRoot=new THREE.Matrix4().copy(this.root.matrixWorld).invert().multiply(mesh.matrixWorld);
-    if(amount===0)a.normal.array.set(this.growthNormals);else mesh.geometry.computeVertexNormals();
+    if(amount===0)a.normal.array.set(this.growthNormals);else this._growthNormals();
     a.normal.needsUpdate=true;
     this.grownBox=box.applyMatrix4(toRoot);
     for(const [name,bone]of Object.entries(this.bones))bone.quaternion.copy(posed[name]);
@@ -161,6 +161,11 @@ export class JimothyRig {
     this.root.parent.updateMatrixWorld(true);
     const geometry=mesh.geometry,index=mesh.morphTargetDictionary.GiantGrowth;
     this.growthBase=geometry.attributes.position.array.slice();this.growthNormals=geometry.attributes.normal.array.slice();
+    const weld=new Map();this.normalWeld=new Uint32Array(geometry.attributes.position.count);this.normalSums=new Float32Array(this.growthBase.length);
+    for(let v=0;v<this.normalWeld.length;v++){
+      const key=[0,1,2].map(k=>Math.round(this.growthBase[v*3+k]/RIG.GROWTH_WELD_EPSILON)).join(',');
+      if(!weld.has(key))weld.set(key,v);this.normalWeld[v]=weld.get(key);
+    }
     this.growthDelta=geometry.morphAttributes.position[index].array.slice();
     // Positions are baked only when food changes size. This lets normals,
     // collision queries and the rendered skin agree on exactly one shape.
@@ -193,6 +198,23 @@ export class JimothyRig {
     for(let v=0;v<a.position.count;v++){
       let weight=0;for(let k=0;k<4;k++)if(torso.has(a.skinIndex.getComponent(v,k)))weight+=a.skinWeight.getComponent(v,k);
       if(weight>=RIG.TORSO_WEIGHT)this.torsoVertices.push(v);
+    }
+  }
+
+  _growthNormals(){
+    // JIM-69: glTF duplicates skin vertices at UV seams. Recomputing each
+    // island alone gave coincident points opposing normals and hard wedges.
+    // Share area-weighted normals without changing texture or skin topology.
+    const g=this.skinned.geometry,p=g.attributes.position.array,n=g.attributes.normal.array,ids=g.index.array,sums=this.normalSums,weld=this.normalWeld;sums.fill(0);
+    for(let i=0;i<ids.length;i+=3){
+      const a=ids[i]*3,b=ids[i+1]*3,c=ids[i+2]*3;
+      const ux=p[b]-p[a],uy=p[b+1]-p[a+1],uz=p[b+2]-p[a+2],vx=p[c]-p[a],vy=p[c+1]-p[a+1],vz=p[c+2]-p[a+2];
+      const x=uy*vz-uz*vy,y=uz*vx-ux*vz,z=ux*vy-uy*vx;
+      for(let k=0;k<3;k++){const at=weld[ids[i+k]]*3;sums[at]+=x;sums[at+1]+=y;sums[at+2]+=z;}
+    }
+    for(let v=0;v<weld.length;v++){
+      const at=weld[v]*3,x=sums[at],y=sums[at+1],z=sums[at+2],length=Math.hypot(x,y,z)||1;
+      n[v*3]=x/length;n[v*3+1]=y/length;n[v*3+2]=z/length;
     }
   }
 

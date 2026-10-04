@@ -49,3 +49,29 @@ hidden the animal's original shape. Enlarged head, tail and paws now preserve
 their local proportions while growing more slowly than the torso. Collection
 samples three skin vertices per attachment so objects follow its actual pose
 and wobble. IK accounts for the minimum folded-leg reach and paw size uphill.
+
+### Underside repair, JIM-69 (2026-10-04)
+
+Upper and lower bones of each limb now share one growth direction. The old
+per-bone maximum pushed blended knee vertices toward the spherical torso while
+pulling their paw down, forming stretched wedges. A welded-neighbour pass
+smooths the displacement field across the socket; strongly owned face/paw
+interiors remain fixed. The lean basis and all skin/texture data stay intact.
+
+The Blender recipe reads target scale, radius, anchors, ownership bands and
+smoothing values from `RIG`/`PLAYER_CONFIG` in `Constants.js` using Node. The
+runtime keeps normals continuous across duplicated UV vertices after growth,
+restores source normals at lean size and applies the gentler giant tuck to legs.
+
+To verify preservation against an earlier export:
+
+```sh
+node tools/verify-jimothy-basis.mjs path/to/previous-jimothy-skinned.glb
+```
+
+This compares basis/normal/UV/weight/index buffers, embedded image hashes,
+bone hierarchy and inverse bind matrices. The growth target is deliberately
+excluded. The current export retains 39,991 triangles and twelve bones.
+Native inspection tools: `inspect-growth-tuck.mjs`, `inspect-momentum-roll.mjs`.
+The original textured underside remains rough and stretches with very large
+girth; that aesthetic still needs Chris's judgement.

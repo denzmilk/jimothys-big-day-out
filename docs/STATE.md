@@ -4,6 +4,14 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## Giant skin and tuck checkpoint — JIM-69 — 2026-10-04
+
+**Implemented, awaiting Chris's playtest.** Three reproduced defects are repaired: split knee/paw growth directions, hard normals at UV seams, and the full lean-leg curl applied to the giant belly. Blender now grows each whole limb together and smooths socket displacement while keeping face/paw interiors rigid. Giant legs share the gentle head/tail tuck. Runtime growth shares normals across UV seams and restores the original lean normals on shrinking.
+
+The 39,991-triangle basis, all texture/skin attributes, three embedded images, twelve-bone hierarchy and inverse bind matrices are byte-identical to the previous asset. All 142 units and eighteen unique focused/adjacent browser cases pass across the final batch (17/18) and unchanged ownership rerun on a fresh Vite server (1/1). The latter initially reproduced the known duplicate GameState import after HMR. Build and production pixel smoke pass, console-clean. Native original-rig underside/rolling/world views are console-clean and reduce the over-folded legs. Broad texture stretch and the source mesh's rough underside remain visible; this is not a fresh retopology or visual sign-off.
+
+Latest native giant CPU update plus render submission remains high (58.7 ms median / 70.5 p95, max 97.2 over 65.7 m). This repair does not close JIM-48 or claim a performance improvement. Evidence: JIM-69 and `output/iterate/giant-skin-*`, `growth-tuck-{before,final}`. **Next authorised item: player ragdolls**, followed by destruction-led wanted pacing and the remaining recorded queue.
+
 ## M56 momentum rolling — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** Fat rolling now accelerates, responds to grades, turns with inertia, coasts/brakes and rotates around the actual direction of travel. Lean flop is retained. Grounded release blends upright; air release retains flight velocity and returns control. Repeated downhill drops and false second landings were caught and repaired. This retains ADR-0002's controlled kinematic body; it does not make ordinary rolling a free Cannon rigid body.

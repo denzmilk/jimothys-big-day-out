@@ -296,3 +296,5 @@ Tuning: `SUPPORT`, `RUBBLE`, `DEBRIS`, `STREET.CAR`, `GLASS_SHARDS`, `RAGDOLL` i
 ### M56 rolling ownership
 
 `RollMotion` owns momentum integration and accumulated contact-axis orientation during a fat roll. `JimothyController` retains its kinematic body/contact solver; PhysicsSystem still owns dynamic launches. Quaternion recovery returns to the controller pose before the next action. Swimming, riding, launch and restart clear rolling ownership. All response, braking, turn, bounce and recovery tuning lives in `MOMENTUM_ROLL`. This is powered physical-style movement, not full dynamic Cannon rolling.
+
+JIM-69 growth refinement: the Blender recipe groups upper/lower limb ownership before generating `GiantGrowth`, then smooths the socket displacement on welded neighbours. Runtime `JimothyRig._growthNormals` shares area-weighted normals across cached seam groups only on size changes; shrink-to-lean restores the source normals. The original geometry topology, textures and skin remain intact. `GIANT_TUCK` also limits giant leg curl.

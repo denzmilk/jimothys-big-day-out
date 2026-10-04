@@ -10,7 +10,7 @@ await fs.mkdir(output,{recursive:true});
 const browser=await chromium.launch({headless:true,channel:'chrome',args:['--use-angle=metal']});
 const report={url,started:new Date().toISOString(),method:'960x600, Medium, original rig, 60 Hz simulation, live work budgets. CPU update and render submission; not presented FPS.',errors:[],scenarios:[]};
 try{
- for(const scenario of [{name:'street',fat:0,x:0,z:0,frames:180},{name:'underwater',fat:0,x:-850,z:0,frames:180},{name:'giant-roll',fat:400,x:-2,z:-40,frames:150,keys:['c']}]){
+ for(const scenario of [{name:'street',fat:0,x:0,z:0,frames:180},{name:'underwater',fat:0,x:-850,z:0,frames:180},{name:'giant-roll',fat:400,x:-2,z:-40,frames:150,keys:['c']}].filter(s=>!option('scenario','')||s.name===option('scenario',''))){
   const context=await browser.newContext({viewport:{width:960,height:600}}),page=await context.newPage();
   page.on('pageerror',e=>report.errors.push(String(e)));page.on('console',m=>{if(m.type()==='error')report.errors.push(m.text());});
   await page.addInitScript(()=>{window.__MANUAL_TIME__=true;window.__SKIP_ARRIVAL__=true;localStorage.setItem('jimothy-graphics','medium');let seed=83;Math.random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);});

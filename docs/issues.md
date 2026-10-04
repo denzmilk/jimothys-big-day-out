@@ -272,6 +272,12 @@ The spherical GiantCoat hides the original torso; fixed-size extremities disappe
 
 The final stability audit independently confirms severe stretched folds/open-looking underside geometry on a 111.4 m giant roll. Evidence: `output/iterate/stability-performance-verified/giant-roll.png`, inspected 2026-10-04. Rig/state checks pass while this visual defect remains open; see [the audit](stability-audit-2026-10-04.md).
 
+**Underside checkpoint, 2026-10-04:** the original growth recipe selected the largest *individual bone* influence, so 50/50 knee vertices grew radially while the same limb's paw translated rigidly. Combining upper/lower ownership repairs 1,581 sampled vertices: growth-direction error falls from 20.49 cm maximum to below 0.000001 m. Blender smooths displacement over welded socket neighbourhoods while locking strongly owned face/paw interiors. At Block/Absurd sizes leg tuck drops from 1.15 to 0.345 radians, matching the head/tail policy; lean tuck remains 1.15.
+
+Growth also recomputed normals independently on duplicated UV vertices; coincident normals could oppose each other (difference almost 2). Area-weighted normals now agree exactly across 41,688 duplicates and original lean normals restore exactly. This runs only on size changes, reusing fixed buffers. The basis positions/normals/UVs/weights/indices, three embedded image hashes, bone hierarchy and inverse bind matrices remain byte-identical; repeatable checker: `tools/verify-jimothy-basis.mjs`.
+
+Three new red-to-green regressions, all 142 units, and eighteen unique focused/adjacent browser checks pass across the final 17/18 batch and unchanged fresh-server ownership rerun. Native original-rig lean/fat/giant underside and roll clips are console-clean; build and production pixel smoke pass. Artifacts: `giant-tuck-red.log`, `limb-growth-red.log`, `growth-normals-red.log`, `giant-skin-{final,ownership,units,build}.log`, `giant-growth-integrity-final.json`, `growth-tuck-{before,final}`, `giant-skin-roll`, `giant-skin-world`. The fixed world roll still costs 58.7 ms median / 70.5 p95 CPU plus render submission; no performance improvement is claimed. Broad texture stretch and source-surface roughness remain visible underneath, so the wider visual issue still needs Chris's judgement. This is an implemented repair checkpoint, not complete art sign-off.
+
 ### JIM-70 — Giant rolls do not carve continuous ground channels
 
 **Status:** revised implementation, awaiting Chris’s playtest · **Reported:** 2026-10-03 (Chris) · Milestone 33 refinement.

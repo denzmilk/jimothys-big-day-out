@@ -184,7 +184,10 @@ export class Pedestrians {
         // Drivers rejoin pavement through a tight turn beside the car. A short
         // escape jog keeps their planted foot in reach during that handoff.
         const facing=Math.cos(p.yaw-p.mesh.rotation.y),turn=p.wasDriver?Math.max(0,(facing-DRIVING.DRIVER_TURN_COS)/(1-DRIVING.DRIVER_TURN_COS)):Math.max(0,facing);
-        const speed=(p.flee>0?(p.wasDriver?DRIVING.DRIVER_FLEE_SPEED:PED.FLEE_SPEED):PED.SPEED)*turn;
+        // Full flat-ground sprint speed on a steep street outruns the
+        // planted support leg. Let the same ground query set the climb pace.
+        const probe=PED.SLOPE_PROBE,grade=Math.abs(p.grounding.ground(p.x+dx/(d||1)*probe,p.z+dz/(d||1)*probe)-p.grounding.ground(p.x,p.z))/probe;
+        const speed=(p.flee>0?(p.wasDriver?DRIVING.DRIVER_FLEE_SPEED:PED.FLEE_SPEED):PED.SPEED)*turn/(1+grade*PED.GRADE_SPEED_GAIN);
         const step=Math.min(speed*delta,d),nx=p.x+dx/(d||1)*step,nz=p.z+dz/(d||1)*step;
         const surface=this.voxels.terrainHeightAt(nx,nz), ground=this.voxels.physicalGroundHeightAt(nx,nz,p.y+PED.MAX_STEP,0);
         const givesWay=p.flee<=0&&Math.hypot(nx-jp.x,nz-jp.z)<PED.GIVE_WAY_RADIUS;

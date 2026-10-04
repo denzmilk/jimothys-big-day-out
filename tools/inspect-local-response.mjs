@@ -1,5 +1,5 @@
 import {chromium} from 'playwright';import fs from 'node:fs/promises';
-const folder='output/iterate/local-response-native';await fs.mkdir(folder,{recursive:true});
+const folder=process.env.CAPTURE_FOLDER||'output/iterate/local-response-native';await fs.mkdir(folder,{recursive:true});
 const browser=await chromium.launch({headless:true,channel:'chrome',args:['--use-angle=metal']}),errors=[],frames=[];
 try{
  const page=await browser.newPage({viewport:{width:1100,height:700}});page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});

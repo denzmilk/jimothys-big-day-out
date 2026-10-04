@@ -434,13 +434,19 @@ Evidence: all five checks in `tests/footpaths.spec.js` pass, covering plot exclu
 
 ### JIM-50 — Pedestrians jump during foot-support changes on slopes
 
-**Status:** reopened for deep uphill crouching; original jitter repair implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 27 grounding refinement
+**Status:** uphill crouch follow-up implemented, awaiting Chris’s playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 27 grounding refinement
 
 Chris reports walking jitter and people jumping on angles. Reproduced at spawn by sampling six seconds of pedestrian walking at 60 Hz: `ped-21` near `(6, 20.95, 44.70)` moves its hips upward 0.555 m in one frame while the ground rises only 0.012 m. A planted foot trails too far behind; the unsmoothed pelvis correction disappears at the half-cycle support switch. Evidence: `output/iterate/ik-jitter-baseline.log`. Scope: continuous foot transfer, bounded pelvis movement, slope contact, animation/idle/release transitions. Locations: `src/core/Grounding.js`, `Pedestrians`, shared pursuer grounding.
 
 World-space planted contacts now transfer through bounded swing arcs; trailing-foot selection handles reversals, late landing targets lock, and pelvis/foot rotation respond smoothly. Civilian movement slows while turning toward a new route. The same street repro now measures a 0.050 m maximum hip displacement and 0.033 m planted-foot error at the 95th percentile. `tests/walking-ik.spec.js` covers real streets, all six models on three ramp directions, stop/start, walk/run and 30/60/120 Hz; production captures and smoke are in `output/iterate/ik-*`. Visual feel awaits Chris's sign-off.
 
 **2026-10-04 native follow-up (M59):** ordinary `ped-21`/tourist crosses uphill near x=-7.50,z=-8. Its ground root is correctly at y=44.0657 (terrain 44.0307), but `visual.position.y=-0.7231` and the skin visibly sinks into the pavement. No activity or vehicle-seat ownership is present. At frame 35 the offset returns to -0.1487. Evidence: `output/iterate/local-response-native/paparazzo-006.png`, `paparazzo-035.png`, and `report.json` frames 0/6/18/35. Investigate planted-foot reach and world-space pelvis lag in `FootGrounding`; no cause or fix is claimed yet. This is separate from the verified new kick/camera poses.
+
+**Repair:** catch-up steps now anticipate the moving body at landing, walk-to-run transitions advance the active step at the new cadence, and steep grades shorten strides. Pedestrian navigation also reduces travel speed on grades using the same physical ground query. Flat-ground speed, hip/foot speed limits and contact tolerances remain unchanged. The real-route maximum visual drop falls from 0.749 m to 0.304 m; the initial catch-up-only changes did not fix that peak and are retained in diagnostic logs.
+
+All **157 units and 19 focused/adjacent browser cases** pass. The new twelve-body fixture exercises actual uphill navigation at 30/60/120 Hz; each travels at least 2.09 m in two seconds, worst torso drop is 36.8% of leg length and maximum planted-foot error is 3.42 cm. The original street test retains its limits with a 4.84 cm maximum hip/frame movement, 12.0 cm foot/frame movement, and 2.20 cm p95 contact error. Driver exits, indoor stairs, kick/camera/net poses, capture and bird-chasing remain passing. Native views of the same original-rig scene show the formerly waist-deep tourist above the pavement; console errors none. Build and production pixel smoke pass, with no console errors (`pedestrian-crouch-smoke.log`).
+
+Evidence: `tests/pedestrian-crouch.spec.js`; `output/iterate/pedestrian-crouch-{repro,first,second,third,variety,adjacent,units-final,build,native}.log`, `pedestrian-crouch-native/report.json` and `paparazzo-006.png`. The first draft fixture guessed (-6,0), outside the scare radius; the retained reproduction uses the exact native scene's selected site (-6,-6) and proves the actor is fleeing. Chris still needs to judge the pace and appearance; this does not close JIM-48.
 
 ### JIM-49 — Giant rig proportions and child scales disagree with the intended ball
 

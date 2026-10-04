@@ -64,8 +64,12 @@ export class FootGrounding {
     // to keep the support foot within reach on uphill grades.
     // M51's short, turning routines use smaller steps without retuning the
     // ordinary walking/fleeing gait shared with the rest of the crowd.
-    const speed=this.velocity.length(),stride=Math.min(action?.getClip().name==='Run'?C.RUN_STRIDE:C.WALK_STRIDE,this.legLength*C.STRIDE_LEG_RATIO)*strideScale;
+    const speed=this.velocity.length();
     const direction=this.velocity.clone().normalize();
+    const slope=(this.ground(rootPosition.x+direction.x*C.PROBE,rootPosition.z+direction.z*C.PROBE)-this.ground(rootPosition.x-direction.x*C.PROBE,rootPosition.z-direction.z*C.PROBE))/(2*C.PROBE);
+    // A long flat-ground stride puts the trailing ankle below and behind
+    // the hip uphill. Shorter steps retain torso clearance on either grade.
+    const stride=Math.min(action?.getClip().name==='Run'?C.RUN_STRIDE:C.WALK_STRIDE,this.legLength*C.STRIDE_LEG_RATIO)*strideScale/(1+Math.abs(slope)*C.SLOPE_STRIDE_GAIN);
     for(const leg of this.legs)if(!leg.target)leg.target=this.foothold(leg);
     this.wait=Math.max(0,this.wait-dt);
     const lag=leg=>this.foothold(leg).sub(leg.target).dot(direction);
@@ -78,18 +82,25 @@ export class FootGrounding {
       // catch-up step; a full forward stride leaves the support leg behind.
       const duration=recovery?C.SWING_MIN:THREE.MathUtils.clamp(stride/(2*Math.max(speed,velocity.length()))*C.SWING_SHARE,C.SWING_MIN,C.SWING_MAX);
       const end=this.foothold(leg);
-      if(!recovery)end.addScaledVector(this.velocity,duration).addScaledVector(direction,stride*C.FOOT_LEAD);
+      // A catch-up step still needs to meet the moving body at landing.
+      // Aiming at its old position leaves every new footfall behind it.
+      end.addScaledVector(this.velocity,duration);
+      if(!recovery)end.addScaledVector(direction,stride*C.FOOT_LEAD);
       end.y=this.ground(end.x,end.z)+leg.offset+C.FOOT_CLEARANCE;
-      leg.swing={start:leg.target.clone(),end,elapsed:0,duration,gap:duration*(1-C.SWING_SHARE)/C.SWING_SHARE,recovery};
+      leg.swing={start:leg.target.clone(),end,elapsed:0,duration,gap:duration*(1-C.SWING_SHARE)/C.SWING_SHARE,recovery,speed:Math.max(speed,velocity.length(),C.MIN_SPEED)};
     }
     for(const leg of this.legs){
       const swing=leg.swing;
       if(swing){
-        swing.elapsed=Math.min(swing.duration,swing.elapsed+dt);
+        // Fleeing can begin mid-walk. Finish that step at the new cadence;
+        // keeping its old clock lets the root outrun both planted feet.
+        const rate=Math.max(1,Math.max(speed,velocity.length())/swing.speed);
+        swing.elapsed=Math.min(swing.duration,swing.elapsed+dt*rate);
         // A late navigation turn must not yank a nearly planted foot sideways.
         if(moving&&swing.elapsed/swing.duration<C.LANDING_LOCK){
           const end=this.foothold(leg);
-          if(!swing.recovery)end.addScaledVector(this.velocity,swing.duration-swing.elapsed).addScaledVector(direction,stride*C.FOOT_LEAD);
+          end.addScaledVector(this.velocity,swing.duration-swing.elapsed);
+          if(!swing.recovery)end.addScaledVector(direction,stride*C.FOOT_LEAD);
           end.y=this.ground(end.x,end.z)+leg.offset+C.FOOT_CLEARANCE;
           const correction=end.sub(swing.end).multiplyScalar(1-Math.exp(-C.LANDING_RESPONSE*dt));
           correction.clampLength(0,C.LANDING_SPEED*dt);swing.end.add(correction);

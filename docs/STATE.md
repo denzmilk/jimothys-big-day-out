@@ -4,6 +4,12 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## JIM-50 uphill pedestrian clearance — 2026-10-04
+
+M59 is committed/pushed as `a756d47`. Its native view reproduced ordinary tourist `ped-21` crouching 0.749 m below the ground root when fleeing uphill. `tests/pedestrian-crouch.spec.js` now retains that real-world route and a twelve-body 30/60/120 Hz navigation fixture. Catch-up steps anticipate the moving body, a mid-walk flee updates cadence, steep grades shorten strides and reduce pedestrian travel speed. The worst reproduced drop falls to 0.304 m; the unchanged clearance criterion passes.
+
+**Implemented, awaiting Chris’s playtest.** All 157 units and 19 focused/adjacent browser cases pass, including all 36 model/rate combinations, driver recovery, indoor stairs and camera/kick/net poses. Build, final native inspection and production pixel smoke pass with no console errors. The same captured tourist is visibly above the pavement; its frame-six visual offset falls from -0.723 m to -0.240 m. Evidence: JIM-50. **Next authorised work: police pursuit/guns**, followed by army rifle troops, fish/bubbles and the remaining recorded queue. No further scope approval is needed.
+
 ## M59 early response — 2026-10-04
 
 **Implemented, awaiting Chris’s playtest.** Photographers hold an original Blender camera in both hands, aim it and show a lens flash/shutter. Two varied locals at tier two raise a knee, commit to one dodgeable kick and recover. Small Jimothy launches through shared ragdolls; shields/rides/collection interrupt contact and giants retain rolling. Carried actors still occupy their bounded population slots.

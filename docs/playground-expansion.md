@@ -1,6 +1,6 @@
 # Playground expansion and repair sequence
 
-Chris requested this queue during M53, 2026-10-04, and explicitly asked to finish cars then plan and implement the additions sequentially. This is the complete request inventory and delivery direction. Only M53 is currently implemented. Each later step gets its own tests, live inspection, commit and playtest verdict; a planned entry is not a completed feature.
+Chris requested this queue during M53, 2026-10-04, and explicitly asked to finish cars then plan and implement the additions sequentially. This is the complete request inventory and delivery direction. M53 and the reproduced JIM-89 car-suspension follow-up are implemented, awaiting playtest. Each later step gets its own tests, live inspection, commit and playtest verdict; a planned entry is not a completed feature.
 
 ## All fourteen additions, plus bosses
 
@@ -30,7 +30,7 @@ The order puts contact/ownership and size rules ahead of powers that depend on t
 
 | Step | Work | Exit observation and dependencies |
 | --- | --- | --- |
-| 0 | Finish M53 cars; investigate JIM-89 floating cars | Hijack, steer, brake/reverse, recover from a shallow ditch, crash and exit. All six models maintain wheel contact on both grades and transitions. Source car models stay intact. |
+| 0 | M53 cars and JIM-89 suspension persistence — implemented, awaiting playtest | Hijack, steer, brake/reverse, recover from a shallow ditch, crash and exit. Six driven models pass sampled grade contact; ten parked cars retain suspension/heading after streaming, repairing the reproduced 22 cm hover. Source car models stay intact. |
 | 1 | M54: slower slinking land gait; reopen JIM-76 | Walk/turn/stop across speeds and sizes: planted paws, balanced body, no rapid scuttling or curled dancing legs. Keep idle, swimming, riding and attack poses. |
 | 2 | M55: traversable terrain and sewer stairs; JIM-43/93/94 | Walk both directions over natural slopes, dug ground and every sewer entry; render/contact heights agree, no sticking, roof snaps or falling through steps. Keep buildings crisp and terrain destructible. |
 | 3 | Physical rolling and Jimothy ragdoll | Fat rolls build momentum, bank and bounce with terrain; small Jimothy flops after impacts then safely gets up. Keep the original fat jiggly rig, collection shell and boulder-like destruction channel. Scale impulse by mass; bound contacts/attachments and profile giants (JIM-48/69/70). Split roll and ragdoll into separate changes sharing one movement owner. |

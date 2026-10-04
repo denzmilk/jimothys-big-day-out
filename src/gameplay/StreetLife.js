@@ -101,7 +101,14 @@ export class StreetLife {
       else if(!Layout.roadAtWorld(x,z)&&this.clearLand(x,z)&&dirs.some(([dx,dz])=>Layout.roadAtWorld(x+dx*S,z+dz*S)))kerbs.push(n);
     }
     for(const n of roads)for(const [dx,dz] of dirs){const m=this.graph.get(`${n.ix+dx},${n.iz+dz}`);if(m&&this.roadClear((m.x+n.x)/2,(m.z+n.z)/2)&&Math.abs(this.ground(n.x,n.z)-this.ground(m.x,m.z))<C.MAX_SLOPE)n.links.push(m.key);}
-    for(const p of [...this.items])if(!p.attached&&Math.hypot(p.mesh.position.x-j.x,p.mesh.position.z-j.z)>R){if(!p.fragment&&(!p.driving||p.brokenWindows?.length))this.saved.set(p.id,{position:p.mesh.position.toArray(),quaternion:p.mesh.quaternion.toArray(),loose:p.loose,kind:p.kind,seed:p.seed,brokenWindows:p.brokenWindows,junction:p.junction,axis:p.axis});this.remove(p);}
+    for(const p of [...this.items])if(!p.attached&&Math.hypot(p.mesh.position.x-j.x,p.mesh.position.z-j.z)>R){
+      if(!p.fragment&&(!p.driving||p.brokenWindows?.length))this.saved.set(p.id,{
+        position:p.mesh.position.toArray(),quaternion:p.mesh.quaternion.toArray(),yaw:p.yaw,
+        suspension:p.kind==='car'?Object.fromEntries(p.mesh.children.filter(w=>w.userData.restY!==undefined).map(w=>[w.name,w.position.y])):undefined,
+        loose:p.loose,kind:p.kind,seed:p.seed,brokenWindows:p.brokenWindows,junction:p.junction,axis:p.axis,
+      });
+      this.remove(p);
+    }
     for(const [id,saved] of this.saved){
       const [x,,z]=saved.position;
       if(!this.items.some(p=>p.id===id)&&Math.hypot(x-j.x,z-j.z)<R){this.spawn(id,saved.kind,{x,z,seed:saved.seed,key:null},false);}
@@ -182,10 +189,15 @@ export class StreetLife {
     const saved=this.saved.get(id),mesh=this.template(kind,node.seed),half=mesh.userData.half;
     mesh.position.set(node.x,this.ground(node.x,node.z)+half[1]+C.CLEARANCE,node.z);
     if(saved){mesh.position.fromArray(saved.position);mesh.quaternion.fromArray(saved.quaternion);driving=false;}
+    // JIM-89: returning only the chassis left restored tyres at their authored
+    // rest height, 22 cm above/below a steep road. Keep the neutral height too,
+    // so driving later does not adopt this suspension offset as a new rest pose.
+    if(saved?.suspension)for(const wheel of mesh.children)if(saved.suspension[wheel.name]!==undefined){wheel.userData.restY??=wheel.position.y;wheel.position.y=saved.suspension[wheel.name];}
     const brokenWindows=[...(saved?.brokenWindows||[])];
     for(const pane of [...mesh.children])if(brokenWindows.includes(pane.userData.glassPane))mesh.remove(pane);
     if(Math.hypot(mesh.position.x-this.center.x,mesh.position.z-this.center.z)>C.RADIUS)return null;
     const p={id,kind,mesh,seed:node.seed,size:mesh.userData.size,half,mass:kind==='car'?C.CAR.MASS:C.TYPES[kind].mass,driving,loose:!!saved?.loose,attached:false,node:node.key,previous:null,target:null,fragment:false,brokenWindows,junction:saved?.junction??node.junction,axis:saved?.axis??node.axis};
+    if(saved&&kind==='car')p.yaw=saved.yaw??new THREE.Euler().setFromQuaternion(mesh.quaternion,'YXZ').y;
     this.install(p);return p;
   }
   install(p){this.items.push(p);this.scene.add(p.mesh);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:p.kind,size:p.size,mass:p.mass});if(p.kind==='car'&&!p.fragment)eventBus.emit(Events.VEHICLE_REGISTER,p);}

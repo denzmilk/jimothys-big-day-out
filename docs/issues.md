@@ -12,11 +12,17 @@
 
 ### JIM-89 — Some cars hover on inclines and declines
 
-**Status:** reproduced; suspension persistence repair next · **Reported:** Chris, 2026-10-04, during M53.
+**Status:** reproduced streaming case repaired, awaiting Chris's playtest · **Reported:** Chris, 2026-10-04, during M53.
 
 Check actual rendered tyre bottoms on all six sourced models, both road directions, grade transitions, parked/traffic/player states and return after streaming. M53's six-model driving fixture passes a sampled slope; it does not close this broader report. Inspect suspension limits, saved wheel poses and the physics-to-mesh handoff. Locations: `Grounding.groundVehicle`, `StreetLife.poseVehicle/populate`, `PhysicsSystem`, `DrivingSystem`. Stronger pull/shallow-ditch recovery is separately included in M53.
 
 **Reproduction:** a spawn-area survey of 18 cars finds initial gaps below 1.7 cm. Travel away and return: parked car `parked-2:4:3>2:4:4:69` has rear tyres 21.7 cm above the road and front tyres equally buried. Its saved body orientation/position returns, but the wheel suspension offsets reset. No console errors. Evidence: `output/iterate/car-grade-survey.json`. Restore wheel poses with the car and add a real streaming regression; other roads/states remain part of the verification survey.
+
+**Repair:** save each wheel's suspension offset and the driving heading with the car. Restore the authored neutral wheel height separately so a later drive does not accumulate offsets. The heading check also reproduced a missing yaw on restored cars, which could misorient the next hijack. Ten parked cars now return with unchanged chassis positions/headings and tyre gaps matching their pre-travel values; worst error is 1.65 cm. The regression first failed at 21.7 cm, then on absent heading. Evidence: `tests/car-grade-streaming.spec.js`, `output/iterate/car-grade-{red,heading-red,green}.log`, `car-grade-verified.json`.
+
+Five final focused cases pass, covering streamed contact, all six driven models, ditch/wall contact, destruction/restart and occupied-car travel. All 119 units, build and production pixel smoke pass (no console errors). Native near-car views have the road fully generated and shadowed, and retain identical pose before/after travel: `tools/inspect-car-grade.mjs`, `output/iterate/car-grade-native-{before,returned}.png`, `car-grade-native.json`. This closes the reproduced streaming cause; it does not prove every possible collision or road location is free of gaps. Chris still judges appearance/handling.
+
+All seven additional traffic/heading/car-destruction cases pass across the final batch and focused rerun (`car-grade-adjacent.log`, `car-grade-cleanup-verified.log`). The batch's cleanup failure was a stale dev-server module: the game used `GameState.js?t=1791085035671` while the legacy fixture imported a separate unstarted `GameState.js`. Restarting Vite removed the duplicate; the unchanged test passes. No runtime fix or relaxed assertion was used for that harness failure. Traffic retains eight active cars, 36 civilians/eight occupants and exact 289-body/460-entity counts through repeated replenishment.
 
 ### JIM-90 — Underwater fish, particularly blue fish, jitter or glitch
 

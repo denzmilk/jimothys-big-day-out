@@ -115,6 +115,7 @@ MPFB 2.0.17 in Blender 5.2 creates varied clothed pedestrian rigs. Preserve sour
 - `traffic:obstacles` collects pedestrian/pursuer positions without importing those systems. StreetLife adds Jimothy and physical street objects. Road probes compare the actual voxel surface with the authored paving grade, so intact steep streets remain drivable while holes and obstructions stop traffic. Physics poses still go through `prop:pose`.
 - Regular lamps face inward from pavement; nearby point lights follow the existing night-light budget. Signals use shared active/off materials; active lenses bypass tone mapping so exposure cannot wash their colour out. Both kinds retain the prop fracture, collection and saved-damage lifecycle; broken heads stop emitting. Instanced stop bars and centre dashes follow road grade and disappear over damaged ground.
 - Clean traffic leaving the active radius is replaced even while Jimothy stands still; damaged cars keep their saved transforms and glazing state.
+- Saved cars retain individual wheel suspension offsets and their driving heading (JIM-89). Restoring neutral wheel height from the template separately prevents a saved slope offset becoming the new rest pose on the next drive.
 - Route geometry and shared materials are reused across restart; reservations, signal damage and time reset. `streetLife` snapshots include junction phases/holders and per-car speed, road and stopping reason.
 
 ### Hijacking and driving (milestone 53)

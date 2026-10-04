@@ -4,9 +4,13 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
-## Active: M56 momentum-led rolling — 2026-10-04
+## M56 momentum rolling — 2026-10-04
 
-M55 traversal is implemented and pushed as `1a535aa`, awaiting playtest. Continuing the authorised queue: reproduce fixed-speed rolling/release snaps, then add momentum, terrain response and continuous orientation on the original rig. Player ragdolls follow separately. JIM-48's support checkpoint reduces fixed-route settling from 20.50 to 4.30 seconds from roll start; it still misses the three-second-after-release limit by about 0.2 seconds, and Absurd headbutt misses its two-second limit. Block headbutt now passes. All 136 batch units plus the expanded-boundary regression, nine support/rubble/stair checks, build and native/pixel verification pass. Native Absurd update plus render submission remains costly at 43.9 ms median / 58.0 p95; JIM-48 and the stretched underside (JIM-69) remain open. Momentum rolling has a regression harness queued; no new movement code is implemented yet. Plan: `milestones/56-momentum-rolling.md`.
+**Implemented, awaiting Chris's playtest.** Fat rolling now accelerates, responds to grades, turns with inertia, coasts/brakes and rotates around the actual direction of travel. Lean flop is retained. Grounded release blends upright; air release retains flight velocity and returns control. Repeated downhill drops and false second landings were caught and repaired. This retains ADR-0002's controlled kinematic body; it does not make ordinary rolling a free Cannon rigid body.
+
+All 142 units, the final fourteen movement/contact/water/ownership cases, the repaired army-roll-resume case, build and production pixel smoke pass. Original-rig slope/turn/release clips are console-clean. The channel fixture now covers more than 20 m within two seconds instead of assuming instant top speed for 1.1 seconds; its depth/continuity/removal/reset assertions and three-second collapse deadline remain intact and pass. Native 960×600 Medium giant rolling travels 65.7 m with CPU update plus render submission 46.4 ms median / 61.2 p95 (max 80 ms); this is not presented FPS or an improvement claim. Three pending destruction jobs remain at the end of the moving profile. JIM-48 stays open.
+
+**Next:** JIM-69 underside review, then the separately scoped player ragdoll milestone and the authorised queue. Native inspection still shows badly stretched giant limb roots; momentum correctness does not close that visual defect. Evidence and limits: `milestones/56-momentum-rolling.md`.
 
 ## M55 terrain and sewer traversal — 2026-10-04
 

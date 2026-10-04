@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  DRIVING, TOOLS, GIANT_IMPACT, RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  MOMENTUM_ROLL as MR, DRIVING, TOOLS, GIANT_IMPACT, RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import { JimothyRig } from './JimothyRig.js';
 import { JimothyLegs } from './JimothyLegs.js';
+import {RollMotion} from '../core/RollMotion.js';
 
 // Kinematic under player control (ADR-0002): cannon integrates position from
 // the velocity we set, which is what lets him shove dynamic cans around.
@@ -103,6 +104,7 @@ export class JimothyController {
     eventBus.emit(Events.PLAYER_BODY_READY,{body:this.body});
 
     this.vel = new THREE.Vector3();
+    this.rollMotion=new RollMotion();this.rollInput=new THREE.Vector2();
     this.vy = 0;this.toolMotion=null;
     this.grounded = true;
     // Face -z (away from the boot camera) so the follow cam starts where the
@@ -138,12 +140,14 @@ export class JimothyController {
     this.onImpact = null; // set by Game: (x, y, z, radiusScale) => void
 
     eventBus.on(Events.SPAWN_POSE,({position,grounded})=>{
+      this.rollMotion.reset();
       this.body.position.set(position.x,position.y+this.radius,position.z);
       this.body.velocity.setZero();this.vel.set(0,0,0);this.vy=0;
       this.grounded=grounded;this.move=null;this.moveCooldown=0;this._prevFeetY=undefined;
       this._prevX=undefined;this._prevZ=undefined;
     });
     eventBus.on(Events.PLAYER_RIDE,({active,position,keepLaunch})=>{
+      this.rollMotion.reset();
       this.rideLegPose=active&&this.rig.skinned?Object.fromEntries(['FL','FR','RL','RR'].flatMap(n=>['leg_'+n,'shin_'+n]).map(n=>[n,this.rig.bones[n].quaternion.clone()])):null;
       this.riding=active;this.move=null;this.toolMotion=null;
       if(!keepLaunch){this.launched=0;this.launchSpin=0;this.stunTimer=0;gameState.player.stunned=false;this.vel.set(0,0,0);this.vy=0;this.body.velocity.setZero();}
@@ -163,6 +167,7 @@ export class JimothyController {
       }else this.toolMotion={...m};
     });
     eventBus.on(Events.PLAYER_LAUNCHED,({velocity,seconds})=>{
+      this.rollMotion.reset();
       this.launched=seconds;this.launchSpin=0;this.move=null;this.stunTimer=0;this.grounded=false;gameState.player.stunned=true;this.vel.set(velocity[0],0,velocity[2]);this.vy=velocity[1];
     });
     eventBus.on(Events.PLAYER_STUNNED, ({ seconds }) => {
@@ -193,6 +198,7 @@ export class JimothyController {
   }
 
   reset() {
+    this.rollMotion.reset();
     eventBus.emit(Events.PLAYER_CONTROLLED);this.launched=0;this.launchSpin=0;
     this.idleWait=0;this.idleTime=0;this.idleIndex=0;this.idleAction=null;this.idleBlend=0;this.idleBreath=0;
     this.swimming=false;this.diving=false;gameState.player.swimming=false;gameState.player.diving=false;
@@ -463,8 +469,11 @@ export class JimothyController {
     // Airborne steering is throttled — committing to a hop should mean
     // committing to where it lands.
     const authority = this.grounded||this.swimming ? dvMax : dvMax * P.AIR_CONTROL;
-    this.vel.x += THREE.MathUtils.clamp(wx * speed - this.vel.x, -authority, authority);
-    this.vel.z += THREE.MathUtils.clamp(wz * speed - this.vel.z, -authority, authority);
+    this.rollInput.set(wx,wz);
+    if(!this.move?.physical){
+      this.vel.x += THREE.MathUtils.clamp(wx * speed - this.vel.x, -authority, authority);
+      this.vel.z += THREE.MathUtils.clamp(wz * speed - this.vel.z, -authority, authority);
+    }
 
     if (this.input.consumeHop() && this.grounded && controllable) {
       this.vy = P.HOP_FORCE;
@@ -521,7 +530,7 @@ export class JimothyController {
     const interrupt=controllable&&this.move?.kind==='roll'&&this.radius>=GIANT_IMPACT.MIN_RADIUS&&this.input.consumeHeadbutt();
     let rollFrom=0;
     if(interrupt){
-      rollFrom=THREE.MathUtils.euclideanModulo(this.rollSpin+Math.PI,Math.PI*2)-Math.PI;
+      rollFrom=this.move.physical?0:THREE.MathUtils.euclideanModulo(this.rollSpin+Math.PI,Math.PI*2)-Math.PI;
       this.move=null;this.moveCooldown=0;
     }
 
@@ -539,7 +548,7 @@ export class JimothyController {
         // this is the only moment it can happen, and the 0.12 s of rearing
         // back covers the turn.
         this.yaw = yaw;
-      } else if (this.input.consumeRoll() || (this.radius>=GIANT_IMPACT.MIN_RADIUS&&this.grounded&&this.input.held('ROLL'))) this.move = { kind: 'roll', t: 0, ticks: 0,
+      } else if (this.input.consumeRoll() || (this.radius>=GIANT_IMPACT.MIN_RADIUS&&this.grounded&&this.input.held('ROLL'))) this.move = { kind: 'roll', physical:this.radius>=COLLECTION.MIN_RADIUS, t: 0, ticks: 0,
         carveFrom:{x:this.body.position.x,y:this.body.position.y-this.radius,z:this.body.position.z} };
     }
     // Queued presses are deliberately NOT drained while busy — a press during
@@ -548,6 +557,7 @@ export class JimothyController {
     if (!this.move) return;
 
     const m = this.move;
+    if(m.physical&&m.t===0)this.rollMotion.start(this.body.position,this.group.quaternion,this.yaw,this.radius);
     m.t += delta;
     const fwdX = Math.sin(this.yaw);
     const fwdZ = Math.cos(this.yaw);
@@ -598,8 +608,22 @@ export class JimothyController {
       // takes twelve minutes. Neutral at fatness 0: `widthScale` is 1, so a lean
       // roll is still the same wonky flop it was signed off as.
       const speed = R.SPEED * (1 + (this.widthScale - 1) * R.GIRTH_SPEED);
-      this.vel.x = fwdX * speed;
-      this.vel.z = fwdZ * speed;
+      const held=controllable&&this.input.held('ROLL')&&!this.input.suppressed;
+      if(m.physical){
+        // Releasing over a crater restores air control without cancelling
+        // flight momentum. Waiting for ground contact could lock the move
+        // through repeated downhill drops and self-carving (JIM-98).
+        if(!held&&m.t>=R.DURATION&&!this.grounded){this.move=null;this.moveCooldown=R.COOLDOWN;return;}
+        if(this.grounded)this.rollMotion.ground(this.voxels,this.body.position,this.radius,delta);
+        this.rollMotion.drive(this.vel,delta,{x:this.rollInput.x,z:this.rollInput.y,speed,radius:this.radius,held:held&&!m.recovering,grounded:this.grounded});
+        this.yaw=this.rollMotion.heading;
+        if(!held&&m.t>=R.DURATION&&this.grounded&&this.speed<MR.STOP_SPEED)m.recovering=true;
+        if(m.recovering){
+          this.vel.x=0;this.vel.z=0;
+          if(!this.rollMotion.active&&this.rollTuck<=MR.RECOVERY_EPSILON){this.move=null;this.moveCooldown=R.COOLDOWN;}
+          return;
+        }
+      }else{this.vel.x=fwdX*speed;this.vel.z=fwdZ*speed;}
       // Carve along the path rather than one sphere at the end. Ticked on a
       // fixed CLOCK rather than as a fraction of a fixed duration, because the
       // roll no longer has one — a sustained roll would otherwise fire its five
@@ -611,14 +635,13 @@ export class JimothyController {
         // Flat, always. The roll is the comedy tool and commits to a flop —
         // pointing it is not obviously an improvement, and it must not become a
         // drill just because the headbutt learned to aim.
-        this.onImpact?.(p.x, p.y, p.z, { x: fwdX, y: 0, z: fwdZ }, R, P.RADIUS, 0);
+        this.onImpact?.(p.x, p.y, p.z, { x: Math.sin(this.yaw), y: 0, z: Math.cos(this.yaw) }, R, P.RADIUS, 0);
       }
       // HELD, not a one-shot (milestone 23). The flop's own duration is now a
       // minimum commitment — you cannot cancel out of the tumble mid-air — and
       // past it he keeps rolling for as long as the key is down. Traversal
       // cannot be a keypress every 0.9 s.
-      const held = controllable && this.input.held('ROLL');
-      if (m.t >= R.DURATION && !held) { this.move = null; this.moveCooldown = R.COOLDOWN; }
+      if (!m.physical && m.t >= R.DURATION && !held) { this.move = null; this.moveCooldown = R.COOLDOWN; }
     }
   }
 
@@ -667,10 +690,10 @@ export class JimothyController {
       const standY = floorY + rad;
       // Only land when descending — rising through a lip shouldn't snap him to it.
       if (p.y <= standY && this.vy <= 0) {
-        p.y = standY;
-        this.vy = 0;
-        this.grounded = true;
-      } else if (this.swimming || p.y > standY + P.GROUND_STICK) {
+        const bounce=this.move?.physical&&!this.grounded&&this.vy<-MR.BOUNCE_MIN_SPEED?Math.min(MR.BOUNCE_MAX,-this.vy*MR.BOUNCE_SHARE):0;
+        p.y=standY;this.vy=bounce;this.body.velocity.y=bounce;this.grounded=bounce===0;
+        if(bounce)this.jiggleAmp+=FATNESS.KICK_SCRAP;
+      } else if (this.swimming || this.vy > 0 || p.y > standY + P.GROUND_STICK) {
         this.grounded = false;
       } else {
         // Within sticking distance of a surface: hold him there rather than
@@ -752,7 +775,8 @@ export class JimothyController {
       const R = MOVES.ROLL;
       const p = Math.min(1, this.move.t / R.DURATION);
       const eased = p < 0.5 ? 2 * p * p : 1 - ((-2 * p + 2) ** 2) / 2;
-      if(rad>=COLLECTION.MIN_RADIUS){
+      if(this.move.physical){this.rollSpin=this.rollMotion.spin;}
+      else if(rad>=COLLECTION.MIN_RADIUS){
         if(this.move.t<=delta)this.rollSpin=0;
         else this.rollSpin+=Math.hypot(this.body.position.x-this._rollPosition.x,this.body.position.z-this._rollPosition.z)/rad;
       }else this.rollSpin=eased*Math.PI*2*R.SPINS;
@@ -760,7 +784,7 @@ export class JimothyController {
       rollWobble = Math.sin(p * Math.PI * 2 * R.WOBBLE_HZ) * R.WOBBLE * Math.sin(p * Math.PI);
       // Gather up before the tumble, sprawl out after it. Trapezoid rather
       // than a bell so he holds the balled-up pose through the flop itself.
-      this.rollTuck = rad>=COLLECTION.MIN_RADIUS?Math.min(1,this.move.t/(R.DURATION*R.TUCK_IN)):Math.min(1,Math.min(p/R.TUCK_IN,(1-p)/R.TUCK_OUT));
+      this.rollTuck = this.move.recovering?Math.max(0,(this.rollTuck||0)-MR.UNTUCK_RATE*delta):rad>=COLLECTION.MIN_RADIUS?Math.min(1,this.move.t/(R.DURATION*R.TUCK_IN)):Math.min(1,Math.min(p/R.TUCK_IN,(1-p)/R.TUCK_OUT));
     } else {
       this.rollSpin = 0;
       this.rollTuck = 0;
@@ -840,7 +864,7 @@ export class JimothyController {
       aimLean=Math.min(0,this.move.aim)*Math.sin(Math.PI*Math.min(1,t/(H.WINDUP+H.LUNGE+H.RECOVER)))*GIANT_IMPACT.AIM_LEAN;
       aimLean+=(this.move.rollFrom||0)*(1-THREE.MathUtils.smoothstep(t,0,H.WINDUP));
     }
-    this.group.rotation.x = bodyPitch * 0.5 + aimLean + this.rollSpin + this.launchSpin + gameState.arrival.pitch+(this.riding?(this.rideRotation?.x||0)*gameState.vehicle.seatBlend:0);
+    this.group.rotation.x = bodyPitch * 0.5 + aimLean + (this.move?.physical?0:this.rollSpin) + this.launchSpin + gameState.arrival.pitch+(this.riding?(this.rideRotation?.x||0)*gameState.vehicle.seatBlend:0);
     anchor(this.tailSlot.userData.base, this.tailSlot.position);
     this.tailSlot.rotation.y = Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck);
     this.tailSlot.rotation.x = tuck * MOVES.ROLL.TUCK_TAIL; // curls in for the roll
@@ -895,6 +919,8 @@ export class JimothyController {
       const skinWobble=Math.sin(this.elapsed*hz*Math.PI*2)*Math.min(RIG.JIGGLE_MAX,this.jiggleAmp+jelly);
       this.rig.root.scale.multiply(new THREE.Vector3(1+skinWobble,1-skinWobble*RIG.JIGGLE_HEIGHT,1-skinWobble*RIG.JIGGLE_LENGTH));
     }
+
+    this.rollMotion.pose(this.group.quaternion,p,rad,delta,{rolling:!!this.move?.physical,grounded:this.grounded,recovering:!!this.move?.recovering});
 
     // Tumble about his MIDDLE, not his toes. The group's origin sits at ground
     // level (its position is his feet), so pitching it swept his whole body

@@ -12,9 +12,11 @@
 
 ### JIM-98 — Fat rolling still feels like a fixed animation
 
-**Status:** in progress, M56 · **Reported:** Chris, 2026-10-04, during the sequential playground requests.
+**Status:** implemented, awaiting Chris's playtest, M56 · **Reported:** Chris, 2026-10-04, during the sequential playground requests.
 
 The roll assigns a fixed forward velocity every update, does not gain/lose speed on slopes, and returns the body to upright immediately on release. Larger Jimothy should retain his original fat jiggly model while momentum and ground contact drive the roll. M56 owns acceleration, steering, coasting, continuous orientation and safe transitions. The separate small-body ragdoll request follows after this movement owner is stable. JIM-48/69/70 retain giant cost, underside and destruction follow-ups. Location: `JimothyController._updateMoves/postUpdate`.
+
+**Repair:** momentum, slope response, limited steering, travel/contact-axis quaternion rotation, coasting and smooth upright recovery retain the original rig and lean flop. Air release preserves momentum; one landing produces one bounce. All 142 units, fourteen final adjacent browser checks, army interruption/resume, the bounded 20 m channel route, build and production pixel smoke pass. Native slope/turn/release clips and world inspection are console-clean. Movement remains controlled/kinematic under ADR-0002. Giant frame cost and stretched underside remain open; full evidence and measured limits are in M56.
 
 ### JIM-97 — Vehicles stop at water without a substantial splash
 

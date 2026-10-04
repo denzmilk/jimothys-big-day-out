@@ -292,3 +292,7 @@ Tuning: `SUPPORT`, `RUBBLE`, `DEBRIS`, `STREET.CAR`, `GLASS_SHARDS`, `RAGDOLL` i
 ### Structural connectivity work (JIM-48)
 
 `supportTask` builds exact connected horizontal runs within stored chunk rows, then links overlapping adjacent rows. Gaps always split runs, retaining one-voxel cuts; implicit terrain/bedrock anchors only through surviving neighbouring cells. Cheap empty-row traversal, bounded occupied-row work and bounded cell removal yield to the existing damage scheduler. Active requests coalesce by building/stair key and expand bounds. Request/chunk/channel revisions restart stale scans before removal; iterative restarts release the previous graph. Physical rubble budgets and material ownership remain unchanged. Queue timing and remaining giant deadlines are recorded in JIM-48.
+
+### M56 rolling ownership
+
+`RollMotion` owns momentum integration and accumulated contact-axis orientation during a fat roll. `JimothyController` retains its kinematic body/contact solver; PhysicsSystem still owns dynamic launches. Quaternion recovery returns to the controller pose before the next action. Swimming, riding, launch and restart clear rolling ownership. All response, braking, turn, bounce and recovery tuning lives in `MOMENTUM_ROLL`. This is powered physical-style movement, not full dynamic Cannon rolling.

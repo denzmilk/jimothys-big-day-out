@@ -995,6 +995,9 @@ class Game {
         speed: +this.jimothy.speed.toFixed(2),
         widthScale: +(this.jimothy.widthScale || 1).toFixed(3),
         move: this.jimothy.move?.kind ?? null,
+        rolling:{physical:!!this.jimothy.move?.physical,recovering:!!this.jimothy.move?.recovering,
+          orientationActive:this.jimothy.rollMotion.active,spin:+this.jimothy.rollMotion.spin.toFixed(3),
+          normal:this.jimothy.rollMotion.normal.toArray().map(v=>+v.toFixed(3))},
         // Radians below horizontal, and whether a swing at that aim would dig.
         aim: +(this.jimothy.aimPitch || 0).toFixed(3),
         // Both axes since JIM-38 — the yaw was the missing half of the aim.

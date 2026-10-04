@@ -766,9 +766,14 @@ export class VoxelWorld {
   supportTask(bounds){return supportTask(this,bounds);}
 
   queueSupport(bounds,key){
+    const active=this.damageQueue.find(j=>j.kind==='support'&&j.key===key);
+    if(active){
+      for(let i=0;i<3;i++){active.bounds.min[i]=Math.min(active.bounds.min[i],bounds.min[i]);active.bounds.max[i]=Math.max(active.bounds.max[i],bounds.max[i]);}
+      active.bounds.revision++;return true;
+    }
     if(this.damageQueue.length>=W.MAX_DAMAGE_QUEUE)return false;
-    if(this.damageQueue.some(j=>j.kind==='support'&&j.key===key))return false;
-    this.damageQueue.push({kind:'support',key,cx:(bounds.min[0]+bounds.max[0])/2,cy:bounds.min[1],cz:(bounds.min[2]+bounds.max[2])/2,task:this.supportTask(bounds)});return true;
+    const area={min:[...bounds.min],max:[...bounds.max],revision:0};
+    this.damageQueue.push({kind:'support',key,bounds:area,cx:(area.min[0]+area.max[0])/2,cy:area.min[1],cz:(area.min[2]+area.max[2])/2,task:this.supportTask(area)});return true;
   }
 
   *_damageSphereTask({cx,cy,cz,radius,digsTerrain}){

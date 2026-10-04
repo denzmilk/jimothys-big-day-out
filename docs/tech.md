@@ -288,3 +288,7 @@ Tuning: `SUPPORT`, `RUBBLE`, `DEBRIS`, `STREET.CAR`, `GLASS_SHARDS`, `RAGDOLL` i
 ### Damaged natural floors (M55 / JIM-43)
 
 `VoxelWorld` owns `DamagedGround`, which shares nearby exposed natural floor corners across ledges up to two voxel rows. Mesh, occupancy and support queries use the same triangle diagonal; ceilings and structure remain separate. Edits invalidate diagonal neighbouring chunks as well as direct neighbours. Two 8,192-entry caches clear on edits, unload and reset. Flat surfaces retain greedy merging. Existing giant-channel fields bypass the extra floor search. This is shallow floor smoothing, not a full 3D cave-wall/ceiling mesher; profile and limits are recorded in JIM-43.
+
+### Structural connectivity work (JIM-48)
+
+`supportTask` builds exact connected horizontal runs within stored chunk rows, then links overlapping adjacent rows. Gaps always split runs, retaining one-voxel cuts; implicit terrain/bedrock anchors only through surviving neighbouring cells. Cheap empty-row traversal, bounded occupied-row work and bounded cell removal yield to the existing damage scheduler. Active requests coalesce by building/stair key and expand bounds. Request/chunk/channel revisions restart stale scans before removal; iterative restarts release the previous graph. Physical rubble budgets and material ownership remain unchanged. Queue timing and remaining giant deadlines are recorded in JIM-48.

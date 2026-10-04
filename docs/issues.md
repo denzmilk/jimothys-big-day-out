@@ -10,6 +10,12 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-98 — Fat rolling still feels like a fixed animation
+
+**Status:** in progress, M56 · **Reported:** Chris, 2026-10-04, during the sequential playground requests.
+
+The roll assigns a fixed forward velocity every update, does not gain/lose speed on slopes, and returns the body to upright immediately on release. Larger Jimothy should retain his original fat jiggly model while momentum and ground contact drive the roll. M56 owns acceleration, steering, coasting, continuous orientation and safe transitions. The separate small-body ragdoll request follows after this movement owner is stable. JIM-48/69/70 retain giant cost, underside and destruction follow-ups. Location: `JimothyController._updateMoves/postUpdate`.
+
 ### JIM-97 — Vehicles stop at water without a substantial splash
 
 **Status:** implemented, awaiting Chris's playtest · **Reported:** Chris, 2026-10-04, during the M53 follow-up.
@@ -418,6 +424,14 @@ Chris's 2026-10-02 playtest confirms a visible shape failure. Actual posed mesh 
 **Repair, 2026-10-02:** Blender radial growth and a smooth coat keep the giant torso spherical while preserving original head/tail/paw dimensions. Held roll spin follows distance; attachments meet the grown surface. Twenty loaded-rig/footing checks and three final giant checks pass, alongside the 27-case adjacent run. See the latest STATE entry and `output/iterate/giant-street-carry.png`. Performance/destruction remain JIM-48/JIM-61.
 
 ### JIM-48 — Populated world exceeds the legacy draw-call budget
+
+**Support-work checkpoint, 2026-10-04:** exact connectivity now uses contiguous horizontal runs, preserving every one-cell gap and mixed material. Empty rows use cheap traversal slices. Repeated damage updates an active building's bounds instead of scheduling a duplicate scan; changed chunks/terrain invalidate stale connectivity before collapse. Ten support units include an independent cell flood-fill comparison over twelve varied structures, mid-scan cuts, expanded bounds and the original single-voxel regressions. The broad supported-foundation regression fell from 1,033 slices to below 300 without changing that limit. Per-frame damage time/slice allowances and existing deadline assertions are unchanged.
+
+On the fixed 1.1-second Block roll, all support jobs now finish at **4.30 seconds from roll start**, versus **20.50 seconds** before this pass (3.20 versus 19.40 seconds after release). Support work falls from 18,539 to 2,990 generator slices; five scans replace six, including the duplicate building. The final measured slice maximum is 2.5 ms. **The three-second-after-release regression still fails by about 0.2 simulated seconds.** Block headbutt now meets the unchanged two-second deadline; Absurd still misses it. These are deterministic queue observations, not a general frame-rate claim.
+
+All 136 units in the final batch plus the added expanded-boundary regression pass; nine support/rubble/severed-stair browser checks, Block headbutt, build and production pixel smoke pass. Original-rig Chrome/Metal inspection is console-clean. At 960×600 Medium, street update plus render submission is 17.8 ms median / 19.2 p95; the 111.4 m Absurd roll is **43.9 / 58.0 ms**, max 71.8 ms, up to 693 bodies. Live movement still ends with 16 pending support entries, and the stretched underside remains visible (JIM-69). This checkpoint does not close JIM-48 or establish an overall FPS improvement.
+
+Evidence: `output/iterate/support-runs-*`, `support-coalesce-*`, `support-expanded-boundary.log`, `giant-support-before.json`, `giant-support-verified.log`, `support-runs-native/report.json`; repeatable queue profiler `tools/profile-giant-support.mjs`. One browser-launch hang was terminated and rerun; no runtime change or assertion relaxation was used for that harness failure.
 
 **Final 2026-10-04 serial profile:** at 960×600 Medium, street update plus render submission is 13.0 ms median / 14.4 p95; the 111.4 m maximum-size roll is 36.9 / 50.4 ms, with up to 1,229 calls and 675 bodies. Its final queue retains 69 meshes and 17 support entries. Physics, traffic, pedestrians and voxel work contribute substantial CPU cost. Explicit shadow-refresh fixtures still fail the unchanged <300 budgets at 339 boot / 343 post-blast calls. These are local CPU/submission samples, not presented FPS or a matched improvement claim. Evidence: [detailed audit](stability-audit-2026-10-04.md), `output/iterate/stability-performance-verified/report.json`, `stability-render-refresh.log`.
 

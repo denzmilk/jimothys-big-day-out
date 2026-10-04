@@ -39,6 +39,11 @@ export class StructuralSupport {
   }
  }
  update(dt){
+  // Repeated furrow reports update the in-flight scan. Queueing the same
+  // building again made the last wall wait behind an entire second graph.
+  for(const [key,bounds]of this.pending)if(this.voxels.damageQueue.some(j=>j.kind==='support'&&j.key===key)){
+   if(this.voxels.queueSupport(bounds,key))this.pending.delete(key);
+  }
   // Nearby cave-ins must not wait behind a larger structure at the edge of a wide crater.
   const distance=b=>Math.hypot((b.min[0]+b.max[0])/2-this.jimothy.position.x,(b.min[2]+b.max[2])/2-this.jimothy.position.z);
   for(const [key,bounds]of [...this.pending].sort((a,b)=>distance(a[1])-distance(b[1]))){

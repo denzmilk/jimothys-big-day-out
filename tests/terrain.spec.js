@@ -274,15 +274,14 @@ test('the ground digs to 20 m and the hole is still there afterwards', async ({ 
   expect((await state(page)).voxels.edits).toBeGreaterThan(0);
 });
 
-test('undisturbed ground is smooth; ground you have dug is not', async ({ page }) => {
+test('undisturbed ground follows the surface and excavation remains below it', async ({ page }) => {
   // Chris, playtest: "how can we smooth out the terrain while keeping the
   // voxels?" The mesher moves the top face of an intact ground voxel onto the
   // exact height field, and the floor follows it — otherwise he walks half a
   // voxel above or below a surface he can see.
   //
-  // Asserted as the DIFFERENCE between the two cases. "The floor equals the
-  // height field" alone would also pass on a world with no voxels in it at all,
-  // and the whole point is that the crater stays blocky.
+  // The crater must stay excavated. M55 may smooth its local floor, but it
+  // must never project removed terrain back onto the authored height field.
   await boot(page);
   // Milestone 25 puts a real house over the former sample line. Keep this
   // terrain test on an exposed slope; the precision assertion is unchanged.
@@ -302,7 +301,7 @@ test('undisturbed ground is smooth; ground you have dug is not', async ({ page }
   const worst = Math.max(...smooth.map(Math.abs));
   expect(worst, `floor drifts from the surface by ${worst.toFixed(3)} m`).toBeLessThan(0.02);
 
-  // …and once it has been dug, it is voxels again, snapped to the grid.
+  // Excavation remains below the authored surface after local smoothing.
   const dug = await page.evaluate((p) => {
     window.setFatness(90);
     window.blastAtWorld(p.x, window.terrainSurfaceAt(p.x, p.z) - 1, p.z);

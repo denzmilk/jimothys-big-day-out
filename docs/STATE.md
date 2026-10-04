@@ -4,9 +4,11 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
-## Active: M55 terrain and sewer traversal — 2026-10-04
+## M55 terrain and sewer traversal — 2026-10-04
 
-JIM-93's intact-slope contact repair is pushed as `5b3d9db`. JIM-94 now has broad connected sewer stairs: all 21 layouts and 42 down/up routes pass with the loaded original rig, as do severed-tread rubble, travel persistence and restart. A destructible street cover protects the central shaft while preserving the upper stair opening. All 126 units, build and native inspection pass; focused adjacent and pixel-smoke evidence is recorded under JIM-94. **Next: JIM-43 damaged-surface smoothing within M55.** Existing giant-channel support latency (JIM-48) remains open. Chris's appearance/feel sign-off is pending; M55 is not complete.
+**Implemented traversal checkpoint, awaiting Chris's playtest.** JIM-93 intact slopes and JIM-94 broad sewer stairs are pushed (`5b3d9db`, `6795e1a`); all 21 layouts and 42 original-rig down/up routes pass. JIM-43 now smooths shallow exposed natural floors with matching mesh/contact across chunk seams, preserving structure and ceilings. Dug ramps pass both directions at 30/60/120 Hz with zero blocked/airborne frames. All 132 units, twenty focused traversal/physics/support cases, build and native/pixel checks pass. The giant-channel test still leaves one pending job after three seconds (JIM-48). Arbitrary cave walls/ceilings still need a separate 3D smoothing pass; JIM-43 remains partially open. Evidence and costs: M55 and JIM-43.
+
+**Next authorised item:** physical rolling, then size-sensitive player ragdolls, sharing one movement owner. Preserve the original fat jiggly rig and collection shell; include giant channel/performance and underside checks (JIM-48/69/70). Continue the recorded queue one issue at a time. No new scope approval is needed.
 
 ## M54 land gait — 2026-10-04
 

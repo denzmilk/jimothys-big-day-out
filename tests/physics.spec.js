@@ -9,7 +9,7 @@
 // against an absolute y. A fixed height is the exact mistake that caused this:
 // `y = 0` meant "grade" when it was written and means "the waterline" now.
 import { test, expect } from '@playwright/test';
-import { state, adv, boot } from './helpers.mjs';
+import { state, adv, boot, placeInSewer } from './helpers.mjs';
 import { VOXEL } from '../src/core/Constants.js';
 
 /** Every live can's height above the surface directly beneath it.
@@ -81,7 +81,7 @@ test('debris in a sewer settles on the tunnel floor (JIM-42)', async ({ page }) 
   await boot(page);
   const entrances = await page.evaluate(() => window.sewerEntrances());
   const e = entrances.reduce((a, c) => (Math.hypot(c.x, c.z) < Math.hypot(a.x, a.z) ? c : a));
-  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await placeInSewer(page,e);
   // 12, not 60: since milestone 23 a fatness-60 Jimothy is ~5 m across and does
   // not fit in a 3.6 m sewer at all. This spec is about where rubble LANDS, so
   // it wants a raccoon that fits down the hole.
@@ -111,7 +111,7 @@ test('debris does not pass through a tunnel wall (JIM-42)', async ({ page }) => 
   await boot(page);
   const entrances = await page.evaluate(() => window.sewerEntrances());
   const e = entrances.reduce((a, c) => (Math.hypot(c.x, c.z) < Math.hypot(a.x, a.z) ? c : a));
-  await page.evaluate((q) => window.teleportJimothy(q.x, q.z), e);
+  await placeInSewer(page,e);
   await page.evaluate(() => window.setFatness(12));
   await adv(page, 1.5);
   await page.evaluate(() => window.blastAtJimothy());

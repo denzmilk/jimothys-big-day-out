@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {eventBus,Events} from '../core/EventBus.js';
 import {VoxelBatches} from '../core/VoxelBatches.js';
 import {supportTask} from '../core/VoxelSupport.js';
+import {DamagedGround} from './DamagedGround.js';
 import { VOXEL, STREAM, TERRAIN, PAVING, VOXEL_BATCH, BEACH, GROUND_CHANNEL, SUPPORT, WORK_BUDGET as W, GLAZING as G } from '../core/Constants.js';
 
 // Chunked destructible voxel grid (ADR-0003).
@@ -58,6 +59,7 @@ export class VoxelWorld {
     // 2026-08-07). Stores EDITS, not chunks, so memory scales with how much
     // has been wrecked rather than with world size.
     this.edits = new Map();    // "cx,cy,cz" -> Map(localIndex -> material)
+    this.dugSurface=new DamagedGround(this);
     // While generating a column, writes outside it are dropped. This is what
     // lets the building writers stay completely unaware of chunks: a house
     // straddling a seam is written in full by every column it touches, and
@@ -103,7 +105,7 @@ export class VoxelWorld {
     if(generated?.next)yield*generated;
     work.phase='edits';this._writeColumn=null;yield;
     yield*this._replayEditsTask(work.cx,work.cz);
-    for(const [dx,dz]of [[1,0],[-1,0],[0,1],[0,-1]])for(const key of this.columnChunks.get(this._colKey(work.cx+dx,work.cz+dz))||[]){
+    for(const [dx,dz]of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]])for(const key of this.columnChunks.get(this._colKey(work.cx+dx,work.cz+dz))||[]){
       const neighbour=this.chunks.get(key);if(neighbour)this._markDirty(neighbour);
     }
   }
@@ -168,6 +170,7 @@ export class VoxelWorld {
     const col = this._colKey(cx, cz);
     const resident=this.generated.delete(col),pending=this._columnWork.delete(col);
     if(!resident&&!pending)return false;
+    this.dugSurface.clear();
     for (const key of this.columnChunks.get(col) || []) {
       const chunk = this.chunks.get(key);
       if (!chunk) continue;
@@ -263,7 +266,7 @@ export class VoxelWorld {
     if(bits)chunk.damageColumns.set(column,bits>>>0);else chunk.damageColumns.delete(column);
   }
 
-  _markDirty(chunk) { chunk.dirty = true; chunk.revision = (chunk.revision || 0) + 1; }
+  _markDirty(chunk) { chunk.dirty = true; chunk.revision = (chunk.revision || 0) + 1; this.dugSurface?.clear(); }
 
   _chunkFor(vx, vy, vz, create = false) {
     const CX = VOXEL.CHUNK_XZ;
@@ -297,11 +300,14 @@ export class VoxelWorld {
     const index=this._localIndex(vx,vy,vz);this._updateOccupancy(chunk,index,mat);
     this._markDirty(chunk);
     if(!this._writeColumn){
-      const local=[((vx%VOXEL.CHUNK_XZ)+VOXEL.CHUNK_XZ)%VOXEL.CHUNK_XZ,((vy%VOXEL.CHUNK_Y)+VOXEL.CHUNK_Y)%VOXEL.CHUNK_Y,((vz%VOXEL.CHUNK_XZ)+VOXEL.CHUNK_XZ)%VOXEL.CHUNK_XZ];
-      for(const [dx,dy,dz]of NEIGHBOURS){
-        if((dx<0&&local[0]!==0)||(dx>0&&local[0]!==VOXEL.CHUNK_XZ-1)||(dy<0&&local[1]!==0)||(dy>0&&local[1]!==VOXEL.CHUNK_Y-1)||(dz<0&&local[2]!==0)||(dz>0&&local[2]!==VOXEL.CHUNK_XZ-1))continue;
-        const neighbour=this.chunks.get(this._key(chunk.cx+dx,chunk.cy+dy,chunk.cz+dz));if(neighbour)this._markDirty(neighbour);
-      }
+      // A shared ground corner also belongs to the diagonal chunk. Its
+      // supporting floor can sit two rows below an edited border voxel.
+      const C=VOXEL.CHUNK_XZ,Y=VOXEL.CHUNK_Y,r=TERRAIN.DUG_SMOOTH_RISE;
+      for(let cx=Math.floor((vx-1)/C);cx<=Math.floor((vx+1)/C);cx++)
+        for(let cy=Math.floor((vy-r)/Y);cy<=Math.floor((vy+r)/Y);cy++)
+          for(let cz=Math.floor((vz-1)/C);cz<=Math.floor((vz+1)/C);cz++){
+            const neighbour=this.chunks.get(this._key(cx,cy,cz));if(neighbour&&neighbour!==chunk)this._markDirty(neighbour);
+          }
     }
   }
 
@@ -441,6 +447,12 @@ export class VoxelWorld {
     const surface=this.terrainHeightAt(x,z)+(this.channels?.sample(x,z)||0),offset=this.sandOffsetAt(x,z);
     if(offset && Math.abs(y-surface)<=VOXEL.SIZE+BEACH.MAX_DEPTH)return y<=surface+offset;
     const [vx, vy, vz] = this.worldToVoxel(x, y, z),s=VOXEL.SIZE;
+    if(this.dugSurface.nearby(vx,vz))for(let q=vy+TERRAIN.DUG_SMOOTH_RISE;q>=vy-TERRAIN.DUG_SMOOTH_RISE;q--){
+      const patch=this.dugSurface.patch(vx,q,vz);if(!patch)continue;
+      const height=this.dugSurface.height(x,z,patch),top=this.terrain.topSolidVoxelY((vx+.5)*s,(vz+.5)*s);
+      const original=q===top?surface:(q+1)*s;
+      if(y>=Math.min(original,height)&&y<=Math.max(original,height))return y<=height;
+    }
     if(this.terrain&&Math.abs(y-surface)<=s){
       const cx=(vx+.5)*s,cz=(vz+.5)*s,channel=this.channels?.sample(cx,cz)||0;
       const top=channel?Math.ceil((this.terrain.surfaceHeight(cx,cz)+channel)/s)-1:this.terrain.topSolidVoxelY(cx,cz);
@@ -483,6 +495,10 @@ export class VoxelWorld {
     const s = VOXEL.SIZE;
     const [vx, , vz] = this.worldToVoxel(x, 0, z);
     const top = Math.floor((fromY + stepUp) / s);
+    if(this.dugSurface.nearby(vx,vz))for(let q=top+TERRAIN.DUG_SMOOTH_RISE;q>top;q--){
+      const patch=this.dugSurface.patch(vx,q,vz);if(!patch)continue;
+      const height=this.dugSurface.height(x,z,patch);if(height<=fromY+stepUp)return height;
+    }
     // Bedrock sits DEPTH below this column's own surface, not at a fixed y.
     // Clamped to `top`, so a caller that starts the scan below bedrock gets its
     // own start height back rather than an answer ABOVE where it asked — with
@@ -520,11 +536,13 @@ export class VoxelWorld {
           mask=(mask&~(1<<y))>>>0;
         }
       }
-      return support===terrainTop&&TERRAIN.SMOOTH_CONTACT_MATERIALS.includes(this.get(vx,support,vz))?surface:(support+1)*s;
+      const patch=this.dugSurface.patch(vx,support,vz);
+      return patch?this.dugSurface.height(x,z,patch):support===terrainTop&&TERRAIN.SMOOTH_CONTACT_MATERIALS.includes(this.get(vx,support,vz))?surface:(support+1)*s;
     }
     for (let vy = top; vy >= bottom; vy--) {
       if (this.get(vx, vy, vz) === 0) continue;
-      return vy===terrainTop&&TERRAIN.SMOOTH_CONTACT_MATERIALS.includes(this.get(vx,vy,vz))?surface:(vy+1)*s;
+      const patch=this.dugSurface.patch(vx,vy,vz);
+      return patch?this.dugSurface.height(x,z,patch):vy===terrainTop&&TERRAIN.SMOOTH_CONTACT_MATERIALS.includes(this.get(vx,vy,vz))?surface:(vy+1)*s;
     }
     return bottom * s; // dug clean through: fall to bedrock
   }
@@ -878,8 +896,7 @@ export class VoxelWorld {
       tops.fill(-2147483648);
     }
 
-    // Undamaged ground follows its authored surface; destroyed ground keeps
-    // voxel edges. M28 samples each side of a street boundary independently
+    // Undamaged ground follows its authored surface. M28 samples each side of a street boundary independently
     // so a kerb has a vertical face instead of blending into the road.
     const Q = CX + 3;
     const cornerH = new Float32Array(Q * Q);
@@ -990,7 +1007,8 @@ export class VoxelWorld {
       let safe=true;
       for(let dz=0;dz<stride&&safe;dz++)for(let dx=0;dx<stride;dx++){
         const cy=tops[(z+dz+1)*P+x+dx+1]-base[1];
-        if(cy<0||cy>=CY||!intact[(z+dz+1)*P+x+dx+1]||chunk.data[x+dx+CX*(cy+CY*(z+dz))]!==mat){safe=false;break;}
+        if(cy<0||cy>=CY||!intact[(z+dz+1)*P+x+dx+1]||chunk.data[x+dx+CX*(cy+CY*(z+dz))]!==mat
+          ||this.dugSurface.patch(base[0]+x+dx,base[1]+cy,base[2]+z+dz)){safe=false;break;}
       }
       for(let dz=0;dz<=stride&&safe;dz++)for(let dx=0;dx<=stride;dx++){
         // A coarse square cannot cover a kerb fitted to a diagonal street.
@@ -1081,6 +1099,20 @@ export class VoxelWorld {
               smooth && oy === 1 ? surfaceCorner(lx,lz,ox,oz) : (vy + oy) * s,
               smooth ? cornerZ(lx+ox,lz+oz) : (vz + oz) * s,
             ]);
+            if(terrainCell&&this.dugSurface.nearby(vx,vz)&&this.dugSurface.natural(mat)&&fi!==3){
+              let deformed=false;
+              const patch=fi===2?this.dugSurface.patch(vx,vy,vz):null;
+              for(let i=0;i<f.v.length;i++){
+                const [ox,oy,oz]=f.v[i];
+                const height=patch?patch[oz*2+ox]:fi===2?null:this.dugSurface.corner(vx+ox,vy+oy-1,vz+oz);
+                if(height!==null){deformed ||= Math.abs(quad[i][1]-height)>1e-6;quad[i][1]=height;}
+              }
+              if(deformed){
+                if(fi===2&&quad.every(q=>Math.abs(q[1]-quad[0][1])<1e-6))mergeFace(fi,lx,ly,lz,mat,quad[0][1],true);
+                else emitQuad(quad,color,null,false,true);
+                continue;
+              }
+            }
             const paving=mat===PAVING.SLAB_MATERIAL||mat===PAVING.SLAB_VARIANT||mat===PAVING.KERB_MATERIAL;
             if (smooth && fi===2 && paving && sided) {
               const mod=n=>((n%PAVING.SLAB_CELLS)+PAVING.SLAB_CELLS)%PAVING.SLAB_CELLS;
@@ -1179,6 +1211,7 @@ export class VoxelWorld {
   }
 
   clear() {
+    this.dugSurface.clear();
     this.renderBatches.clear();
     this._meshWork=null;this._columnWork.clear();this.damageQueue=[];this.damageTurn=0;this.supportTurn=0;
     for (const chunk of this.chunks.values()) {

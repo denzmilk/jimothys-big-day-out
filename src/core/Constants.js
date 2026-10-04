@@ -965,6 +965,8 @@ export const TERRAIN = {
   // DEPTH does — which is the whole point of the AC that measures both.
   TOPSOIL_DEPTH: 1.1,
   SMOOTH_CONTACT_MATERIALS: [5,8,9,10,11,12,18,22,23,24,25],
+  DUG_SMOOTH_MATERIALS: [5,8,9,10,11],
+  DUG_SMOOTH_RISE: 2, DUG_SURFACE_CACHE: 8192,
   CLAY_DEPTH: 4.5,
   ROCK_DEPTH: 12,
   // Height of dry land at the waterline's inland end, before hills.

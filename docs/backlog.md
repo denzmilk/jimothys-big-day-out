@@ -23,7 +23,7 @@ Chris asked to finish M53 cars (including ditch recovery), then plan and impleme
 - [ ] **A minigame at every significant location:** physical Raccoon Side Hustles, with 16 distinct landmark directions and additional site-family activities in the expansion plan. Size XL, deliver in tested groups; cancellation/destruction/restart must remain safe.
 - [ ] **Grapple/tethers/swinging/car surfing:** connect objects, reel/swing, pull supported structures apart and ride on moving cars. Size XL; extend suction-grappler/tow-reel with finite tension and breakable anchors, shared physics ownership and budgets.
 - [ ] **Exploration skills bought with fatness:** discover powers, spend current body fatness, and gate exceptional powers by ultimate fatness. Grapple/firearm handling/speed/flight/strength branches. Size L for unlock/save foundation, then individual ability milestones; this explicitly extends the older energy-only tool rule.
-- [x] **Smooth ground traversal and usable sewer stairs** → M55 / JIM-43/93/94; planned, not repaired. Size L; crisp buildings and destructibility remain.
+- [x] **Smooth ground traversal and usable sewer stairs** → M55 / JIM-43/93/94; traversal implementation awaiting playtest. Size L; crisp buildings and destructibility remain.
 - [ ] **Size-sensitive Jimothy ragdolls:** small bodies go floppy when hit by cars, kicks or blasts, large bodies resist more, followed by safe recovery. Size L; couples to movement ownership, preserves original rig and net-only ending.
 - [ ] **Area raccoon bosses:** normal long-spined textured raccoon base sourced under a compatible free licence, separate costumes, special moves, telegraphs/counters and progression gates. Size XL; six initial boss directions and candidate sources recorded in the expansion plan. Implement one complete boss before extending the roster.
 
@@ -235,6 +235,8 @@ Chris asked to finish M53 cars (including ditch recovery), then plan and impleme
   - Source: earlier water-physics request, retained while milestone 31 adds swimming. Rough size: L · Rough value: M.
 
 ## Grounding follow-up — 2026-10-02
+
+- [ ] **Full 3D natural cave-wall/ceiling smoothing (JIM-43).** M55 smooths shallow exposed floors only. Deep trench walls, tunnel walls and ceilings still retain voxel edges. Design shared rendered/contact surfaces that preserve crisp structures, material colours, greedy flat regions and bounded destruction work. Size L; existing terrain traversability is implemented awaiting playtest.
 
 - [ ] Support feet on loose moving props and rubble piles, using a shared physical-surface query for people and Jimothy. Milestone 11 adds planted paws on voxel terrain, kerbs and broken ground; the existing pedestrian ground sampler also excludes moving prop surfaces. This retains the broader rubble criterion from milestone 11.
   - Rubble contact/support promoted to milestone 52 on 2026-10-04 with the physical-debris request; preserve the approved gait while adding physical surfaces.

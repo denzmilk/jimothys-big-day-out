@@ -530,23 +530,17 @@ They spawn in exactly the right place — `_spawnCan` was fixed for hills in mil
 
 **Fourteenth member of the family in `docs/STATE.md`** — and the largest. `CANNON.Plane()` at the origin meant "grade" and now means "the waterline", which is the exact sentence written about `damageSphere(minVoxelY: 0)` a session ago.
 
-### JIM-43 — Dug surfaces render as hard cubes; only undisturbed ground is smoothed
+### JIM-43 — Dug surfaces render as hard cubes
 
-**Status:** open · **Severity:** medium (cosmetic, but it is most of what you look at underground) · **Reported:** Chris, 2026-08-08 — *"there was no smoothing still on the cubes."*
+**Status:** exposed-floor repair implemented 2026-10-04, awaiting playtest; arbitrary cave-wall/ceiling smoothing remains open · **Severity:** medium · **Reported:** Chris, 2026-08-08, renewed in the rough-ground traversal request.
 
-Working as currently designed, and the design is what he is objecting to. `VoxelWorld._buildChunk` smooths by displacing the top face of an **undisturbed terrain voxel** onto the continuous height field. The rule is documented as *"smooth is what you found, voxel is what you did to it"*, and it has two hard limits:
+**M55 checkpoint:** exposed natural floors now share corner heights across shallow ledges (up to two 22 cm cells). Rendering, occupancy and ground contact use the same triangles, including diagonal chunk seams. Brick/concrete, paving, stairs, thin plates and ceilings retain their shape; separate storeys cannot blend together. Edits, travel and restart invalidate the two bounded 8,192-entry caches. Flat areas retain merged faces, and existing giant channels bypass this extra floor search.
 
-1. **Top faces only.** A vertical face is never displaced, so a wall of rock is always a grid of squares however it was made.
-2. **Undisturbed only.** A crater floor is not the terrain's top voxel any more, so it drops out of the rule entirely.
+**Regression evidence:** the original dug ramp produced vertical corrections of 15 / 18.5 / 20.25 cm at 30 / 60 / 120 Hz. The repaired route records 7 / 3.5 / 1.75 cm, zero blocked/airborne frames in both directions, and render/contact agreement below 1 mm. Six unit cases cover seams, ceilings, cache bounds, travel/reset and flat-face merging. A regression caught 4,752 unnecessary vertices on a flat crater before the merge repair. All **132 units**, ten traversal/interior/deep-dig/sewer checks and ten physics/support/beach cases pass. Build and production pixel smoke pass without console errors. The giant channel case still has one pending job after its three-second deadline; this is the existing JIM-48 failure, not signed off.
 
-Underground, *everything* you can see fails both tests — tunnel walls, a dug shaft, a side passage — so the smoothing that makes the hills work is switched off exactly where Chris was looking.
+Native inspection uses the original rig in a five-blast trench: Jimothy remains grounded at 6.38 m versus 8.16 m before excavation, and displaced vegetation follows support loss. Evidence: `output/iterate/damaged-ground-*`, `damaged-walk-*`, `dug-ground-{before,after}.png`; repeatable tools `tools/inspect-damaged-ground.mjs` and `tools/profile-damaged-ground.mjs`.
 
-The height-field trick cannot be extended to cover it: it works because the surface is a **function of (x, z)**, and a tunnel is not — a column underground has a floor *and* a ceiling. Smoothing arbitrary voxel topology is a different algorithm (marching cubes, or surface nets / dual contouring on the same grid), which replaces the face-culled quad mesher rather than extending it.
-
-**Wants its own milestone**, and it interacts with three things already on the register:
-- **JIM-34 (no greedy meshing)** — surface nets would replace that mesher, so doing greedy meshing first would be wasted work. These two must be decided together.
-- The **debris colours and materials** come off per-voxel material ids, which a smoothed surface still has to carry.
-- Whether the *city* should stay hard-edged. Buildings are voxels too, and a smoothed skyscraper would be wrong — so the mesher needs to know which materials smooth and which do not.
+**Cost/limits:** a serial CPU microbenchmark of 10,000 ground/occupancy query pairs records 12.41 → 18.51 ms on a small crater and 12.34 → 13.49 ms in the giant-channel bypass. The sample crater grows from 5,100 to 7,182 vertices; flat terrain stays merged. These are query costs, not game FPS. Vertical/deep trench walls and arbitrary tunnel ceilings still show voxel edges. Full 3D natural-surface smoothing needs a separate meshing/contact design that preserves materials, building corners and destruction budgets; retain that follow-up in the backlog. The earlier JIM-34 greedy-meshing concern is historical: greedy merging is already implemented and preserved here.
 
 ### JIM-38 — The headbutt's horizontal aim is his facing, never the camera's
 

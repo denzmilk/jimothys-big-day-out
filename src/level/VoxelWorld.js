@@ -626,7 +626,7 @@ export class VoxelWorld {
    *  inside the streamed disc, and generating a column mid-march would turn a
    *  per-frame query into a frame hitch. Unstored cells still answer correctly
    *  for ground, because that is what implicit ground means. */
-  raycast(ox, oy, oz, dx, dy, dz, maxDist) {
+  raycast(ox, oy, oz, dx, dy, dz, maxDist, {skipInitialSolid=false}={}) {
     const len = Math.hypot(dx, dy, dz);
     if (!len || !(maxDist > 0)) return null;
     const s = VOXEL.SIZE;
@@ -634,6 +634,7 @@ export class VoxelWorld {
     const uy = dy / len;
     const uz = dz / len;
     let [x, y, z] = this.worldToVoxel(ox, oy, oz);
+    let enteredAir=!skipInitialSolid||this.get(x,y,z)===0;
     const stepX = Math.sign(ux);
     const stepY = Math.sign(uy);
     const stepZ = Math.sign(uz);
@@ -665,7 +666,8 @@ export class VoxelWorld {
         t = tMaxZ; z += stepZ; tMaxZ += tDeltaZ; nx = 0; ny = 0; nz = -stepZ;
       }
       if (t > maxDist) return null;
-      if (this.get(x, y, z) === 0) continue;
+      if (this.get(x, y, z) === 0) {enteredAir=true;continue;}
+      if(!enteredAir)continue;
       return {
         t, nx, ny, nz, vx: x, vy: y, vz: z,
         x: ox + ux * t, y: oy + uy * t, z: oz + uz * t,

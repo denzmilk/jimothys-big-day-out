@@ -26,7 +26,7 @@ The immediate car follow-up also requests more ditch torque, tougher cars (JIM-9
 
 ## Sequential delivery
 
-The order puts contact/ownership and size rules ahead of powers that depend on them. Steps 0–3 (M53–M57 and the JIM-69 skin checkpoint) are implemented, awaiting playtest. JIM-99, the pre-existing comet-crater exit snag found during M57 verification, is the next fluidity repair before wanted pacing. Later rows are work packages to split when reached, not a claim that each fits one session.
+The order puts contact/ownership and size rules ahead of powers that depend on them. Movement checkpoints in steps 0–3 (M53–M57 and JIM-69) are implemented, awaiting playtest; the recorded giant-performance and cave-smoothing limits remain open. JIM-99, the pre-existing comet-crater exit snag found during M57 verification, is the next fluidity repair before wanted pacing. Later rows are work packages to split when reached, not a claim that each fits one session.
 
 | Step | Work | Exit observation and dependencies |
 | --- | --- | --- |

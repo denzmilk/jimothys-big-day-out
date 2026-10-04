@@ -12,8 +12,8 @@ Chris asked to finish M53 cars (including ditch recovery), then plan and impleme
 
 - [ ] **Jetpack and late superman flight:** controlled flight, top-speed comet aura and speed/mass-scaled crash explosions/damage. Size L; depends on movement ownership, skill gates and equipment charges.
 - [ ] **Food treasure hoards and deliberate purge:** varied finite stashes, including high/underwater sites, plus a deliberate comic shrink action with no food duplication. Size L; extends M40 and JIM-44. Pure collectible keepsakes remain separate.
-- [x] **Refine Jimothy's rapid land gait** → M54 / reopened JIM-76; planned, not repaired. Size M; next after car follow-up. Measure cadence, travel per stride, foot planting and native appearance.
-- [ ] **Momentum-led fat rolling:** original fat jiggly Jimothy rotates physically with motion/terrain and carries collected things; carve the requested boulder/crash trail and profile giant cost. Size L; extends M34/39 and JIM-48/69/70.
+- [x] **Refine Jimothy's rapid land gait** → M54 / JIM-76; implemented, awaiting playtest. Cadence, travel per stride, foot planting and native appearance are measured in M54.
+- [x] **Momentum-led fat rolling** → M56; implemented, awaiting playtest. Original fat jiggly Jimothy rotates with travel/terrain and carries collected things. The boulder/crash trail remains, and giant cost is profiled; JIM-48 remains open. JIM-69 has a separate skin/tuck checkpoint.
 - [ ] **Wanted pacing:** renewed JIM-35 report requires mass destruction for five stars, keeping the five-stage response below. Size M for balance; additional response roles remain separate milestones.
 - [ ] **Fish stability and body-wide bubbles:** JIM-90/91, including the repeated blue-fish report, slope/structure avoidance and size-scaled emission footprint. Size M; preserve underwater site variety and bounded effects.
 - [x] **Floating cars on grades:** JIM-89's reproduced streaming cause is repaired, awaiting playtest. Saving wheel suspension offsets and heading preserves steep-road contact on return; ten parked cars and all six driven models are verified. Size M; additional sightings remain subject to reproduction.
@@ -24,7 +24,7 @@ Chris asked to finish M53 cars (including ditch recovery), then plan and impleme
 - [ ] **Grapple/tethers/swinging/car surfing:** connect objects, reel/swing, pull supported structures apart and ride on moving cars. Size XL; extend suction-grappler/tow-reel with finite tension and breakable anchors, shared physics ownership and budgets.
 - [ ] **Exploration skills bought with fatness:** discover powers, spend current body fatness, and gate exceptional powers by ultimate fatness. Grapple/firearm handling/speed/flight/strength branches. Size L for unlock/save foundation, then individual ability milestones; this explicitly extends the older energy-only tool rule.
 - [x] **Smooth ground traversal and usable sewer stairs** → M55 / JIM-43/93/94; traversal implementation awaiting playtest. Size L; crisp buildings and destructibility remain.
-- [ ] **Size-sensitive Jimothy ragdolls:** small bodies go floppy when hit by cars, kicks or blasts, large bodies resist more, followed by safe recovery. Size L; couples to movement ownership, preserves original rig and net-only ending.
+- [x] **Size-sensitive Jimothy ragdolls** → M57; implemented, awaiting playtest. Small bodies articulate after cars/blasts, large bodies resist, then control returns. The original rig and net-only ending remain. NPC kicks follow in the response milestone using the shared hit contract.
 - [ ] **Area raccoon bosses:** normal long-spined textured raccoon base sourced under a compatible free licence, separate costumes, special moves, telegraphs/counters and progression gates. Size XL; six initial boss directions and candidate sources recorded in the expansion plan. Implement one complete boss before extending the roster.
 
 ### Earlier authorised work

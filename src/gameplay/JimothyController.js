@@ -355,13 +355,17 @@ export class JimothyController {
       .every(([dx,dy,dz]) => !this.voxels.solidAtWorld(x+dx,y+dy,z+dz));
   }
 
-  _ceilingLimit(x, z, from, to) {
+  _ceilingLimit(x, z, from, to, stepping=false) {
     if (to <= from) return to;
     const rad = this.radius, r = rad * P.CONTACT_WIDTH;
     let limit = to;
     for (const [dx,dz] of [[0,0],[r,0],[-r,0],[0,r],[0,-r]]) {
       const start = from + rad - P.CONTACT_SKIN;
-      const hit = this.voxels.raycast(x+dx,start,z+dz,0,1,0,to-from+P.CONTACT_SKIN);
+      // JIM-99: a side probe can start inside the ledge being climbed. Its
+      // upper cells are ground; only a new solid after air is a ceiling.
+      // Ordinary upward flight keeps the original sweep and roof protection.
+      const skipInitialSolid=stepping&&this.voxels.solidAtWorld(x+dx,from-rad+P.CONTACT_SKIN,z+dz);
+      const hit = this.voxels.raycast(x+dx,start,z+dz,0,1,0,to-from+P.CONTACT_SKIN,{skipInitialSolid});
       if (hit) limit = Math.min(limit,from+hit.t-P.CONTACT_SKIN);
     }
     return limit;
@@ -398,6 +402,9 @@ export class JimothyController {
     const r = rad * P.CONTACT_WIDTH;
     const probeY = p.y;
     for (const [axis, prev] of [['x', this._prevX], ['z', this._prevZ]]) {
+      // A render update may fall between fixed physics steps. There is no
+      // attempted crossing to reject until this axis actually moves (JIM-99).
+      if(p[axis]===prev)continue;
       const off = (s) => ({
         x: p.x + (axis === 'x' ? s : 0),
         z: p.z + (axis === 'z' ? s : 0),
@@ -437,7 +444,7 @@ export class JimothyController {
         const supported = this.voxels.solidAtWorld(a.x, y - liftStep, a.z)
           || this.voxels.solidAtWorld(bq.x, y - liftStep, bq.z);
         if (!blocked && supported && this._bodyClear(p.x,y,p.z)
-          && this._ceilingLimit(p.x,p.z,probeY,y) >= y-P.CONTACT_SKIN) {
+          && this._ceilingLimit(p.x,p.z,probeY,y,true) >= y-P.CONTACT_SKIN) {
           p.y = y;
           if (this.vy < 0) this.vy = 0;
           this.grounded = true;

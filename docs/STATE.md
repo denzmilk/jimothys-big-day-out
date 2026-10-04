@@ -4,6 +4,12 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## Crater exit repaired — JIM-99 — 2026-10-04
+
+**Implemented, awaiting Chris's playtest.** Step clearance rays no longer mistake their starting ledge for a ceiling. Frames between physics steps retain movement intent instead of repeatedly cancelling it. The original comet-exit assertion and all twelve focused cases pass, including original-rig uphill/downhill routes at 30/60/120 Hz and building/launch contact guards. All 145 units, build, native captures and production pixel smoke pass. At 60/120 Hz the uphill route now advances 6.48 m horizontally in two seconds, versus 2.63 m before. Source-of-truth evidence and the retained crater-wall visual limit are in JIM-99.
+
+M57 is committed/pushed as `0f4b430`. **Next authorised work: JIM-35 wanted pacing**, then the separate staged-response roles and remaining queue. A read-only event audit confirms unrestricted nuisance points and military destruction both reach five stars; `output/iterate/wanted-baseline.json` records synthetic event counts, not a measured player route. No further scope approval is needed.
+
 ## M57 player ragdoll — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** The existing sphere becomes the dynamic torso, with ten additional head/tail/leg bodies driving the original skin. Car sweeps, car/firework blasts and existing military launches throw small Jimothy; giant car blasts give smaller shoves without cancelling a held roll. Water, ride/ejection, growth, capture, spawn and reset cleanly release ownership; repeated impulses cannot restart the physical timer. Extinguisher propulsion remains animated.

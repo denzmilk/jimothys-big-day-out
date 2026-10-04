@@ -12,9 +12,13 @@
 
 ### JIM-99 — Walking out of the comet crater catches the body
 
-**Status:** in-progress · **Found:** 2026-10-04, M57 adjacent verification.
+**Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-04, M57 adjacent verification.
 
 The unchanged `comet-arrival.spec.js` exit route stops after 2.6346 m at z=-2.6346, feet y=42.3446, grounded and not stunned. It reproduces on isolated pushed HEAD `c55fee8` and with M57 car-hit checks disabled. The two-second route requires >3 m; do not widen that assertion. Investigate crater floor/side-probe contact and preserve building wall/ceiling rules. Evidence: `output/iterate/player-ragdoll-comet-{baseline,exit}.log` and `player-ragdoll-comet-exit.json`. Source: `JimothyController._resolveVoxels`, `VoxelWorld` ground queries, `DamagedGround`.
+
+**Cause and repair:** the upward clearance ray starts inside the higher ledge at the crater rim, then calls that same ledge's next voxel a ceiling. It limited Jimothy's body to y=43.01 even though his clearance check found open space at y=43.87. During auto-step only, a side probe supported at foot height can leave its starting contiguous solid before testing a new overhead solid. Ordinary upward flight keeps its original ceiling sweep; an air gap followed by a roof still blocks stepping. Review also caught 120 Hz frames with no physics integration cancelling horizontal intent beside a ledge. An unmoved axis now waits for an actual crossing before rejecting movement.
+
+Three red-then-green units, all 145 units and twelve focused browser cases pass. The original comet assertion stays unchanged. Original-rig uphill displacement is 8.96/7.62/7.62 m at 30/60/120 Hz, downhill 12.00/11.95/11.95 m; all end grounded, with no stall longer than one 120 Hz frame. The 60/120 Hz uphill route advances 6.48 m horizontally, versus 2.63 m before. House walls, partitions, outdoor ledges and launched-ragdoll ceilings pass. The six-rate fixture initially exceeded the test runner's 120-second budget as one case; splitting it into six independently booted cases preserves every assertion. A first implementation's 120 Hz slowdown was repaired, without changing its grounded assertion. Build and native original-rig captures are console-clean; production pixel smoke passes. Evidence: `crater-exit-{red,timing-red,unit-final,units-final,focused,rates,120,final,native-final,smoke-final}.log` and `crater-exit-native/report.json` under `output/iterate/`. This repairs contact/traversal, not the remaining visual smoothing of arbitrary crater walls.
 
 ### JIM-98 — Fat rolling still feels like a fixed animation
 

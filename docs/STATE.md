@@ -8,6 +8,8 @@
 
 An initial 98-second mixed run covers all tools, travel, giant rolling and five restarts without invalid transforms/ownership/budget failures; warmed restart body/registry/geometry/texture counts stay flat. A three-seed mixed run and isolated performance measurements remain. Do not treat the game as stability-signed-off from the focused repairs.
 
+The late SUV spare test failure also belongs to JIM-84: its raw loader import bypassed Vite resolution. The fixture import is corrected; unchanged spare size/mount/drift/five-wheel assertions pass with no asset/runtime changes. Evidence: `output/iterate/stability-spare.log`.
+
 Play the repaired build at **http://127.0.0.1:4174**. Chris's daylight appearance/feel review remains the exit gate. Broader wanted/content milestones retain their recorded ordering.
 
 ## Building collapse and shared rubble — JIM-73 / JIM-82 / milestone 52 — 2026-10-04

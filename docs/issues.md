@@ -16,6 +16,8 @@
 
 Three baseline failures were stale setups: the Dev input test kept focus on a button that intentionally suppresses gameplay keys; the feast test waited 0.4 + 0.5 + 0.72 seconds against a 1.2-second channel before attempting interruption; the restart test expected zero food although furnished homes now start with eight foods. The checks now restore canvas focus, begin with a fresh meal and explicitly assert partial/reset progress, and compare the exact fresh food population. All three pass serially with unchanged runtime code (`output/iterate/stability-fixtures.log`). No assertion was relaxed to excuse a gameplay failure.
 
+A fourth fixture imported the raw GLTFLoader file, bypassing Vite's bare-dependency resolution, so the SUV spare check never reached its assertions. A browser fixture module now exposes the same loader through Vite. The unchanged mounting/size/drift/five-wheel checks pass: size error 0.000000113 m, mounting error 0.000000079 m, zero tilt/yaw drift (`output/iterate/stability-spare.log`). No car asset or runtime code changed.
+
 ### JIM-83 — Contact cancels giant attacks before they can destroy obstacles
 
 **Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-04 headless stability audit

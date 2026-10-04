@@ -5,7 +5,7 @@ test('SUV spare retains its authored size and mounting point through export and 
   await boot(page);
   const report=await page.evaluate(async()=>{
     const THREE=await import('/node_modules/three/build/three.module.js');
-    const {GLTFLoader}=await import('/node_modules/three/examples/jsm/loaders/GLTFLoader.js');
+    const {GLTFLoader}=await import('/tests/browser-assets.mjs');
     const {groundVehicle}=await import('/src/core/Grounding.js');
     const {STREET}=await import('/src/core/Constants.js');
     const original=(await new GLTFLoader().loadAsync('/assets/vehicles/kenney-source/suv.glb')).scene;

@@ -23,10 +23,10 @@ export class HumanResponsePose {
   for(const digit of ['index','middle','ring','pinky','thumb'])for(let n=1;n<=3;n++){const bone=p.visual.getObjectByName(`${digit}_0${n}_${arm.side}`);if(bone)bone.rotateX(digit==='thumb'?C.THUMB_CURL:C.FINGER_CURL);}
  }
  apply(dt,subject){
-  const p=this.p;if(p.type!=='paparazzo'&&p.type!=='police'&&!p.kick?.busy)return;
+  const p=this.p;if(p.type!=='paparazzo'&&p.type!=='police'&&p.type!=='infantry'&&!p.kick?.busy)return;
   for(const s of this.saved)s.q.copy(s.bone.quaternion);this.applied=true;p.group.updateWorldMatrix(true,true);
   if(p.camera||p.gun){
-   const config=p.gun?{LOW:POLICE.GUN_LOW,HIGH:POLICE.GUN_HIGH,RIGHT:POLICE.GUN_RIGHT,LEFT:POLICE.GUN_LEFT,RAISE:POLICE.GUN_RAISE,PITCH:POLICE.GUN_PITCH}:{LOW:C.CAMERA_LOW,HIGH:C.CAMERA_HIGH,RIGHT:C.CAMERA_RIGHT,LEFT:C.CAMERA_LEFT,RAISE:C.CAMERA_RAISE_RESPONSE,PITCH:C.CAMERA_PITCH},prop=p.gun||p.camera;
+   const profile=p.gunProfile||POLICE,config=p.gun?{LOW:profile.GUN_LOW,HIGH:profile.GUN_HIGH,RIGHT:profile.GUN_RIGHT,LEFT:profile.GUN_LEFT,RAISE:profile.GUN_RAISE,PITCH:profile.GUN_PITCH}:{LOW:C.CAMERA_LOW,HIGH:C.CAMERA_HIGH,RIGHT:C.CAMERA_RIGHT,LEFT:C.CAMERA_LEFT,RAISE:C.CAMERA_RAISE_RESPONSE,PITCH:C.CAMERA_PITCH},prop=p.gun||p.camera;
    this.raised+=((p.sees?1:0)-this.raised)*(1-Math.exp(-config.RAISE*dt));
    const center=p.group.localToWorld(new THREE.Vector3().fromArray(config.LOW).lerp(new THREE.Vector3().fromArray(config.HIGH),this.raised).multiplyScalar(p.height)),rotation=p.group.getWorldQuaternion(new THREE.Quaternion());
    if(subject&&p.sees){const pitch=THREE.MathUtils.clamp(Math.atan2(center.y-subject.y,Math.hypot(center.x-subject.x,center.z-subject.z)),-config.PITCH,config.PITCH);rotation.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),pitch));}

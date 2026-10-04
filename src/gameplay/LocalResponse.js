@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {LOCAL_RESPONSE as C,POLICE} from '../core/Constants.js';
+import {LOCAL_RESPONSE as C,POLICE,INFANTRY} from '../core/Constants.js';
+import {RifleBurst} from '../core/RifleBurst.js';
 import {GunAttack} from '../core/PolicePolicy.js';
 import {segmentSphere} from '../core/ProjectileContact.js';
 import {LocalKick} from '../core/LocalKick.js';
@@ -11,7 +12,7 @@ import {gameState} from '../core/GameState.js';
 // A component of Pursuers: actor/navigation ownership stays with that owner.
 export class LocalResponse {
  constructor(owner){
-  this.owner=owner;this.bullets=[];this.gunShots=0;this.gunHits=0;this.gunBlocks=0;this.gunsReady=false;this.ready=false;this.photos=0;this.kicks=0;this.hits=0;this.cooldown=0;this.particles=[];this.voices=new Set();
+  this.owner=owner;this.bullets=[];this.rifleShots=0;this.infantryReady=false;this.gunShots=0;this.gunHits=0;this.gunBlocks=0;this.gunsReady=false;this.ready=false;this.photos=0;this.kicks=0;this.hits=0;this.cooldown=0;this.particles=[];this.voices=new Set();
   // Perception and attack clocks also run in Node's headless AI tests.
   // Browser resources are optional; the same gameplay state remains active.
   if(typeof document==='undefined')return;
@@ -23,18 +24,23 @@ export class LocalResponse {
   this.gunLoading=Promise.all([POLICE.GUN_PATH,POLICE.CAP_PATH].map(path=>new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}${path}`))).then(([gun,cap])=>{
    this.gunTemplate=gun.scene;this.capTemplate=cap.scene;for(const root of [this.gunTemplate,this.capTemplate])root.traverse(o=>{if(o.isMesh)o.castShadow=o.receiveShadow=true;});this.gunsReady=true;for(const p of owner.all)this.person(p);
   }).catch(e=>console.error('Police equipment failed',e));
+  this.infantryLoading=Promise.all([INFANTRY.MODEL_PATH,INFANTRY.GUN_PATH,INFANTRY.CAP_PATH].map(path=>new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}${path}`))).then(([human,gun,helmet])=>{
+   this.infantryModel=human;this.rifleTemplate=gun.scene;this.helmetTemplate=helmet.scene;for(const root of [this.rifleTemplate,this.helmetTemplate])root.traverse(o=>{if(o.isMesh)o.castShadow=o.receiveShadow=true;});this.infantryReady=true;for(const p of owner.all)if(p.type==='infantry'){owner._human(p);this.person(p);}
+  }).catch(e=>console.error('Infantry assets failed',e));
   this.unlock=()=>this.initAudio();window.addEventListener('keydown',this.unlock);window.addEventListener('pointerdown',this.unlock);window.addEventListener('blur',()=>this.silence());document.addEventListener('visibilitychange',()=>{if(document.hidden)this.silence();});
  }
  person(p){
   if(p.type==='angry-local')p.kick??=new LocalKick();
   if(p.type==='police')p.fire??=new GunAttack();
+  if(p.type==='infantry')p.fire??=new RifleBurst();
   if(!p.visual||p.type==='animal-control')return;
   p.responsePose??=new HumanResponsePose(p);
-  if(p.type==='police'&&this.gunsReady&&!p.gun){
-   p.gun=this.gunTemplate.clone(true);p.gun.name='police-gun';p.visual.getObjectByName('hand_r').add(p.gun);
-   p.gunFlash=new THREE.Sprite(new THREE.SpriteMaterial({map:this.flashTexture,color:POLICE.SHOT_COLOR,transparent:true,depthWrite:false,toneMapped:false,blending:THREE.AdditiveBlending,opacity:0}));p.gunFlash.position.fromArray(POLICE.MUZZLE);p.gunFlash.scale.setScalar(POLICE.MUZZLE_SIZE);p.gun.add(p.gunFlash);
-   const head=p.visual.getObjectByName('head');p.group.updateWorldMatrix(true,true);const at=head.getWorldPosition(new THREE.Vector3());at.y=p.group.position.y+p.height-POLICE.CAP_SEAT;
-   p.cap=this.capTemplate.clone(true);head.add(p.cap);p.cap.position.copy(head.worldToLocal(at));p.cap.quaternion.copy(head.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(p.group.getWorldQuaternion(new THREE.Quaternion())));
+  const infantry=p.type==='infantry',profile=infantry?INFANTRY:POLICE;
+  if((infantry?this.infantryReady:p.type==='police'&&this.gunsReady)&&!p.gun){
+   p.gunProfile=profile;p.gun=(infantry?this.rifleTemplate:this.gunTemplate).clone(true);p.gun.name=infantry?'infantry-rifle':'police-gun';p.visual.getObjectByName('hand_r').add(p.gun);
+   p.gunFlash=new THREE.Sprite(new THREE.SpriteMaterial({map:this.flashTexture,color:profile.SHOT_COLOR,transparent:true,depthWrite:false,toneMapped:false,blending:THREE.AdditiveBlending,opacity:0}));p.gunFlash.position.fromArray(profile.MUZZLE);p.gunFlash.scale.setScalar(profile.MUZZLE_SIZE);p.gun.add(p.gunFlash);
+   const head=p.visual.getObjectByName('head');p.group.updateWorldMatrix(true,true);const at=head.getWorldPosition(new THREE.Vector3());at.y=p.group.position.y+p.height-profile.CAP_SEAT;
+   p.cap=(infantry?this.helmetTemplate:this.capTemplate).clone(true);p.cap.name=infantry?'infantry-helmet':'police-cap';head.add(p.cap);p.cap.position.copy(head.worldToLocal(at));p.cap.quaternion.copy(head.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(p.group.getWorldQuaternion(new THREE.Quaternion())));
   }
   if(p.type==='paparazzo'&&this.ready&&!p.camera){
    p.camera=this.camera.clone(true);p.camera.name='paparazzi-camera';p.visual.getObjectByName('hand_r').add(p.camera);
@@ -66,24 +72,26 @@ export class LocalResponse {
  }
  gun(p,dt){
   if(!p.fire||!p.gun)return;
+  const profile=p.gunProfile;
   const target=this.owner.jimothy.body.position,pos=p.group.position;
-  const allowed=gameState.heat.tier>=POLICE.MIN_TIER&&gameState.capture.phase==='idle'&&gameState.vehicle.phase==='onFoot'&&gameState.tools.shield<=0&&!gameState.player.inTree&&!gameState.player.swimming&&!p.attached&&!p.ragdoll&&p.sees&&p.responsePose.raised>=POLICE.GUN_READY&&pos.distanceTo(target)<=POLICE.GUN_RANGE+this.owner.jimothy.radius&&this.owner.voxels.hasLineOfSight(pos.x,pos.y+POLICE.CAP_HEIGHT,pos.z,target.x,target.y,target.z);
+  const allowed=gameState.heat.tier>=profile.MIN_TIER&&gameState.capture.phase==='idle'&&gameState.vehicle.phase==='onFoot'&&gameState.tools.shield<=0&&!gameState.player.inTree&&!gameState.player.swimming&&!p.attached&&!p.ragdoll&&p.sees&&p.responsePose.raised>=profile.GUN_READY&&pos.distanceTo(target)<=profile.GUN_RANGE+this.owner.jimothy.radius&&this.owner.voxels.hasLineOfSight(pos.x,pos.y+profile.CAP_HEIGHT,pos.z,target.x,target.y,target.z);
   const attack=p.fire.update(dt,{allowed,target});
   if(!attack.fire||this.bullets.length>=POLICE.SHOT_LIMIT)return;
-  p.gun.updateWorldMatrix(true,true);const from=p.gun.localToWorld(new THREE.Vector3().fromArray(POLICE.MUZZLE)),direction=new THREE.Vector3(attack.target.x,attack.target.y,attack.target.z).sub(from).normalize();
+  p.gun.updateWorldMatrix(true,true);const from=p.gun.localToWorld(new THREE.Vector3().fromArray(profile.MUZZLE)),direction=new THREE.Vector3(attack.target.x,attack.target.y,attack.target.z).sub(from).normalize();
   const mesh=new THREE.Mesh(this.bulletGeometry,this.bulletMaterial);mesh.position.copy(from);mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),direction);this.owner.scene.add(mesh);
-  this.bullets.push({mesh,direction,age:0});this.gunShots++;p.gunFlashLeft=POLICE.MUZZLE_SECONDS;this.cue('gun',from);
+  this.bullets.push({mesh,direction,age:0,profile,source:p.type});this.gunShots++;if(p.type==='infantry')this.rifleShots++;p.gunFlashLeft=profile.MUZZLE_SECONDS;this.cue(p.type==='infantry'?'rifle':'gun',from);
  }
  updateBullets(dt){
   const j=this.owner.jimothy;
   for(const b of [...this.bullets]){
-   const from=b.mesh.position.clone(),to=from.clone().addScaledVector(b.direction,POLICE.SHOT_SPEED*dt),length=from.distanceTo(to),wall=this.owner.voxels.raycast(from.x,from.y,from.z,b.direction.x,b.direction.y,b.direction.z,length);
-   const contact=gameState.vehicle.phase==='onFoot'?segmentSphere(from,to,j.body.position,j.radius+POLICE.SHOT_RADIUS):null;
+   const profile=b.profile;
+   const from=b.mesh.position.clone(),to=from.clone().addScaledVector(b.direction,profile.SHOT_SPEED*dt),length=from.distanceTo(to),wall=this.owner.voxels.raycast(from.x,from.y,from.z,b.direction.x,b.direction.y,b.direction.z,length);
+   const contact=gameState.vehicle.phase==='onFoot'?segmentSphere(from,to,j.body.position,j.radius+profile.SHOT_RADIUS):null;
    const hit=contact!==null&&(!wall||contact*length<wall.t);b.age+=dt;
-   if(hit||wall||b.age>=POLICE.SHOT_LIFE){
+   if(hit||wall||b.age>=profile.SHOT_LIFE){
     if(wall&&!hit)this.gunBlocks++;
     if(hit&&gameState.tools.shield<=0&&gameState.capture.phase==='idle'){
-     this.gunHits++;const direction=b.direction.clone();direction.y=0;direction.normalize();eventBus.emit(Events.PLAYER_HIT,{source:'police',velocity:[direction.x*POLICE.HIT_SPEED,POLICE.HIT_UP,direction.z*POLICE.HIT_SPEED]});
+     this.gunHits++;const direction=b.direction.clone();direction.y=0;direction.normalize();eventBus.emit(Events.PLAYER_HIT,{source:b.source,velocity:[direction.x*profile.HIT_SPEED,profile.HIT_UP,direction.z*profile.HIT_SPEED]});
     }
     if(hit||wall){const at=from.lerp(to,hit?contact:Math.min(1,wall.t/length));for(let i=0;i<C.EFFECT_COUNT&&this.particles.length<C.EFFECT_LIMIT;i++)this.particles.push({at:at.clone(),age:0,v:new THREE.Vector3(Math.sin(i),Math.abs(Math.cos(i)),Math.cos(i)).multiplyScalar(C.EFFECT_SPEED)});}
     b.mesh.removeFromParent();this.bullets.splice(this.bullets.indexOf(b),1);
@@ -92,7 +100,7 @@ export class LocalResponse {
  }
  update(dt){
   this.cooldown=Math.max(0,this.cooldown-dt);this.updateBullets(dt);
-  for(const p of this.owner.all){if(p.gun)p.gun.visible=!p.vehicleSeat;p.gunFlashLeft=Math.max(0,(p.gunFlashLeft||0)-dt);if(p.gunFlash)p.gunFlash.material.opacity=p.gunFlashLeft/POLICE.MUZZLE_SECONDS;p.photoLeft=Math.max(0,(p.photoLeft||0)-dt);if(p.cameraFlash)p.cameraFlash.material.opacity=p.photoLeft/C.FLASH_SECONDS;}
+  for(const p of this.owner.all){if(p.gun)p.gun.visible=!p.vehicleSeat;p.gunFlashLeft=Math.max(0,(p.gunFlashLeft||0)-dt);if(p.gunFlash)p.gunFlash.material.opacity=p.gunFlashLeft/p.gunProfile.MUZZLE_SECONDS;p.photoLeft=Math.max(0,(p.photoLeft||0)-dt);if(p.cameraFlash)p.cameraFlash.material.opacity=p.photoLeft/C.FLASH_SECONDS;}
   this.particles=this.particles.filter(p=>{p.age+=dt;p.at.addScaledVector(p.v,dt);return p.age<C.EFFECT_LIFE;});
   if(!this.effects)return;
   this.effects.count=this.particles.length;this.particles.forEach((p,i)=>{this.dummy.position.copy(p.at);this.dummy.scale.setScalar(1-p.age/C.EFFECT_LIFE);this.dummy.updateMatrix();this.effects.setMatrixAt(i,this.dummy.matrix);});this.effects.instanceMatrix.needsUpdate=true;
@@ -112,6 +120,6 @@ export class LocalResponse {
   o.onended=()=>{o.disconnect();noise.disconnect();filter.disconnect();gain.disconnect();this.voices.delete(o);};o.start();noise.start();o.stop(t+seconds);noise.stop(t+seconds);
  }
  silence(){for(const o of this.voices){try{o.stop();}catch{}}}
- reset(){this.silence();for(const b of this.bullets)b.mesh.removeFromParent();this.bullets=[];this.gunShots=this.gunHits=this.gunBlocks=0;this.particles=[];if(this.effects)this.effects.count=0;this.photos=this.kicks=this.hits=0;this.cooldown=0;}
- snapshot(){let rms=0;if(this.analyser){this.analyser.getFloatTimeDomainData(this.samples);rms=Math.sqrt(this.samples.reduce((s,x)=>s+x*x,0)/this.samples.length);}return{ready:this.ready,gunsReady:this.gunsReady,gunShots:this.gunShots,gunHits:this.gunHits,gunBlocks:this.gunBlocks,bullets:this.bullets.length,photos:this.photos,kicks:this.kicks,hits:this.hits,particles:this.particles.length,voices:this.voices.size,rms};}
+ reset(){this.silence();for(const b of this.bullets)b.mesh.removeFromParent();this.bullets=[];this.rifleShots=this.gunShots=this.gunHits=this.gunBlocks=0;this.particles=[];if(this.effects)this.effects.count=0;this.photos=this.kicks=this.hits=0;this.cooldown=0;}
+ snapshot(){let rms=0;if(this.analyser){this.analyser.getFloatTimeDomainData(this.samples);rms=Math.sqrt(this.samples.reduce((s,x)=>s+x*x,0)/this.samples.length);}return{ready:this.ready,gunsReady:this.gunsReady,infantryReady:this.infantryReady,rifleShots:this.rifleShots,gunShots:this.gunShots,gunHits:this.gunHits,gunBlocks:this.gunBlocks,bullets:this.bullets.length,photos:this.photos,kicks:this.kicks,hits:this.hits,particles:this.particles.length,voices:this.voices.size,rms};}
 }

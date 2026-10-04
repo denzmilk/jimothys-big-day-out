@@ -4,6 +4,14 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## M61 rifle infantry checkpoint — 2026-10-05
+
+**Implemented, awaiting Chris’s playtest.** [M61](milestones/61-rifle-infantry.md) adds four staggered soldiers, separate packed MPFB olive workwear, fitted helmets and CC0 rifles. Three-round bursts share cover, swept projectiles, human/player ragdolls, perception/radar, net coordination and bounded effects. Army dispatch starts at five stars; four-star police remain intact.
+
+All 163 units and 33 infantry/local/military/police gameplay cases pass, plus final helmet fit, build and native original-rig inspection. Review repaired the supporting-hand gap and a high helmet rim. Final native attack has three shots, one hit, no errors and a grip gap below 0.001 mm. Geometry/skin/rig/clip invariants match the retained worker. Initial intermittent asset-readiness timeouts did not recur; their cause is not established. Final production pixel smoke passes with distinct sky/ground readback and no console errors.
+
+**Next authorised work: JIM-90 fish steering/animation continuity, then JIM-91 wider submerged bubbles**, as separate reviewed repairs. Read-only inspection found immediate fish-heading replacement and no use of `OCEAN.FISH_TURN`; reproduce before changing it. Notes: `output/iterate/jim90-investigation.md`. No further scope approval is needed. Giant performance/JIM-48 remains open.
+
 ## M60 police response checkpoint — 2026-10-04
 
 **Implemented, awaiting Chris’s playtest.** [M60](milestones/60-police-response.md) adds CC0 patrol cars, fitted MPFB officers, observed/remembered road pursuit, shared seats/hijacking/dismount/destruction/water, telegraphed swept shots and bounded effects/siren. Four stars stay police at every size; army response starts at five. The final review repaired driver-seat starvation: eight civilian seats plus two police seats, with stable driver roles.

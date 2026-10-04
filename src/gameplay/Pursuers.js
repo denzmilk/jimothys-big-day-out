@@ -4,7 +4,7 @@ import {sightFan,belowGround} from '../core/Perception.js';
 import { FootGrounding, solveTwoBone } from '../core/Grounding.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import {
-  PAPARAZZI, ANIMAL_CONTROL, LOCAL_RESPONSE, POLICE, PURSUER_SPAWN_POINTS, COLORS, WORLD,
+  PAPARAZZI, ANIMAL_CONTROL, LOCAL_RESPONSE, POLICE, INFANTRY, PURSUER_SPAWN_POINTS, COLORS, WORLD,
   VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, COLLECTION, PEDESTRIANS, CAPTURE, TRAFFIC, RADAR,
 } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -56,7 +56,7 @@ export class Pursuers {
     this.jimothy = jimothy;
     this.voxels = voxels;
     this.paparazzi = [];
-    this.locals=[];this.police=[];
+    this.locals=[];this.police=[];this.infantry=[];this.infantryClock=0;
     this.animalControl = null;
     this.response=new LocalResponse(this);
     this.spawnIndex = 0;
@@ -107,7 +107,7 @@ export class Pursuers {
   }
 
   get all() {
-    return [...this.paparazzi,...this.locals,...this.police,...(this.animalControl?[this.animalControl]:[])];
+    return [...this.paparazzi,...this.locals,...this.police,...this.infantry,...(this.animalControl?[this.animalControl]:[])];
   }
 
   /** Where a new pursuer appears: on a ring around JIMOTHY, not at a fixed
@@ -206,8 +206,8 @@ export class Pursuers {
 
   _human(p) {
     if(!this.models||p.visual)return;
-    p.model=p.type==='animal-control'?'worker':p.type==='angry-local'?LOCAL_RESPONSE.MODELS[p.id%LOCAL_RESPONSE.MODELS.length]:p.type==='police'?POLICE.MODEL:'commuter';
-    const model=this.models[PEDESTRIANS.MODELS.indexOf(p.model)];
+    p.model=p.type==='infantry'?'infantry':p.type==='animal-control'?'worker':p.type==='angry-local'?LOCAL_RESPONSE.MODELS[p.id%LOCAL_RESPONSE.MODELS.length]:p.type==='police'?POLICE.MODEL:'commuter';
+    const model=p.type==='infantry'?this.response.infantryModel:this.models[PEDESTRIANS.MODELS.indexOf(p.model)];if(!model)return;
     p.visual=clone(model.scene);const box=new THREE.Box3().setFromObject(p.visual);p.visual.position.y-=box.min.y;p.height=box.max.y-box.min.y;p.group.add(p.visual);
     for(const child of [...p.group.children])if(child.userData.placeholder)p.group.remove(child);
     p.visual.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
@@ -314,6 +314,8 @@ export class Pursuers {
     if (type === 'animal-control') {
       if (this.animalControl) this._removePerson(this.animalControl);
       this.animalControl = p;
+    } else if(type==='infantry'){
+      this.infantry.push(p);
     } else if(type==='police'){
       this.police.push(p);
     } else if(type==='angry-local'){
@@ -340,7 +342,7 @@ export class Pursuers {
   sightRange(type, tier = gameState.heat.tier) {
     const scale = type === 'animal-control'
       ? ANIMAL_CONTROL.VISION_SCALE
-      : type==='police'?POLICE.VISION_SCALE:PAPARAZZI.VISION_SCALE;
+      : type==='infantry'?INFANTRY.VISION_SCALE:type==='police'?POLICE.VISION_SCALE:PAPARAZZI.VISION_SCALE;
     return VISION.RANGE * scale * (1 + Math.max(0, tier - 1) * VISION.TIER_RANGE_GAIN);
   }
 
@@ -510,8 +512,8 @@ export class Pursuers {
   /** Speed for the current state. Patrol is a walk; the rest is the type's own
    *  pace. */
   _speed(p) {
-    const base = p.type === 'animal-control' ? ANIMAL_CONTROL.SPEED : p.type==='angry-local'?LOCAL_RESPONSE.SPEED:p.type==='police'?POLICE.FOOT_SPEED:PAPARAZZI.SPEED;
-    if(p.type==='police'&&(p.fire?.phase==='aim'||p.sees&&p.group.position.distanceTo(this.jimothy.position)<POLICE.GUN_RANGE))return 0;
+    const base = p.type === 'animal-control' ? ANIMAL_CONTROL.SPEED : p.type==='angry-local'?LOCAL_RESPONSE.SPEED:p.type==='infantry'?INFANTRY.FOOT_SPEED:p.type==='police'?POLICE.FOOT_SPEED:PAPARAZZI.SPEED;
+    if(p.fire&&(p.fire.phase==='aim'||p.fire.phase==='burst'||p.sees&&p.group.position.distanceTo(this.jimothy.position)<p.gunProfile?.GUN_RANGE))return 0;
     if (p.state === 'patrol') return base * PATROL.SPEED_SCALE;
     if (p.state === 'noticing') return 0;
     // Photographers stop at photo range and loiter rather than dogpiling.
@@ -645,6 +647,18 @@ export class Pursuers {
     return Math.hypot(jp.x - pos.x, jp.y - pos.y, jp.z - pos.z);
   }
 
+  _infantrySpawn(){
+    const C=INFANTRY,j=this.jimothy.position,angle=this.spawnIndex++*Math.PI*(3-Math.sqrt(5));
+    for(let i=0;i<C.SPAWN_ATTEMPTS;i++){
+      const a=angle+i*Math.PI*2/C.SPAWN_ATTEMPTS,r=C.SPAWN_RADIUS+this.jimothy.radius,x=j.x+Math.cos(a)*r,z=j.z+Math.sin(a)*r;
+      if(Math.abs(x)>WORLD.BOUNDS||Math.abs(z)>WORLD.BOUNDS)continue;
+      const y=this._groundY(x,z);let water;eventBus.emit(Events.WATER_SAMPLE,{x,z,receive:w=>water=w});
+      if(water&&water.height-y>C.SPAWN_CLEARANCE||this.all.some(p=>p.group.position.distanceTo(new THREE.Vector3(x,y,z))<C.SPAWN_SEPARATION))continue;
+      const clear=[[-1,-1],[-1,1],[1,-1],[1,1]].every(([dx,dz])=>{const px=x+dx*C.SPAWN_CLEARANCE,pz=z+dz*C.SPAWN_CLEARANCE,ground=this._groundY(px,pz,y);return Math.abs(ground-y)<=SEARCH.GROUND_STEP&&C.SPAWN_HEIGHTS.every(h=>!this.voxels?.physicalSolidAtWorld(px,y+h,pz));});
+      if(clear)return[x,z];
+    }return null;
+  }
+
   update(delta) {
     if (!gameState.game.isPlaying) return;
     const tier = gameState.heat.tier;
@@ -676,6 +690,11 @@ export class Pursuers {
     const targetLocals=tier>=LOCAL_RESPONSE.MIN_TIER?LOCAL_RESPONSE.COUNT:0,managedLocals=()=>this.locals.filter(p=>!p.manual);
     while(managedLocals().length<targetLocals){const [x,z]=this._spawnPoint();this.locals.push(this._makePerson('angry-local',x,z));}
     while(managedLocals().length>targetLocals){const i=this.locals.map(p=>!p.manual&&!p.attached).lastIndexOf(true);if(i<0)break;this._removePerson(this.locals.splice(i,1)[0]);}
+    this.infantryClock=Math.max(0,this.infantryClock-delta);
+    for(const p of [...this.infantry])if(!p.manual&&!p.attached&&(tier<INFANTRY.MIN_TIER||p.group.position.distanceTo(this.jimothy.position)>INFANTRY.DESPAWN_RANGE)){this._removePerson(p);this.infantry.splice(this.infantry.indexOf(p),1);}
+    if(tier>=INFANTRY.MIN_TIER&&this.models&&this.response.infantryReady&&this.infantry.filter(p=>!p.manual).length<INFANTRY.COUNT&&this.infantryClock<=0){
+      const at=this._infantrySpawn();if(at)this.infantry.push(this._makePerson('infantry',...at));this.infantryClock=INFANTRY.SPAWN_INTERVAL;
+    }
     this.response.update(delta);
     this.globalFlashCooldown -= delta;
     for (const p of this.paparazzi) {
@@ -709,10 +728,10 @@ export class Pursuers {
       this._animate(p,delta,x,z);this.response.kick(p,delta);p.responsePose?.apply(delta);
     }
     for(const p of [...this.police])if(!p.manual&&!p.attached&&(tier<POLICE.MIN_TIER||p.group.position.distanceTo(this.jimothy.position)>POLICE.DESPAWN_RANGE)){this._removePerson(p);this.police.splice(this.police.indexOf(p),1);}
-    for(const p of this.police){
+    for(const p of [...this.police,...this.infantry]){
       if(p.attached||p.ragdoll)continue;
       const x=p.group.position.x,z=p.group.position.z;this._think(p,delta);this._steer(p,delta,this._speed(p));
-      if(p.fire?.phase==='aim'&&p.fire.target)p.group.rotation.y=Math.atan2(p.fire.target.x-x,p.fire.target.z-z);
+      if((p.fire?.phase==='aim'||p.fire?.phase==='burst')&&p.fire.target)p.group.rotation.y=Math.atan2(p.fire.target.x-x,p.fire.target.z-z);
       this._animate(p,delta,x,z);p.responsePose?.apply(delta,p.fire?.target||this.jimothy.body.position);this.response.gun(p,delta);
     }
     const ac=this.animalControl;
@@ -758,6 +777,7 @@ export class Pursuers {
   }
 
   reset() {
+    for(const p of this.infantry)this._removePerson(p);this.infantry=[];this.infantryClock=0;
     for(const p of this.police)this._removePerson(p);this.police=[];
     for(const p of this.locals)this._removePerson(p);this.locals=[];this.response.reset();this.globalFlashCooldown=0;
     for (const pap of this.paparazzi) this._removePerson(pap);

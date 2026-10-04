@@ -742,6 +742,7 @@ export const CAMERA = {
   GIANT_AIM_BLEND: .35,
   GIANT_AIM_SHOULDER: .65,
   BODY_FADE_RATIO: 1.1,
+  TOOL_BODY_OPACITY:.28, HIDDEN_BODY_OPACITY:.5,
   // Raised for aiming (milestone 20). The aim is measured from the resting
   // pitch of 0.47, so 1.5 leaves about 59 degrees of downward travel — enough
   // that "tilt down past halfway" is the dig, with room either side.
@@ -1745,6 +1746,7 @@ export const TOOLS = {
  // M64 outlet coordinates/axes measured from the retained Blender source parts.
  FLOW_PROFILES:{"power-washer":{"outlet":[-0.12999999523162842,0.17000000178813934,0.9399999976158142],"axis":[0.0,-0.31622788310050964,0.9486832618713379],"style":"jet","color":7920895},"leaf-blower":{"outlet":[0.0,0.22999994456768036,0.8500000238418579],"axis":[0.0,-0.06316487491130829,0.9980031251907349],"style":"gust","color":15195832},"vacuum":{"outlet":[0.20000000298023224,0.06499999761581421,0.8949999809265137],"axis":[0.0,0.0,1.0],"style":"suction","color":8632831},"fire-extinguisher":{"outlet":[0.18000000715255737,0.14000000059604645,0.6299999952316284],"axis":[0.0,-0.4190581738948822,0.9079594016075134],"style":"foam","color":16777215}},
  FLOW_BODY_REACH:48,FLOW_CORE_COLOR:0xffffff,FLOW_TUBE_SEGMENTS:10,FLOW_SPHERE_SEGMENTS:[16,10],FLOW_RING_SEGMENTS:[5,20],FLOW_MIST_EDGE:.15,
+ VIEW_MIN_RADIUS:3,VIEW_MARGIN:.05,VIEW_HOLD:.35,
  FLOW_TEXTURE_SIZE:64,FLOW_WAVE_BASE:.45,FLOW_WAVE_REPEAT:.7,FLOW_WAVE_SPEED:6,FLOW_SUCTION_SPEED:8,
  FLOW_SCATTER:{jet:.5,gust:.6,suction:.12,foam:.4},FLOW_LEAF_COLORS:[0xa9b94e,0xd6b35d,0xa78152],FLOW_LEAF_SCALE:[1.8,.12,.8],
  FLOW_PATHS:16,FLOW_TARGETS:8,FLOW_CANDIDATES:64,FLOW_RAYS:5,FLOW_RINGS:20,FLOW_PARTICLES:96,FLOW_STEP:.11,FLOW_SKIN:.025,

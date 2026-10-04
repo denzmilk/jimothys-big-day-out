@@ -159,7 +159,7 @@ class Game {
     this.treasures = new Treasures(this.scene, this.jimothy, this.voxels);
     this.crabs = new CrabPeople(this.scene, this.jimothy, this.voxels);
     this.sewerLife=new SewerLife(this.scene,this.jimothy,this.voxels);
-    this.tools=new ToolSystem(this.scene,this.jimothy,this.input,this.voxels);
+    this.tools=new ToolSystem(this.scene,this.jimothy,this.input,this.voxels,this.camera);
     this.landmarks=new Landmarks(this.scene,this.jimothy,this.voxels,this.level.horizonCoverage);
     this.score = new ScoreSystem();
     this.heat = new HeatSystem();

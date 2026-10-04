@@ -8,10 +8,11 @@ import {ToolAudio} from '../core/ToolAudio.js';
 import {ToolFlow} from '../core/ToolFlow.js';
 
 export class ToolSystem {
- constructor(scene,jimothy,input,voxels){
+ constructor(scene,jimothy,input,voxels,camera=null){
+  this.camera=camera;this.viewObscured=false;this.viewUntil=0;
   Object.assign(this,{scene,jimothy,input,voxels});this.catalog=C.CATALOG;this.pickups=[];this.models=new Map();this.entities=new Map();this.statuses=new Map();this.paint=[];this.particles=[];this.cooldown=0;this.time=0;this.shots=0;this.equipped=null;this.ready=false;this.humans=new Map();this.devices=[];this.clouds=[];this.projectiles=[];this.serial=0;this.blasts=0;
   this.notice='';this.noticeUntil=0;this.discards=0;this.sound=new ToolAudio(()=>this.jimothy.body.position);
-  this.flow=new ToolFlow(scene,voxels,()=>this.entities.values());window.addEventListener('blur',()=>this.flow.stop());
+  this.flow=new ToolFlow(scene,voxels,()=>this.entities.values());window.addEventListener('blur',()=>{this.flow.stop();this.setView(false);});
   this.ball=new THREE.SphereGeometry(1,10,6);this.bubbleMaterial=new THREE.MeshStandardMaterial({color:C.BUBBLE_COLOR,transparent:true,opacity:C.BUBBLE_OPACITY,roughness:C.BUBBLE_ROUGHNESS,depthWrite:false});this.paintMaterial=new THREE.MeshStandardMaterial({color:C.PAINT_BASE,roughness:C.PAINT_ROUGHNESS});
   this.effects=new THREE.InstancedMesh(this.ball,new THREE.MeshBasicMaterial({transparent:true,opacity:C.EFFECT_OPACITY,depthWrite:false}),C.EFFECT_LIMIT);this.effects.count=0;this.effects.frustumCulled=false;scene.add(this.effects);this.matrix=new THREE.Object3D();
   this.foamMaterial=new THREE.MeshStandardMaterial({color:C.FOAM_COLOR,roughness:C.PAINT_ROUGHNESS});this.rocketGeometry=new THREE.ConeGeometry(C.PROJECTILE_RADIUS,C.PROJECTILE_LENGTH,8);this.rocketMaterial=new THREE.MeshStandardMaterial({color:C.FIREWORK_COLOR});
@@ -49,6 +50,7 @@ export class ToolSystem {
  deny(message){this.notify(message);return null;}
  equip(p){if(!p||p.attached||p.held||p.remaining<=0||!this.ready)return;this.drop();this.equipped=p;p.held=true;p.mesh.visible=true;eventBus.emit(Events.PROP_SUSPEND,{id:p.id});eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});gameState.tools.equipped=p.type;this.cooldown=0;this.notice='';this.syncSupply();this.pose();this.sound.play('pickup',p.mesh.position);}
  drop({exhausted=false}={}){
+  this.viewUntil=0;this.setView(false);
   this.towing=null;this.ropeLife=0;this.rope.visible=false;this.anchor=null;this.sound.stop();
   if(!exhausted)this.flow.stop();
   // M63: the final movement pulse already has a short lifetime. Cancelling it
@@ -62,6 +64,16 @@ export class ToolSystem {
  direction(){if(this.aimOverride)return new THREE.Vector3(this.aimOverride.x,this.aimOverride.y,this.aimOverride.z).normalize();const j=this.jimothy,yaw=j.aimYaw??j.yaw,pitch=j.aimPitch||0;return new THREE.Vector3(Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));}
  pose(){const p=this.equipped;if(!p)return;const j=this.jimothy,r=j.radius,dir=this.direction(),right=new THREE.Vector3(dir.z,0,-dir.x);p.mesh.visible=j.move?.kind!=='roll';p.mesh.position.copy(j.body.position).addScaledVector(dir,r*C.HOLD_FORWARD).addScaledVector(right,r*C.HOLD_SIDE);p.mesh.position.y+=Math.max(C.HOLD_MIN_HEIGHT,r*C.HOLD_HEIGHT);p.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(...(C.FLOW_PROFILES[p.type]?.axis||[0,0,1])).normalize(),dir);p.mesh.scale.setScalar(Math.min(C.HOLD_SCALE_MAX,Math.max(1,Math.sqrt(r))));}
  muzzle(){const p=this.equipped,profile=C.FLOW_PROFILES[p?.type];if(!profile)return p?.mesh.position.clone()||new THREE.Vector3().copy(this.jimothy.body.position);p.mesh.updateWorldMatrix(true,true);return p.mesh.children[0].localToWorld(new THREE.Vector3(...profile.outlet));}
+ setView(obscured){if(obscured===this.viewObscured)return;this.viewObscured=obscured;eventBus.emit(Events.TOOL_OCCLUSION,{obscured});}
+ updateView(){
+  const j=this.jimothy;let obscured=false;
+  if(this.camera&&this.equipped&&this.time<this.viewUntil&&this.flowAllowed()&&j.radius>=C.VIEW_MIN_RADIUS&&j.rig.loaded){
+   // JIM-102: use the cached growing body bound, never a 40k-triangle skin
+   // raycast on each frame. Close-distance fading misses a full-length boom.
+   const box=j.rig.bellyBox(),eye=this.camera.position,delta=this.muzzle().sub(eye),length=delta.length(),hit=new THREE.Ray(eye,delta.normalize()).intersectBox(box,new THREE.Vector3());
+   obscured=!!hit&&(box.containsPoint(eye)||eye.distanceTo(hit)<length-C.VIEW_MARGIN);
+  }this.setView(obscured);
+ }
  flowPlan(d){const muzzle=this.muzzle();if(muzzle.distanceTo(this.jimothy.body.position)>C.FLOW_BODY_REACH)return null;return this.flow.prepare(d,muzzle,this.direction(),this.jimothy.body.position,this.jimothy.radius);}
  flowAllowed(){return this.allowed()||(this.equipped?.type==='fire-extinguisher'&&this.jimothy.launched>0&&gameState.game.isPlaying&&!gameState.game.paused&&!this.input.suppressed&&!this.jimothy.move);}
  clear(from,to){const d=to.clone().sub(from),length=d.length();if(!length)return true;d.divideScalar(length);for(let t=C.RAY_STEP;t<length-C.CONTACT_PAD;t+=C.RAY_STEP)if(this.voxels.solidAtWorld(from.x+d.x*t,from.y+d.y*t,from.z+d.z*t))return false;return true;}
@@ -110,7 +122,7 @@ export class ToolSystem {
   // of metres of voxels between the body and its oversized held position.
   if(C.FLOW_PROFILES[d.id]&&this.muzzle().distanceTo(this.jimothy.body.position)>C.FLOW_BODY_REACH){this.deny('TOO BIG TO AIM THIS TOOL');return false;}
   const delivery=C.FLOW_PROFILES[d.id]?this.flowPlan(d):null,targets=delivery?.targets||this.targets(d),dir=this.direction(),j=this.jimothy,plan=this.prepareUse(d,targets,dir);if(!plan)return false;
-  gameState.tools.energy-=d.cost;p.remaining=Math.max(0,p.remaining-d.supply.cost);this.syncSupply();this.cooldown+=d.interval;this.shots++;this.notice='';let affected=0;
+  gameState.tools.energy-=d.cost;p.remaining=Math.max(0,p.remaining-d.supply.cost);this.syncSupply();this.cooldown+=d.interval;this.shots++;this.viewUntil=this.time+C.VIEW_HOLD;this.notice='';let affected=0;
   for(const {entity:e,point}of targets){
    if(['water','air','extinguisher'].includes(d.mode)){
     if(e.kind==='person'){eventBus.emit(Events.HUMAN_IMPACT,{id:e.id,x:point.x-dir.x,y:point.y,z:point.z-dir.z,radius:C.CONTACT_PAD,source:'tool'});}else this.force(e,dir,d.force);affected++;
@@ -191,10 +203,10 @@ export class ToolSystem {
   for(const p of [...this.projectiles]){p.life-=dt;const old=p.mesh.position.clone();p.velocity.y-=C.PROJECTILE_GRAVITY*dt;p.mesh.position.addScaledVector(p.velocity,dt);p.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),p.velocity.clone().normalize());const contact=!this.clear(old,p.mesh.position)||this.voxels.solidAtWorld(p.mesh.position.x,p.mesh.position.y,p.mesh.position.z);if(p.life<=0||contact){const hit={...p.mesh.position,radius:C.FIREWORK_RADIUS,digsTerrain:false,source:'firework',instigator:'player'};eventBus.emit(Events.WORLD_BLAST,hit);eventBus.emit(Events.WORLD_IMPACT,hit);eventBus.emit(Events.EXPLOSION_SPAWN,hit);eventBus.emit(Events.TOOL_CHAOS,{points:C.CHAOS});p.mesh.removeFromParent();this.projectiles.splice(this.projectiles.indexOf(p),1);this.blasts++;}else this.burst({color:C.FIREWORK_COLOR,mode:'spark'},p.mesh.position,C.PROJECTILE_TRAIL);}
  }
  clearExtras(){for(const p of [...this.devices])this.removeDevice(p);for(const p of this.clouds){p.mesh.removeFromParent();p.mesh.material.dispose();}for(const p of this.projectiles)p.mesh.removeFromParent();this.clouds=[];this.projectiles=[];this.towing=null;this.anchor=null;this.ropeLife=0;this.rope.visible=false;this.shieldMesh.visible=false;gameState.tools.shield=0;eventBus.emit(Events.PLAYER_TOOL_MOTION,{mode:'clear'});this.blasts=0;this.serial=0;}
- update(dt){if(!this.flowAllowed()){this.sound.stop();this.flow.stop();}if(!this.ready||gameState.game.paused)return;this.time+=dt;if(this.time>=this.noticeUntil)this.notice='';
+ update(dt){if(!this.flowAllowed()){this.sound.stop();this.flow.stop();this.setView(false);}if(!this.ready||gameState.game.paused)return;this.time+=dt;if(this.time>=this.noticeUntil)this.notice='';
   // Preserve the fractional interval remainder, with at most one use per
   // frame. Clamping to zero made 30 Hz devices consume charge more slowly.
-  this.cooldown=Math.max(-dt,this.cooldown-dt);const pickup=this.input.consumeTool(),drop=this.input.consumeDrop();if(this.allowed()){if(drop)this.drop();if(pickup)this.equip(this.nearest());if(this.input.toolUse)this.use(dt);}this.pose();
+  this.cooldown=Math.max(-dt,this.cooldown-dt);const pickup=this.input.consumeTool(),drop=this.input.consumeDrop();if(this.allowed()){if(drop)this.drop();if(pickup)this.equip(this.nearest());if(this.input.toolUse)this.use(dt);}this.pose();this.updateView();
   const activeTool=this.catalog.find(d=>d.id===this.equipped?.type),flowing=activeTool&&this.flow.tool===activeTool.id&&this.flow.life>0&&this.input.toolUse&&this.flowAllowed()&&gameState.tools.energy>=activeTool.cost;
   if(flowing){const next=this.flowPlan(activeTool);if(next){this.flow.follow(next,activeTool);this.sound.sustain(activeTool.mode,this.flow.origin);}else{this.flow.stop();this.sound.stopFlow();}}else{this.sound.stopFlow();this.flow.life=Math.min(this.flow.life,C.FLOW_FADE);}this.flow.update(dt);
   for(const [id,s]of this.statuses){s.age+=dt;if(s.age>=s.life||!gameState.game.isPlaying){this.releaseStatus(id);continue;}this.animateStatus(s,dt);}
@@ -204,6 +216,6 @@ export class ToolSystem {
   for(const p of this.pickups)if(!p.held&&!p.attached)p.mesh.visible=p.mesh.position.distanceTo(this.jimothy.body.position)<C.RENDER_DISTANCE+this.jimothy.radius;
   const near=this.nearest(),d=this.catalog.find(d=>d.id===this.equipped?.type),energy=Math.round(gameState.tools.energy);const base=d?`${d.name} · ${this.equipped.remaining}/${d.supply.capacity} ${d.supply.unit.toUpperCase()}\nFOOD ENERGY ${energy}/${C.ENERGY_MAX} · ${d.description}\nMouse / V / RB use · G / B drop${near?' · T / LB swap: '+this.catalog.find(d=>d.id===near.type).name:''}`:near?`T / LB pick up ${this.catalog.find(d=>d.id===near.type).name}`:'';const text=[this.notice,base].filter(Boolean).join('\n');if(this.panel.textContent!==text)this.panel.textContent=text;this.panel.hidden=!text;
  }
- reset(){this.sound.stop();this.flow.reset();this.notice='';this.noticeUntil=0;this.discards=0;this.clearStatuses();this.clearExtras();this.equipped=null;for(const p of this.pickups){eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});eventBus.emit(Events.PROP_REMOVE,{id:p.id});p.mesh.removeFromParent();}this.pickups=[];for(const p of [...this.paint])this.removePaint(p);this.particles=[];this.effects.count=0;this.cooldown=0;this.time=0;this.shots=0;this.aimOverride=null;gameState.tools.equipped=null;this.syncSupply();this.panel.textContent='';this.panel.hidden=true;if(this.ready)this.spawn();}
- snapshot(){return {flow:this.flow.snapshot(),supply:gameState.tools.supply,notice:this.notice,discards:this.discards,audio:this.sound.snapshot(),devices:this.devices.length,clouds:this.clouds.length,projectiles:this.projectiles.length,blasts:this.blasts,towing:this.towing?.entity.id||null,shield:gameState.tools.shield||0,ready:this.ready,catalog:this.catalog.map(d=>d.id),equipped:this.equipped?.type||null,heldVisible:!!this.equipped?.mesh.visible,energy:+gameState.tools.energy.toFixed(2),pickups:this.pickups.map(p=>({id:p.id,type:p.type,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,held:p.held,attached:p.attached,remaining:p.remaining})),effects:this.particles.length,statuses:this.statuses.size,paint:this.paint.length,shots:this.shots,limit:C.LIMIT};}
+ reset(){this.viewUntil=0;this.setView(false);this.sound.stop();this.flow.reset();this.notice='';this.noticeUntil=0;this.discards=0;this.clearStatuses();this.clearExtras();this.equipped=null;for(const p of this.pickups){eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});eventBus.emit(Events.PROP_REMOVE,{id:p.id});p.mesh.removeFromParent();}this.pickups=[];for(const p of [...this.paint])this.removePaint(p);this.particles=[];this.effects.count=0;this.cooldown=0;this.time=0;this.shots=0;this.aimOverride=null;gameState.tools.equipped=null;this.syncSupply();this.panel.textContent='';this.panel.hidden=true;if(this.ready)this.spawn();}
+ snapshot(){return {viewObscured:this.viewObscured,flow:this.flow.snapshot(),supply:gameState.tools.supply,notice:this.notice,discards:this.discards,audio:this.sound.snapshot(),devices:this.devices.length,clouds:this.clouds.length,projectiles:this.projectiles.length,blasts:this.blasts,towing:this.towing?.entity.id||null,shield:gameState.tools.shield||0,ready:this.ready,catalog:this.catalog.map(d=>d.id),equipped:this.equipped?.type||null,heldVisible:!!this.equipped?.mesh.visible,energy:+gameState.tools.energy.toFixed(2),pickups:this.pickups.map(p=>({id:p.id,type:p.type,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,held:p.held,attached:p.attached,remaining:p.remaining})),effects:this.particles.length,statuses:this.statuses.size,paint:this.paint.length,shots:this.shots,limit:C.LIMIT};}
 }

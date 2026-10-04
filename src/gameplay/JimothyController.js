@@ -131,6 +131,8 @@ export class JimothyController {
     // How far the eye ended up from him, written by the orchestrator after the
     // camera runs. Infinity until then, so nothing fades on frame zero.
     this.cameraDist = Infinity;
+    this.toolObscured=false;
+    eventBus.on(Events.TOOL_OCCLUSION,({obscured})=>{this.toolObscured=obscured;});
     // Scratch for the tumble-pivot compensation in postUpdate; allocating
     // these per frame would churn the GC on the hot path.
     this._groundPosition = new THREE.Vector3();
@@ -230,6 +232,7 @@ export class JimothyController {
   }
 
   reset() {
+    this.toolObscured=false;
     this.ragdoll.stop();this.hitCooldown=0;
     // Reset is also used by pose/inspection entry points. Restore the ride
     // collision mask and stun state even if DrivingSystem owns no vehicle.
@@ -795,17 +798,21 @@ export class JimothyController {
     // everything you are trying to look at. One frame stale — the camera runs
     // after him in the loop — which at 60 Hz is nothing.
     const crowded = this.cameraDist < Math.max(CAMERA.FADE_DISTANCE,rad*CAMERA.BODY_FADE_RATIO);
-    const fade = hidden || crowded;
+    const fade = hidden || crowded || this.toolObscured;
+    const opacity=this.toolObscured?CAMERA.TOOL_BODY_OPACITY:fade?CAMERA.HIDDEN_BODY_OPACITY:1;
     // Transparency is a STATE, not a permanent property. Leaving `transparent`
     // on parks every piece in the sorted transparent queue for the whole run
     // to buy nothing, and invites the pieces to mis-sort against each other.
     // Flipping it costs a shader recompile, so only do it on the transition.
-    if (fade !== this._faded) {
+    if (fade !== this._faded || opacity !== this._fadeOpacity) {
       this._faded = fade;
+      this._fadeOpacity=opacity;
       for (const m of this.materials) {
+        const changed=m.transparent!==fade;
         m.transparent = fade;
-        m.opacity = fade ? 0.5 : 1;
-        m.needsUpdate = true;
+        m.opacity = opacity;
+        m.depthWrite=!this.toolObscured;
+        if(changed)m.needsUpdate=true;
       }
     }
 

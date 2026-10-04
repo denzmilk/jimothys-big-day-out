@@ -6,11 +6,13 @@ Chris supplied a screenshot of a taxi stuck while driving downhill and authorise
 
 ## M64 continuous tool feedback checkpoint — 2026-10-05
 
-**Implemented, awaiting Chris’s playtest.** Washer, blower, vacuum and extinguisher use measured retained-model outlets, matching occluded paths, distinct visible flows and bounded start/loop/contact/end audio. Physical cover blocks props, people and food; the final spent pulse survives the empty-item throw. An extreme-size body-to-outlet guard removes a reproduced 86,878-query action without spending charge.
+**Implemented, awaiting Chris’s playtest; committed/pushed as `2165f45`.** Washer, blower, vacuum and extinguisher use measured retained-model outlets, matching occluded paths, distinct visible flows and bounded start/loop/contact/end audio. Physical cover blocks props, people and food; the final spent pulse survives the empty-item throw. An extreme-size body-to-outlet guard removes a reproduced 86,878-query action without spending charge.
 
 All 33 distinct gameplay cases across the broad/final runs pass, plus 168 units, final build and production pixel smoke. Original-rig day/night and giant outlet views are console-clean. Isolated tool-update p95 is 0.3/0.2/0.2 ms at 30/60/120 Hz, with 60 peak particles; this is not whole-game FPS. Native review produced a continuous soft extinguisher plume, gust arcs/leaves and food-to-intake motion. Evidence: [M64](milestones/64-continuous-tool-feedback.md), `output/iterate/tool-flow-*`.
 
-**Next:** briefly repair the ordinary giant camera obscuring the equipped tool (new JIM-102), then continue JIM-88's other twenty contracts in coherent families. The fatness-250 ordinary view fills with the rear body; a close outlet view confirms the jet starts correctly. Investigate boom/close-body fading before moving the model. Keep JIM-48 performance and JIM-69 skin limitations open; no further scope approval is needed.
+**JIM-102 implemented, awaiting Chris’s playtest.** The camera was already 54.04 m away at radius 18.39 m; actual skin rays still found the nozzle occluded. A cheap cached-bound query now temporarily fades the original skin and disables its depth writing during obstructed tool use, restoring it shortly after release/drop/reset. All 29 distinct view/tool/giant-attack/underground cases, 168 units, final build, native use/release and production pixel smoke pass. The ordinary camera and original rig are retained. JIM-48 performance and JIM-69 skin limitations remain open.
+
+**Next authorised item: M65 air horn, disco ray and sick ray**, continuing JIM-88's twenty remaining contracts. Read-only preparation is `output/iterate/m65-preparation.md`; source outlet measurements are in `ray-outlets.json`. Follow with the other seventeen contracts and the recorded queue, one reviewed delivery at a time. No additional scope approval is needed.
 
 ## M63 tool supplies checkpoint — 2026-10-05
 

@@ -49,6 +49,7 @@ export const Events = {
   // player:*
   PLAYER_PICKUP: 'player:pickup',
   PLAYER_TOOL_MOTION:'player:tool-motion', VEHICLE_TOOL_SLOW:'vehicle:tool-slow',
+  TOOL_OCCLUSION:'tool:occlusion',
   FOOD_SHIFT:'food:shift', TOOL_FORCE:'tool:force', TOOL_CHAOS:'tool:chaos', TOOL_CHANGED:'tool:changed', HUMAN_IMPACT:'human:impact',
   FOOD_SPAWN:'food:spawn', FOOD_REMOVE:'food:remove', FOOD_TAKEN:'food:taken',
   DEV_GOTO_INTERIOR:'dev:goto-interior',

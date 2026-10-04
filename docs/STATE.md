@@ -4,6 +4,14 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## M64 continuous tool feedback checkpoint — 2026-10-05
+
+**Implemented, awaiting Chris’s playtest.** Washer, blower, vacuum and extinguisher use measured retained-model outlets, matching occluded paths, distinct visible flows and bounded start/loop/contact/end audio. Physical cover blocks props, people and food; the final spent pulse survives the empty-item throw. An extreme-size body-to-outlet guard removes a reproduced 86,878-query action without spending charge.
+
+All 33 distinct gameplay cases across the broad/final runs pass, plus 168 units, final build and production pixel smoke. Original-rig day/night and giant outlet views are console-clean. Isolated tool-update p95 is 0.3/0.2/0.2 ms at 30/60/120 Hz, with 60 peak particles; this is not whole-game FPS. Native review produced a continuous soft extinguisher plume, gust arcs/leaves and food-to-intake motion. Evidence: [M64](milestones/64-continuous-tool-feedback.md), `output/iterate/tool-flow-*`.
+
+**Next:** briefly repair the ordinary giant camera obscuring the equipped tool (new JIM-102), then continue JIM-88's other twenty contracts in coherent families. The fatness-250 ordinary view fills with the rear body; a close outlet view confirms the jet starts correctly. Investigate boom/close-body fading before moving the model. Keep JIM-48 performance and JIM-69 skin limitations open; no further scope approval is needed.
+
 ## M63 tool supplies checkpoint — 2026-10-05
 
 **Implemented, awaiting Chris's playtest.** All 24 tools have finite supplies, a visible amount, validated spending and one physical empty-item throw. Eating restores food energy only. Drops/swaps/collection preserve supplies; the final projectile/status/short movement pulse survives exhaustion. Supply cues share one eight-voice tool audio graph and stop on interruptions.

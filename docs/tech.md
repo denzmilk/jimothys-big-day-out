@@ -342,4 +342,11 @@ Each physical tool pickup retains `remaining`; Constants.js defines its capacity
 
 Exhaustion releases the existing mesh/body once with `PROP_RELEASE` and `PROP_IMPULSE`. Empty pickups stay in the 24-item pool and remain collectable physical objects, but cannot equip or refill through drops, swaps or collection. Their final projectile/status continues; a last movement pulse retains its existing short lifetime. Restart recreates full supplies. The tool HUD and snapshot expose amounts and brief failure/empty notices.
 
-`ToolAudio` shares one reusable Web Audio graph and an eight-voice cap across the catalogue. M63 adds pickup, dry-use and empty cues; pause, blur, capture, drop and restart stop voices. Full tool start/loop/contact/end audio and distinct visible delivery remain JIM-88's subsequent work. No new models or per-spent-item bodies are created.
+`ToolAudio` shares one reusable Web Audio graph and an eight-voice cap across the catalogue. M63 adds pickup, dry-use and empty cues; pause, blur, capture, drop and restart stop voices. M64 adds continuous-tool audio below; the other twenty full feedback contracts remain JIM-88 work. No new models or per-spent-item bodies are created.
+
+
+## Continuous tool delivery (M64)
+
+`ToolFlow` is owned by ToolSystem. Blender source geometry supplies outlet positions/axes for the washer, blower, vacuum and extinguisher; the joined runtime assets are unchanged. One plan feeds targeting and drawing. Rays stop at voxels and the nearest registered entity bounds, including a body-to-muzzle obstruction. Broad cones trace eligible targets separately; vacuum food retains its ground-following shift. Query paths, candidates and effects are capped. An outlet more than 48 m from the body declines before charge, energy or voxel queries are spent.
+
+Fixed meshes supply a moving water ribbon/core, twenty gust/intake arcs, thirty-two soft plume sprites and ninety-six transient droplets/leaves. No scene lights are added. One reusable noise buffer and one continuous motor/hiss loop join the existing eight one-shot voices. Release, interrupted ownership, blur, pause and reset stop loops/emission; a successfully exhausted final pulse retains its short fade. Snapshots expose delivery origins, paths, contacts, particles and loop count. Giant close-camera occlusion is separately tracked in JIM-102.

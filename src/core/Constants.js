@@ -1742,10 +1742,21 @@ export const DRIVING = {
 
 // M43–44: costs spend food energy, never the fatness used for body/score.
 export const TOOLS = {
+ // M64 outlet coordinates/axes measured from the retained Blender source parts.
+ FLOW_PROFILES:{"power-washer":{"outlet":[-0.12999999523162842,0.17000000178813934,0.9399999976158142],"axis":[0.0,-0.31622788310050964,0.9486832618713379],"style":"jet","color":7920895},"leaf-blower":{"outlet":[0.0,0.22999994456768036,0.8500000238418579],"axis":[0.0,-0.06316487491130829,0.9980031251907349],"style":"gust","color":15195832},"vacuum":{"outlet":[0.20000000298023224,0.06499999761581421,0.8949999809265137],"axis":[0.0,0.0,1.0],"style":"suction","color":8632831},"fire-extinguisher":{"outlet":[0.18000000715255737,0.14000000059604645,0.6299999952316284],"axis":[0.0,-0.4190581738948822,0.9079594016075134],"style":"foam","color":16777215}},
+ FLOW_BODY_REACH:48,FLOW_CORE_COLOR:0xffffff,FLOW_TUBE_SEGMENTS:10,FLOW_SPHERE_SEGMENTS:[16,10],FLOW_RING_SEGMENTS:[5,20],FLOW_MIST_EDGE:.15,
+ FLOW_TEXTURE_SIZE:64,FLOW_WAVE_BASE:.45,FLOW_WAVE_REPEAT:.7,FLOW_WAVE_SPEED:6,FLOW_SUCTION_SPEED:8,
+ FLOW_SCATTER:{jet:.5,gust:.6,suction:.12,foam:.4},FLOW_LEAF_COLORS:[0xa9b94e,0xd6b35d,0xa78152],FLOW_LEAF_SCALE:[1.8,.12,.8],
+ FLOW_PATHS:16,FLOW_TARGETS:8,FLOW_CANDIDATES:64,FLOW_RAYS:5,FLOW_RINGS:20,FLOW_PARTICLES:96,FLOW_STEP:.11,FLOW_SKIN:.025,
+ FLOW_RADIUS:.16,FLOW_CONTACT_PAD:.12,FLOW_FADE:.22,FLOW_PARTICLE_LIFE:.7,FLOW_PARTICLE_SPEED:3.5,FLOW_PARTICLE_SIZE:.07,FLOW_PARTICLE_GRAVITY:2.4,FLOW_PARTICLES_PER_USE:10,
+ FLOW_RING_SPEED:2.6,FLOW_ARC:Math.PI*1.3,FLOW_SUCTION_MISS:4,FLOW_RING_SPREAD:.075,FLOW_RING_MAX:.65,FLOW_RING_MIN:.12,FLOW_RING_OPACITY:.45,FLOW_TUBE_OPACITY:.78,FLOW_CORE_SHARE:.32,
+ FLOW_MIST_LAYERS:32,FLOW_MIST_CORE_LAYERS:24,FLOW_MIST_OPACITY:.8,FLOW_MIST_SPREAD:.1,FLOW_MIST_MAX:.8,FLOW_MIST_SIZE:.18,FLOW_WOBBLE:.08,
+ FLOW_AUDIO_GAIN:.1,FLOW_AUDIO_NOISE_SECONDS:.5,FLOW_AUDIO_OSC_SHARE:.16,FLOW_AUDIO_ATTACK:.04,
+ AUDIO_FLOWS:{water:{hz:72,cutoff:1400,wave:'sawtooth'},air:{hz:105,cutoff:2400,wave:'sawtooth'},suction:{hz:175,cutoff:1000,wave:'triangle'},extinguisher:{hz:54,cutoff:5600,wave:'triangle'}},
  NOTICE_SECONDS:2.2,DISCARD_SPEED:7,DISCARD_LIFT:4,DISCARD_SPIN:5,DISCARD_INHERIT:.5,DISCARD_INHERIT_MAX:12,
  AUDIO_GAIN:.16,AUDIO_VOICES:8,AUDIO_RANGE:45,AUDIO_FFT:512,AUDIO_FLOOR:.0001,AUDIO_ATTACK:.008,
  AUDIO_THRESHOLD:-14,AUDIO_KNEE:12,AUDIO_RATIO:6,
- AUDIO_CUES:{pickup:{hz:420,end:840,seconds:.16,wave:'sine'},dry:{hz:110,end:72,seconds:.12,wave:'square'},empty:{hz:260,end:65,seconds:.35,wave:'triangle'}},
+ AUDIO_CUES:{'water-start':{hz:150,end:72,seconds:.18,wave:'sawtooth'},'water-end':{hz:72,end:35,seconds:.22,wave:'triangle'},'air-start':{hz:65,end:150,seconds:.2,wave:'sawtooth'},'air-end':{hz:150,end:40,seconds:.28,wave:'triangle'},'suction-start':{hz:90,end:210,seconds:.2,wave:'triangle'},'suction-end':{hz:175,end:50,seconds:.25,wave:'triangle'},'extinguisher-start':{hz:400,end:80,seconds:.12,wave:'square'},'extinguisher-end':{hz:130,end:35,seconds:.18,wave:'triangle'},'flow-hit':{hz:180,end:45,seconds:.12,wave:'triangle'},pickup:{hz:420,end:840,seconds:.16,wave:'sine'},dry:{hz:110,end:72,seconds:.12,wave:'square'},empty:{hz:260,end:65,seconds:.35,wave:'triangle'}},
  ENERGY_MAX:100,ENERGY_START:35,ENERGY_PER_FAT:8,LIMIT:24,EFFECT_LIMIT:96,STATUS_LIMIT:6,PAINT_LIMIT:24,
  PICKUP_REACH:2.5,HEIGHT_REACH:2,RENDER_DISTANCE:100,MODEL_SCALE:.85,MASS:8,CLEARANCE:.06,
  RAY_STEP:.22,CONTACT_PAD:.55,PERSON_HEIGHT:.85,TARGET_LIMIT:12,CONTACTS:8,

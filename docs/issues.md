@@ -10,6 +10,12 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-102 — Giant body hides handheld tools in the ordinary camera
+
+**Status:** open · **Found:** 2026-10-05 during M64 native inspection.
+
+At fatness 250, warp to x=0,z=-16, equip the washer and hold use with the ordinary follow camera. The rear body fills almost all the view and obscures the jet. An outlet-side capture confirms the nozzle and flow are connected outside the original skin; it does not prove ordinary-camera readability. Inspect boom obstruction and close-body fading before widening or moving the tool. Evidence: `output/iterate/tool-flow-giant-final/power-washer-hud.png`, `tool-flow-giant-outlet/power-washer-hud.png`, and `tools/inspect-tool-flow.mjs` (`FAT=250`, optional `CAMERA=outlet`). Locations: `CameraSystem`, `JimothyController` fade, `ToolSystem.pose`.
+
 ### JIM-101 — Human feet stay crossed after turning to a stop
 
 **Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-05 during M62 native shore review.
@@ -152,7 +158,9 @@ Audit each sewer entrance class for recognisable steps, continuous top/bottom la
 
 Chris requests clear, strong tool/projectile feedback with SFX instead of subtle squirts. Source inspection confirms `ToolSystem.burst()` shares small sphere particles across most modes and has no tool audio path; At the start of this pass, only `CometArrival` created an AudioContext; M53 adds vehicle audio. Most cone-selected effects happen immediately without a visible connecting path. The [per-item feedback contract](vehicle-and-equipment-request.md#feedback-contract-for-every-item) defines intended launch/travel/contact/expiry for all 24 tools and four new wearables. This is queued after Chris selected cars first; implementation and audiovisual validation remain pending.
 
-**M63 supply foundation:** finite item amounts, validated spending, physical empty discard and shared pickup/dry/empty cues are implemented, awaiting Chris's playtest. All 27 focused/adjacent gameplay cases, 168 units, build, native/HUD inspection and production pixel smoke pass; see [M63](milestones/63-tool-supplies.md). The generic successful-use bursts and missing per-tool delivery/audio remain open; the full 24 contracts are not complete.
+**M63 supply foundation:** finite item amounts, validated spending, physical empty discard and shared pickup/dry/empty cues are implemented, awaiting Chris's playtest. All 27 focused/adjacent gameplay cases, 168 units, build, native/HUD inspection and production pixel smoke pass; see [M63](milestones/63-tool-supplies.md). The full 24 feedback contracts remain open.
+
+**M64 first feedback family:** washer, blower, vacuum and extinguisher now use measured Blender outlets, matching occluded delivery paths, distinct sustained visuals and start/loop/contact/end audio. Source assets are retained. Real-world props, food and near-nozzle cover are exercised; fixed effect/audio caps remain. See [M64](milestones/64-continuous-tool-feedback.md) for verification and the giant-camera limitation (JIM-102). The other twenty tools still need their individual feedback passes.
 
 
 ### JIM-87 — Restart bin counts depend on the previous streamed terrain

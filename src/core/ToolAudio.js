@@ -16,6 +16,7 @@ export class ToolAudio {
    const limiter=this.context.createDynamicsCompressor();limiter.threshold.value=C.AUDIO_THRESHOLD;limiter.knee.value=C.AUDIO_KNEE;limiter.ratio.value=C.AUDIO_RATIO;
    this.analyser=this.context.createAnalyser();this.analyser.fftSize=C.AUDIO_FFT;this.samples=new Float32Array(C.AUDIO_FFT);
    this.master.connect(limiter);limiter.connect(this.analyser);this.analyser.connect(this.context.destination);
+   this.noise=this.context.createBuffer(1,this.context.sampleRate*C.FLOW_AUDIO_NOISE_SECONDS,this.context.sampleRate);const data=this.noise.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1;
   }
   try{await this.context.resume();}catch{/* An unavailable output device must not block gameplay. */}
  }
@@ -29,6 +30,18 @@ export class ToolAudio {
   oscillator.onended=()=>this.remove(voice);oscillator.start();oscillator.stop(now+profile.seconds);
  }
  remove(voice){voice.oscillator.disconnect();voice.gain.disconnect();this.voices.delete(voice);}
- stop(){for(const voice of [...this.voices]){try{voice.oscillator.stop();}catch{}this.remove(voice);}}
- snapshot(){let rms=0;if(this.analyser){this.analyser.getFloatTimeDomainData(this.samples);rms=Math.sqrt(this.samples.reduce((sum,x)=>sum+x*x,0)/this.samples.length);}return{voices:this.voices.size,rms};}
+ sustain(mode,position){
+  const context=this.context,profile=C.AUDIO_FLOWS[mode];if(!profile||context?.state!=='running')return;
+  if(this.loop?.mode!==mode){
+   this.stopFlow();this.play(`${mode}-start`,position);
+   const oscillator=context.createOscillator(),noise=context.createBufferSource(),filter=context.createBiquadFilter(),tone=context.createGain(),gain=context.createGain();
+   oscillator.type=profile.wave;oscillator.frequency.value=profile.hz;noise.buffer=this.noise;noise.loop=true;filter.type='lowpass';filter.frequency.value=profile.cutoff;tone.gain.value=C.FLOW_AUDIO_OSC_SHARE;gain.gain.value=0;
+   oscillator.connect(tone);tone.connect(gain);noise.connect(filter);filter.connect(gain);gain.connect(this.master);oscillator.start();noise.start();this.loop={mode,oscillator,noise,filter,tone,gain,position};
+  }
+  const at=this.listener(),volume=Math.max(0,1-Math.hypot(position.x-at.x,position.y-at.y,position.z-at.z)/C.AUDIO_RANGE);
+  this.loop.position=position;this.loop.gain.gain.setTargetAtTime(volume*C.FLOW_AUDIO_GAIN,context.currentTime,C.FLOW_AUDIO_ATTACK);
+ }
+ stopFlow(tail=true){const loop=this.loop;if(!loop)return;this.loop=null;loop.oscillator.stop();loop.noise.stop();for(const node of [loop.oscillator,loop.noise,loop.filter,loop.tone,loop.gain])node.disconnect();if(tail)this.play(`${loop.mode}-end`,loop.position);}
+ stop(){this.stopFlow(false);for(const voice of [...this.voices]){try{voice.oscillator.stop();}catch{}this.remove(voice);}}
+ snapshot(){let rms=0;if(this.analyser){this.analyser.getFloatTimeDomainData(this.samples);rms=Math.sqrt(this.samples.reduce((sum,x)=>sum+x*x,0)/this.samples.length);}return{voices:this.voices.size,loops:this.loop?1:0,rms};}
 }

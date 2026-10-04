@@ -10,6 +10,8 @@ An initial 98-second mixed run covers all tools, travel, giant rolling and five 
 
 The late SUV spare test failure also belongs to JIM-84: its raw loader import bypassed Vite resolution. The fixture import is corrected; unchanged spare size/mount/drift/five-wheel assertions pass with no asset/runtime changes. Evidence: `output/iterate/stability-spare.log`.
 
+The render-budget fixtures now draw explicitly and include a shadow refresh instead of reading cached counters during a state-only sweep. Both original <300 limits remain failing: 339 boot / 343 post-blast calls. These are JIM-48 evidence, not loosened test limits (`output/iterate/stability-render-refresh.log`).
+
 Play the repaired build at **http://127.0.0.1:4174**. Chris's daylight appearance/feel review remains the exit gate. Broader wanted/content milestones retain their recorded ordering.
 
 ## Building collapse and shared rubble — JIM-73 / JIM-82 / milestone 52 — 2026-10-04

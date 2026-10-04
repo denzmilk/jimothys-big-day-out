@@ -21,9 +21,17 @@ async function goToWall(page) {
   await adv(page, 0.1);
 }
 
+async function renderedState(page) {
+  // State-only sweeps skip advanceTime's draws. A rendering budget must
+  // measure this scene, not renderer.info left over from boot. Include the
+  // scheduled shadow pass so cadence cannot make the same budget test flake.
+  await page.evaluate(()=>{const g=__game;g.renderer.shadowMap.needsUpdate=true;g.renderer.render(g.scene,g.camera);});
+  return state(page);
+}
+
 test('district builds into chunked meshes', async ({ page }) => {
   await boot(page);
-  const s = await state(page);
+  const s = await renderedState(page);
   expect(s.voxels.chunks).toBeGreaterThan(0);
   expect(s.voxels.meshes).toBeGreaterThan(0);
   // The whole point: chunks, not one mesh per voxel.
@@ -67,7 +75,7 @@ test('stays sane after twenty blasts', async ({ page }) => {
     await blast(page);
     await adv(page, 0.1);
   }
-  const s = await state(page);
+  const s = await renderedState(page);
   expect(s.voxels.drawCalls).toBeLessThan(300);
 });
 

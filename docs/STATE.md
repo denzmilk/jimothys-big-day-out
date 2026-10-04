@@ -1,5 +1,13 @@
 # Session state
 
+## Daylight shadow repair and stability audit — 2026-10-04
+
+**JIM-56 daylight repair implemented, awaiting Chris's playtest.** Nearby grass, flowers and shrubs now cast their deformed wind/trampling shape. The sun/moon shadow volume grows with Jimothy instead of clipping his maximum-size body, retaining preset resolution, one active caster and the existing cadence. Both reproductions failed before repair. Twelve focused/adjacent cases, an explicit depth-shader rerun, build and production pixel smoke pass without console errors. All 45 growth/hour/quality combinations fit; six foliage pixel comparisons pass. Daytime follow capture inspected. Evidence: `output/iterate/shadow-*`, `lighting-day-shadows.png`.
+
+**The requested detailed stability audit is in progress.** The frozen `af7089f` baseline runs 357 browser cases; 105 units pass. Five early browser failures reproduce serially (developer input focus, feast timing, giant wall attack and two giant/military interactions); diagnosis is continuing. An initial 98-second mixed run covers all tools, travel, giant rolling and five restarts without invalid transforms/ownership/budget failures; warmed restart body/registry/geometry/texture counts stay flat. A three-seed mixed run and isolated performance measurements remain. Do not treat the game as stability-signed-off from the focused shadow checks.
+
+Play the repaired build at **http://127.0.0.1:4174**. Chris's daylight appearance/feel review remains the exit gate. Broader wanted/content milestones retain their recorded ordering.
+
 ## Building collapse and shared rubble — JIM-73 / JIM-82 / milestone 52 — 2026-10-04
 
 **Implemented, awaiting Chris’s playtest.** Removing real building supports now releases face-disconnected sections after ordinary digging or giant channels. Full-footprint loading prevents a partly streamed building from losing an unseen support. Up to 48 original-voxel pieces use occupied compound colliders, preserving holes and leaving a settled cave-in instead of a floating upper shell.

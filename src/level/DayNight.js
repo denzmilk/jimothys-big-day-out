@@ -20,8 +20,16 @@ export class DayNight {
   if(gameState.game.isPlaying)this.hour=(this.hour+dt*24/C.PERIOD)%24;
   const angle=(this.hour-6)/24*Math.PI*2,elevation=Math.sin(angle),day=THREE.MathUtils.smoothstep(elevation,C.TWILIGHT_LOW,C.TWILIGHT_HIGH),high=THREE.MathUtils.smoothstep(elevation,0,C.NOON_BLEND);
   this.direction.set(Math.cos(angle),elevation,C.SUN_AZIMUTH).normalize();const j=this.jimothy.position;
-  this.sun.position.copy(j).addScaledVector(this.direction,C.LIGHT_DISTANCE);this.sun.target.position.copy(j);
-  this.moon.position.copy(j).addScaledVector(this.direction,-C.LIGHT_DISTANCE);this.moon.target.position.copy(j);
+  // JIM-56: the giant extends above and beyond the lean shadow box. Fit its
+  // footprint and height while retaining one map and the preset resolution.
+  const radius=Math.max(C.SHADOW_RADIUS,this.jimothy.radius*C.SHADOW_BODY_REACH+C.SHADOW_BODY_MARGIN);
+  const distance=Math.max(C.LIGHT_DISTANCE,this.jimothy.radius*C.SHADOW_BODY_DISTANCE),far=Math.max(C.SHADOW_FAR,distance+radius*C.SHADOW_BODY_REACH);
+  for(const light of [this.sun,this.moon]){
+   const camera=light.shadow.camera;
+   if(camera.right!==radius||camera.far!==far){camera.left=camera.bottom=-radius;camera.right=camera.top=radius;camera.far=far;camera.updateProjectionMatrix();this.shadowClock=C.SHADOW_INTERVAL;}
+  }
+  this.sun.position.copy(j).addScaledVector(this.direction,distance);this.sun.target.position.copy(j);
+  this.moon.position.copy(j).addScaledVector(this.direction,-distance);this.moon.target.position.copy(j);
   this.sun.color.set(C.SUNSET_COLOR).lerp(this.color.set(C.NOON_COLOR),high);this.sun.intensity=underground?C.UNDERGROUND_SUN:C.SUN_INTENSITY*day;
   this.moon.intensity=underground?0:C.MOON_INTENSITY*(1-day);
   // JIM-56: a sun-only map disappears at night. Reuse each light's map,

@@ -24,8 +24,7 @@ export class EnvironmentLife {
     g.scene.traverse(o=>{if(!o.isMesh)return;
      const geo=o.geometry.clone().applyMatrix4(o.matrixWorld);geo.translate(0,-box.min.y,0);geo.scale(scale,scale,scale);
      const materials=(Array.isArray(o.material)?o.material:[o.material]).map(m=>m.clone());
-     for(const material of materials){material.side=THREE.DoubleSide;if(index<2)material.color.multiply(new THREE.Color(C.GRASS_TINT));
-     material.onBeforeCompile=shader=>{
+     const bend=shader=>{
       Object.assign(shader.uniforms,this.uniforms);
       shader.vertexShader='uniform float lifeTime,lifeRadius;uniform vec2 lifeWind;uniform vec3 lifePlayer;\n'+shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
        vec3 root=(modelMatrix*instanceMatrix*vec4(0.,0.,0.,1.)).xyz;
@@ -36,9 +35,11 @@ export class EnvironmentLife {
        transformed+=localBend*position.y*position.y;
       `);
      };
-     material.customProgramCacheKey=()=>`living-foliage-${index}`;
-     }
-     const mesh=new THREE.InstancedMesh(geo,Array.isArray(o.material)?materials:materials[0],C.PLANT_LIMIT);mesh.count=0;mesh.frustumCulled=false;mesh.receiveShadow=true;this.scene.add(mesh);this.batches.push({index,mesh,items:[]});
+     for(const material of materials){material.side=THREE.DoubleSide;if(index<2)material.color.multiply(new THREE.Color(C.GRASS_TINT));material.onBeforeCompile=bend;material.customProgramCacheKey=()=>`living-foliage-${index}`;}
+     // The depth pass must bend with the visible leaves, including trampling;
+     // otherwise their shadow stays upright after Jimothy flattens them.
+     const depth=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,side:THREE.DoubleSide});depth.onBeforeCompile=bend;depth.customProgramCacheKey=()=>`living-foliage-depth-${index}`;
+     const mesh=new THREE.InstancedMesh(geo,Array.isArray(o.material)?materials:materials[0],C.PLANT_LIMIT);mesh.count=0;mesh.frustumCulled=false;mesh.castShadow=mesh.receiveShadow=true;mesh.customDepthMaterial=depth;this.scene.add(mesh);this.batches.push({index,mesh,items:[]});
     });
    });
    this._particles();this.ready=true;this.reset();

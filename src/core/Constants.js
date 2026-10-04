@@ -1165,11 +1165,12 @@ export const DEBRIS = {
 export const LEGS = {
   // M11/JIM-22: stride distance follows actual travel; feet remain world
   // contacts during stance even when the player turns or walks into a wall.
-  STRIDE: 0.36, MIN_SWING: 0.025, MAX_SWING: 0.14, PLANT_TRIGGER: 0.12,
-  MIN_SWING_FRAMES: 2,
+  // M54: readable distance-based steps, rather than two-frame paw flicks.
+  STRIDE: 1.2, MIN_SWING: 0.075, MAX_SWING: 0.28, PLANT_TRIGGER: 0.16,
+  TIME_EPSILON: 0.00001, LANDING_LOCK: .65,
   PAW_CLEARANCE: 0.012, PAW_BAND: 0.045, PAW_SAMPLES: 24,
   SPRAWL: 0.018, CROUCH: 0.05, MAX_DROP: 0.38, KNEE_SPLAY: .7, PAW_REACH_MARGIN: .9,
-  BODY_RESPONSE: 18, BODY_SPEED: 5, VELOCITY_RESPONSE: 22,
+  BODY_RESPONSE: 18, REST_RESPONSE: 14, BODY_SPEED: 5, VELOCITY_RESPONSE: 22,
   RESET_DISTANCE: 3, GROUND_SCAN: 0.55, MIN_SPEED: 0.05,
   MAX_REACH: 0.995, SOLE_PASSES: 5,
   RECOVER_SECONDS: 0.16,

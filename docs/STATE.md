@@ -4,6 +4,10 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## M54 land gait — 2026-10-04
+
+**Implemented, awaiting Chris's playtest.** The car follow-ups are committed/pushed (`c019346`, `410d807`, `bb3ae9f`). Continuing the authorised queue, M54 replaces roughly 15–20 paw flicks/s with 5 walking / 6.67 scurrying cycles/s, consistent across 30/60/120 Hz; stride follows anatomy. Existing contact/reach limits pass. Review fixed paused-frame retargeting and stationary-turn body dips. Fifteen unique focused/adjacent browser checks, 120 units, build and production pixel smoke pass; native original-rig clips and keyboard world inspection are console-clean. Details and evidence: M54 / JIM-76. **Next: M55 terrain/sewer traversal**, then the remaining recorded queue.
+
 ## Vehicle water impacts — JIM-97 — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** Cars carry their entry speed/slope into physics, throw broad water jets/foam/ripples, play a splash cue and release Jimothy safely. The 14 m/s regression moves 1.99 m in 0.15 s and records one entry burst, versus zero velocity/effects before. Native taxi inspection returns Jimothy to swimming; particle/ring buffers remain bounded and reused. Fifteen final browser cases, all 120 units, build and production smoke pass, console-clean. Details: JIM-97 / M53 and `output/iterate/vehicle-water-*`. **Next authorised item: M54 slower balanced land gait, then M55 terrain/sewer traversal and the remaining queue.**

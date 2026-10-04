@@ -190,9 +190,11 @@ Foot enemies already have cone/voxel vision and finite memory, but spawn with Ji
 
 ### JIM-76 — Foot IK replaces Jimothy's slinking walk with curled, dancing legs
 
-**Status:** reopened for M54 · **Reported:** 2026-10-03 (Chris) · Milestone 11 refinement.
+**Status:** M54 implemented, awaiting Chris's playtest · **Reported:** 2026-10-03 (Chris) · Milestone 11 refinement.
 
 **2026-10-04 playtest:** Chris reports the land legs are still too skittery and move too fast. Preserve the earlier contact/reach fixes, then reproduce and retune distance-matched cadence, stride and turning. New scope and exit observation: [M54](milestones/54-balanced-land-gait.md). The previous automated passes below are historical evidence, not approval of gait feel.
+
+**M54 follow-up:** replaced two-frame paw flicks with anatomy-scaled strides and continuous diagonal transfer timing. Walking now measures five cycles/s across 30/60/120 Hz; scurrying 6.67, medium/large walking 1.67/1. Initial steps and early landing retargets avoid overreach; stopped settling and paused poses are stable. Fifteen unique focused/adjacent browser checks, 120 units, build and production pixel smoke pass. Native side/follow views preserve the original model. Evidence and limits: [M54](milestones/54-balanced-land-gait.md). Feel still needs Chris's judgement.
 
 Chris preferred the earlier low, balanced slinking gait; the current IK produces curled/dancing legs. Inspect actual posed skin, knee direction, stride/lift and support timing against the earlier bone-driven gait. Preserve terrain contact, idle gestures, original model and growth/action transitions. Locations: `JimothyLegs._updateBones`, `Grounding.solveTwoBone`, `LEGS` tuning. Foot-height checks alone do not establish a good gait.
 

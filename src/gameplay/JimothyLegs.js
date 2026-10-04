@@ -113,7 +113,7 @@ export class JimothyLegs {
   }
 
   reset() {
-    this.phase = 0;
+    this.phase = 0;this.nextPair=null;
     this.previous=null;this.bodyY=null;this.previousRootY=null;this.velocity=new THREE.Vector3();this.contacts=[];
     for(const paw of this.paws||[]){paw.target=null;paw.swing=null;paw.scratch=false;}
     for (const leg of this.legs) {
@@ -150,7 +150,7 @@ export class JimothyLegs {
     const fresh=!this.previous,velocity=pos.clone().sub(this.previous||pos);
     if(delta>0)velocity.divideScalar(delta);
     this.velocity.lerp(velocity,fresh?1:1-Math.exp(-LEGS.VELOCITY_RESPONSE*delta));this.previous=pos;
-    const speed=this.velocity.length(),direction=velocity.clone().normalize();
+    const speed=this.velocity.length(),direction=velocity.clone().normalize(),anatomy=rig.anatomyScale||1,stride=LEGS.STRIDE*anatomy;
     const home=paw=>{
       const h=paw.hip.getWorldPosition(new THREE.Vector3()),k=paw.knee.getWorldPosition(new THREE.Vector3());
       const p=paw.end.getWorldPosition(new THREE.Vector3());
@@ -167,24 +167,46 @@ export class JimothyLegs {
       scratchPaw.swing={start:scratchPaw.target.clone(),end:scratchPaw.home.clone(),t:0,duration:LEGS.RECOVER_SECONDS};
     }
     scratchPaw.scratch=scratching;
+    const endpoint=(paw,remaining,duration)=>{
+      const h=paw.hip.getWorldPosition(new THREE.Vector3()),k=paw.knee.getWorldPosition(new THREE.Vector3()),f=paw.end.getWorldPosition(new THREE.Vector3());
+      const reach=(h.distanceTo(k)+k.distanceTo(f))*LEGS.MAX_REACH,offset=paw.home.clone().sub(h);offset.y=0;
+      const height=Math.max(0,h.y-LEGS.CROUCH-paw.home.y),along=offset.dot(direction);
+      // The exported toes already sit ahead of each hip; use only the
+      // remaining reach for foot lead instead of adding half a full stride.
+      const available=Math.max(0,Math.sqrt(Math.max(0,along*along+reach*reach-height*height-offset.lengthSq()))-along);
+      const lead=Math.min(stride/2,available*LEGS.PAW_REACH_MARGIN);
+      const end=paw.home.clone().addScaledVector(velocity,duration-remaining).addScaledVector(direction,lead);
+      end.y=this.ground(end.x,end.z)+LEGS.PAW_CLEARANCE;return end;
+    };
+    const advance=(paw,dt)=>{
+      const s=paw.swing;if(!s)return;
+      s.t=Math.min(1,s.t+dt/s.duration);
+      s.end.y=this.ground(s.end.x,s.end.z)+LEGS.PAW_CLEARANCE;
+      const ease=s.t*s.t*(3-2*s.t);paw.target.copy(s.start).lerp(s.end,ease);
+      paw.target.y=Math.max(paw.target.y,this.ground(paw.target.x,paw.target.z)+LEGS.PAW_CLEARANCE)+Math.sin(Math.PI*s.t)**2*LEGS.STEP_LIFT;
+      if(s.t>=1-LEGS.TIME_EPSILON){paw.target.copy(s.end);paw.swing=null;}
+    };
+    let remaining=delta;
+    // Exactly one diagonal transfers at a time, preserving a support pair.
+    const active=this.paws.find(p=>p.swing);
+    if(active){
+      const time=Math.min(delta,active.swing.duration*(1-active.swing.t));
+      for(const paw of this.paws)if(paw.swing){
+        if(delta>0&&paw.swing.walking&&paw.swing.t<LEGS.LANDING_LOCK)paw.swing.end.copy(endpoint(paw,delta,paw.swing.duration*(1-paw.swing.t)));
+        advance(paw,time);
+      }
+      remaining-=time;
+    }
     const planted=this.paws.filter(p=>!p.swing);
     if(delta>0&&!scratching&&planted.length===this.paws.length){
       const worst=planted.reduce((a,b)=>a.home.distanceTo(a.target)>b.home.distanceTo(b.target)?a:b);
-      // One diagonal pair must land before the other leaves. Overlap made
-      // all four paws curl into the air even during a slow walk.
-      if(worst.home.distanceTo(worst.target)>LEGS.PLANT_TRIGGER){
-        const duration=Math.max(delta*LEGS.MIN_SWING_FRAMES,THREE.MathUtils.clamp(LEGS.STRIDE/(2*Math.max(speed,LEGS.MIN_SPEED)),LEGS.MIN_SWING,LEGS.MAX_SWING));
-        for(const paw of planted.filter(p=>p.pair===worst.pair)){
-          const h=paw.hip.getWorldPosition(new THREE.Vector3()),k=paw.knee.getWorldPosition(new THREE.Vector3()),f=paw.end.getWorldPosition(new THREE.Vector3());
-          const reach=(h.distanceTo(k)+k.distanceTo(f))*LEGS.MAX_REACH,offset=paw.home.clone().sub(h);offset.y=0;
-          const height=Math.max(0,h.y-LEGS.CROUCH-paw.home.y),along=offset.dot(direction);
-          // The toes already project ahead of the hips. Adding half a stride
-          // unconditionally asks a landed front paw to reach beyond its leg.
-          const available=Math.max(0,Math.sqrt(Math.max(0,along*along+reach*reach-height*height-offset.lengthSq()))-along);
-          const lead=Math.min(LEGS.STRIDE/2,available*LEGS.PAW_REACH_MARGIN);
-          const end=paw.home.clone().addScaledVector(velocity,duration).addScaledVector(direction,lead);
-          end.y=this.ground(end.x,end.z)+LEGS.PAW_CLEARANCE;
-          paw.swing={start:paw.target.clone(),end,t:0,duration};
+      if((this.nextPair===null&&velocity.length()>LEGS.MIN_SPEED)||worst.home.distanceTo(worst.target)>LEGS.PLANT_TRIGGER*anatomy){
+        const duration=THREE.MathUtils.clamp(stride/(2*Math.max(speed,velocity.length(),LEGS.MIN_SPEED)),LEGS.MIN_SWING*Math.sqrt(anatomy),LEGS.MAX_SWING*Math.sqrt(anatomy));
+        const pair=velocity.length()>LEGS.MIN_SPEED&&this.nextPair!==null?this.nextPair:worst.pair;this.nextPair=1-pair;
+        // Carry the unused part of the frame across a landing. Waiting a whole
+        // render frame stretches the support stride on low-refresh displays.
+        for(const paw of planted.filter(p=>p.pair===pair)){
+          paw.swing={start:paw.target.clone(),end:endpoint(paw,remaining,duration),t:0,duration,walking:true};advance(paw,remaining);
         }
       }
     }
@@ -195,13 +217,7 @@ export class JimothyLegs {
         point.add(new THREE.Vector3(IDLE.SCRATCH_SIDE,-IDLE.SCRATCH_DROP,-IDLE.SCRATCH_BACK).applyQuaternion(root.quaternion));
         point.y+=Math.sin(c.idleTime*IDLE.SCRATCH_HZ*Math.PI*2)*IDLE.SCRATCH_TRAVEL;
         paw.target.copy(paw.home).lerp(point,c.idleBlend);
-      }else if(paw.swing){
-        const s=paw.swing;s.t=Math.min(1,s.t+delta/s.duration);
-        s.end.y=this.ground(s.end.x,s.end.z)+LEGS.PAW_CLEARANCE;
-        const ease=s.t*s.t*(3-2*s.t);paw.target.copy(s.start).lerp(s.end,ease);
-        paw.target.y=Math.max(paw.target.y,this.ground(paw.target.x,paw.target.z)+LEGS.PAW_CLEARANCE)+Math.sin(Math.PI*s.t)**2*LEGS.STEP_LIFT;
-        if(s.t===1)paw.swing=null;
-      }else paw.target.y=this.ground(paw.target.x,paw.target.z)+LEGS.PAW_CLEARANCE;
+      }else if(!paw.swing)paw.target.y=this.ground(paw.target.x,paw.target.z)+LEGS.PAW_CLEARANCE;
     }
     let drop=LEGS.CROUCH,maxDrop=Infinity;
     for(const paw of this.paws){
@@ -220,7 +236,8 @@ export class JimothyLegs {
       // Follow a continuous grade without the persistent height lag that
       // overextends the downhill paws. Abrupt kerb changes stay speed-limited.
       const carried=this.bodyY+THREE.MathUtils.clamp(root.position.y-this.previousRootY,-LEGS.BODY_SPEED*delta,LEGS.BODY_SPEED*delta);
-      const next=carried+(desired-carried)*(1-Math.exp(-LEGS.BODY_RESPONSE*delta));
+      const response=velocity.length()>LEGS.MIN_SPEED?LEGS.BODY_RESPONSE:LEGS.REST_RESPONSE;
+      const next=carried+(desired-carried)*(1-Math.exp(-response*delta));
       this.bodyY+=THREE.MathUtils.clamp(next-this.bodyY,-LEGS.BODY_SPEED*delta,LEGS.BODY_SPEED*delta);
     }
     this.previousRootY=root.position.y;

@@ -209,3 +209,16 @@ test('a driven car crosses the steep generated street and junction in both direc
  });console.log('STEEP_DRIVE',JSON.stringify(result.rows));
  for(const r of result.rows){expect(r.phase).toBe('driving');expect(r.distance,JSON.stringify(r)).toBeGreaterThan(45);expect(r.wheelGap).toBeLessThan(.2);expect(r.maxStep).toBeLessThan(.45);}
 });
+
+test('a moderate road crash shatters glass but leaves a driveable car',async({page})=>{
+ await setup(page);await enter(page);
+ const r=await page.evaluate(()=>{
+  const g=__game,d=g.driving,p=testCar,origin=p.mesh.position.clone(),dir={x:Math.sin(p.yaw),z:Math.cos(p.yaw)},solid=g.voxels.solidAtWorld,ground=d.ground;
+  const wall=(x,z)=>(x-origin.x)*dir.x+(z-origin.z)*dir.z>p.half[2]+2;
+  d.ground=(x,z,from)=>wall(x,z)?origin.y+3:ground.call(d,x,z,from);
+  g.voxels.solidAtWorld=(x,y,z)=>(wall(x,z)&&y>origin.y-p.half[1]+.3)||solid.call(g.voxels,x,y,z);
+  d.speed=18;advanceTime(.4);g.voxels.solidAtWorld=solid;d.ground=ground;
+  const intact=d.car===p&&!g.streetLife.destroyed.has(p.id),before=p.mesh.position.clone();g.input.codes.add('KeyS');advanceTime(.5);g.input.codes.clear();
+  return {intact,phase:d.phase,windows:p.brokenWindows.length,explosions:JSON.parse(render_game_to_text()).explosions.total,reversed:p.mesh.position.distanceTo(before)};
+ });console.log('CAR_MODERATE_CRASH',r);expect(r.intact).toBe(true);expect(r.phase).toBe('driving');expect(r.windows).toBeGreaterThan(0);expect(r.explosions).toBe(0);expect(r.reversed).toBeGreaterThan(.4);
+});

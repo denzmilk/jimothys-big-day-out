@@ -4,6 +4,10 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## Tougher cars — JIM-95 — 2026-10-04
+
+**Implemented, awaiting Chris's playtest.** Cars now survive an 18 m/s crash with broken glass and can reverse away; 22 m/s still explodes/ejects. Small attacks retain usable cars, medium attacks break them without fire, and large attacks retain explosions/physical parts. Nine focused browser cases, 119 units, build and production smoke pass, console-clean. See JIM-95 for thresholds and evidence. **Next: JIM-97 vehicle water splash/momentum, then M54 gait and the recorded sequential queue.**
+
 ## Downhill driving repair — JIM-96 — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** The supplied steep-street failure is reproduced and repaired: the chassis follows steep grades, suspension height no longer looks like a cliff, and square storage cells above smooth roads no longer block the hull. The generated hill/junction clears 48 m uphill/downhill at 30/60/120 Hz. Native original-rig taxi inspection crosses it without crashes. All 25 unique focused/adjacent cases, 119 units, build and pixel smoke pass. One legacy traffic test needed its required dev-server URL; the unchanged rerun passes. See JIM-96 and M53 for evidence and the transient tyre-contact limitation. Next: JIM-95 durability → JIM-97 water splash/momentum → M54 gait, continuing the authorised sequence.

@@ -18,9 +18,13 @@ A moving car entering water should create a large, speed/size-scaled splash and 
 
 ### JIM-95 — Cars break/explode too readily
 
-**Status:** in-progress · **Reported:** Chris, 2026-10-04, M53 playtest.
+**Status:** implemented, awaiting Chris's playtest · **Reported:** Chris, 2026-10-04, M53 playtest.
 
-Keep the approved explosion/parts effects, but ordinary bumps and moderate attacks should leave usable cars. Audit driving crash thresholds and on-foot impact strength; verify serious high-speed crashes and large Jimothy hits still destroy cars. Locations: `DrivingSystem.crash`, `StreetLife.impact`, `Constants.js`. Verification pending.
+Cars retain the approved explosion/fire/smoke/spark and breakaway-part systems. Crash destruction now requires 21 m/s (75.6 km/h), up from 16 m/s (57.6 km/h); the existing 7 m/s glass threshold remains. Car body break/explosion impact radii rise from 1.2/3.5 m to 2.4/4.5 m. This preserves useful cars longer without adding damage ownership or repair systems.
+
+**Red → green:** an 18 m/s wall crash previously exploded the car and ejected Jimothy; it now breaks glass, leaves the car controlled, and can reverse 0.95 m away. The 22 m/s wall case still explodes/ejects. A five-fatness attack previously dismantled a car; now it stays intact. At 25 fatness, the car breaks into parts without fire; at 60 it still explodes. Updated the old 25-fatness *explosion* fixtures to the new explicit 60-fatness criterion, keeping part counts, triangle preservation, movement, collection, persistence, cleanup and restart assertions.
+
+Nine focused browser cases, all 119 units, build and production pixel smoke pass; console errors none. Evidence: `output/iterate/car-durability-{red,final,units,build,smoke}.log`; `tests/driving.spec.js`, `tests/car-destruction.spec.js`. Handling/durability balance remains for Chris to judge. Next car follow-up: JIM-97 splash and entry momentum.
 
 ### JIM-96 — Driving downhill catches the car on the road
 

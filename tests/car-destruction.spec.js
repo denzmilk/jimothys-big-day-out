@@ -24,7 +24,7 @@ test('only a powerful hit explodes a car and throws separate body panels and whe
     const g=window.__game,car=()=>g.streetLife.items.find(p=>p.kind==='car'&&!p.driving&&!p.fragment);
     const weak=car(),weakId=weak.id;g.blastAt(weak.mesh.position,.1,{fatShare:0,digsTerrain:false});
     const leanIntact=g.streetLife.items.some(p=>p.id===weakId),quiet=(JSON.parse(render_game_to_text()).explosions?.total||0)===0;
-    window.setFatness(25);const target=car(),id=target.id,origin=target.mesh.position.clone();
+    window.setFatness(60);const target=car(),id=target.id,origin=target.mesh.position.clone();
     g.blastAt(origin,1,{digsTerrain:false});
     const first=JSON.parse(render_game_to_text()),parts=g.streetLife.items.filter(p=>p.fragment&&p.sourceId===id);
     const before=parts.map(p=>({id:p.id,position:p.mesh.position.clone()}));
@@ -45,7 +45,7 @@ test('wreckage lands, is collectable, stays destroyed after streaming, and reset
   await boot(page,{withRig:true});
   const result=await page.evaluate(()=>{
     const g=window.__game,p=g.streetLife.items.find(p=>p.kind==='car'&&!p.driving),id=p.id,x=p.mesh.position.x,z=p.mesh.position.z;
-    window.setFatness(25);g.blastAt(p.mesh.position,1,{digsTerrain:false});window.advanceTime(4);
+    window.setFatness(60);g.blastAt(p.mesh.position,1,{digsTerrain:false});window.advanceTime(4);
     const parts=g.streetLife.items.filter(q=>q.fragment&&q.sourceId===id);
     if(!parts.length)return {parts:0};
     const landed=parts.every(q=>q.mesh.position.y>=g.voxels.terrainHeightAt(q.mesh.position.x,q.mesh.position.z)-.22&&Math.abs(g.physics.props.get(q.id).body.velocity.y)<1);
@@ -58,7 +58,7 @@ test('wreckage lands, is collectable, stays destroyed after streaming, and reset
     const persisted=!g.streetLife.items.some(q=>q.id===id);
     window.restartGame();window.advanceTime(.1);
     const baseline={b:g.physics.world.bodies.length,e:g.collector.entities.size};
-    for(let i=0;i<3;i++){window.setFatness(25);const car=g.streetLife.items.find(q=>q.kind==='car'&&!q.driving);g.blastAt(car.mesh.position,1,{digsTerrain:false});window.restartGame();window.advanceTime(.1);}
+    for(let i=0;i<3;i++){window.setFatness(60);const car=g.streetLife.items.find(q=>q.kind==='car'&&!q.driving);g.blastAt(car.mesh.position,1,{digsTerrain:false});window.restartGame();window.advanceTime(.1);}
     return {parts:parts.length,landed,collected,released,persisted,restored:g.streetLife.items.some(q=>q.id===id),
       clean:JSON.parse(render_game_to_text()).explosions?.active===0&&g.streetLife.items.every(q=>!q.fragment),
       stable:baseline.b===g.physics.world.bodies.length&&baseline.e===g.collector.entities.size};
@@ -91,4 +91,16 @@ test('many car explosions respect fragment and effect caps and effects expire',a
   expect(result.explosions).toBeGreaterThan(5);expect(result.allGone).toBe(true);
   expect(result.fragments).toBeLessThanOrEqual(result.cap);expect(result.effects).toBeLessThanOrEqual(result.effectCap);
   expect(result.playing).toBe(true);expect(result.ended).toBe(true);expect(result.fragmentsExpired).toBe(true);
+});
+
+test('small attacks leave a car usable, medium attacks break it, and large attacks still explode it',async({page})=>{
+ await boot(page);
+ const rows=await page.evaluate(()=>{
+  const g=__game,rows=[];
+  for(const fatness of [5,25,60]){
+   const p=g.streetLife.items.find(p=>p.kind==='car'&&!p.driving&&!p.fragment&&!p.loose);
+   const before=JSON.parse(render_game_to_text()).explosions.total;setFatness(fatness);g.blastAt(p.mesh.position,1,{digsTerrain:false});
+   rows.push({fatness,intact:g.streetLife.items.includes(p),explosions:JSON.parse(render_game_to_text()).explosions.total-before,parts:g.streetLife.items.filter(q=>q.sourceId===p.id).length});
+  }return rows;
+ });console.log('CAR_STRENGTH_TIERS',rows);expect(rows[0].intact).toBe(true);expect(rows[0].explosions).toBe(0);expect(rows[1].intact).toBe(false);expect(rows[1].explosions).toBe(0);expect(rows[2].intact).toBe(false);expect(rows[2].explosions).toBe(1);expect(rows[2].parts).toBeGreaterThan(8);
 });

@@ -39,7 +39,7 @@ Let Jimothy take a car from a visible driver, drive around the physical world an
 ## Playtest follow-up — 2026-10-04
 
 - [x] JIM-96: start and continue downhill on generated steep streets, through their lower junctions; repeat uphill/reverse and retain solid wall/car collision.
-- [ ] JIM-95: moderate crashes/attacks preserve usable cars, while severe crashes and large Jimothy still trigger the approved explosion and physical breakaway parts.
+- [x] JIM-95: an 18 m/s crash leaves a driveable car with broken glass; a 22 m/s crash still explodes/ejects. A 5-fatness blast leaves the car intact, 25 breaks it without fire, and 60 retains the approved explosion and physical breakaway parts. These replace the old 25-fatness explosion fixture.
 - [ ] JIM-97: vehicle water entry creates a substantial speed/size-scaled splash and ripples, transfers momentum to physics and releases the rider; submerged rest/bridges do not retrigger it.
 - [ ] Chris judges repaired handling and durability during play.
 
@@ -71,3 +71,7 @@ The full legacy browser suite was not rerun wholesale. Older giant collapse dead
 ### Downhill fluidity repair — JIM-96
 
 The generated steep street now clears 48 m in each direction at 30/60/120 Hz. Chassis fit, suspension/drop comparisons and smooth-surface collision are corrected; walls, shallow ditches, six-model contact, lifecycle and suspension streaming retain regression checks. Original-rig taxi frames cross the reported type of grade without stopping or crashing. Full evidence and the transient tyre-contact limit are recorded in JIM-96. Chris's handling sign-off remains outstanding.
+
+### Tougher cars — JIM-95
+
+The new moderate-crash/attack regressions failed before tuning, then pass alongside severe explosions, original model/parts preservation, collection, cleanup and restart (9/9 focused cases). All 119 units, build and production pixel smoke pass. The explosion implementation remains; only the strength thresholds change. See JIM-95 for exact thresholds/evidence. Chris still judges the balance.

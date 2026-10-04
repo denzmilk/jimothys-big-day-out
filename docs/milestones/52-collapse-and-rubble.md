@@ -27,6 +27,8 @@ Use the existing voxel world and cannon-es ownership. No body per intact voxel, 
 
 Record failing baselines before implementation, focused and adjacent tests, native captures/timings, and build/production pixel smoke here.
 
+**Later audit, 2026-10-04:** [Detailed variability and stability report](../stability-audit-2026-10-04.md). JIM-85 repairs 120-Hz actor-proxy oscillation exposed by mixed gameplay; all 108 units and 39 adjacent cases pass. The final three-seed mixed audit covers 294 simulated seconds and 15 restarts without invariant failures or warmed object-count growth. JIM-48 support latency/frame cost, JIM-69 giant underside stretching, and brief debug-warp proxy velocity samples remain open. This adds automated evidence and does not satisfy the user-playtest exit gate.
+
 ### JIM-73 support repair
 
 Five support units and five unique generated-building/adjacent browser cases pass (the channel case passed its focused rerun after nearest-first scheduling). New ordinary-dig, disconnected-cell and thin-cut units failed before implementation; house/apartment browser baselines retained all 4,077 / 51,694 upper cells. Both now remove all sampled cells and create falling registered bodies. Native cave-in inspection is console-clean; build and production pixel smoke pass. Captures/logs: `output/iterate/collapse-*`. The coupled JIM-82 work below completes debris breakup/contact and records native timing.

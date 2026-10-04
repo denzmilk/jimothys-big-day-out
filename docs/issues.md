@@ -18,6 +18,8 @@ The 120-Hz mixed run recorded walking collision proxies above 500 m/s. The visib
 
 The repeated mixed audit also records isolated 157–159 m/s pursuer proxy velocities during tool sequences that use debug warps. These are separate from the sustained oscillation and still need an ordinary-play reproduction and placement/contact review. Do not treat passing finite-state/resource checks as proof that every velocity is physically meaningful.
 
+The final three-seed repeat completes 294 simulated seconds and 15 restarts with no console errors, invalid transforms, ownership failures or growing warmed object counts. Evidence and remaining limits: [4 October audit](stability-audit-2026-10-04.md), `output/iterate/stability-soak-verified/report.json`.
+
 ### JIM-84 — Legacy fixtures report failures after input and interior changes
 
 **Status:** test fixtures corrected · **Found:** 2026-10-04 stability audit
@@ -146,6 +148,8 @@ The spherical GiantCoat hides the original torso; fixed-size extremities disappe
 **Repair:** the original textured mesh now supplies the whole surface; proportional anatomy growth preserves readable features, and bounded root squash supplies jiggle. Attachments follow posed triangle coordinates, and IK handles minimum folded-leg/sole reach. The identity/jiggle regressions first failed; 25 model/footing/arrival checks pass across final runs, including the unchanged skin-contact checks. Build/rendered smoke and native size/roll views are clean. See the current STATE entry for evidence and the intermediate failures.
 
 **Open visual follow-up, M52 inspection (2026-10-04):** the fatness-400 rolling underside shows long stretched folds/triangles around the limb roots. This remains visible after a second render, so it needs a posed-skin/growth review, not a stale-frame assumption. No growth weights or morphology were changed in the rubble pass. Evidence: `output/iterate/rubble-giant-profile-roll-400.png`; retain JIM-69 as visually unapproved.
+
+The final stability audit independently confirms severe stretched folds/open-looking underside geometry on a 111.4 m giant roll. Evidence: `output/iterate/stability-performance-verified/giant-roll.png`, inspected 2026-10-04. Rig/state checks pass while this visual defect remains open; see [the audit](stability-audit-2026-10-04.md).
 
 ### JIM-70 — Giant rolls do not carve continuous ground channels
 
@@ -301,6 +305,8 @@ Chris's 2026-10-02 playtest confirms a visible shape failure. Actual posed mesh 
 **Repair, 2026-10-02:** Blender radial growth and a smooth coat keep the giant torso spherical while preserving original head/tail/paw dimensions. Held roll spin follows distance; attachments meet the grown surface. Twenty loaded-rig/footing checks and three final giant checks pass, alongside the 27-case adjacent run. See the latest STATE entry and `output/iterate/giant-street-carry.png`. Performance/destruction remain JIM-48/JIM-61.
 
 ### JIM-48 — Populated world exceeds the legacy draw-call budget
+
+**Final 2026-10-04 serial profile:** at 960×600 Medium, street update plus render submission is 13.0 ms median / 14.4 p95; the 111.4 m maximum-size roll is 36.9 / 50.4 ms, with up to 1,229 calls and 675 bodies. Its final queue retains 69 meshes and 17 support entries. Physics, traffic, pedestrians and voxel work contribute substantial CPU cost. Explicit shadow-refresh fixtures still fail the unchanged <300 budgets at 339 boot / 343 post-blast calls. These are local CPU/submission samples, not presented FPS or a matched improvement claim. Evidence: [detailed audit](stability-audit-2026-10-04.md), `output/iterate/stability-performance-verified/report.json`, `stability-render-refresh.log`.
 
 **2026-10-04 stability audit:** unchanged deadline assertions expose support latency after broad damage. Following a 1.1-second Block roll, meshes clear by three simulated seconds but support work remains through 12; it is empty at the 20-second sample. The repaired Block headbutt removes 52,220 cells; meshes clear by two seconds and support work clears by six. The queue changes building keys and eventually empties, so these samples show slow convergence rather than a permanent stalled job. Keep the two-/three-second regressions failing until the support work meets its budget; do not raise their limits. Evidence: `output/iterate/queue-convergence.json`, `queue-convergence.log`, `giant-400-followup.log` and `giant-audit-followup.log`. Large-scale frame cost remains open.
 

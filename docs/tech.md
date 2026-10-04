@@ -20,6 +20,7 @@ Deliberately minimal. Audio is raw Web Audio API (no library). UI is HTML/CSS ov
 - **Package manager:** npm
 - **Build:** Vite (scaffolded via `npm create vite@latest`, then `npm install three`)
 - **Testing:** Playwright (gameplay logic + visual baselines, per the qa-game skill)
+- **Stability audits:** `playwright.audit.config.js` runs browser specs serially. `tools/stability-audit.mjs` exercises seeded mixed gameplay and restart/resource checks; `tools/stability-performance.mjs` records separate live-budget CPU/render-submission samples. Both require a running server and installed Google Chrome. Commands, platform and measurement limits: [4 October audit](stability-audit-2026-10-04.md).
 - **Linting / formatting:** none for v1 (slop game; revisit if the project grows)
 - **Asset / binary storage:** GLB models committed under `public/assets/models/`. No Git LFS unless total model size becomes a problem (>~50 MB).
 

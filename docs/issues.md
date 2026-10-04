@@ -10,6 +10,14 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-85 — Walking collision bodies oscillate at high simulation rates
+
+**Status:** sustained oscillation repaired, awaiting Chris's playtest; transient placement velocities remain under investigation · **Found:** 2026-10-04 variability audit
+
+The 120-Hz mixed run recorded walking collision proxies above 500 m/s. The visible actor follows its route, while its Cannon body alternates roughly three metres either side. `moveActors()` computes a velocity from the previous integrated body position, but every other 120-Hz update has no 60-Hz physics step; a small placement offset can then oscillate indefinitely. A pure 30/60/120-Hz regression reproduces 3.06 m drift only at 120 Hz. Synchronising active proxies back to the authored pose after integration, while retaining contact velocity, removes that feedback. The loaded street reproduction's sampled peaks fall from about 565 m/s to 10 m/s. All 108 units, 39 contact/activity/walking/traffic/water browser cases, build and production pixel smoke pass. Evidence: `output/iterate/actor-timestep-red.log`, `actor-timestep-units.log`, `actor-timestep-browser.log`, `body-speed-audit.log`, `body-speed-final.log`, `stability-smoke-verified.log`.
+
+The repeated mixed audit also records isolated 157–159 m/s pursuer proxy velocities during tool sequences that use debug warps. These are separate from the sustained oscillation and still need an ordinary-play reproduction and placement/contact review. Do not treat passing finite-state/resource checks as proof that every velocity is physically meaningful.
+
 ### JIM-84 — Legacy fixtures report failures after input and interior changes
 
 **Status:** test fixtures corrected · **Found:** 2026-10-04 stability audit

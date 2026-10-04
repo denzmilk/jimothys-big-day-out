@@ -12,6 +12,8 @@ The late SUV spare test failure also belongs to JIM-84: its raw loader import by
 
 The render-budget fixtures now draw explicitly and include a shadow refresh instead of reading cached counters during a state-only sweep. Both original <300 limits remain failing: 339 boot / 343 post-blast calls. These are JIM-48 evidence, not loosened test limits (`output/iterate/stability-render-refresh.log`).
 
+**JIM-85 follow-up:** velocity telemetry found 120-Hz actor proxies oscillating roughly three metres around their visible actors. They now settle to the authored pose after physics integration. The new 30/60/120-Hz unit reproduction, all 108 units, 39 adjacent browser cases, build and production smoke pass. The loaded street reproduction falls from about 565 to 10 m/s sampled peaks. Brief pursuer placement velocities after debug warps remain under investigation; see the issue register. The repeated mixed audit and final serial profile are the remaining report work.
+
 Play the repaired build at **http://127.0.0.1:4174**. Chris's daylight appearance/feel review remains the exit gate. Broader wanted/content milestones retain their recorded ordering.
 
 ## Building collapse and shared rubble — JIM-73 / JIM-82 / milestone 52 — 2026-10-04

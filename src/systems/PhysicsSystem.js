@@ -232,6 +232,11 @@ export class PhysicsSystem {
       this.accumulator -= this.fixedStep;
     }
     for(const p of this.props.values())if(p.active&&p.body.type===CANNON.Body.KINEMATIC&&p.targetPosition){p.body.position.copy(p.targetPosition);p.body.quaternion.copy(p.targetQuaternion);p.targetPosition=null;p.body.aabbNeedsUpdate=true;}
+    // JIM-85: at 120 Hz, alternate updates contain no 60-Hz physics step.
+    // Carrying an overshot pose into the next velocity estimate makes a route
+    // placement oscillate forever. Match the authored pose after integration,
+    // as driven props do, while retaining velocity for contact reporting.
+    for(const a of this.actors.values())if(a.active)this.placeActor(a,false);
     this.surfaces.rebuild(this.dynamic);this.actorImpacts();
     for (const { body, mesh } of this.pairs) {
       mesh.position.copy(body.position);
@@ -262,7 +267,7 @@ export class PhysicsSystem {
     const body=new CANNON.Body({type:CANNON.Body.KINEMATIC,shape:new CANNON.Box(new CANNON.Vec3(...half)),collisionFilterGroup:R.ACTOR_GROUP,collisionFilterMask:R.ACTOR_MASK});
     const a={...p,body,offset,active:false,down:false,attached:false,hitAfter:0};body._actor=a;this.actors.set(p.id,a);this.placeActor(a);this.setActorActive(p.id,true);
   }
-  placeActor(a){const p=a.mesh.position;a.body.position.set(p.x+a.offset[0],p.y+a.offset[1],p.z+a.offset[2]);a.body.quaternion.copy(a.mesh.quaternion);a.body.velocity.setZero();a.body.aabbNeedsUpdate=true;}
+  placeActor(a,resetVelocity=true){const p=a.mesh.position;a.body.position.set(p.x+a.offset[0],p.y+a.offset[1],p.z+a.offset[2]);a.body.quaternion.copy(a.mesh.quaternion);if(resetVelocity)a.body.velocity.setZero();a.body.aabbNeedsUpdate=true;}
   setActorActive(id,active){const a=this.actors.get(id);if(!a||a.active===active)return;a.active=active;if(active)this.add(a.body);else this.remove(a.body);}
   moveActors(dt){
     for(const a of this.actors.values()){

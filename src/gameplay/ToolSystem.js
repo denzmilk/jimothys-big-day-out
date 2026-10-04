@@ -77,7 +77,7 @@ export class ToolSystem {
    }else if(d.mode==='paint'){this.splat(e,d.color);affected++;break;}
    else if(d.mode==='confetti'&&e.kind==='person'){eventBus.emit(Events.WORLD_IMPACT,{x:point.x,y:point.y,z:point.z,radius:C.CONTACT_PAD,source:'confetti'});affected++;}
   }
-  if(d.mode==='extinguisher'){const v=j.vel.clone().addScaledVector(dir,-d.force);eventBus.emit(Events.PLAYER_LAUNCHED,{velocity:[v.x,d.force,v.z],seconds:d.interval,mass:C.FORCE_MASS,keepTool:true});}
+  if(d.mode==='extinguisher'){const v=j.vel.clone().addScaledVector(dir,-d.force);eventBus.emit(Events.PLAYER_LAUNCHED,{velocity:[v.x,d.force,v.z],seconds:d.interval,mass:C.FORCE_MASS,keepTool:true,ragdoll:false});}
   affected+=this.extraUse(d,targets,dir);
   if(affected)eventBus.emit(Events.TOOL_CHAOS,{points:C.CHAOS});this.burst(d);return true;
  }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  MOMENTUM_ROLL as MR, DRIVING, TOOLS, GIANT_IMPACT, RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  PLAYER_RAGDOLL as PR, MOMENTUM_ROLL as MR, DRIVING, TOOLS, GIANT_IMPACT, RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -9,6 +9,8 @@ import { gameState } from '../core/GameState.js';
 import { JimothyRig } from './JimothyRig.js';
 import { JimothyLegs } from './JimothyLegs.js';
 import {RollMotion} from '../core/RollMotion.js';
+import {PlayerRagdoll} from './PlayerRagdoll.js';
+import {pushingMass} from '../core/BodyContact.js';
 
 // Kinematic under player control (ADR-0002): cannon integrates position from
 // the velocity we set, which is what lets him shove dynamic cans around.
@@ -105,6 +107,7 @@ export class JimothyController {
 
     this.vel = new THREE.Vector3();
     this.rollMotion=new RollMotion();this.rollInput=new THREE.Vector2();
+    this.ragdoll=new PlayerRagdoll(this);this.hitCooldown=0;
     this.vy = 0;this.toolMotion=null;
     this.grounded = true;
     // Face -z (away from the boot camera) so the follow cam starts where the
@@ -140,6 +143,7 @@ export class JimothyController {
     this.onImpact = null; // set by Game: (x, y, z, radiusScale) => void
 
     eventBus.on(Events.SPAWN_POSE,({position,grounded})=>{
+      this._finishLaunch(false);
       this.rollMotion.reset();
       this.body.position.set(position.x,position.y+this.radius,position.z);
       this.body.velocity.setZero();this.vel.set(0,0,0);this.vy=0;
@@ -147,6 +151,8 @@ export class JimothyController {
       this._prevX=undefined;this._prevZ=undefined;
     });
     eventBus.on(Events.PLAYER_RIDE,({active,position,keepLaunch})=>{
+      if(active||!keepLaunch)this._finishLaunch(false);
+      else if(position)this.ragdoll.shift(position);
       this.rollMotion.reset();
       this.rideLegPose=active&&this.rig.skinned?Object.fromEntries(['FL','FR','RL','RR'].flatMap(n=>['leg_'+n,'shin_'+n]).map(n=>[n,this.rig.bones[n].quaternion.clone()])):null;
       this.riding=active;this.move=null;this.toolMotion=null;
@@ -166,10 +172,36 @@ export class JimothyController {
         if(m.mode==='bounce'||this.grounded){this.vy=m.force;this.body.velocity.y=m.force;this.grounded=false;this.toolMotion={...m,mode:'hop'};}
       }else this.toolMotion={...m};
     });
-    eventBus.on(Events.PLAYER_LAUNCHED,({velocity,seconds})=>{
+    eventBus.on(Events.PLAYER_LAUNCHED,({velocity,seconds,ragdoll=true})=>{
+      // Further impulses may redirect a tumble, but cannot restart its
+      // recovery clock or create another set of limbs (M57).
+      if(this.ragdoll.physical){this.vel.set(velocity[0],0,velocity[2]);this.vy=velocity[1];return;}
+      if(this.ragdoll.recovering)this.ragdoll.stop(false);
       this.rollMotion.reset();
-      this.launched=seconds;this.launchSpin=0;this.move=null;this.stunTimer=0;this.grounded=false;gameState.player.stunned=true;this.vel.set(velocity[0],0,velocity[2]);this.vy=velocity[1];
+      this.launched=Math.min(PR.MAX_DOWN,seconds);this.launchSpin=0;this.move=null;this.stunTimer=0;this.grounded=false;gameState.player.stunned=true;this.vel.set(velocity[0],0,velocity[2]);this.vy=velocity[1];
+      if(ragdoll)this.ragdoll.start(velocity);
     });
+    eventBus.on(Events.PLAYER_HIT,({velocity,seconds=PR.HIT_SECONDS})=>{
+      if(this.hitCooldown>0||!gameState.game.isPlaying||gameState.arrival.phase!=='done')return;
+      const resistance=1/(1+gameState.player.fatness*PR.FAT_RESISTANCE);this.hitCooldown=PR.HIT_IMMUNITY;
+      // A car blast is a bump against a giant, not a reason to cancel the
+      // held rampage every time a collected vehicle explodes (M57).
+      if(this.radius>PR.MAX_RADIUS){
+        this.vel.x+=velocity[0]*resistance;this.vel.z+=velocity[2]*resistance;
+        this.body.velocity.x=this.vel.x;this.body.velocity.z=this.vel.z;
+        this.jiggleAmp+=FATNESS.KICK_SCRAP*resistance;return;
+      }
+      eventBus.emit(Events.PLAYER_LAUNCHED,{velocity:velocity.map(v=>v*resistance),seconds:Math.max(PR.MIN_DOWN,seconds*Math.sqrt(resistance)),mass:pushingMass(gameState.player.fatness)});
+    });
+    const blast=({x,y,z,radius,playerHandled})=>{
+      if(playerHandled)return;
+      const d=new THREE.Vector3().copy(this.body.position).sub(new THREE.Vector3(x,y,z));if(d.length()>radius+this.radius)return;
+      d.y=0;if(!d.lengthSq())d.set(Math.sin(this.yaw),0,Math.cos(this.yaw));d.normalize();const speed=Math.min(PR.MAX_SPEED,PR.BLAST_SPEED+radius*PR.BLAST_RADIUS_GAIN);
+      eventBus.emit(Events.PLAYER_HIT,{source:'explosion',velocity:[d.x*speed,PR.BLAST_UP,d.z*speed]});
+    };
+    eventBus.on(Events.CAR_EXPLODED,blast);
+    eventBus.on(Events.EXPLOSION_SPAWN,blast);
+    eventBus.on(Events.GAME_OVER,()=>this._finishLaunch(false));
     eventBus.on(Events.PLAYER_STUNNED, ({ seconds }) => {
       if (!gameState.game.isPlaying) return;
       this.stunTimer = seconds;
@@ -198,6 +230,10 @@ export class JimothyController {
   }
 
   reset() {
+    this.ragdoll.stop();this.hitCooldown=0;
+    // Reset is also used by pose/inspection entry points. Restore the ride
+    // collision mask and stun state even if DrivingSystem owns no vehicle.
+    eventBus.emit(Events.PLAYER_RIDE,{active:false});
     this.rollMotion.reset();
     eventBus.emit(Events.PLAYER_CONTROLLED);this.launched=0;this.launchSpin=0;
     this.idleWait=0;this.idleTime=0;this.idleIndex=0;this.idleAction=null;this.idleBlend=0;this.idleBreath=0;
@@ -223,6 +259,12 @@ export class JimothyController {
 
   get speed() {
     return Math.hypot(this.vel.x, this.vel.z);
+  }
+
+  _finishLaunch(recover=true){
+    if(recover)this.ragdoll.recover();else this.ragdoll.stop();
+    eventBus.emit(Events.PLAYER_CONTROLLED);this.launched=0;this.launchSpin=0;
+    gameState.player.stunned=this.ragdoll.recovering||this.stunTimer>0;
   }
 
   _updateIdle(delta){
@@ -432,15 +474,20 @@ export class JimothyController {
     // so nobody aiming means this is where he was pointed anyway.
     this.aimYaw = cameraYaw;
     this.elapsed += delta;
+    this.hitCooldown=Math.max(0,this.hitCooldown-delta);
+    if(this.ragdoll.active&&this.radius!==this.ragdoll.radius)this._finishLaunch(false);
     if(this.launched>0){
-      this.launched=Math.max(0,this.launched-delta);this.launchSpin+=delta*MILITARY.LAUNCH_SPIN;
+      this.launched=Math.max(0,this.launched-delta);this.stunTimer=Math.max(0,this.stunTimer-delta);
+      if(!this.ragdoll.active)this.launchSpin+=delta*MILITARY.LAUNCH_SPIN;
       this.vel.set(this.body.velocity.x,0,this.body.velocity.z);this.vy=this.body.velocity.y;
-      if(!this.launched){eventBus.emit(Events.PLAYER_CONTROLLED);gameState.player.stunned=false;this.launchSpin=0;}
+      let water;eventBus.emit(Events.WATER_SAMPLE,{x:this.body.position.x,z:this.body.position.z,receive:w=>water=w});
+      const wet=water&&water.depth>this.radius&&this.body.position.y-this.radius*PR.WATER_DRAFT<water.height;
+      if(!this.launched||wet)this._finishLaunch();
       return;
     }
     if (this.stunTimer > 0) {
       this.stunTimer -= delta;
-      if (this.stunTimer <= 0) gameState.player.stunned = false;
+      if (this.stunTimer <= 0) gameState.player.stunned = this.ragdoll.recovering;
     }
     // Stunned or run-over: input dies, momentum bleeds out.
     const controllable = gameState.game.isPlaying && !gameState.player.stunned;
@@ -974,6 +1021,8 @@ export class JimothyController {
         this.rig.pose('shin_'+name,Math.max(0,Math.cos(phase))*WATER.PADDLE_ANGLE);
       }
       this.rig.pose('head',-WATER.PADDLE_ANGLE/4,0,0);
-    }else this.legs.update(delta);
+    }else if(this.ragdoll.physical)this.legs.reset();
+    else this.legs.update(delta);
+    this.ragdoll.pose(delta);
   }
 }

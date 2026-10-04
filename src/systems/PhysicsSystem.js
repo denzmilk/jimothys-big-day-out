@@ -1,7 +1,7 @@
 import * as CANNON from 'cannon-es';
 import * as THREE from 'three';
 import {RubbleSurfaces} from '../core/RubbleSurfaces.js';
-import { WORLD, PHYSICS, VOXEL, STREET, RAGDOLL, WATER, TERRAIN, BODY_CONTACT, SUPPORT, RUBBLE as R } from '../core/Constants.js';
+import { PLAYER_RAGDOLL as PR, WORLD, PHYSICS, VOXEL, STREET, RAGDOLL, WATER, TERRAIN, BODY_CONTACT, SUPPORT, RUBBLE as R } from '../core/Constants.js';
 import {canPush,restrictMotion} from '../core/BodyContact.js';
 import { eventBus, Events } from '../core/EventBus.js';
 
@@ -130,8 +130,10 @@ export class PhysicsSystem {
     });
 
     this.ragdolls=new Map();
-    eventBus.on(Events.RAGDOLL_CREATE,({id,parts,velocity,receive})=>{
-      const C=RAGDOLL,bodies=parts.map(p=>{
+    eventBus.on(Events.RAGDOLL_CREATE,({id,parts,velocity,receive,rootBody,tuning})=>{
+      if(this.ragdolls.has(id)){receive(this.ragdolls.get(id));return;}
+      const C={...RAGDOLL,...tuning},rootDamping=rootBody?[rootBody.linearDamping,rootBody.angularDamping]:null,bodies=parts.map((p,i)=>{
+        if(i===0&&rootBody){rootBody.position.copy(p.position);rootBody.quaternion.copy(p.quaternion);rootBody.angularVelocity.set(C.SPIN,0,-C.SPIN);rootBody.linearDamping=rootBody.angularDamping=C.DAMPING;this.resetSweep(rootBody);return rootBody;}
         const b=new CANNON.Body({mass:C.MASS,shape:new CANNON.Box(new CANNON.Vec3(...p.half)),
           linearDamping:C.DAMPING,angularDamping:C.DAMPING,collisionFilterGroup:C.GROUP,collisionFilterMask:C.MASK});
         b.position.copy(p.position);b.quaternion.copy(p.quaternion);b.velocity.set(...velocity);
@@ -148,12 +150,15 @@ export class PhysicsSystem {
       });
       // Limbs within one ragdoll keep their joint spacing; other ragdolls and wreckage collide.
       for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++)this.grace.set(this.contactKey(bodies[i],bodies[j]),{a:bodies[i],b:bodies[j],permanent:true});
-      const r={bodies,constraints};this.ragdolls.set(id,r);receive(r);
+      const r={bodies,constraints,rootBody,rootDamping};this.ragdolls.set(id,r);receive(r);
     });
+    eventBus.on(Events.RAGDOLL_SHIFT,({id,delta})=>{const r=this.ragdolls.get(id);if(r)for(const b of r.bodies){b.position.vadd(new CANNON.Vec3(delta.x,delta.y,delta.z),b.position);this.resetSweep(b);}});
     eventBus.on(Events.RAGDOLL_REMOVE,({id})=>{
       const r=this.ragdolls.get(id);if(!r)return;
       for(const c of r.constraints)this.world.removeConstraint(c);
-      for(const b of r.bodies)this.remove(b);this.ragdolls.delete(id);
+      for(const b of r.bodies)if(b!==r.rootBody)this.remove(b);
+      if(r.rootBody)[r.rootBody.linearDamping,r.rootBody.angularDamping]=r.rootDamping;
+      this.ragdolls.delete(id);
     });
 
     eventBus.on(Events.DEV_TUNING_CHANGED, ({ group, key }) => {
@@ -229,7 +234,7 @@ export class PhysicsSystem {
   }
 
   update(delta) {
-    this.time+=delta;this.checkSupport();this.moveActors(delta);this.moveProps(delta);this.updateGrace();
+    this.time+=delta;this.checkSupport();this.moveActors(delta);this.moveProps(delta);this.playerCarImpacts(delta);this.updateGrace();
     this.accumulator += delta;
     while (this.accumulator >= this.fixedStep - 1e-9) {
       this._floatBodies(this.fixedStep);
@@ -307,6 +312,23 @@ export class PhysicsSystem {
       a.hitAfter=this.time+R.HIT_COOLDOWN;hits.push({id:a.id,x:b.position.x,y:b.position.y,z:b.position.z,radius:this._support(b).r,power:R.HIT_POWER,source:'rubble'});
     }
     for(const hit of hits)eventBus.emit(Events.HUMAN_IMPACT,hit);
+  }
+
+  playerCarImpacts(dt){
+    const j=this.playerBody;if(!j||!j.collisionFilterMask||dt<=0)return;
+    // Kinematic cars and the controlled player do not create Cannon contact
+    // equations. Sweep their relative motion before the step (M57).
+    for(const p of this.props.values()){
+      const b=p.body;if(!p.active||p.entity.kind!=='car'||p.entity.fragment)continue;
+      const speed=Math.hypot(b.velocity.x,b.velocity.z);if(speed<PR.CAR_MIN_SPEED)continue;
+      const support=this._support(b),radius=j.shapes[0].radius;
+      if(j.position.distanceTo(b.position)>radius+support.r+speed*dt)continue;
+      const forward=b.quaternion.vmult(new CANNON.Vec3(0,0,1)),m={position:j.position,radius,velocity:{x:j.velocity.x-b.velocity.x,y:j.velocity.y-b.velocity.y,z:j.velocity.z-b.velocity.z},dt};
+      if(restrictMotion(m,{id:p.entity.id,position:b.position,half:p.entity.half,yaw:Math.atan2(forward.x,forward.z),bottom:b.position.y-support.y,top:b.position.y+support.y})){
+        const power=Math.min(PR.MAX_SPEED,speed*PR.CAR_SPEED_GAIN);
+        eventBus.emit(Events.PLAYER_HIT,{source:'car',velocity:[b.velocity.x/speed*power,PR.CAR_UP,b.velocity.z/speed*power]});break;
+      }
+    }
   }
 
   checkSupport(){

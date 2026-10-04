@@ -4,6 +4,12 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## M57 player ragdoll — 2026-10-04
+
+**Implemented, awaiting Chris's playtest.** The existing sphere becomes the dynamic torso, with ten additional head/tail/leg bodies driving the original skin. Car sweeps, car/firework blasts and existing military launches throw small Jimothy; giant car blasts give smaller shoves without cancelling a held roll. Water, ride/ejection, growth, capture, spawn and reset cleanly release ownership; repeated impulses cannot restart the physical timer. Extinguisher propulsion remains animated.
+
+Eleven focused cases, twelve adjacent cases, all 142 units, build and production pixel smoke pass. Original-rig stage clips and a real-world blast/get-up capture are console-clean. The adjacent comet-exit test fails at 2.63 m: the exact same failure occurs on isolated pushed HEAD `c55fee8`, and disabling new traffic hits does not change it. **Next: repair that separate movement blocker, JIM-99**, then destruction-led wanted pacing and the recorded queue. No new scope approval is needed. See M57 for evidence and limits; giant performance/JIM-48 remains open.
+
 ## Giant skin and tuck checkpoint — JIM-69 — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** Three reproduced defects are repaired: split knee/paw growth directions, hard normals at UV seams, and the full lean-leg curl applied to the giant belly. Blender now grows each whole limb together and smooths socket displacement while keeping face/paw interiors rigid. Giant legs share the gentle head/tail tuck. Runtime growth shares normals across UV seams and restores the original lean normals on shrinking.

@@ -10,6 +10,12 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-99 — Walking out of the comet crater catches the body
+
+**Status:** in-progress · **Found:** 2026-10-04, M57 adjacent verification.
+
+The unchanged `comet-arrival.spec.js` exit route stops after 2.6346 m at z=-2.6346, feet y=42.3446, grounded and not stunned. It reproduces on isolated pushed HEAD `c55fee8` and with M57 car-hit checks disabled. The two-second route requires >3 m; do not widen that assertion. Investigate crater floor/side-probe contact and preserve building wall/ceiling rules. Evidence: `output/iterate/player-ragdoll-comet-{baseline,exit}.log` and `player-ragdoll-comet-exit.json`. Source: `JimothyController._resolveVoxels`, `VoxelWorld` ground queries, `DamagedGround`.
+
 ### JIM-98 — Fat rolling still feels like a fixed animation
 
 **Status:** implemented, awaiting Chris's playtest, M56 · **Reported:** Chris, 2026-10-04, during the sequential playground requests.

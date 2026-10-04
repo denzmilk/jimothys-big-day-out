@@ -4,6 +4,14 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## M59 early response — 2026-10-04
+
+**Implemented, awaiting Chris’s playtest.** Photographers hold an original Blender camera in both hands, aim it and show a lens flash/shutter. Two varied locals at tier two raise a knee, commit to one dodgeable kick and recover. Small Jimothy launches through shared ragdolls; shields/rides/collection interrupt contact and giants retain rolling. Carried actors still occupy their bounded population slots.
+
+All **157 units and 36 focused/adjacent browser cases** pass, plus build, final original-rig/native inspection and production pixel smoke, console-clean. Review repaired locals knocking Jimothy out of net attempts (JIM-100) and an 11.4 cm supporting-hand gap. Camera-only tests explicitly isolate flash from knockback; the combined stationary capture test stays unchanged. Evidence and fixtures: [M59](milestones/59-local-response.md).
+
+**Next:** briefly investigate the reproduced ordinary pedestrian uphill crouch under JIM-50, then continue the authorised police pursuit/guns → rifle troops → fish/bubbles queue. The new camera/kick capture independently shows `ped-21` (tourist, no activity/driver ownership) with visual root -0.723 m below its correctly grounded root. No repair or exact cause is claimed yet. The free Kenney CC0 police model and Blaster Kit have been downloaded/inspected for the next asset step under `output/iterate/police-source-review`; no police asset is integrated yet. Keep JIM-48 giant performance open.
+
 ## M58 wanted pacing — 2026-10-04
 
 **Implemented, awaiting Chris’s playtest.** Nuisance stops below four stars; fear repeats have a cooldown and tool effects have a rate budget. Player-only damage attribution survives queued work, support cave-ins and one-time car wrecks. Ground has much less weight than structures. Four/five require 400/1800 points with 12 seconds per upper tier; hiding cancels a pending increase. The radar shows a countdown beside its existing search status.

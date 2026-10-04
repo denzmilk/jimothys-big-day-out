@@ -71,13 +71,14 @@ test('paparazzi spawn at tier 1 and close in', async ({ page }) => {
 test('tier-2 camera flash stuns jimothy', async ({ page }) => {
   await seedTuning(page, { HEAT: { PER_CAN_TIPPED: 25 } });
   await boot(page);
-  // Keep this tier-2 scenario from summoning the net when the new crowd flees.
-  await page.evaluate(async()=>{const {HEAT}=await import('/src/core/Constants.js');HEAT.PER_SCARED_LOCAL=0;});
+  // Isolate flash input suppression from deliberate kick knockback. The
+  // combined crowd/net encounter below still runs with locals enabled.
+  await page.evaluate(async()=>{const {HEAT,LOCAL_RESPONSE}=await import('/src/core/Constants.js');HEAT.PER_SCARED_LOCAL=0;LOCAL_RESPONSE.COUNT=0;});
   const s1 = await tipNearestCan(page);
   expect(s1.heat.tier).toBeGreaterThanOrEqual(2);
   // Stuns are short by design (0.45s — they're a comedy beat, not a threat),
   // so poll in fine slices or detection lands after the stun has expired.
-  const stunned = await advUntil(page, (s) => s.stunned, { slice: 0.1, maxSeconds: 40 });
+  const stunned = await advUntil(page, (s) => s.stunned && s.response.photos > 0, { slice: 0.1, maxSeconds: 40 });
   expect(stunned.stunned).toBe(true);
   // Input is suppressed during the stagger…
   const before = await state(page);

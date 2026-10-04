@@ -10,6 +10,16 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-100 — Locals knock Jimothy out of a committed net attempt
+
+**Status:** implemented, awaiting Chris's playtest, M59 integration · **Found:** 2026-10-04, combined response verification.
+
+The unchanged stationary-capture regression failed after 30 seconds: five local kicks repeatedly launched Jimothy away, including a strike during animal control's net windup at 11.8 seconds. Locals now yield while capture is winding up, swinging, holding or recovering. Keep the full encounter test with locals enabled; cancellation has its own pending-strike assertion. Evidence: `output/iterate/early-response-trace.json`, `local-response-adjacent.log`; source: `LocalResponse.kick`, `Pursuers._net`.
+
+The full 36-case final response/heat/net/ragdoll/activity/radar run passes, including the unchanged stationary capture and score-persistence tests (`local-response-final.log`).
+
+The old camera-only test also detected the first kick as a camera stun (zero photos, one kick/hit at nine seconds). Its fixture now isolates photographers and requires an actual photo; input suppression/recovery thresholds are unchanged. That fixture correction does not stand in for the combined encounter repair.
+
 ### JIM-99 — Walking out of the comet crater catches the body
 
 **Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-04, M57 adjacent verification.
@@ -424,11 +434,13 @@ Evidence: all five checks in `tests/footpaths.spec.js` pass, covering plot exclu
 
 ### JIM-50 — Pedestrians jump during foot-support changes on slopes
 
-**Status:** implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 27 grounding refinement
+**Status:** reopened for deep uphill crouching; original jitter repair implemented, awaiting playtest · **Reported:** 2026-10-02 (Chris) · **Milestone:** 27 grounding refinement
 
 Chris reports walking jitter and people jumping on angles. Reproduced at spawn by sampling six seconds of pedestrian walking at 60 Hz: `ped-21` near `(6, 20.95, 44.70)` moves its hips upward 0.555 m in one frame while the ground rises only 0.012 m. A planted foot trails too far behind; the unsmoothed pelvis correction disappears at the half-cycle support switch. Evidence: `output/iterate/ik-jitter-baseline.log`. Scope: continuous foot transfer, bounded pelvis movement, slope contact, animation/idle/release transitions. Locations: `src/core/Grounding.js`, `Pedestrians`, shared pursuer grounding.
 
 World-space planted contacts now transfer through bounded swing arcs; trailing-foot selection handles reversals, late landing targets lock, and pelvis/foot rotation respond smoothly. Civilian movement slows while turning toward a new route. The same street repro now measures a 0.050 m maximum hip displacement and 0.033 m planted-foot error at the 95th percentile. `tests/walking-ik.spec.js` covers real streets, all six models on three ramp directions, stop/start, walk/run and 30/60/120 Hz; production captures and smoke are in `output/iterate/ik-*`. Visual feel awaits Chris's sign-off.
+
+**2026-10-04 native follow-up (M59):** ordinary `ped-21`/tourist crosses uphill near x=-7.50,z=-8. Its ground root is correctly at y=44.0657 (terrain 44.0307), but `visual.position.y=-0.7231` and the skin visibly sinks into the pavement. No activity or vehicle-seat ownership is present. At frame 35 the offset returns to -0.1487. Evidence: `output/iterate/local-response-native/paparazzo-006.png`, `paparazzo-035.png`, and `report.json` frames 0/6/18/35. Investigate planted-foot reach and world-space pelvis lag in `FootGrounding`; no cause or fix is claimed yet. This is separate from the verified new kick/camera poses.
 
 ### JIM-49 — Giant rig proportions and child scales disagree with the intended ball
 

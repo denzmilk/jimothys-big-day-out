@@ -53,6 +53,7 @@ export const Events = {
   DEV_GOTO_INTERIOR:'dev:goto-interior',
   PLAYER_EATING: 'player:eating',
   PLAYER_STUNNED: 'player:stunned',
+  PAPARAZZI_PHOTO:'paparazzi:photo',
   PLAYER_LAUNCHED: 'player:launched',
   PLAYER_HIT:'player:hit',
   PLAYER_BODY_READY:'player:body-ready',

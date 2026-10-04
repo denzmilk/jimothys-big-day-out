@@ -931,6 +931,7 @@ class Game {
       },
       game: gameState.game,
       pursuers: this.pursuers.snapshot(),
+      response:this.pursuers.response.snapshot(),
       radar: this.radar.snapshot(),
       military:this.military.snapshot(),
       underground: {

@@ -26,7 +26,7 @@ The immediate car follow-up also requests more ditch torque, tougher cars (JIM-9
 
 ## Sequential delivery
 
-The order puts contact/ownership and size rules ahead of powers that depend on them. Movement checkpoints in steps 0–3 (M53–M57 and JIM-69) are implemented, awaiting playtest; the recorded giant-performance and cave-smoothing limits remain open. JIM-99’s crater exit repair and M58 wanted pacing are also implemented, awaiting playtest. Next are the missing staged-response roles in step 4. Later rows are work packages to split when reached, not a claim that each fits one session.
+The order puts contact/ownership and size rules ahead of powers that depend on them. Movement checkpoints in steps 0–3 (M53–M57 and JIM-69) are implemented, awaiting playtest; the recorded giant-performance and cave-smoothing limits remain open. JIM-99’s crater exit repair and M58 wanted pacing are also implemented, awaiting playtest. M59 photographers and kicking locals are implemented, awaiting playtest. A native uphill civilian crouch under JIM-50 is the next small grounding check before police cars/guns and army rifle troops in step 4. Later rows are work packages to split when reached, not a claim that each fits one session.
 
 | Step | Work | Exit observation and dependencies |
 | --- | --- | --- |

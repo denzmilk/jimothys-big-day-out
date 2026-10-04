@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import {LocalResponse} from './LocalResponse.js';
 import {sightFan,belowGround} from '../core/Perception.js';
 import { FootGrounding, solveTwoBone } from '../core/Grounding.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import {
-  PAPARAZZI, ANIMAL_CONTROL, PURSUER_SPAWN_POINTS, COLORS, WORLD,
+  PAPARAZZI, ANIMAL_CONTROL, LOCAL_RESPONSE, PURSUER_SPAWN_POINTS, COLORS, WORLD,
   VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, COLLECTION, PEDESTRIANS, CAPTURE, TRAFFIC, RADAR,
 } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -55,13 +56,15 @@ export class Pursuers {
     this.jimothy = jimothy;
     this.voxels = voxels;
     this.paparazzi = [];
+    this.locals=[];
     this.animalControl = null;
+    this.response=new LocalResponse(this);
     this.spawnIndex = 0;
     eventBus.on(Events.TRAFFIC_OBSTACLES,({obstacles})=>{for(const p of this.all)if(!p.attached)obstacles.push({id:`pursuer-${p.id}`,x:p.group.position.x,z:p.group.position.z,y:p.group.position.y,radius:TRAFFIC.PERSON_RADIUS});});
-    eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=true;p.pinned=true;p.sees=false;}});
+    eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=true;p.pinned=true;p.sees=false;this.response.interrupt(p);}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=false;p.group.position.set(position.x,ground,position.z);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
     eventBus.on(Events.HUMAN_MODELS_READY,({models})=>{this.models=models;for(const p of this.all)this._human(p);});
-    eventBus.on(Events.HUMAN_DOWN,({id,active,position})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(!p)return;p.ragdoll=active;p.netPhase='idle';p.netTimer=0;p.sees=false;
+    eventBus.on(Events.HUMAN_DOWN,({id,active,position})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(!p)return;if(active)this.response.interrupt(p);p.ragdoll=active;p.netPhase='idle';p.netTimer=0;p.sees=false;
       if(!active){p.group.position.copy(position);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
     // Shared across the whole pack so a crowd can't chain-stun the player.
     this.globalFlashCooldown = 0;
@@ -92,7 +95,7 @@ export class Pursuers {
   }
 
   get all() {
-    return this.animalControl ? [...this.paparazzi, this.animalControl] : this.paparazzi;
+    return [...this.paparazzi,...this.locals,...(this.animalControl?[this.animalControl]:[])];
   }
 
   /** Where a new pursuer appears: on a ring around JIMOTHY, not at a fixed
@@ -176,7 +179,7 @@ export class Pursuers {
       flashCooldown: 1 + this.paparazzi.length * 0.7,
     };
     person.target = { ...person.lastKnown };
-    this._human(person);
+    this._human(person);this.response.person(person);
     eventBus.emit(Events.ENTITY_REGISTER,{id:`pursuer-${person.id}`,mesh:group,kind:'person',size:COLLECTION.PERSON_SIZE});
     return person;
   }
@@ -191,14 +194,15 @@ export class Pursuers {
 
   _human(p) {
     if(!this.models||p.visual)return;
-    const model=this.models[PEDESTRIANS.MODELS.indexOf(p.type==='animal-control'?'worker':'commuter')];
-    p.visual=clone(model.scene);const box=new THREE.Box3().setFromObject(p.visual);p.visual.position.y-=box.min.y;p.group.add(p.visual);
+    p.model=p.type==='animal-control'?'worker':p.type==='angry-local'?LOCAL_RESPONSE.MODELS[p.id%LOCAL_RESPONSE.MODELS.length]:'commuter';
+    const model=this.models[PEDESTRIANS.MODELS.indexOf(p.model)];
+    p.visual=clone(model.scene);const box=new THREE.Box3().setFromObject(p.visual);p.visual.position.y-=box.min.y;p.height=box.max.y-box.min.y;p.group.add(p.visual);
     for(const child of [...p.group.children])if(child.userData.placeholder)p.group.remove(child);
     p.visual.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
     p.mixer=new THREE.AnimationMixer(p.visual);p.actions={};for(const clip of model.animations)p.actions[clip.name]=p.mixer.clipAction(clip);
     eventBus.emit(Events.HUMAN_REGISTER,{id:`pursuer-${p.id}`,group:p.group,visual:p.visual});
     p.grounding=new FootGrounding(p.group,p.visual,(x,z)=>this._groundY(x,z,p.group.position.y));
-    if(p.type==='animal-control')this._netRig(p);
+    if(p.type==='animal-control')this._netRig(p);else this.response.person(p);
   }
 
   _netRig(p){
@@ -272,12 +276,14 @@ export class Pursuers {
   }
   _animate(p,dt,x,z) {
     if(!p.mixer)return;
+    p.responsePose?.restore();
     const moving=Math.hypot(p.group.position.x-x,p.group.position.z-z)>0;
     const name=moving?'Run':'Idle';
     if(name!==p.animation){p.actions[p.animation]?.fadeOut(PEDESTRIANS.FADE_TIME);p.actions[name]?.reset().fadeIn(PEDESTRIANS.FADE_TIME).play();p.animation=name;}
     p.mixer.update(dt);p.grounding.update(p.actions[p.animation],moving,dt);
   }
   _removePerson(p) {
+    this.response.remove(p);
     eventBus.emit(Events.HUMAN_UNREGISTER,{id:`pursuer-${p.id}`});
     eventBus.emit(Events.ENTITY_UNREGISTER,{id:`pursuer-${p.id}`});p.group.removeFromParent();
     if(p.mixer){p.mixer.stopAllAction();p.mixer.uncacheRoot(p.visual);p.visual.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});}
@@ -292,10 +298,12 @@ export class Pursuers {
    *  chasing anybody. */
   spawnAt(type, x, z) {
     const p = this._makePerson(type, x, z);
-    p.pinned = true;
+    p.pinned = true;p.manual=true;
     if (type === 'animal-control') {
       if (this.animalControl) this._removePerson(this.animalControl);
       this.animalControl = p;
+    } else if(type==='angry-local'){
+      this.locals.push(p);
     } else {
       this.paparazzi.push(p);
     }
@@ -488,7 +496,7 @@ export class Pursuers {
   /** Speed for the current state. Patrol is a walk; the rest is the type's own
    *  pace. */
   _speed(p) {
-    const base = p.type === 'animal-control' ? ANIMAL_CONTROL.SPEED : PAPARAZZI.SPEED;
+    const base = p.type === 'animal-control' ? ANIMAL_CONTROL.SPEED : p.type==='angry-local'?LOCAL_RESPONSE.SPEED:PAPARAZZI.SPEED;
     if (p.state === 'patrol') return base * PATROL.SPEED_SCALE;
     if (p.state === 'noticing') return 0;
     // Photographers stop at photo range and loiter rather than dogpiling.
@@ -631,24 +639,29 @@ export class Pursuers {
     // wanted level and must not be culled by it.
     const targetPaparazzi =
       tier >= 2 ? PAPARAZZI.COUNT_TIER2 : tier >= 1 ? PAPARAZZI.COUNT_TIER1 : 0;
-    const managed = () => this.paparazzi.filter((p) => !p.pinned);
+    const managed = () => this.paparazzi.filter((p) => !p.manual);
     while (managed().length < targetPaparazzi) {
       const [x, z] = this._spawnPoint();
       this.paparazzi.push(this._makePerson('paparazzo', x, z));
     }
     while (managed().length > targetPaparazzi) {
-      const i = this.paparazzi.map((p) => !p.pinned).lastIndexOf(true);
+      const i = this.paparazzi.map((p) => !p.manual&&!p.attached).lastIndexOf(true);
+      if(i<0)break;
       this._removePerson(this.paparazzi.splice(i, 1)[0]);
     }
     if (tier >= ANIMAL_CONTROL.MIN_TIER && !this.animalControl) {
       const [x, z] = this._spawnPoint();
       this.animalControl = this._makePerson('animal-control', x, z);
     }
-    if (tier < ANIMAL_CONTROL.MIN_TIER && this.animalControl && !this.animalControl.pinned) {
+    if (tier < ANIMAL_CONTROL.MIN_TIER && this.animalControl && !this.animalControl.manual&&!this.animalControl.attached) {
       this._removePerson(this.animalControl);
       this.animalControl = null;
     }
 
+    const targetLocals=tier>=LOCAL_RESPONSE.MIN_TIER?LOCAL_RESPONSE.COUNT:0,managedLocals=()=>this.locals.filter(p=>!p.manual);
+    while(managedLocals().length<targetLocals){const [x,z]=this._spawnPoint();this.locals.push(this._makePerson('angry-local',x,z));}
+    while(managedLocals().length>targetLocals){const i=this.locals.map(p=>!p.manual&&!p.attached).lastIndexOf(true);if(i<0)break;this._removePerson(this.locals.splice(i,1)[0]);}
+    this.response.update(delta);
     this.globalFlashCooldown -= delta;
     for (const p of this.paparazzi) {
       if(p.attached||p.ragdoll)continue;
@@ -656,22 +669,30 @@ export class Pursuers {
       p.flashCooldown -= delta;
       this._think(p, delta);
       const d = this._steer(p, delta, this._speed(p));
-      this._animate(p,delta,x,z);
+      if(p.sees&&d<=PAPARAZZI.FLASH_RANGE){const yaw=Math.atan2(this.jimothy.position.x-p.group.position.x,this.jimothy.position.z-p.group.position.z),turn=yaw-p.group.rotation.y;p.group.rotation.y+=Math.atan2(Math.sin(turn),Math.cos(turn))*Math.min(1,LOCAL_RESPONSE.CAMERA_TURN*delta);}
+      this._animate(p,delta,x,z);p.responsePose?.apply(delta,this.jimothy.position);
       // A photograph needs a subject: no sightline, no flash. Hiding used to be
       // a flag that switched this off; it is now simply not being seen.
       if (
         p.sees &&
-        tier >= PAPARAZZI.MIN_TIER_FLASH &&
+        p.camera && p.responsePose.raised > LOCAL_RESPONSE.CAMERA_READY &&
         d <= PAPARAZZI.FLASH_RANGE &&
         p.flashCooldown <= 0 &&
         this.globalFlashCooldown <= 0
       ) {
         p.flashCooldown = PAPARAZZI.FLASH_COOLDOWN;
         this.globalFlashCooldown = PAPARAZZI.GLOBAL_FLASH_COOLDOWN;
-        eventBus.emit(Events.PLAYER_STUNNED, { seconds: PAPARAZZI.STUN_SECONDS });
+        const stuns=tier>=PAPARAZZI.MIN_TIER_FLASH;this.response.photo(p,stuns);
+        if(stuns)eventBus.emit(Events.PLAYER_STUNNED, { seconds: PAPARAZZI.STUN_SECONDS });
       }
     }
 
+    for(const p of this.locals){
+      if(p.attached||p.ragdoll)continue;
+      const x=p.group.position.x,z=p.group.position.z;this._think(p,delta);this._steer(p,delta,p.kick.busy?0:this._speed(p));
+      if(p.kick.busy)p.group.rotation.y=p.kick.heading;
+      this._animate(p,delta,x,z);this.response.kick(p,delta);p.responsePose?.apply(delta);
+    }
     const ac=this.animalControl;
     gameState.capture.holding=false;
     if(ac&&!ac.attached&&!ac.ragdoll){
@@ -715,6 +736,7 @@ export class Pursuers {
   }
 
   reset() {
+    for(const p of this.locals)this._removePerson(p);this.locals=[];this.response.reset();this.globalFlashCooldown=0;
     for (const pap of this.paparazzi) this._removePerson(pap);
     this.paparazzi = [];
     if (this.animalControl) {
@@ -742,10 +764,12 @@ export class Pursuers {
     const round = (v) => +v.toFixed(1);
     return this.all.map((p) => ({
       id: p.id,
-      type: p.type,
+      type: p.type,model:p.model,
       attached: !!p.attached,
       ragdoll: !!p.ragdoll,
       netPhase: p.netPhase || 'idle',
+      kickPhase:p.kick?.phase||null,kickTime:p.kick?.time||0,kickHeading:p.kick?.heading||0,
+      camera:!!p.camera,photoFlash:p.photoLeft||0,
       x: round(p.group.position.x),
       z: round(p.group.position.z),
       // Milestone 19: without these, none of the awareness model is assertable

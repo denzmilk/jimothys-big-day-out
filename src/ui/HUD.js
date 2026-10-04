@@ -43,6 +43,7 @@ export class HUD {
     eventBus.on(Events.PLAYER_PICKUP, ({ name }) => this.stinger(`JIMOTHY ACQUIRES ${name}`));
     eventBus.on(Events.PLAYER_EATING, () => this.stinger('NOM NOM NOM…'));
     eventBus.on(Events.PLAYER_STUNNED, () => this.cameraFlash());
+    eventBus.on(Events.PAPARAZZI_PHOTO,({stuns})=>{if(!stuns)this.cameraFlash();});
     eventBus.on(Events.PLAYER_LAUNCHED, () => this.cameraFlash());
   }
 

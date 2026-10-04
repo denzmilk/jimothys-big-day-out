@@ -155,7 +155,7 @@ test('restart restores a clean slate and jimothy still moves', async ({ page }) 
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await seedTuning(page, { HEAT: { PER_CAN_TIPPED: 40 } });
   await boot(page);
-  const canCount = (await state(page)).cans.length;
+  const initial=await state(page),canCount=initial.cans.length;
   await tipNearestCan(page);
   await seek(page, (st) => (st.score > 0 ? null : nearestSnack(st)));
   const netted = await advUntil(page, (s) => s.game.netted, { maxSeconds: 30 });
@@ -170,7 +170,9 @@ test('restart restores a clean slate and jimothy still moves', async ({ page }) 
   expect(s.heat.points).toBe(0);
   expect(s.heat.tier).toBe(0);
   expect(s.pursuers.length).toBe(0);
-  expect(s.snacks.length).toBe(0);
+  // Furnished homes now seed food at boot and restart. Compare the fresh
+  // population instead of assuming the world starts without any food.
+  expect(s.snacks.map(p=>[p.foodId,p.x,p.z]).sort()).toEqual(initial.snacks.map(p=>[p.foodId,p.x,p.z]).sort());
   expect(s.cans.length).toBe(canCount);
   expect(s.cans.every((c) => !c.tipped)).toBe(true);
   await expect(page.locator('#game-over')).toBeHidden();

@@ -143,6 +143,9 @@ test('input debug', async ({ page }) => {
   await boot(page);
   await openPanel(page);
   await page.locator('#devtools [data-tab="keys"]').click();
+  // UI buttons deliberately suppress gameplay keys, including Space. Return
+  // focus to the canvas before checking the live input readout.
+  await page.locator('canvas').first().focus();
   await page.keyboard.down('w');
   await adv(page, 0.3);
   await expect(page.locator('#dt-input-debug')).toContainText('KeyW');

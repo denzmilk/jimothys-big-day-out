@@ -70,18 +70,22 @@ test('feasts require stopping', async ({ page }) => {
 
 test('interrupted feast resets progress', async ({ page }) => {
   await boot(page);
-  await tipNearestCan(page);
-  await warpToFeast(page);
-  let s = await state(page);
-  const fatBefore = s.fatness;
-  await adv(page, 0.5);
+  // warpToFeast's settling plus the old extra wait already consumed most of
+  // the 1.2 s channel. Start a fresh meal after settling instead.
+  await page.evaluate(() => {
+    const g=__game,j=g.jimothy;g.trashCans.clearSnacks();
+    g.trashCans.spawnFood('whole-pizza',j.body.position.x,j.body.position.z);
+  });
+  const fatBefore = (await state(page)).fatness;
   await adv(page, FOODS.FEAST.CHANNEL_SECONDS * 0.6); // 60% chomped…
+  expect((await state(page)).snacks.find(s=>s.foodId==='whole-pizza').progress).toBeGreaterThan(0);
   // …then panic away and come back: progress must restart from zero.
   await page.keyboard.down('s');
   await adv(page, 0.8);
   await page.keyboard.up('s');
-  await warpToFeast(page);
-  await adv(page, 0.5);
+  const interrupted=(await state(page)).snacks.find(s=>s.foodId==='whole-pizza');
+  expect(interrupted.progress).toBe(0);
+  await page.evaluate(([x,z])=>teleportJimothy(x,z),[interrupted.x,interrupted.z]);
   await adv(page, FOODS.FEAST.CHANNEL_SECONDS * 0.6);
   const mid = await state(page);
   expect(mid.fatness).toBe(fatBefore); // 60% + 60% with a reset ≠ done

@@ -10,6 +10,18 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-84 — Legacy fixtures report failures after input and interior changes
+
+**Status:** test fixtures corrected · **Found:** 2026-10-04 stability audit
+
+Three baseline failures were stale setups: the Dev input test kept focus on a button that intentionally suppresses gameplay keys; the feast test waited 0.4 + 0.5 + 0.72 seconds against a 1.2-second channel before attempting interruption; the restart test expected zero food although furnished homes now start with eight foods. The checks now restore canvas focus, begin with a fresh meal and explicitly assert partial/reset progress, and compare the exact fresh food population. All three pass serially with unchanged runtime code (`output/iterate/stability-fixtures.log`). No assertion was relaxed to excuse a gameplay failure.
+
+### JIM-83 — Contact cancels giant attacks before they can destroy obstacles
+
+**Status:** repair under verification · **Found:** 2026-10-04 headless stability audit
+
+The frozen `af7089f` baseline and isolated rerun both fail the existing Block-size wall headbutt and held-roll recovery checks. At the wall target (-9.67, 7.07), pressing E emits no impact and removes zero cells: the lean contact response cancels the giant wind-up. A sustained giant roll also loses its move repeatedly while crossing debris. Keep physical resistance but retain giant moves so their scheduled demolition can break the obstacle; lean charges retain their previous cancellation. Tests/evidence: `tests/giant-destruction.spec.js`, `tests/giant-military-attack.spec.js`, `output/iterate/stability-rerun.log`, `stability-diagnose.json`. The moving-jet failure is still being diagnosed separately.
+
 ### JIM-82 — Destruction debris does not interact consistently with moving objects
 
 **Status:** implemented, awaiting Chris’s playtest · **Severity:** high · **Reported:** Chris, 2026-10-04 · Milestone 52.
@@ -998,6 +1010,8 @@ Separately: the only *deliberate* translucency in the build is the hide fade (`o
 ---
 
 ### JIM-03 — Two specs failing at city scale
+
+**2026-10-04 audit correction:** `score and combo` passes in the complete baseline. The feast failure is a fixture timing error: its preparatory waits exceed the current 1.2-second meal channel. A fresh-meal keyboard test explicitly checks partial progress, interruption to zero, and delayed payout; it passes. The separate food-floor/interruption check also passes. See JIM-84 and `output/iterate/stability-fixtures.log`. The old diagnosis below is retained as history; it is no longer evidence of a scoring defect.
 
 **Status:** open, **halved 2026-08-07** · **Severity:** medium · **Carried from:** roadmap ⚠️ #3 (2026-07-23), list corrected 2026-08-06, **narrowed 2026-08-07**
 

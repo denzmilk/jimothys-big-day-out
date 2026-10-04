@@ -36,6 +36,10 @@ export class StreetLife {
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.items.find(p=>p.id===id);if(p){this.disableControl(p);this.flow.release(p.id);p.attached=true;p.driving=false;eventBus.emit(Events.PROP_SUSPEND,{id});}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.items.find(p=>p.id===id);if(p){p.attached=false;p.loose=true;p.mesh.position.set(position.x,ground+p.half[1]+C.CLEARANCE,position.z);eventBus.emit(Events.PROP_RELEASE,{id,position:p.mesh.position});}});
     this.vehicles=[];this.ready=false;
+    eventBus.on(Events.VEHICLE_LIST,q=>q.receive(this.items.filter(p=>p.kind==='car'&&!p.fragment)));
+    eventBus.on(Events.VEHICLE_BREAK,({id,radius})=>{const p=this.items.find(p=>p.id===id);if(p)this.fracture(p,p.mesh.position.x,p.mesh.position.z,radius);});
+    eventBus.on(Events.VEHICLE_GLASS,({id})=>{const p=this.items.find(p=>p.id===id);if(p)this.shatterWindows(p,p.mesh.position);});
+    eventBus.on(Events.TOOL_FORCE,({mesh})=>{const p=this.items.find(p=>p.mesh===mesh);if(p){p.loose=true;p.driving=false;this.flow.release(p.id);}});
     this.loading=Promise.all(C.VEHICLES.map(name=>new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/models/vehicles/${name}.glb`))).then(models=>{
       this.vehicles=models;this.ready=true;this.populate();
     }).catch(error=>console.error('Vehicle assets failed',error));
@@ -184,8 +188,8 @@ export class StreetLife {
     const p={id,kind,mesh,seed:node.seed,size:mesh.userData.size,half,mass:kind==='car'?C.CAR.MASS:C.TYPES[kind].mass,driving,loose:!!saved?.loose,attached:false,node:node.key,previous:null,target:null,fragment:false,brokenWindows,junction:saved?.junction??node.junction,axis:saved?.axis??node.axis};
     this.install(p);return p;
   }
-  install(p){this.items.push(p);this.scene.add(p.mesh);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:p.kind,size:p.size,mass:p.mass});}
-  remove(p){this.flow.release(p.id);eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});eventBus.emit(Events.PROP_REMOVE,{id:p.id});p.mesh.removeFromParent();this.items.splice(this.items.indexOf(p),1);}
+  install(p){this.items.push(p);this.scene.add(p.mesh);eventBus.emit(Events.PROP_CREATE,p);eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:p.kind,size:p.size,mass:p.mass});if(p.kind==='car'&&!p.fragment)eventBus.emit(Events.VEHICLE_REGISTER,p);}
+  remove(p){this.flow.release(p.id);if(p.kind==='car'&&!p.fragment)eventBus.emit(Events.VEHICLE_REMOVE,{id:p.id,destroyed:this.destroyed.has(p.id)});eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});eventBus.emit(Events.PROP_REMOVE,{id:p.id});p.mesh.removeFromParent();this.items.splice(this.items.indexOf(p),1);}
   update(dt){
     const night=1-(gameState.world.daylight??1),lightCenter=this.jimothy.body.position;
     const bulbs=this.items.filter(p=>p.kind==='lamp'&&!p.fragment&&!p.loose&&!p.attached).map(p=>p.mesh.children.find(m=>m.userData.section===2)).filter(Boolean);
@@ -199,7 +203,7 @@ export class StreetLife {
     const j=this.jimothy.body.position;
     if(!this.center||Math.hypot(j.x-this.center.x,j.z-this.center.z)>C.REFRESH||this.items.some(p=>p.driving&&Math.hypot(p.mesh.position.x-j.x,p.mesh.position.z-j.z)>C.RADIUS))this.populate();
     for(const p of [...this.items]){
-      if(p.attached)continue;
+      if(p.attached||p.playerControlled)continue;
       if(p.fragment){p.life-=dt;if(p.life<=0){this.remove(p);continue;}}
       const pos=p.mesh.position,dx=pos.x-j.x,dz=pos.z-j.z,d=Math.hypot(dx,dz);
       if(!p.loose&&d<this.jimothy.radius+p.half[0]&&Math.abs(pos.y-j.y)<this.jimothy.radius+p.half[1]&&this.jimothy.speed>C.BONK_SPEED){this.loosen(p,dx,dz);continue;}
@@ -217,7 +221,7 @@ export class StreetLife {
     this.markingTimer+=dt;if(this.markingsDirty&&this.markingTimer>=C.MARK_REFRESH)this.updateMarkings();this.updateSignals();
   }
   afterUpdate(){
-    this.batches.update(this.items.filter(p=>!p.fragment).map(p=>({
+    this.batches.update(this.items.filter(p=>!p.fragment&&!p.playerControlled).map(p=>({
       key:`${p.kind}:${p.kind==='car'?p.seed%this.vehicles.length:''}:${p.brokenWindows?.join(',')||''}:${p.mesh.children.map(m=>m.material?.uuid).join(',')}`,
       root:p.mesh,visible:p.mesh.visible&&(p.attached||p.mesh.position.distanceTo(this.jimothy.body.position)<(gameState.world.graphics?.detail??Infinity)+this.jimothy.radius),
     })));

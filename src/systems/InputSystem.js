@@ -1,4 +1,4 @@
-import { INPUT, KEYBINDS, TOOLS } from '../core/Constants.js';
+import { INPUT, KEYBINDS, TOOLS, DRIVING } from '../core/Constants.js';
 
 // Merges keyboard + gamepad into one analog interface (threejs-game input
 // pattern): gameplay reads moveX/moveZ (-1..1), scurry, and consumeHop(),
@@ -49,6 +49,7 @@ export class InputSystem {
       if (KEYBINDS.POINTER_LOCK.includes(e.code)) this.togglePointerLock();
       if(!e.repeat&&KEYBINDS.TOOL_PICKUP.includes(e.code))this._toolQueued=true;
       if(!e.repeat&&KEYBINDS.TOOL_DROP.includes(e.code))this._dropQueued=true;
+      if(!e.repeat&&KEYBINDS.VEHICLE_ENTER.includes(e.code))this._vehicleQueued=true;
       if (!e.repeat && KEYBINDS.HEADBUTT.includes(e.code)) this._headbuttQueued = true;
       if (!e.repeat && KEYBINDS.ROLL.includes(e.code)) this._rollQueued = true;
       // Fly toggle and speed steps survive suppression — they are the controls
@@ -76,7 +77,9 @@ export class InputSystem {
       }
     };
     this._onPointerUp=()=>{this._mouseTool=false;};
-    this._onBlur=()=>{this.codes.clear();this._mouseTool=false;this.toolUse=false;this._toolQueued=this._dropQueued=false;};
+    this.focusLost=false;
+    this._onBlur=()=>{this.focusLost=true;this.codes.clear();this._mouseTool=false;this.toolUse=false;this._toolQueued=this._dropQueued=this._vehicleQueued=false;};
+    this._onFocus=()=>{this.focusLost=false;};window.addEventListener('focus',this._onFocus);
     window.addEventListener('pointerup',this._onPointerUp);window.addEventListener('blur',this._onBlur);
     // tabindex makes the canvas a legitimate focus target inside webviews.
     this.canvas.tabIndex = 0;
@@ -121,6 +124,7 @@ export class InputSystem {
   }
 
   update() {
+    this.vehicleThrottle=0;this.vehicleSteer=0;this.vehicleBrake=false;this.vehicleHorn=false;
     // Suppressed: the analog interface reads dead and every queued one-shot is
     // dropped, so nothing the player does to the camera reaches the raccoon.
     if (this.suppressed) {
@@ -132,6 +136,7 @@ export class InputSystem {
       this._headbuttQueued = false;
       this._rollQueued = false;
       this._gpHopHeld = false;
+      this._vehicleQueued=false;
       return;
     }
     let x = 0;
@@ -142,6 +147,7 @@ export class InputSystem {
     if (this._pressed('BACK')) z += 1;
     this.toolUse=this._mouseTool||this._pressed('TOOL_USE');
     let scurry = this._pressed('SCURRY');
+    this.vehicleThrottle=-z;this.vehicleSteer=x;this.vehicleBrake=this._pressed('HOP');this.vehicleHorn=this._pressed('VEHICLE_HORN');
     this.dive=this._pressed('DIVE');this.ascend=this._pressed('HOP');
 
     // Keyboard wins while any direction key is held (threejs-game input
@@ -151,6 +157,9 @@ export class InputSystem {
     const pads = navigator.getGamepads?.() || [];
     const gp = [...pads].find((g) => g && g.connected !== false);
     if (gp) {
+      const enter=!!gp.buttons?.[DRIVING.GAMEPAD_ENTER]?.pressed;if(enter&&!this._gpVehicle)this._vehicleQueued=true;this._gpVehicle=enter;
+      if(!keyboardActive){this.vehicleThrottle=(gp.buttons?.[DRIVING.GAMEPAD_THROTTLE]?.value||0)-(gp.buttons?.[DRIVING.GAMEPAD_BRAKE]?.value||0);this.vehicleSteer=Math.abs(gp.axes?.[0]||0)>INPUT.DEADZONE?gp.axes[0]:0;}
+      this.vehicleBrake ||= !!gp.buttons?.[DRIVING.GAMEPAD_HANDBRAKE]?.pressed;this.vehicleHorn ||= !!gp.buttons?.[DRIVING.GAMEPAD_HORN]?.pressed;
       this.toolUse ||= !!gp.buttons?.[TOOLS.GAMEPAD_USE]?.pressed;
       const pick=!!gp.buttons?.[TOOLS.GAMEPAD_PICKUP]?.pressed,drop=!!gp.buttons?.[TOOLS.GAMEPAD_DROP]?.pressed;
       if(pick&&!this._gpTool)this._toolQueued=true;if(drop&&!this._gpDrop)this._dropQueued=true;this._gpTool=pick;this._gpDrop=drop;
@@ -170,7 +179,7 @@ export class InputSystem {
         axes: (gp.axes || []).map((a) => +a.toFixed(2)),
       };
     } else {
-      this.gamepadInfo = null;this._gpTool=this._gpDrop=false;
+      this.gamepadInfo = null;this._gpTool=this._gpDrop=this._gpVehicle=false;
     }
 
     const len = Math.hypot(x, z);
@@ -181,6 +190,7 @@ export class InputSystem {
   }
 
   consumeTool(){const value=this._toolQueued;this._toolQueued=false;return value;}
+  consumeVehicle(){const value=this._vehicleQueued;this._vehicleQueued=false;return value;}
   consumeDrop(){const value=this._dropQueued;this._dropQueued=false;return value;}
 
   consumeHop() {
@@ -223,6 +233,7 @@ export class InputSystem {
   }
 
   dispose() {
+    window.removeEventListener('focus',this._onFocus);
     window.removeEventListener('pointerup',this._onPointerUp);window.removeEventListener('blur',this._onBlur);
     window.removeEventListener('keydown', this._onDown);
     window.removeEventListener('keyup', this._onUp);

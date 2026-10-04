@@ -20,6 +20,7 @@ import { JimothyController } from '../gameplay/JimothyController.js';
 import {InteriorSystem} from '../level/InteriorSystem.js';
 import {Landmarks} from '../level/Landmarks.js';
 import {ToolSystem} from '../gameplay/ToolSystem.js';
+import {DrivingSystem} from '../gameplay/DrivingSystem.js';
 import { TrashCans } from '../gameplay/TrashCans.js';
 import {Military} from '../gameplay/Military.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
@@ -152,6 +153,7 @@ class Game {
     this.environmentLife=new EnvironmentLife(this.scene,this.jimothy,this.voxels);
     this.interiors=new InteriorSystem(this.scene,this.jimothy,this.voxels);
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
+    this.driving=new DrivingSystem(this.scene,this.jimothy,this.input,this.voxels);
     this.treasures = new Treasures(this.scene, this.jimothy, this.voxels);
     this.crabs = new CrabPeople(this.scene, this.jimothy, this.voxels);
     this.sewerLife=new SewerLife(this.scene,this.jimothy,this.voxels);
@@ -237,6 +239,7 @@ class Game {
     // FIRST (listeners registered before other systems see the event would
     // race), so restart order lives here, not in subscribers.
     eventBus.on(Events.GAME_RESTART, () => {
+      this.driving.reset();
       this.tools.clearStatuses();
       this.collector.reset();
       this.ragdolls.reset();
@@ -375,7 +378,7 @@ class Game {
   }
 
   update(delta) {
-    if(gameState.game.paused)return;
+    if(gameState.game.paused){this.driving.effects.silence();return;}
     if (this.input.consumeFlyToggle()) {
       this.flyCamera.toggle();
       // Landing puts the follow camera back on him immediately. Controls are
@@ -414,11 +417,12 @@ class Game {
     // locked. One frame stale, because the camera updates after him — which at
     // 60 Hz is nothing, and keeps the order of the loop unchanged.
     this.groundChannels.update(delta);this.structuralSupport.update(delta);this.water.update(delta);
+    this.driving.update(delta);
     this.jimothy.update(delta, this.cameraSystem.yaw, this.cameraSystem.aimPitch);
     this.tools.update(delta);this.landmarks.update(delta);
     this.streetLife.update(delta);
     this.physics.update(delta);
-    this.jimothy.postUpdate(delta);
+    this.driving.afterUpdate(delta);this.jimothy.postUpdate(delta);
     this.water.afterUpdate(delta);this.sand.update(delta);
     this.trashCans.update(delta);
     this.ragdolls.update(delta);
@@ -767,6 +771,7 @@ class Game {
   }
 
   teleportJimothy(x, z) {
+    this.driving.exit(true);
     this.jimothy.body.position.x = x;
     this.jimothy.body.position.z = z;
     // …and onto the ground THERE. Keeping his old y was invisible on a flat
@@ -932,6 +937,7 @@ class Game {
       ragdolls: this.ragdolls.snapshot(),
       capture: gameState.capture,
       streetLife: this.streetLife.snapshot(),
+      driving:this.driving.snapshot(),
       glass: this.glassShards.snapshot(),
       explosions: this.carExplosions.snapshot(),
       arrival:this.arrival.snapshot(),

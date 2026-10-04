@@ -6,6 +6,14 @@
 
 ## Gameplay & features
 
+- [x] **Hijack and drive cars** → milestone 53 (selected first by Chris, 2026-10-04). Extends the existing stealable-vehicles entry below: visible occupants, hijacking, player driving, safe entry/exit, grounded wheels, crashes and strong vehicle SFX/effects. Size L; value L. NPC destination trips remain M42. Full request: [vehicle and equipment design](vehicle-and-equipment-request.md).
+- [ ] **Motorbikes and bicycles.** Mountable, steerable, physically grounded rides with rider poses, wheel/pedal motion, braking and recoverable spills. Source: Chris, 2026-10-04. Size L; value M. Reuse M53 rider ownership; use free sourced models with recorded licences and editable Blender preparation.
+- [ ] **Skateboarding with ollies, grinds and tricks.** Push/coast/brake, ollie, kickflip/shuvit/180, balance on real rails/ledges, land trick chains and bail. Source: Chris, 2026-10-04. Size L; value L. Extends the silly-rideables entry; broken rails release the grind, and grounded feet follow the board. Depends on rider ownership; see the full request design.
+- [ ] **Boxing gloves and punch/punch/kick combo.** Visible wearable gloves with timed strikes, wind-up/recovery, contact-specific hits and physical knockdowns. Source: Chris, 2026-10-04. Size M; value L. Separate from the spring-glove gadget; reuse food energy and shared ragdolls.
+- [ ] **Wrestling mask and wrestling moves.** Fitted mask, readable paired grab/throw/slam and clothesline poses, bounded victim ownership and safe cancellation into shared ragdolls. Source: Chris, 2026-10-04. Size L; value L.
+- [ ] **Runners for super speed.** Visible shoes and energy-powered acceleration with collision, responsive turning/braking, distance-matched footfalls, trails and footstep SFX. Source: Chris, 2026-10-04. Size M; value M. Preserve the slinking gait when unequipped.
+- [ ] **Orange gi and Kamehameha.** Fitted orange karate outfit, cupped-paw charge and a broad energy beam with recoil, occluded impacts and bounded destruction. Source: Chris, 2026-10-04. Size L; value L. Extends the earlier powerup arsenal request; detailed feedback is recorded in the full request design.
+
 - [x] **Size-tiered food and edible destination buildings** → milestone 40 (planned, approved 2026-10-03). Chris cannot see small bin food once large; bridge growth with increasingly substantial food, including giant lobster/banana landmark buildings gated by Jimothy's size. Extends the existing farms/markets and landmark proposals. Size L; value L. Consumption and destruction persist during travel; eating remains deliberate.
 - [x] **Landmark tourists** → milestone 41 (planned, approved 2026-10-03). Visitors travel to points of interest, look around, pose and take selfies, then react to rampaging. Size M; value M. Uses existing MPFB people, IK and ragdolls; depends on landmark sites.
 - [x] **Drivers, parking and getting in/out** → milestone 42 (planned, approved 2026-10-03). People visibly own a trip from driving to parking, walking at a destination and returning. Size L; value L. Traffic, seats, door exits, damage and streaming share one ownership state; player driving remains separate.
@@ -129,6 +137,8 @@
 > **Bugs live in [`docs/issues.md`](issues.md)**, not here. This file is for ideas we chose not to do yet; that one is for things that are wrong, with evidence and code locations. The five defects Chris reported on 2026-08-06 are `JIM-10`, `JIM-11`, `JIM-12`, and the fixed `JIM-14`–`JIM-17`.
 
 ## Polish & juice
+
+- [ ] **Define every tool's delivery and make use obvious.** All 24 existing tools and the new wearable abilities need distinct start/travel/contact/expiry, SFX and strong readable effects. Source: Chris, 2026-10-04 (no subtle little squirts). Size L; value L. [Full per-item contract](vehicle-and-equipment-request.md#feedback-contract-for-every-item); current weak/silent feedback is also defect JIM-88. Test real projectiles against terrain, actors and props; bound effects/audio and stop loops on interruption/reset.
 
 - [ ] **Flatten the camera's pitch in a tight space, so the boom can sit back along the tunnel.** Milestone 21 gave the boom collision (JIM-41), and in a sewer that pins it at `COLLIDE_MIN` — 1.0 m, measured — because the follow boom rises 3.5 m over 7 m and a tunnel is 2.9 m tall. It stops the camera being inside the rock, which was the bug, but near-first-person is a big feel change for the underground. A boom that lowers its pitch as it gets squeezed would find the 5–6 m of clear tunnel that is genuinely there behind him.
   - Source: 2026-08-08, milestone 21 (measured while fixing JIM-41)

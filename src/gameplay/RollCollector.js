@@ -13,6 +13,10 @@ export class RollCollector {
     this.point=new THREE.Vector3();this.center=new THREE.Vector3();this.box=new THREE.Box3();this.radii=new THREE.Vector3();this.normal=new THREE.Vector3();this.up=new THREE.Vector3(0,1,0);this.objectBox=new THREE.Box3();
     eventBus.on(Events.ENTITY_LIST,({receive})=>receive(this.entities.values()));
     eventBus.on(Events.ENTITY_REGISTER,e=>this.entities.set(e.id,e));
+    // Seats and tool statuses borrow through the same contract as rolling.
+    // The registry must reflect that ownership before another borrower scans it.
+    eventBus.on(Events.ENTITY_ATTACH,({id})=>{const e=this.entities.get(id);if(e)e.attached=true;});
+    eventBus.on(Events.ENTITY_RELEASE,({id})=>{const e=this.entities.get(id);if(e)e.attached=false;});
     eventBus.on(Events.ENTITY_UNREGISTER,({id})=>{this.entities.delete(id);const i=this.attached.findIndex(e=>e.id===id);if(i>=0)this.attached.splice(i,1);});
   }
   eligible(e){return this.jimothy.move?.kind==='roll'&&this.jimothy.radius>=C.MIN_RADIUS&&e.size<=this.jimothy.radius*2*C.SIZE_RATIO&&

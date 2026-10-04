@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import {eventBus, Events} from '../core/EventBus.js';
-import { CAMERA, PLAYER_CONFIG, OCEAN, GIANT_IMPACT } from '../core/Constants.js';
+import { CAMERA, PLAYER_CONFIG, OCEAN, GIANT_IMPACT, DRIVING } from '../core/Constants.js';
+import {gameState} from '../core/GameState.js';
+import {dampAngle} from '../core/MathUtils.js';
 
 // Two modes. Follow (default) is a pull-cam: yaw derives from the camera→
 // Jimothy line, so it rotates only when he displaces sideways — walking
@@ -56,6 +58,7 @@ export class CameraSystem {
   /** Boom length. It has to grow with him or a Jimothy a city block wide fills
    *  the screen and the player cannot see the street (milestone 23). */
   get _boom() {
+    if(this.jimothy.riding)return DRIVING.CAMERA_DISTANCE+Math.abs(gameState.vehicle.speed)*DRIVING.CAMERA_SPEED_DISTANCE;
     return CAMERA.FOLLOW_DISTANCE + this._girth * CAMERA.GIRTH_PULLBACK;
   }
 
@@ -69,7 +72,7 @@ export class CameraSystem {
     const dist = this._boom;
     this._desired.set(
       jp.x - Math.sin(this.yaw) * dist,
-      jp.y + (this.jimothy.diving?OCEAN.CAMERA_HEIGHT:CAMERA.FOLLOW_HEIGHT) + this._girth * CAMERA.GIRTH_LIFT,
+      jp.y + (this.jimothy.riding?DRIVING.CAMERA_HEIGHT:this.jimothy.diving?OCEAN.CAMERA_HEIGHT:CAMERA.FOLLOW_HEIGHT) + this._girth * CAMERA.GIRTH_LIFT,
       jp.z - Math.cos(this.yaw) * dist,
     );
     return this._desired;
@@ -190,7 +193,7 @@ export class CameraSystem {
       // with a colliding boom because `_pullIn` scales the offset vector, which
       // shortens the boom without rotating it: the bearing it reads here is the
       // same whether or not a wall cut it short.
-      this.yaw = Math.atan2(jp.x - this.camera.position.x, jp.z - this.camera.position.z);
+      this.yaw = this.jimothy.riding?dampAngle(this.yaw,this.jimothy.yaw,DRIVING.CAMERA_TURN,delta):Math.atan2(jp.x - this.camera.position.x, jp.z - this.camera.position.z);
       this._computeFollowDesired();
     }
     this._pullIn(this._desired);

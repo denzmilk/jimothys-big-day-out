@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import {
-  TOOLS, GIANT_IMPACT, RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
+  DRIVING, TOOLS, GIANT_IMPACT, RIG, BODY_CONTACT, COLLECTION, WATER, OCEAN, MILITARY, JIMOTHY_IDLE as IDLE, PLAYER_CONFIG as P, WORLD, COLORS, HIDE_SPOTS, FATNESS, FOODS, MOVES, VOXEL, CAMERA,
 } from '../core/Constants.js';
 import { dampAngle, fatFactor, fatWidth, fatHeight, fatRoundness } from '../core/MathUtils.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -142,6 +142,17 @@ export class JimothyController {
       this.body.velocity.setZero();this.vel.set(0,0,0);this.vy=0;
       this.grounded=grounded;this.move=null;this.moveCooldown=0;this._prevFeetY=undefined;
       this._prevX=undefined;this._prevZ=undefined;
+    });
+    eventBus.on(Events.PLAYER_RIDE,({active,position,keepLaunch})=>{
+      this.rideLegPose=active&&this.rig.skinned?Object.fromEntries(['FL','FR','RL','RR'].flatMap(n=>['leg_'+n,'shin_'+n]).map(n=>[n,this.rig.bones[n].quaternion.clone()])):null;
+      this.riding=active;this.move=null;this.toolMotion=null;
+      if(!keepLaunch){this.launched=0;this.launchSpin=0;this.stunTimer=0;gameState.player.stunned=false;this.vel.set(0,0,0);this.vy=0;this.body.velocity.setZero();}
+      this.legs.reset();this.idleAction=null;
+      this._prevFeetY=this._prevX=this._prevZ=undefined;if(position)this.body.position.copy(position);
+    });
+    eventBus.on(Events.PLAYER_RIDE_POSE,({position,yaw,quaternion})=>{
+      this.body.position.copy(position);this.yaw=yaw;this.body.velocity.setZero();
+      this.rideRotation??=new THREE.Euler(0,0,0,'YXZ');this.rideRotation.setFromQuaternion(quaternion,'YXZ');
     });
 
     eventBus.on(Events.PLAYER_TOOL_MOTION,m=>{
@@ -396,6 +407,7 @@ export class JimothyController {
   }
 
   update(delta, cameraYaw, aimPitch = 0) {
+    if(this.riding){this.input.consumeHop();this.input.consumeHeadbutt();this.input.consumeRoll();this.input.consumeTool();this.input.consumeDrop();this.body.velocity.setZero();this.vel.set(0,0,0);this.vy=0;this.elapsed+=delta;return;}
     if(gameState.arrival.phase!=='done'){
       this.input.consumeHop();this.input.consumeHeadbutt();this.input.consumeRoll();
       this.body.velocity.setZero();this.vel.set(0,0,0);this.vy=0;this.elapsed+=delta;
@@ -633,7 +645,7 @@ export class JimothyController {
       }
     }
     // The authored comet path must not acquire a roof as its walking floor.
-    if(!['waiting','falling'].includes(gameState.arrival.phase)){
+    if(!this.riding&&!['waiting','falling'].includes(gameState.arrival.phase)){
       if (this._prevFeetY !== undefined && this._contactRadius !== undefined) {
         const previousY=this._prevFeetY+this._contactRadius;
         const limit=this._ceilingLimit(p.x,p.z,previousY,p.y);
@@ -690,7 +702,7 @@ export class JimothyController {
     // is, the deeper into the bush he must squeeze — past a point the blob
     // simply doesn't fit and bushes stop working entirely.
     const hideRadius = this.hideRadius;
-    if (this.voxels && !['waiting','falling'].includes(gameState.arrival.phase)) {
+    if (this.voxels && !this.riding && !['waiting','falling'].includes(gameState.arrival.phase)) {
       this._recoverOverlap(p);
       this._prevFeetY=p.y-rad;this._contactRadius=rad;this._prevX=p.x;this._prevZ=p.z;
     }
@@ -755,7 +767,7 @@ export class JimothyController {
     }
     this.rollTuck=Math.max(this.rollTuck,gameState.arrival.tuck);
     this._rollPosition.copy(p);
-    this.group.rotation.z = rollWobble;
+    this.group.rotation.z = rollWobble+(this.riding?(this.rideRotation?.z||0)*gameState.vehicle.seatBlend:0);
     const tuck = Math.max(0, this.rollTuck || 0);
     this._updateIdle(delta);
 
@@ -828,7 +840,7 @@ export class JimothyController {
       aimLean=Math.min(0,this.move.aim)*Math.sin(Math.PI*Math.min(1,t/(H.WINDUP+H.LUNGE+H.RECOVER)))*GIANT_IMPACT.AIM_LEAN;
       aimLean+=(this.move.rollFrom||0)*(1-THREE.MathUtils.smoothstep(t,0,H.WINDUP));
     }
-    this.group.rotation.x = bodyPitch * 0.5 + aimLean + this.rollSpin + this.launchSpin + gameState.arrival.pitch;
+    this.group.rotation.x = bodyPitch * 0.5 + aimLean + this.rollSpin + this.launchSpin + gameState.arrival.pitch+(this.riding?(this.rideRotation?.x||0)*gameState.vehicle.seatBlend:0);
     anchor(this.tailSlot.userData.base, this.tailSlot.position);
     this.tailSlot.rotation.y = Math.sin(this.elapsed * 10) * 0.35 * speedNorm * (1 - tuck);
     this.tailSlot.rotation.x = tuck * MOVES.ROLL.TUCK_TAIL; // curls in for the roll
@@ -918,7 +930,17 @@ export class JimothyController {
       this.group.position.set(p.x-this._pivotRotated.x,(p.y-rad)+this._pivot.y-this._pivotRotated.y,p.z-this._pivotRotated.z);
     }
 
-    if(this.swimming&&this.rig.skinned){
+    if(this.riding){
+      this.legs.reset();
+      if(this.rig.skinned){
+        const blend=gameState.vehicle.seatBlend;
+        for(const name of ['FL','FR','RL','RR']){
+          const front=name[0]==='F';this.rig.pose('leg_'+name,front?DRIVING.FRONT_LEG:DRIVING.BACK_LEG);this.rig.pose('shin_'+name,front?DRIVING.FRONT_SHIN:DRIVING.BACK_SHIN);
+          for(const key of ['leg_'+name,'shin_'+name])if(this.rideLegPose?.[key]){const bone=this.rig.bones[key];bone.quaternion.slerpQuaternions(this.rideLegPose[key],bone.quaternion.clone(),blend);}
+        }
+        this.rig.pose('head',DRIVING.PLAYER_PITCH*blend,0,-gameState.vehicle.steer);
+      }
+    }else if(this.swimming&&this.rig.skinned){
       this.legs.reset();
       for(const [i,name] of ['FL','FR','RL','RR'].entries()){
         const phase=this.elapsed*WATER.PADDLE_RATE+(i%2)*Math.PI;

@@ -10,6 +10,13 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-88 — Most tools have small generic bursts and no use sounds
+
+**Status:** open · **Reported:** 2026-10-04 (Chris)
+
+Chris requests clear, strong tool/projectile feedback with SFX instead of subtle squirts. Source inspection confirms `ToolSystem.burst()` shares small sphere particles across most modes and has no tool audio path; At the start of this pass, only `CometArrival` created an AudioContext; M53 adds vehicle audio. Most cone-selected effects happen immediately without a visible connecting path. The [per-item feedback contract](vehicle-and-equipment-request.md#feedback-contract-for-every-item) defines intended launch/travel/contact/expiry for all 24 tools and four new wearables. This is queued after Chris selected cars first; implementation and audiovisual validation remain pending.
+
+
 ### JIM-87 — Restart bin counts depend on the previous streamed terrain
 
 **Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-04 during JIM-86 regression checks

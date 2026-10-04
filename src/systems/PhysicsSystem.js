@@ -83,6 +83,16 @@ export class PhysicsSystem {
       this.props.set(p.id,{body,mesh:p.mesh,active:true,entity:p});this.add(body,p.mesh);if(p.spawnSafe)this.protectSpawn(body);
     });
     eventBus.on(Events.PROP_REMOVE, ({id}) => {const p=this.props.get(id);if(p){if(p.active)this.remove(p.body,p.mesh);this.props.delete(id);}});
+    eventBus.on(Events.PROP_CONTROL,({id})=>{
+      const p=this.props.get(id);if(!p)return;p.body.type=CANNON.Body.KINEMATIC;p.body.updateMassProperties();p.body.velocity.setZero();p.body.angularVelocity.setZero();this.dynamic=this.dynamic.filter(b=>b!==p.body);this.resetSweep(p.body);p.body.wakeUp();
+    });
+    eventBus.on(Events.PLAYER_RIDE,({active,keepLaunch})=>{
+      const b=this.playerBody;if(!b)return;
+      if(active){this.playerRideMask??=b.collisionFilterMask;b.collisionFilterMask=0;}
+      else if(this.playerRideMask!==undefined){b.collisionFilterMask=this.playerRideMask;this.playerRideMask=undefined;}
+      if(!keepLaunch)b.velocity.setZero();this.resetSweep(b);
+    });
+    eventBus.on(Events.VEHICLE_CONTACTS,({receive})=>receive([...this.props.values()].filter(p=>p.active).map(p=>({id:p.entity.id,mesh:p.mesh,half:p.entity.half,mass:p.body.mass,kind:p.entity.kind}))));
     eventBus.on(Events.PROP_POSE, ({id,position,quaternion}) => {const p=this.props.get(id);if(p?.active){p.targetPosition=new CANNON.Vec3(position.x,position.y,position.z);p.targetQuaternion=new CANNON.Quaternion(quaternion.x,quaternion.y,quaternion.z,quaternion.w);}});
     eventBus.on(Events.PROP_SUSPEND, ({id}) => {const p=this.props.get(id);if(p?.active){this.remove(p.body,p.mesh);p.active=false;}});
     eventBus.on(Events.PROP_RELEASE, ({id,position}) => {

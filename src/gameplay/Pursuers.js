@@ -694,7 +694,7 @@ export class Pursuers {
       if(s==='recovery')ac.netRecovery=ac.netCurrent;
       ac.netPhase=s;ac.netTimer=0;
     };
-    if(gameState.tools.shield>0){
+    if(gameState.tools.shield>0||gameState.vehicle.phase!=='onFoot'){
       if(ac.netPhase!=='recovery')phase('recovery');else ac.netTimer+=dt;
       bar.holding=false;return;
     }

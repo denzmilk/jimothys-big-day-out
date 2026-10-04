@@ -22,6 +22,7 @@ class GameState {
       finds: [],
     };
     this.tools={equipped:null,energy:TOOLS.ENERGY_START,shield:0};
+    this.vehicle={id:null,phase:'onFoot',speed:0,steer:0,seatBlend:0};
     this.world = { disabledHideSpots: new Set() };
     this.capture = { progress: 0, holding: false, phase: 'idle' };
     this.arrival = {phase:'done',time:0,ground:0,impacts:0,pitch:0,tuck:0};

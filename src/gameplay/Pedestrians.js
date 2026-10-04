@@ -3,7 +3,7 @@ import {PedestrianActivities} from './PedestrianActivities.js';
 import { FootGrounding } from '../core/Grounding.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
-import { PEDESTRIANS as PED, COLLECTION, TRAFFIC, GRAPHICS } from '../core/Constants.js';
+import { DRIVING, PEDESTRIANS as PED, COLLECTION, TRAFFIC, GRAPHICS } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
 import { gameState } from '../core/GameState.js';
 import * as Layout from '../level/Layout.js';
@@ -15,6 +15,11 @@ export class Pedestrians {
     this.scene=scene;this.jimothy=jimothy;this.voxels=voxels;
     this.people=[];this.models=[];this.ready=false;this.elapsed=0;this.serial=0;this.center=null;
     this.graph=new Map();this.obstacles=new Map();this.activities=new PedestrianActivities(this);
+    eventBus.on(Events.DRIVER_REQUEST,({car,receive})=>{
+      const p=this.people.toReversed().find(p=>!p.attached&&!p.ragdoll&&!p.vehicleSeat&&!p.wasDriver&&!p.activity);
+      if(!p)return;p.vehicleSeat=car.id;p.wasDriver=true;eventBus.emit(Events.ENTITY_ATTACH,{id:p.id});receive(p);
+    });
+    eventBus.on(Events.DRIVER_REMOVE,({id})=>{const p=this.people.find(p=>p.id===id);if(p){this._remove(p);this.populationPending=true;}});
     eventBus.on(Events.TRAFFIC_OBSTACLES,({obstacles})=>{for(const p of this.people)if(!p.attached)obstacles.push({id:p.id,x:p.mesh.position.x,z:p.mesh.position.z,y:p.mesh.position.y,radius:TRAFFIC.PERSON_RADIUS});});
     const remember=e=>{if(e.kind!=='person'&&e.kind!=='food')this.obstacles.set(e.id,e);};
     eventBus.on(Events.ENTITY_REGISTER,remember);
@@ -119,7 +124,7 @@ export class Pedestrians {
 
   _populate(limit=Infinity) {
     const jp=this.jimothy.position;
-    let count=this.people.filter(p=>!p.attached).length,spawned=0;
+    let count=this.people.filter(p=>!p.attached||p.vehicleSeat).length,spawned=0;
     if(count>=PED.COUNT){this.populationPending=false;return;}
     const candidates=[...this.graph.values()].filter(n=>Math.hypot(n.x-jp.x,n.z-jp.z)>PED.SPAWN_MIN)
       .sort((a,b)=>hash(a.ix,a.iz)-hash(b.ix,b.iz));
@@ -176,7 +181,10 @@ export class Pedestrians {
         p.yaw=Math.atan2(dx,dz);
         // JIM-50: turn toward the new route before walking along it. An
         // instant U-turn otherwise drags a planted foot behind the pelvis.
-        const speed=(p.flee>0?PED.FLEE_SPEED:PED.SPEED)*Math.max(0,Math.cos(p.yaw-p.mesh.rotation.y));
+        // Drivers rejoin pavement through a tight turn beside the car. A short
+        // escape jog keeps their planted foot in reach during that handoff.
+        const facing=Math.cos(p.yaw-p.mesh.rotation.y),turn=p.wasDriver?Math.max(0,(facing-DRIVING.DRIVER_TURN_COS)/(1-DRIVING.DRIVER_TURN_COS)):Math.max(0,facing);
+        const speed=(p.flee>0?(p.wasDriver?DRIVING.DRIVER_FLEE_SPEED:PED.FLEE_SPEED):PED.SPEED)*turn;
         const step=Math.min(speed*delta,d),nx=p.x+dx/(d||1)*step,nz=p.z+dz/(d||1)*step;
         const surface=this.voxels.terrainHeightAt(nx,nz), ground=this.voxels.physicalGroundHeightAt(nx,nz,p.y+PED.MAX_STEP,0);
         const givesWay=p.flee<=0&&Math.hypot(nx-jp.x,nz-jp.z)<PED.GIVE_WAY_RADIUS;
@@ -191,7 +199,7 @@ export class Pedestrians {
       p.mesh.rotation.y+=difference*Math.min(1,delta*PED.TURN_SPEED);
       this._animate(p,moving?(p.flee>0?'Run':'Walk'):'Idle');
       p.mixer.update(delta*(p.flee>0?PED.RUN_RATE:PED.WALK_RATE));
-      p.grounding.update(p.actions[p.animation],moving,delta);
+      p.grounding.update(p.actions[p.animation],moving,delta,p.wasDriver&&p.flee>0?DRIVING.DRIVER_FLEE_STRIDE:1);
     }
   }
 

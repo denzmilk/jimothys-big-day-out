@@ -1,5 +1,21 @@
 # Session state
 
+## Hijacking and driving cars — milestone 53 — 2026-10-04
+
+**Implemented, awaiting Chris's playtest.** Chris selected cars first. The existing six CC0 Kenney cars now support Y/gamepad-Y entry, timed hijacking, visible MPFB drivers, throttle/braking/reverse, steering, handbrake, horn, a seated original Jimothy and a following camera. Displaced people blend upright, step clear of Jimothy, and use a short escape gait while rejoining pavement. All 36 civilians share the same bounded population, with up to eight assigned to traffic.
+
+The existing car body remains owned by PhysicsSystem. Swept hull checks stop walls/heavy props; small props and people receive physical impacts. Sufficient crashes shatter windows, break cars apart and eject Jimothy. Exit, water, growth, collection, streaming, military launches and restart restore rider/driver ownership. The Blender cabin insert and temporary sourced-triangle door split retain the six original car models. Engine/skid/horn/door/crash audio and bounded vehicle particles accompany the state changes.
+
+**Ditch follow-up:** low gearing adds pull below 6 m/s in both directions, retaining cruise/top speeds and braking. Contact now tests the proposed suspension pose; the old pitch falsely blocked a shallow ditch after about 1 m. The regression clears a 0.9 m ditch forward and backwards, while the wall test still blocks travel. Actual wheels and Jimothy's root follow the sampled road pitch/bank.
+
+**Verification:** all 18 focused browser cases pass in one final run, including six models, keyboard/gamepad input, actual audio signal, blast ejection, door clearance, occupied-car collection and repeated restart. All 119 units and 44 unique adjacent browser cases pass across targeted runs. A traffic-streaming regression exposed and repaired population loss; exact body/entity counts recover without loosening limits. Original-rig occupied/boarding/seated/follow/exit views and contextual HUD are inspected without console errors (`output/iterate/driving-visual.json`, `driving-*.png`). Detailed commands/evidence: [M53](milestones/53-hijack-and-drive.md). The full legacy browser suite was not rerun wholesale; existing giant performance/collapse issues remain open.
+
+Build and production pixel smoke pass, console errors none. Serial warmed 960×600 Medium driving samples at 30/60/120 Hz record update-plus-render-submission median/p95 **19.1/25.1, 15.1/25.0 and 14.5/20.8 ms**, with maxima 67.7–70.5 ms. These are CPU/submission samples, not presented FPS or a hitch-free claim; JIM-48 remains open. See `output/iterate/driving-performance.json`.
+
+**Play at http://127.0.0.1:4174.** Press Y beside a parked/stopped car; W/S accelerate or brake/reverse, A/D steer, Space handbrake, H horn, Y exit when slow. Gamepad: Y, RT/LT, left stick, A, L3. Boarding/handling/weight/camera/sound balance require Chris's hands-on approval.
+
+**Retained requests:** motorbikes, bicycles, skateboard ollies/grinds/tricks, boxing gloves, wrestling mask/moves, speed shoes and orange-gi energy attack are in backlog and [request design](vehicle-and-equipment-request.md). JIM-88 defines the pending full 24-tool SFX/projectile/particle pass. M42 still owns NPC destination parking/visits. Earlier wanted pacing/JIM-35, giant performance/JIM-48, giant underside/JIM-69, M40 foods, M41 tourists, downtown and hidden keepsakes retain their prior status/order.
+
 ## Smooth roads and kerbs — JIM-86 / milestone 28 refinement — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** Diagonal roads and district borders now follow their authored outlines, with shared kerb/terrain vertices fitted to them. Curved uphill grades replace abrupt planar joins while retaining level junctions and cross-sections. The 22 cm destruction cells, paving joints and persistent damage remain. Buildings and landmark approaches respect the revised boundaries; pedestrian nodes use pavement centres to keep planted feet off kerb edges.

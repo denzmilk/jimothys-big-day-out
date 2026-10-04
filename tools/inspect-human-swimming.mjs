@@ -1,5 +1,5 @@
 import {chromium} from 'playwright';import fs from 'node:fs/promises';
-const shore=process.env.SHORE_ONLY==='1',folder=shore?'output/iterate/human-swim-shore':'output/iterate/human-swim-native';await fs.mkdir(folder,{recursive:true});
+const shore=process.env.SHORE_ONLY==='1',folder=process.env.OUTPUT_DIR||(shore?'output/iterate/human-swim-shore':'output/iterate/human-swim-native');await fs.mkdir(folder,{recursive:true});
 const browser=await chromium.launch({headless:true,channel:'chrome',args:['--use-angle=metal','--disable-audio-output']}),errors=[],frames=[];
 try{
  const page=await browser.newPage({viewport:{width:1100,height:700}});page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});

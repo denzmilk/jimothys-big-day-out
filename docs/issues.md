@@ -12,9 +12,11 @@
 
 ### JIM-101 — Human feet stay crossed after turning to a stop
 
-**Status:** open · **Found:** 2026-10-05 during M62 native shore review.
+**Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-05 during M62 native shore review.
 
-The retained commuter reaches dry ground with accurate foot height but remains cross-legged at rest (`output/iterate/human-swim-shore/frame-359.png`). Suspected cause: FootGrounding only schedules steps from linear velocity, leaving world-space planted feet behind a stationary body turn. Reproduce a stationary turn across the twelve MPFB bodies before changing the shared solver; preserve walking contact, swimming handoff, net/weapon poses and the separate Jimothy solver. This is a visible gait follow-up; M62's water ownership/shore traversal cases pass. Repair this next before equipment supplies, under Chris's authorised review-and-refine sequence.
+The retained commuter reached dry ground with accurate foot height but stayed cross-legged at rest (`output/iterate/human-swim-shore/frame-359.png`). FootGrounding scheduled steps only from linear movement, leaving world-space anchors behind a stationary body turn. It now takes short alternating adjustment steps when a standing foot drifts more than 8 cm from its rest position. Normal walking and Jimothy's separate leg solver retain their existing paths.
+
+The test-first twelve-body 30/60/120 Hz turn and real shore cases both failed before the repair. All fourteen focused/adjacent cases now pass, including activities, steep pavement, shore transition, driver standing recovery, indoor stairs, rifle grip and net swing. Final shore horizontal errors are 1.8 mm and 21 mm, down from 445/537 mm; stationary turn foot movement stays below 6 cm/frame at 30 Hz. All 168 units, build and production pixel smoke pass. Native 36-second shore capture is console-clean and ends in a balanced stance. Evidence: `output/iterate/human-turn-{red,first,adjacent,units,build,smoke}.log`, `human-turn-native/shore-exit.mp4`; fixtures: `tests/human-turning.spec.js`. Chris's gait/shore playtest remains pending.
 
 ### JIM-100 — Locals knock Jimothy out of a committed net attempt
 

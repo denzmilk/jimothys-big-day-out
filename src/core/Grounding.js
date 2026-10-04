@@ -89,6 +89,13 @@ export class FootGrounding {
       end.y=this.ground(end.x,end.z)+leg.offset+C.FOOT_CLEARANCE;
       leg.swing={start:leg.target.clone(),end,elapsed:0,duration,gap:duration*(1-C.SWING_SHARE)/C.SWING_SHARE,recovery,speed:Math.max(speed,velocity.length(),C.MIN_SPEED)};
     }
+    // JIM-101: a stopped body can still turn over its planted feet. Replant
+    // one foot at a time instead of preserving crossed world-space anchors.
+    if(!moving&&dt>0&&this.wait===0&&!this.legs.some(l=>l.swing)){
+      const drift=leg=>{const rest=this.root.localToWorld(leg.rest.clone());return Math.hypot(rest.x-leg.target.x,rest.z-leg.target.z);};
+      const leg=this.legs.reduce((a,b)=>drift(a)>drift(b)?a:b);
+      if(drift(leg)>C.STAND_DRIFT)leg.swing={start:leg.target.clone(),end:this.foothold(leg),elapsed:0,duration:C.STAND_STEP_TIME,gap:C.STAND_STEP_TIME*(1-C.SWING_SHARE)/C.SWING_SHARE,recovery:false,settling:true,lift:C.STAND_STEP_LIFT,speed:Math.max(speed,velocity.length(),C.MIN_SPEED)};
+    }
     for(const leg of this.legs){
       const swing=leg.swing;
       if(swing){
@@ -97,10 +104,10 @@ export class FootGrounding {
         const rate=Math.max(1,Math.max(speed,velocity.length())/swing.speed);
         swing.elapsed=Math.min(swing.duration,swing.elapsed+dt*rate);
         // A late navigation turn must not yank a nearly planted foot sideways.
-        if(moving&&swing.elapsed/swing.duration<C.LANDING_LOCK){
+        if((moving||swing.settling)&&swing.elapsed/swing.duration<C.LANDING_LOCK){
           const end=this.foothold(leg);
-          end.addScaledVector(this.velocity,swing.duration-swing.elapsed);
-          if(!swing.recovery)end.addScaledVector(direction,stride*C.FOOT_LEAD);
+          if(!swing.settling){end.addScaledVector(this.velocity,swing.duration-swing.elapsed);
+          if(!swing.recovery)end.addScaledVector(direction,stride*C.FOOT_LEAD);}
           end.y=this.ground(end.x,end.z)+leg.offset+C.FOOT_CLEARANCE;
           const correction=end.sub(swing.end).multiplyScalar(1-Math.exp(-C.LANDING_RESPONSE*dt));
           correction.clampLength(0,C.LANDING_SPEED*dt);swing.end.add(correction);
@@ -108,7 +115,7 @@ export class FootGrounding {
         swing.end.y=this.ground(swing.end.x,swing.end.z)+leg.offset+C.FOOT_CLEARANCE;
         const t=swing.elapsed/swing.duration,ease=t*t*(3-2*t);
         const desired=swing.start.clone().lerp(swing.end,ease);
-        desired.y=Math.max(desired.y,this.ground(desired.x,desired.z)+leg.offset+C.FOOT_CLEARANCE)+C.STEP_LIFT*Math.sin(Math.PI*t)**2;
+        desired.y=Math.max(desired.y,this.ground(desired.x,desired.z)+leg.offset+C.FOOT_CLEARANCE)+(swing.lift??C.STEP_LIFT)*Math.sin(Math.PI*t)**2;
         const footSpeed=action?.getClip().name==='Run'?C.RUN_FOOT_SPEED:C.WALK_FOOT_SPEED;
         leg.target.add(desired.sub(leg.target).clampLength(0,footSpeed*dt));
         // Finish a long recovery step before starting the other foot; a timer

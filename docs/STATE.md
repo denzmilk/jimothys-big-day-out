@@ -4,6 +4,12 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## JIM-101 stationary human turns — 2026-10-05
+
+**Implemented, awaiting Chris's playtest.** The shared human FootGrounding solver now takes short alternating steps after stationary turns instead of keeping crossed anchors. The twelve-body/rate and real shore tests reproduced the defect before the change. Shore horizontal foot errors fell from 445/537 mm to 1.8/21 mm; the original-rig native ending is balanced and console-clean.
+
+All fourteen focused/adjacent cases, 168 units, build and production pixel smoke pass. Evidence: JIM-101, `output/iterate/human-turn-*`. **Next:** authorised equipment supplies/physical empty discard, followed by the full 24-tool feedback families (JIM-88). M62 is pushed as `f556e08`. Keep Chris's playtest requirement and open JIM-48 performance limits explicit.
+
 ## M62 / JIM-92 swimming people — 2026-10-05
 
 **Implemented, awaiting Chris’s playtest.** The shared retained-rig swim/wade controller covers all twelve civilian bodies, residents and five response roles, with shore guidance, cover checks and smooth foot-IK handoff. Seats, ragdolls, collection and tools retain one owner. Bubble-gun and giant-roll releases no longer drop people nine metres to the seabed. Enemy attacks pause during swimming; perception and the net-only ending remain intact.

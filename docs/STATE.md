@@ -1,5 +1,9 @@
 # Session state
 
+## Restart placement follow-up — JIM-87 — 2026-10-04
+
+**Implemented, awaiting Chris's playtest.** The road repair's regression checks exposed bins being placed against the previous run's terrain. Respawning them after fresh city installation makes the original exact restart-count check pass: 297 bodies / 460 entities / 17 signals on both restarts, previously two extra bins on the first. Evidence: `output/iterate/road-lamp-diagnostic.log`, `road-final-regression.log`. JIM-86 smooth road/kerb repair remains in final visual and production verification; earlier giant/wanted/content issues retain their ordering.
+
 ## Daylight shadow repair and completed stability audit — 2026-10-04
 
 **Audit complete; repaired gameplay awaits Chris's playtest.** See the [detailed report](stability-audit-2026-10-04.md) for coverage, reproductions, measurements and remaining failures. The frozen `af7089f` baseline runs all 357 browser cases: **343 pass, 12 fail, two serial cases skip**. Eight baseline failures now pass after targeted repairs. The separately rerun size-400 queue check adds another known failure: **three destruction deadlines and two draw budgets still fail**, with thresholds retained. The skipped sustained-roll/restart check passes a clean isolated rerun. The full suite was not rerun wholesale after repairs.

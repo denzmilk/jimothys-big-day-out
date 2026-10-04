@@ -243,7 +243,6 @@ class Game {
       this.water.reset();this.sand.reset();this.groundChannels.reset();this.structuralSupport.reset();this.ocean.reset();this.physics.unsupported.clear();
       gameState.reset();
       this.jimothy.reset();
-      this.trashCans.reset();
       this.pursuers.reset();this.military.reset();
       this.treasures.reset();
       this.crabs.reset();this.sewerLife.reset();
@@ -252,6 +251,9 @@ class Game {
       this.carExplosions.reset();
       this.voxels.clear();
       installCity(this.voxels);
+      // JIM-87: bin placement must query the fresh street/building geometry,
+      // not whichever streamed or damaged columns the previous run retained.
+      this.trashCans.reset();
       this.streetLife.reset();
       this.level.resetObjects();this.farBuildings.reset();
       gameState.game.started = true;

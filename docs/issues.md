@@ -10,6 +10,18 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-87 — Restart bin counts depend on the previous streamed terrain
+
+**Status:** implemented, awaiting Chris's playtest · **Found:** 2026-10-04 during JIM-86 regression checks
+
+The unchanged streetlight restart test exposes 22 bins on the first restart versus 20 on the second after travel. `Game` respawns bins before clearing/restoring voxel terrain, so placement reads stale building/ground data. Bins now respawn immediately after installing the fresh city. The same exact repeated-count assertion passes at 297 bodies / 460 entities / 17 signals on both restarts. Evidence: `output/iterate/road-lamp-diagnostic.log` (red), `road-final-regression.log` (green gameplay assertion). The test now records both counts for diagnosis; its limit is unchanged.
+
+### JIM-86 — Roads have square edges and stepped uphill surfaces
+
+**Status:** reproducing · **Reported:** 2026-10-04 (Chris)
+
+Chris confirms both jagged outer road edges and bumpy/stair-stepped uphill surfaces. Reproduce the two-metre class-grid outline and any discontinuities between street grade profiles, then repair road/footpath geometry and matching ground queries while retaining destructive edits. Scope: `CityPlanner`, `StreetPaving`, `Layout`, terrain meshing; M28 refinement. Appearance and driving/walking feel require Chris's playtest.
+
 ### JIM-85 — Walking collision bodies oscillate at high simulation rates
 
 **Status:** sustained oscillation repaired, awaiting Chris's playtest; transient placement velocities remain under investigation · **Found:** 2026-10-04 variability audit

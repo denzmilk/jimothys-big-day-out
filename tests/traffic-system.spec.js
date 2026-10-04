@@ -90,8 +90,9 @@ test('regular pavement lamps and signals light, break, stream and reset',async({
   const broken=s.flow.broken.has(junction),fragments=s.items.filter(p=>p.sourceId===id||p.kind==='signal'&&p.fragment).length;
   const old=s.center;window.teleportJimothy(420,-140);s.populate();window.teleportJimothy(old.x,old.z);s.populate();const persisted=!s.items.some(p=>p.id===id);
   window.restartGame();s.update(0);const counts=()=>({b:g.physics.world.bodies.length,e:g.collector.entities.size,signals:s.items.filter(p=>p.kind==='signal'&&!p.fragment).length});const first=counts();window.restartGame();s.update(0);
-  return {before,broken,fragments,persisted,restored:!s.flow.broken.size,stable:JSON.stringify(first)===JSON.stringify(counts())};
+  return {before,broken,fragments,persisted,restored:!s.flow.broken.size,first,second:counts(),stable:JSON.stringify(first)===JSON.stringify(counts())};
  });
+ console.log('SIGNAL_RESTART',JSON.stringify(r));
  expect(r.before.lamps).toBeGreaterThanOrEqual(10);expect(r.before.signals).toBeGreaterThanOrEqual(4);expect(r.before.paved).toBe(true);expect(r.before.lights).toBeGreaterThan(0);
  expect(r.broken).toBe(true);expect(r.fragments).toBeGreaterThan(0);expect(r.persisted).toBe(true);expect(r.restored).toBe(true);expect(r.stable).toBe(true);
  expect((await state(page)).streetLife.traffic).toBeGreaterThan(3);

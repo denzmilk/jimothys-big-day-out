@@ -92,7 +92,7 @@ export class WaterSystem {
    if(!q.entering&&(q.speed<C.PROP_WAKE_SPEED||this.time-(this.bodyWakes.get(q.id)??-Infinity)<interval))return;
    if(this.react({...q,kind:'body'}))this.bodyWakes.set(q.id,this.time);
   });
-  eventBus.on(Events.WATER_SAMPLE,q=>q.receive(this.sample(q.x,q.z,q.id)));
+  eventBus.on(Events.WATER_SAMPLE,q=>q.receive(q.surfaceOnly?{height:this.heightAt(q.x,q.z)}:this.sample(q.x,q.z,q.id)));
   eventBus.on(Events.WORLD_DEMOLISHED,q=>{if(q.groundOnly&&q.bounds.min[1]<=TERRAIN.SEA_LEVEL)this.field.refreshGround(q.bounds);});
   eventBus.on(Events.WORLD_IMPACT,h=>{if(this.sample(h.x,h.z)&&Math.abs(h.y-this.heightAt(h.x,h.z))<h.radius)
    this.react({...h,kind:'impact',entering:true,speed:0,verticalSpeed:-C.SPLASH_THRESHOLD});});

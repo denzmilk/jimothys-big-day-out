@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {LocalResponse} from './LocalResponse.js';
 import {sightFan,belowGround} from '../core/Perception.js';
 import { FootGrounding, solveTwoBone } from '../core/Grounding.js';
+import {HumanSwimming,humanWaterLevel} from '../core/HumanSwimming.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import {
   PAPARAZZI, ANIMAL_CONTROL, LOCAL_RESPONSE, POLICE, INFANTRY, PURSUER_SPAWN_POINTS, COLORS, WORLD,
@@ -74,7 +75,7 @@ export class Pursuers {
     eventBus.on(Events.DRIVER_REMOVE,({id})=>{const p=this.police.find(p=>`pursuer-${p.id}`===id);if(p){this._removePerson(p);this.police.splice(this.police.indexOf(p),1);}});
     eventBus.on(Events.TRAFFIC_OBSTACLES,({obstacles})=>{for(const p of this.all)if(!p.attached)obstacles.push({id:`pursuer-${p.id}`,x:p.group.position.x,z:p.group.position.z,y:p.group.position.y,radius:TRAFFIC.PERSON_RADIUS});});
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=true;p.pinned=true;p.sees=false;this.response.interrupt(p);}});
-    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=false;p.group.position.set(position.x,ground,position.z);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
+    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=false;p.group.position.set(position.x,humanWaterLevel(position.x,position.z,ground,position.y),position.z);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
     eventBus.on(Events.HUMAN_MODELS_READY,({models})=>{this.models=models;for(const p of this.all)this._human(p);});
     eventBus.on(Events.HUMAN_DOWN,({id,active,position})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(!p)return;if(active)this.response.interrupt(p);p.ragdoll=active;p.netPhase='idle';p.netTimer=0;p.sees=false;
       if(!active){p.group.position.copy(position);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
@@ -214,6 +215,7 @@ export class Pursuers {
     p.mixer=new THREE.AnimationMixer(p.visual);p.actions={};for(const clip of model.animations)p.actions[clip.name]=p.mixer.clipAction(clip);
     eventBus.emit(Events.HUMAN_REGISTER,{id:`pursuer-${p.id}`,group:p.group,visual:p.visual});
     p.grounding=new FootGrounding(p.group,p.visual,(x,z)=>this._groundY(x,z,p.group.position.y));
+    p.swimmer=new HumanSwimming(p,this.voxels);
     if(p.type==='animal-control')this._netRig(p);else this.response.person(p);
   }
 
@@ -293,6 +295,11 @@ export class Pursuers {
     const name=moving?'Run':'Idle';
     if(name!==p.animation){p.actions[p.animation]?.fadeOut(PEDESTRIANS.FADE_TIME);p.actions[name]?.reset().fadeIn(PEDESTRIANS.FADE_TIME).play();p.animation=name;}
     p.mixer.update(dt);p.grounding.update(p.actions[p.animation],moving,dt);
+  }
+  _swim(p,dt){
+    p.responsePose?.restore();const active=p.swimmer?.update(dt)||false;
+    if(p.gun)p.gun.visible=!active&&!p.vehicleSeat;if(p.camera)p.camera.visible=!active;if(p.netPose)p.netPose.visible=!active;
+    if(active){this.response.interrupt(p);p.netPhase='idle';p.netTimer=0;}return active;
   }
   _removePerson(p) {
     this.response.remove(p);
@@ -702,6 +709,7 @@ export class Pursuers {
       const x=p.group.position.x,z=p.group.position.z;
       p.flashCooldown -= delta;
       this._think(p, delta);
+      if(this._swim(p,delta))continue;
       const d = this._steer(p, delta, this._speed(p));
       if(p.sees&&d<=PAPARAZZI.FLASH_RANGE){const yaw=Math.atan2(this.jimothy.position.x-p.group.position.x,this.jimothy.position.z-p.group.position.z),turn=yaw-p.group.rotation.y;p.group.rotation.y+=Math.atan2(Math.sin(turn),Math.cos(turn))*Math.min(1,LOCAL_RESPONSE.CAMERA_TURN*delta);}
       this._animate(p,delta,x,z);p.responsePose?.apply(delta,this.jimothy.position);
@@ -723,14 +731,14 @@ export class Pursuers {
 
     for(const p of this.locals){
       if(p.attached||p.ragdoll)continue;
-      const x=p.group.position.x,z=p.group.position.z;this._think(p,delta);this._steer(p,delta,p.kick.busy?0:this._speed(p));
+      const x=p.group.position.x,z=p.group.position.z;this._think(p,delta);if(this._swim(p,delta))continue;this._steer(p,delta,p.kick.busy?0:this._speed(p));
       if(p.kick.busy)p.group.rotation.y=p.kick.heading;
       this._animate(p,delta,x,z);this.response.kick(p,delta);p.responsePose?.apply(delta);
     }
     for(const p of [...this.police])if(!p.manual&&!p.attached&&(tier<POLICE.MIN_TIER||p.group.position.distanceTo(this.jimothy.position)>POLICE.DESPAWN_RANGE)){this._removePerson(p);this.police.splice(this.police.indexOf(p),1);}
     for(const p of [...this.police,...this.infantry]){
       if(p.attached||p.ragdoll)continue;
-      const x=p.group.position.x,z=p.group.position.z;this._think(p,delta);this._steer(p,delta,this._speed(p));
+      const x=p.group.position.x,z=p.group.position.z;this._think(p,delta);if(this._swim(p,delta))continue;this._steer(p,delta,this._speed(p));
       if((p.fire?.phase==='aim'||p.fire?.phase==='burst')&&p.fire.target)p.group.rotation.y=Math.atan2(p.fire.target.x-x,p.fire.target.z-z);
       this._animate(p,delta,x,z);p.responsePose?.apply(delta,p.fire?.target||this.jimothy.body.position);this.response.gun(p,delta);
     }
@@ -739,10 +747,12 @@ export class Pursuers {
     if(ac&&!ac.attached&&!ac.ragdoll){
       const x=ac.group.position.x,z=ac.group.position.z;
       this._think(ac,delta);
+      if(!this._swim(ac,delta)){
       const busy=ac.netPhase&&ac.netPhase!=='idle';
       const d=this._steer(ac,delta,busy?0:this._speed(ac));
       if(busy)ac.group.rotation.y=ac.netYaw;
       this._animate(ac,delta,x,z);this._net(ac,delta,d);this._poseNet(ac);
+      }
     }
     if(!gameState.capture.holding)gameState.capture.progress=Math.max(0,gameState.capture.progress-CAPTURE.DECAY*delta);
     gameState.capture.phase=ac?.netPhase||'idle';
@@ -810,6 +820,7 @@ export class Pursuers {
       type: p.type,model:p.model,
       attached: !!p.attached,
       ragdoll: !!p.ragdoll,
+      swimming: !!p.swimming,
       netPhase: p.netPhase || 'idle',
       kickPhase:p.kick?.phase||null,kickTime:p.kick?.time||0,kickHeading:p.kick?.heading||0,
       gun:!!p.gun,gunPhase:p.fire?.phase||null,vehicleSeat:p.vehicleSeat||null,camera:!!p.camera,photoFlash:p.photoLeft||0,

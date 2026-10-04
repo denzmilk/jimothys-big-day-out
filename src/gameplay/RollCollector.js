@@ -73,6 +73,7 @@ export class RollCollector {
   drop(e){
     const j=this.jimothy,i=this.dropSerial++%C.CAPACITY;
       this.scene.attach(e.mesh);
+      const releasedY=e.mesh.position.y;
       let x=j.body.position.x,z=j.body.position.z,y=this.voxels.terrainHeightAt(x,z);
       const underground=y-j.body.position.y>SEWER.BELOW;
       if(underground)y=this.voxels.groundHeightAt(x,z,j.body.position.y);
@@ -84,7 +85,9 @@ export class RollCollector {
         const surface=this.voxels.terrainHeightAt(candidateX,candidateZ),candidateY=this.voxels.groundHeightAt(candidateX,candidateZ,underground?j.body.position.y:surface+C.RELEASE_SCAN);
         if(!this.voxels.solidAtWorld(candidateX,candidateY+C.FALLBACK_Y,candidateZ)){x=candidateX;y=candidateY;z=candidateZ;break;}
       }
-      const position=new THREE.Vector3(x,y+e.size/2,z);e.mesh.position.copy(position);e.mesh.quaternion.identity();e.attached=false;
+      // The person's owner needs their release height to choose a safe water
+      // handoff; replacing it with the seabed causes an instant dive (M62).
+      const position=new THREE.Vector3(x,e.kind==='person'?Math.max(y,releasedY):y+e.size/2,z);e.mesh.position.copy(position);e.mesh.quaternion.identity();e.attached=false;
       e.releasedUntil=this.time+C.RELEASE_IMMUNITY;eventBus.emit(Events.ENTITY_RELEASE,{id:e.id,position,ground:y});
   }
   release(count=C.CAPACITY){for(const e of this.attached.splice(0,count))this.drop(e);this.cooldown=C.RELEASE_IMMUNITY;}

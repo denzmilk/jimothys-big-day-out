@@ -100,7 +100,7 @@ export class LocalResponse {
  }
  update(dt){
   this.cooldown=Math.max(0,this.cooldown-dt);this.updateBullets(dt);
-  for(const p of this.owner.all){if(p.gun)p.gun.visible=!p.vehicleSeat;p.gunFlashLeft=Math.max(0,(p.gunFlashLeft||0)-dt);if(p.gunFlash)p.gunFlash.material.opacity=p.gunFlashLeft/p.gunProfile.MUZZLE_SECONDS;p.photoLeft=Math.max(0,(p.photoLeft||0)-dt);if(p.cameraFlash)p.cameraFlash.material.opacity=p.photoLeft/C.FLASH_SECONDS;}
+  for(const p of this.owner.all){if(p.gun)p.gun.visible=!p.vehicleSeat&&!p.swimmer?.active;p.gunFlashLeft=Math.max(0,(p.gunFlashLeft||0)-dt);if(p.gunFlash)p.gunFlash.material.opacity=p.gunFlashLeft/p.gunProfile.MUZZLE_SECONDS;p.photoLeft=Math.max(0,(p.photoLeft||0)-dt);if(p.cameraFlash)p.cameraFlash.material.opacity=p.photoLeft/C.FLASH_SECONDS;}
   this.particles=this.particles.filter(p=>{p.age+=dt;p.at.addScaledVector(p.v,dt);return p.age<C.EFFECT_LIFE;});
   if(!this.effects)return;
   this.effects.count=this.particles.length;this.particles.forEach((p,i)=>{this.dummy.position.copy(p.at);this.dummy.scale.setScalar(1-p.age/C.EFFECT_LIFE);this.dummy.updateMatrix();this.effects.setMatrixAt(i,this.dummy.matrix);});this.effects.instanceMatrix.needsUpdate=true;

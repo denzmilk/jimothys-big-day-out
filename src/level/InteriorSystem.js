@@ -3,6 +3,7 @@ import{GLTFLoader}from'three/addons/loaders/GLTFLoader.js';
 import{clone}from'three/addons/utils/SkeletonUtils.js';
 import{RigidBatches}from'../core/RigidBatches.js';
 import{FootGrounding}from'../core/Grounding.js';
+import{HumanSwimming,humanWaterLevel}from'../core/HumanSwimming.js';
 import{INTERIORS as C,PEDESTRIANS as PED,COLLECTION,VOXEL,FOOD_MODELS}from'../core/Constants.js';
 import{eventBus,Events}from'../core/EventBus.js';
 import{gameState}from'../core/GameState.js';
@@ -36,7 +37,7 @@ export class InteriorSystem{
   });
   eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{
    const item=this.items.find(p=>p.id===id);if(item){item.attached=false;item.loose=true;item.mesh.position.set(position.x,ground+item.half[1],position.z);eventBus.emit(Events.PROP_RELEASE,{id,position:item.mesh.position});if(!item.fragment)this.save(item);}
-   const p=this.residents.find(p=>p.id===id);if(p){p.attached=false;p.displaced=true;p.mesh.position.set(position.x,ground,position.z);p.route=[];p.grounding.reset();p.flee=C.FLEE_TIME;}
+   const p=this.residents.find(p=>p.id===id);if(p){p.attached=false;p.displaced=true;p.mesh.position.set(position.x,humanWaterLevel(position.x,position.z,ground,position.y),position.z);p.route=[];p.grounding.reset();p.flee=C.FLEE_TIME;}
   });
   eventBus.on(Events.HUMAN_DOWN,({id,active,position})=>{const p=this.residents.find(p=>p.id===id);if(p){p.ragdoll=active;if(!active){p.mesh.position.copy(position);p.grounding.reset();p.route=[];p.flee=C.FLEE_TIME;}}});
   const loader=new GLTFLoader();this.loading=Promise.all(C.MODELS.map(async name=>{
@@ -181,6 +182,7 @@ export class InteriorSystem{
   const mixer=new THREE.AnimationMixer(visual),actions={};for(const clip of source.animations)actions[clip.name]=mixer.clipAction(clip);
   const p={id:`${floor.id}:resident:${index}`,floor:floor.id,plan,mesh,visual,mixer,actions,route:[],steps:index,pause:0,flee:0,vy:0,attached:false,ragdoll:false,model:PED.MODELS[(plan.seed+floor.index+index)%this.models.length]};
   p.grounding=new FootGrounding(mesh,visual,(x,z)=>this.ground(x,z,p.mesh.position.y));this.residents.push(p);this.animate(p,'Idle');
+  p.height=new THREE.Box3().setFromObject(visual).getSize(new THREE.Vector3()).y;p.swimmer=new HumanSwimming(p,this.voxels);
   eventBus.emit(Events.HUMAN_REGISTER,{id:p.id,group:mesh,visual});eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh,kind:'person',size:COLLECTION.PERSON_SIZE});
  }
  removeResident(p){eventBus.emit(Events.HUMAN_UNREGISTER,{id:p.id});eventBus.emit(Events.ENTITY_UNREGISTER,{id:p.id});p.mixer.stopAllAction();p.mixer.uncacheRoot(p.visual);p.visual.traverse(o=>{if(o.isSkinnedMesh)o.skeleton.dispose();});p.mesh.removeFromParent();this.residents.splice(this.residents.indexOf(p),1);}
@@ -216,6 +218,7 @@ export class InteriorSystem{
    const pos=p.mesh.position,d=pos.distanceTo(j);p.pending=(p.pending||0)+dt;
    if(d>C.NEAR_DISTANCE&&!isVisible(pos)&&p.pending<(gameState.world.graphics?.aiInterval||0))continue;
    const delta=p.pending;p.pending=0;p.flee=Math.max(0,p.flee-delta);p.pause=Math.max(0,p.pause-delta);p.passing=Math.max(0,(p.passing||0)-delta);
+   if(p.swimmer.update(delta)){p.displaced=true;p.route=[];continue;}
    if(d<C.SCARE_RADIUS&&!gameState.player.hidden){let clear=true;for(let k=1;k<4;k++)if(this.voxels.solidAtWorld(pos.x+(j.x-pos.x)*k/4,pos.y+C.BODY_HEIGHT/2,pos.z+(j.z-pos.z)*k/4))clear=false;if(clear){if(!p.flee){eventBus.emit(Events.LOCAL_SCARED,{id:p.id,x:pos.x,z:pos.z});p.route=[];}p.flee=C.FLEE_TIME;}}
    if(!p.route.length&&p.pause<=0){const floor=p.plan.floors.find(f=>f.id===p.floor),rooms=floor.rooms;const goal=p.flee?p.plan.entrance:p.plan.nodes.find(n=>n.key===rooms[(++p.steps)%rooms.length].node);p.route=this.path(p,goal);}
    let moving=false;const target=p.route[0];
@@ -238,5 +241,5 @@ export class InteriorSystem{
  }
  afterUpdate(){this.batches.update(this.items.map(p=>({key:p.key,root:p.mesh})));}
  reset(){this.doorVisitors=[];this.visitorClock=0;this.batches.clear();for(const p of [...this.items])this.removeItem(p);for(const p of [...this.residents])this.removeResident(p);this.active.clear();this.destroyed.clear();this.saved.clear();this.eaten.clear();this.clock=0;this.serial=0;this.stream();}
- snapshot(){return{ready:this.ready,buildings:[...this.active.values()].map(({plan,floor})=>({id:plan.id,type:plan.b.type,floor:floor.index,entry:plan.entrance,rooms:floor.rooms.map(r=>({purpose:r.purpose,node:plan.nodes.find(n=>n.key===r.node)}))})),furniture:this.items.map(p=>({id:p.id,kind:p.kind,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,fragment:p.fragment,attached:p.attached,loose:p.loose,angle:p.door?p.angle:undefined})),residents:this.residents.map(p=>({id:p.id,model:p.model,floor:p.floor,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,animation:p.animation,flee:p.flee,attached:p.attached,ragdoll:p.ragdoll,feet:p.grounding.contacts})),destroyed:this.destroyed.size};}
+ snapshot(){return{ready:this.ready,buildings:[...this.active.values()].map(({plan,floor})=>({id:plan.id,type:plan.b.type,floor:floor.index,entry:plan.entrance,rooms:floor.rooms.map(r=>({purpose:r.purpose,node:plan.nodes.find(n=>n.key===r.node)}))})),furniture:this.items.map(p=>({id:p.id,kind:p.kind,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,fragment:p.fragment,attached:p.attached,loose:p.loose,angle:p.door?p.angle:undefined})),residents:this.residents.map(p=>({id:p.id,model:p.model,floor:p.floor,x:p.mesh.position.x,y:p.mesh.position.y,z:p.mesh.position.z,animation:p.animation,swimming:!!p.swimming,flee:p.flee,attached:p.attached,ragdoll:p.ragdoll,feet:p.grounding.contacts})),destroyed:this.destroyed.size};}
 }

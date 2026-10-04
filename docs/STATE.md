@@ -4,6 +4,14 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## M62 / JIM-92 swimming people — 2026-10-05
+
+**Implemented, awaiting Chris’s playtest.** The shared retained-rig swim/wade controller covers all twelve civilian bodies, residents and five response roles, with shore guidance, cover checks and smooth foot-IK handoff. Seats, ragdolls, collection and tools retain one owner. Bubble-gun and giant-roll releases no longer drop people nine metres to the seabed. Enemy attacks pause during swimming; perception and the net-only ending remain intact.
+
+All 43 distinct focused/adjacent gameplay cases, 168 units, build and production pixel smoke pass. Original-rig surface/underwater and real shore-transition clips are inspected and console-clean. The 36-swimmer isolated update measures 2.0 ms median / 5.9 ms p99 / 9.3 ms max after splitting shore searches across frames, versus a previous 35.3 ms peak. This is not whole-game FPS; JIM-48 stays open. Evidence and diagnostic limits: [M62](milestones/62-swimming-people.md), `human-swim-*` and `human-water-release-*` under `output/iterate/`. The optional swim/shore playtest question is pending.
+
+**Next:** repair the newly observed stationary-turn crossed feet (JIM-101), then the authorised equipment supplies/full feedback (JIM-88), beginning with finite amounts and physical empty discard, then the 24-tool feedback contracts in coherent families. Read-only preparation: `output/iterate/m63-preparation.md`. No extra scope approval is needed; continue the recorded queue one issue/milestone at a time, committing and pushing each reviewed result.
+
 ## JIM-91 wider bubbles checkpoint — 2026-10-05
 
 **Implemented, awaiting Chris’s playtest.** JIM-90 is committed/pushed as `bc4b52b`. Bubbles use 24 cached original-skin contacts, spread with body size, leave a fresh moving wake and stop at water/voxel/wreck boundaries. The 160-entry buffers remain fixed and reset cleanly. Giant visibility review added capped size scaling and a minimum screen size.

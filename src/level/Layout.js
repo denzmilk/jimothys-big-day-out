@@ -108,6 +108,7 @@ const terraceTop=(x,z)=>Math.floor(streetHeight(x,z)/VOXEL.SIZE-0.5);
 
 export const terrain = {
   waterBasins,
+  shoreDistance: TerrainField.shoreDistance,
   surfaceHeight: streetHeight,
   sandAt: (x,z)=>StreetPaving.isPaved(x,z)?0:TerrainField.sandAt(x,z),
   // One-sided corners retain a real vertical kerb at a surface boundary.

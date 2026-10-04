@@ -3,6 +3,7 @@ import {RAGDOLL as C,BODY_CONTACT} from '../core/Constants.js';
 import {canPush,restrictMotion} from '../core/BodyContact.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
+import {humanWaterLevel} from '../core/HumanSwimming.js';
 
 // Pose the existing MPFB skeleton from a bounded set of articulated bodies.
 // PhysicsSystem retains body/constraint ownership (ADR-0002).
@@ -89,7 +90,7 @@ export class HumanRagdolls {
       }
       if(r.age>=C.MAX_SECONDS||(r.age>=C.DOWN_SECONDS&&root.velocity.length()<C.REST_SPEED)){
         r.recovering=true;r.recoverY=r.group.position.y;
-        r.ground=this.voxels.groundHeightAt(r.group.position.x,r.group.position.z,start.y+C.HIT_HEIGHT);
+        r.ground=humanWaterLevel(r.group.position.x,r.group.position.z,this.voxels.groundHeightAt(r.group.position.x,r.group.position.z,start.y+C.HIT_HEIGHT),r.group.position.y);
         for(const s of r.saved){s.fromPosition=s.bone.position.clone();s.fromQuaternion=s.bone.quaternion.clone();}
         eventBus.emit(Events.RAGDOLL_REMOVE,{id:r.id});
       }

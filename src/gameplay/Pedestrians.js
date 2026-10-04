@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {PedestrianActivities} from './PedestrianActivities.js';
 import { FootGrounding } from '../core/Grounding.js';
+import {HumanSwimming,humanWaterLevel} from '../core/HumanSwimming.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { DRIVING, PEDESTRIANS as PED, COLLECTION, TRAFFIC, GRAPHICS } from '../core/Constants.js';
@@ -17,7 +18,7 @@ export class Pedestrians {
     this.graph=new Map();this.obstacles=new Map();this.activities=new PedestrianActivities(this);
     eventBus.on(Events.DRIVER_REQUEST,({car,receive})=>{
       if(car.responseRole==='police')return;
-      const p=this.people.toReversed().find(p=>!p.attached&&!p.ragdoll&&!p.vehicleSeat&&!p.wasDriver&&!p.activity);
+      const p=this.people.toReversed().find(p=>!p.attached&&!p.ragdoll&&!p.swimmer?.active&&!p.vehicleSeat&&!p.wasDriver&&!p.activity);
       if(!p)return;p.vehicleSeat=car.id;p.wasDriver=true;eventBus.emit(Events.ENTITY_ATTACH,{id:p.id});receive(p);
     });
     eventBus.on(Events.DRIVER_REMOVE,({id})=>{const p=this.people.find(p=>p.id===id);if(p){this._remove(p);this.populationPending=true;}});
@@ -27,7 +28,7 @@ export class Pedestrians {
     eventBus.on(Events.ENTITY_UNREGISTER,({id})=>this.obstacles.delete(id));
     eventBus.emit(Events.ENTITY_LIST,{receive:entities=>{for(const e of entities)remember(e);}});
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.people.find(p=>p.id===id);if(p){this.activities.stop(p,'attached');p.attached=true;this._animate(p,'Idle');}});
-    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=false;p.x=position.x;p.z=position.z;p.y=ground;p.mesh.position.set(p.x,p.y,p.z);p.grounding.reset();p.target=null;p.node=null;p.flee=PED.FLEE_SECONDS;}});
+    eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.people.find(p=>p.id===id);if(p){p.attached=false;p.x=position.x;p.z=position.z;p.y=humanWaterLevel(p.x,p.z,ground,position.y);p.mesh.position.set(p.x,p.y,p.z);p.grounding.reset();p.target=null;p.node=null;p.flee=PED.FLEE_SECONDS;}});
     eventBus.on(Events.HUMAN_DOWN,({id,active,position})=>{const p=this.people.find(p=>p.id===id);if(!p)return;if(active)this.activities.stop(p,'impact');p.ragdoll=active;
       if(!active){p.x=position.x;p.z=position.z;p.y=position.y;p.target=null;p.node=null;p.grounding.reset();p.flee=PED.FLEE_SECONDS;}});
     const loader=new GLTFLoader();
@@ -102,6 +103,7 @@ export class Pedestrians {
     for(const clip of source.animations) actions[clip.name]=mixer.clipAction(clip);
     const p={height:box.max.y-box.min.y,id:`ped-${this.serial++}`,x:node.x,z:node.z,y:0,yaw:0,node:node.key,previous:null,target:null,mesh,visual,mixer,actions,animation:null,model:PED.MODELS[modelIndex],flee:0,scaredRecently:false,steps:index,pause:0,attached:false};
     p.grounding=new FootGrounding(mesh,visual,(x,z)=>this.voxels.physicalGroundHeightAt(x,z,p.y+PED.MAX_STEP,0));
+    p.swimmer=new HumanSwimming(p,this.voxels);
     this.activities.init(p);eventBus.emit(Events.HUMAN_REGISTER,{id:p.id,group:mesh,visual});
     this.people.push(p);this._animate(p,'Idle');eventBus.emit(Events.ENTITY_REGISTER,{id:p.id,mesh:p.mesh,kind:'person',size:COLLECTION.PERSON_SIZE});return p;
   }
@@ -157,6 +159,7 @@ export class Pedestrians {
       const distant=quality&&dj>Math.max(quality.aiDistance,this.jimothy.radius+GRAPHICS.CONTACT_MARGIN)&&!isVisible(p.mesh.position);
       if(distant&&p.pendingDelta<quality.aiInterval){p.throttled=true;continue;}
       const delta=p.pendingDelta;p.pendingDelta=0;p.throttled=false;this.activities.prepare(p);
+      if(p.swimmer.update(delta))continue;
       if(dj<PED.SCARE_RADIUS&&!gameState.player.hidden) {
         if(!p.scaredRecently){p.scaredRecently=true;eventBus.emit(Events.LOCAL_SCARED,{id:p.id,x:p.x,z:p.z});}
         p.flee=PED.FLEE_SECONDS;
@@ -217,5 +220,5 @@ export class Pedestrians {
   }
 
   get fleeingCount(){return this.people.filter(p=>p.flee>0).length;}
-  snapshot(){const j=this.jimothy.position;return {ready:this.ready,models:this.models.length,activities:this.activities.snapshot(),count:this.people.length,nearby:this.people.filter(p=>Math.hypot(p.x-j.x,p.z-j.z)<PED.NEAR_DISTANCE).length,fleeing:this.fleeingCount,items:this.people.map(p=>({id:p.id,model:p.model,x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2),animation:p.animation,activity:p.activity?{kind:p.activity.kind,phase:p.activity.phase,time:+p.activity.time.toFixed(2),partner:p.activity.partner,role:p.activity.role}:null,attached:p.attached,ragdoll:!!p.ragdoll,feet:p.grounding.contacts}))};}
+  snapshot(){const j=this.jimothy.position;return {ready:this.ready,models:this.models.length,activities:this.activities.snapshot(),count:this.people.length,nearby:this.people.filter(p=>Math.hypot(p.x-j.x,p.z-j.z)<PED.NEAR_DISTANCE).length,fleeing:this.fleeingCount,items:this.people.map(p=>({id:p.id,model:p.model,x:+p.x.toFixed(2),y:+p.y.toFixed(2),z:+p.z.toFixed(2),animation:p.animation,swimming:!!p.swimming,activity:p.activity?{kind:p.activity.kind,phase:p.activity.phase,time:+p.activity.time.toFixed(2),partner:p.activity.partner,role:p.activity.role}:null,attached:p.attached,ragdoll:!!p.ragdoll,feet:p.grounding.contacts}))};}
 }

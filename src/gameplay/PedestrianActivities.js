@@ -48,7 +48,7 @@ export class PedestrianActivities {
  }
  partner(p){return this.owner.people.find(q=>q!==p&&!q.activity&&!q.attached&&!q.ragdoll&&q.flee<=0&&Math.hypot(q.x-p.x,q.z-p.z)<C.PAIR_SEARCH&&this.path(q,p));}
  canStart(p,kind){
-  const def=this.catalog.find(d=>d.id===kind);if(!def||p.activity||p.attached||p.ragdoll||p.flee>0||!this.safe(p))return false;
+  const def=this.catalog.find(d=>d.id===kind);if(!def||p.activity||p.attached||p.ragdoll||p.swimmer?.active||p.flee>0||!this.safe(p))return false;
   if(['cartwheel','backwards','pair'].includes(def.mode)&&!this.direction(p))return false;
   if(def.mode==='pair'&&!this.partner(p))return false;
   if(def.mode==='chase'&&!this.birds(p).length)return false;

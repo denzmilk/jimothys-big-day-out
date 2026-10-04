@@ -10,6 +10,12 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-101 — Human feet stay crossed after turning to a stop
+
+**Status:** open · **Found:** 2026-10-05 during M62 native shore review.
+
+The retained commuter reaches dry ground with accurate foot height but remains cross-legged at rest (`output/iterate/human-swim-shore/frame-359.png`). Suspected cause: FootGrounding only schedules steps from linear velocity, leaving world-space planted feet behind a stationary body turn. Reproduce a stationary turn across the twelve MPFB bodies before changing the shared solver; preserve walking contact, swimming handoff, net/weapon poses and the separate Jimothy solver. This is a visible gait follow-up; M62's water ownership/shore traversal cases pass. Repair this next before equipment supplies, under Chris's authorised review-and-refine sequence.
+
 ### JIM-100 — Locals knock Jimothy out of a committed net attempt
 
 **Status:** implemented, awaiting Chris's playtest, M59 integration · **Found:** 2026-10-04, combined response verification.
@@ -108,9 +114,15 @@ Four focused cases pass. The lean/medium/giant plumes span about 1.2 / 5.3 / 26.
 
 ### JIM-92 — People in water need swimming behaviour
 
-**Status:** reported, queued · **Reported:** Chris, 2026-10-04.
+**Status:** implemented, awaiting Chris’s playtest · **Reported:** Chris, 2026-10-04.
 
 People reaching deep water must switch from walking/wading to an animated swim and find a reachable shore. Include people knocked in, ejected drivers, ragdoll recovery, pursuers and carried/released people. Keep one pose/body owner through transitions and preserve the net-only run-ending rule. Use existing water sampling and bounded pedestrian populations.
+
+Reproduction (M62): all twelve civilian models snap to y=-10 m and idle with heads 8.1–8.6 m below the waterline. All five pursuer roles reproduce missing swimming at 30/60/120 Hz (`human-swim-red.log`, `human-swim-roles-diagnostic.log`). Two earlier response-role runs timed out in the shared boot wait, before gameplay. A separate native readiness probe loaded all assets within four seconds without errors; the diagnostic rerun reached gameplay and produced the expected swimming failure. Readiness diagnostics are retained; no timeout cause or runtime loading fix is claimed.
+
+**Repair and verification:** a shared retained-rig swim/wade controller guides civilians, residents and all five response roles toward shore, yields to seats/live ragdolls/collection, and returns to foot IK on dry ground. Attacks and activities yield while perception continues. Review repaired missing coast guidance, ceiling penetration, shallow-water stops, foot-IK snaps and thin-wall route probes. Bubble-gun and giant-roll callers also retain release height instead of dropping swimmers nine metres to the seabed. Searches process two headings per frame, reducing the 36-swimmer isolated update maximum from 35.3 ms to 9.3 ms; whole-game giant performance remains JIM-48.
+
+All 43 distinct focused/adjacent gameplay cases, 168 units, build, original-rig native swim/shore inspection and production pixel smoke pass. Tests include twelve models/five roles at 30/60/120 Hz, actual driver ejection, ragdoll recovery, borrowing/release, cover, dry shore exits, finite search memory, net-only ending and stable restart counts. Native and smoke consoles are clean. Full measurements, initial diagnostic stalls and evidence: [M62](milestones/62-swimming-people.md). Scope: `HumanSwimming.js`, owner integrations, terrain coast adapter and optional waterline query, `human-*.spec.js`, `inspect-human-swimming.mjs`.
 
 ### JIM-93 — Walking hitches on unsmoothed inclines and declines
 

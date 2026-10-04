@@ -29,6 +29,7 @@ class GameState {
     this.heat = {
       points: 0,
       tier: 0,
+      nuisance:0, escalation:0, target:0, groundVolume:0, structureVolume:0, cars:0,
     };
     this.game = {
       started: false,

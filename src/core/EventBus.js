@@ -94,6 +94,7 @@ export const Events = {
   PROP_SUSPEND: 'prop:suspend',
   PROP_RELEASE: 'prop:release',
   WORLD_DEMOLISHED: 'world:demolished',
+  PROPERTY_DESTROYED:'property:destroyed',
   WORLD_OCCLUSION: 'world:occlusion',
   WORLD_OCCLUSION_CHANGED: 'world:occlusion-changed',
   PROP_UNSUPPORTED: 'prop:unsupported',

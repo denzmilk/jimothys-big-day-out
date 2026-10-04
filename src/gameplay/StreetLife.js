@@ -37,7 +37,7 @@ export class StreetLife {
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.items.find(p=>p.id===id);if(p){p.attached=false;p.loose=true;p.mesh.position.set(position.x,ground+p.half[1]+C.CLEARANCE,position.z);eventBus.emit(Events.PROP_RELEASE,{id,position:p.mesh.position});}});
     this.vehicles=[];this.ready=false;
     eventBus.on(Events.VEHICLE_LIST,q=>q.receive(this.items.filter(p=>p.kind==='car'&&!p.fragment)));
-    eventBus.on(Events.VEHICLE_BREAK,({id,radius})=>{const p=this.items.find(p=>p.id===id);if(p)this.fracture(p,p.mesh.position.x,p.mesh.position.z,radius);});
+    eventBus.on(Events.VEHICLE_BREAK,({id,radius,instigator})=>{const p=this.items.find(p=>p.id===id);if(p)this.fracture(p,p.mesh.position.x,p.mesh.position.z,radius,instigator);});
     eventBus.on(Events.VEHICLE_GLASS,({id})=>{const p=this.items.find(p=>p.id===id);if(p)this.shatterWindows(p,p.mesh.position);});
     eventBus.on(Events.TOOL_FORCE,({mesh})=>{const p=this.items.find(p=>p.mesh===mesh);if(p){p.loose=true;p.driving=false;this.flow.release(p.id);}});
     this.loading=Promise.all(C.VEHICLES.map(name=>new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/models/vehicles/${name}.glb`))).then(models=>{
@@ -252,11 +252,11 @@ export class StreetLife {
     const d=Math.hypot(dx,dz)||1,speed=car?Math.min(C.IMPULSE,this.jimothy.speed*mass/(mass+p.mass)):C.IMPULSE;
     eventBus.emit(Events.PROP_IMPULSE,{id:p.id,velocity:[dx/d*speed,car?BODY_CONTACT.CAR_LIFT:C.LIFT,dz/d*speed],spin:car?BODY_CONTACT.CAR_SPIN:C.SPIN});
   }
-  impact({x,y,z,radius}){
+  impact({x,y,z,radius,instigator='unknown'}){
     const point=new THREE.Vector3(x,y,z);
     for(const p of [...this.items])if(!p.attached&&!p.fragment&&p.mesh.position.distanceTo(point)<radius+p.size/2){
       const hit=this.shatterWindows(p,point,radius);
-      if(radius>=(p.kind==='car'?C.CAR.BREAK_RADIUS:C.BREAK_RADIUS))this.fracture(p,x,z,radius);else if(!hit)this.loosen(p,p.mesh.position.x-x,p.mesh.position.z-z);
+      if(radius>=(p.kind==='car'?C.CAR.BREAK_RADIUS:C.BREAK_RADIUS))this.fracture(p,x,z,radius,instigator);else if(!hit)this.loosen(p,p.mesh.position.x-x,p.mesh.position.z-z);
     }
   }
   shatterWindows(p,origin,radius=Infinity){
@@ -273,7 +273,8 @@ export class StreetLife {
     if(!this.carFragments.has(key))this.carFragments.set(key,buildCarFragments(this.templates.get(key)));
     return this.carFragments.get(key);
   }
-  fracture(p,x,z,radius=C.BREAK_RADIUS){
+  fracture(p,x,z,radius=C.BREAK_RADIUS,instigator='unknown'){
+    if(p.fragment||!this.items.includes(p))return;
     this.disableControl(p);
     this.shatterWindows(p,new THREE.Vector3(x,p.mesh.position.y,z));
     p.mesh.updateMatrixWorld(true);const sections=new Map();
@@ -285,6 +286,7 @@ export class StreetLife {
     }
     const origin=p.mesh.position.clone(),power=Math.min(CAR_EXPLOSION.POWER_CAP,Math.max(1,radius/C.CAR.EXPLODE_RADIUS));
     this.destroyed.add(p.id);this.saved.delete(p.id);this.remove(p);
+    if(isCar)eventBus.emit(Events.PROPERTY_DESTROYED,{id:p.id,kind:'car',instigator});
     if(isCar&&radius>=C.CAR.EXPLODE_RADIUS)eventBus.emit(Events.CAR_EXPLODED,{id:p.id,x:origin.x,y:origin.y,z:origin.z,radius});
     for(const mesh of sections.values()){
       // Recycle loose rubble, never something already carried by Jimothy.

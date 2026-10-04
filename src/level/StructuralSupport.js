@@ -17,13 +17,15 @@ export class StructuralSupport {
     const margin=BUILDINGS.ROOF_OVERHANG+VOXEL.SIZE;
     const key=`${b.vx},${b.vz}`,previous=this.pending.get(key);
     const bottom=Math.min(e.bounds.min[1],b.type==='landmark'?b.vy*VOXEL.SIZE:Infinity,...[[0,0],[b.w,0],[0,b.d],[b.w,b.d]].map(([x,z])=>voxels.terrainHeightAt(b.x+x,b.z+z)))-VOXEL.SIZE;
-    this.pending.set(key,{min:[b.x-margin,Math.min(bottom,previous?.min[1]??Infinity),b.z-margin],max:[b.x+b.w+margin,(b.vy+b.vh)*VOXEL.SIZE+Math.max(b.w,b.d)*Math.max(...BUILDINGS.ROOF_PITCH),b.z+b.d+margin]});
+    const cause=e.instigator||'unknown',instigator=previous&&previous.instigator!==cause?'mixed':cause;
+    this.pending.set(key,{instigator,min:[b.x-margin,Math.min(bottom,previous?.min[1]??Infinity),b.z-margin],max:[b.x+b.w+margin,(b.vy+b.vh)*VOXEL.SIZE+Math.max(b.w,b.d)*Math.max(...BUILDINGS.ROOF_PITCH),b.z+b.d+margin]});
    }
    if(!e.collapse)for(const p of this.stairs){
     if(this.pending.size>=C.PENDING)break;
     const s=VOXEL.SIZE,margin=SEWER.STAIR_DOOR_CELLS,bounds={min:[(p.ox-margin)*s,(p.floor-1)*s,(p.oz-margin)*s],max:[(p.ox+p.n+margin)*s,(p.top+1)*s,(p.oz+p.n+margin)*s]};
     if(bounds.min.some((v,i)=>v>e.bounds.max[i])||bounds.max.some((v,i)=>v<e.bounds.min[i]))continue;
-    this.pending.set(`sewer:${p.ox},${p.oz}`,bounds);
+    const key=`sewer:${p.ox},${p.oz}`,previous=this.pending.get(key),cause=e.instigator||'unknown';
+    bounds.instigator=previous&&previous.instigator!==cause?'mixed':cause;this.pending.set(key,bounds);
    }
    if(e.cells)this.gather(e.cells);
   });

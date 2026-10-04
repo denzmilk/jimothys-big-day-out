@@ -4,6 +4,14 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## M58 wanted pacing — 2026-10-04
+
+**Implemented, awaiting Chris’s playtest.** Nuisance stops below four stars; fear repeats have a cooldown and tool effects have a rate budget. Player-only damage attribution survives queued work, support cave-ins and one-time car wrecks. Ground has much less weight than structures. Four/five require 400/1800 points with 12 seconds per upper tier; hiding cancels a pending increase. The radar shows a countdown beside its existing search status.
+
+All **154 unit tests and 29 focused/adjacent browser cases** pass, plus build, native original-rig/HUD inspection and production pixel smoke, console-clean. Synthetic 20/250 m³ ground examples remain at zero stars, 120 m³ structures reaches three, and 5,000 m³ reaches five after about 24 seconds at 30/60/120 Hz. Generated-world collapse, actual pedestrian fear and driven-car credit are independently exercised. See [M58](milestones/58-wanted-pacing.md) / JIM-35 for evidence and the corrected sloping-ground test fixture.
+
+**Next authorised work:** staged response roles, starting with kicking locals and visible camera behavior, then police cars/guns and rifle troops. Continue one focused delivery at a time, then fish/bubbles and the remaining recorded queue. Existing giant-at-four tanks and JIM-48 performance limits remain unchanged; no additional role is claimed by M58.
+
 ## Crater exit repaired — JIM-99 — 2026-10-04
 
 **Implemented, awaiting Chris's playtest.** Step clearance rays no longer mistake their starting ledge for a ceiling. Frames between physics steps retain movement intent instead of repeatedly cancelling it. The original comet-exit assertion and all twelve focused cases pass, including original-rig uphill/downhill routes at 30/60/120 Hz and building/launch contact guards. All 145 units, build, native captures and production pixel smoke pass. At 60/120 Hz the uphill route now advances 6.48 m horizontally in two seconds, versus 2.63 m before. Source-of-truth evidence and the retained crater-wall visual limit are in JIM-99.

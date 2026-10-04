@@ -1,6 +1,6 @@
 import{test,expect}from'@playwright/test';import{boot,adv,state}from'./helpers.mjs';
 async function army(page){await boot(page);expect((await state(page)).military).toBeDefined();await page.waitForFunction(()=>__game.military.ready);}
-async function heat(page,fat=250){await page.evaluate(async fat=>{const {gameState}=await import('/src/core/GameState.js');setFatness(fat);gameState.heat.points=120;__game.heat._retier();},fat);}
+async function heat(page,fat=250){await page.evaluate(async fat=>{const {gameState}=await import('/src/core/GameState.js');setFatness(fat);const{HEAT}=await import('/src/core/Constants.js');gameState.heat.points=HEAT.TIER_THRESHOLDS[5];gameState.heat.tier=5;__game.heat._retier();},fat);}
 test('heat and size gate bounded tank and jet attacks with a dodge warning',async({page})=>{
  await army(page);await adv(page,1);expect((await state(page)).military.units).toHaveLength(0);
  await heat(page);await adv(page,.2);let s=(await state(page)).military;expect(s.units.some(u=>u.kind==='tank')).toBe(true);expect(s.units.some(u=>u.kind==='jet')).toBe(true);expect(s.warning).toBeTruthy();expect(s.impacts).toBe(0);
@@ -30,6 +30,6 @@ test('a shell hits an intervening wall before its marked destination',async({pag
 });
 
 test('normal tier four has no army; giants trigger tanks before tier five jets',async({page})=>{
- await army(page);await page.evaluate(async()=>{const{gameState}=await import('/src/core/GameState.js');gameState.heat.tier=4;});await adv(page,.1);expect((await state(page)).military.units).toHaveLength(0);
+ await army(page);await page.evaluate(async()=>{const{gameState}=await import('/src/core/GameState.js');const{HEAT}=await import('/src/core/Constants.js');gameState.heat.points=HEAT.TIER_THRESHOLDS[4];gameState.heat.tier=4;});await adv(page,.1);expect((await state(page)).military.units).toHaveLength(0);
  await page.evaluate(()=>setFatness(250));await adv(page,.1);expect((await state(page)).military.units.map(u=>u.kind)).toEqual(['tank']);
 });

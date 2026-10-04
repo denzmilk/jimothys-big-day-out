@@ -694,9 +694,9 @@ export class VoxelWorld {
     return result;
   }
 
-  queueDamageSphere(cx,cy,cz,radius,{digsTerrain=false,key=null}={}){
+  queueDamageSphere(cx,cy,cz,radius,{digsTerrain=false,key=null,instigator='unknown'}={}){
     if(!(radius>0))return false;
-    const job={cx,cy,cz,radius,digsTerrain,key,started:false};
+    const job={cx,cy,cz,radius,digsTerrain,key,instigator,started:false};
     const replacement=key?this.damageQueue.findIndex(j=>j.key===key&&!j.started):-1;
     if(replacement>=0)this.damageQueue[replacement]=job;
     else if(this.damageQueue.length<W.MAX_DAMAGE_QUEUE)this.damageQueue.push(job);
@@ -710,7 +710,7 @@ export class VoxelWorld {
     let job=this.damageQueue.find(j=>j.kind==='channel');
     if(!job){
       if(this.damageQueue.length>=W.MAX_DAMAGE_QUEUE)return false;
-      job={kind:'channel',segments:[],started:false};this.damageQueue.push(job);
+      job={kind:'channel',segments:[],started:false,instigator:'player'};this.damageQueue.push(job);
     }
     if(job.segments.length>=GROUND_CHANNEL.MAX_SEGMENTS)return false;
     job.segments.push({from:{...from},to:{...to},radius,depth});
@@ -736,7 +736,7 @@ export class VoxelWorld {
           if(++visited%W.DAMAGE_BATCH===0){yield removed;removed=[];}
           const mat=this.get(x,y,z);if(mat===VOXEL.BEDROCK)break;if(!mat)continue;
           this.setEdit(x,y,z,0);this._materialiseAround(x,y,z);this.removedCount++;
-          removed.push({x:wx,y:(y+.5)*s,z:wz,mat});
+          removed.push({x:wx,y:(y+.5)*s,z:wz,mat,ground:true});
         }
       }
       job.segments.shift();
@@ -767,23 +767,24 @@ export class VoxelWorld {
 
   supportTask(bounds){return supportTask(this,bounds);}
 
-  queueSupport(bounds,key){
+  queueSupport(bounds,key,{instigator=bounds.instigator||'unknown'}={}){
     const active=this.damageQueue.find(j=>j.kind==='support'&&j.key===key);
     if(active){
+      if(active.instigator!==instigator)active.instigator='mixed';
       for(let i=0;i<3;i++){active.bounds.min[i]=Math.min(active.bounds.min[i],bounds.min[i]);active.bounds.max[i]=Math.max(active.bounds.max[i],bounds.max[i]);}
       active.bounds.revision++;return true;
     }
     if(this.damageQueue.length>=W.MAX_DAMAGE_QUEUE)return false;
     const area={min:[...bounds.min],max:[...bounds.max],revision:0};
-    this.damageQueue.push({kind:'support',key,bounds:area,cx:(area.min[0]+area.max[0])/2,cy:area.min[1],cz:(area.min[2]+area.max[2])/2,task:this.supportTask(area)});return true;
+    this.damageQueue.push({kind:'support',key,instigator,bounds:area,cx:(area.min[0]+area.max[0])/2,cy:area.min[1],cz:(area.min[2]+area.max[2])/2,task:this.supportTask(area)});return true;
   }
 
   *_damageSphereTask({cx,cy,cz,radius,digsTerrain}){
     const s=VOXEL.SIZE,r2=radius*radius;let removed=[],visited=0;
-    const remove=(x,y,z,mat)=>{
+    const remove=(x,y,z,mat,ground=false)=>{
       const first=removed.length;
       if(mat===G.MATERIAL_ID)this.shatterPane(x,y,z,removed);
-      else{this.setEdit(x,y,z,0);removed.push({x:(x+.5)*s,y:(y+.5)*s,z:(z+.5)*s,mat});}
+      else{this.setEdit(x,y,z,0);removed.push({x:(x+.5)*s,y:(y+.5)*s,z:(z+.5)*s,mat,ground});}
       this.removedCount+=removed.length-first;
       if(digsTerrain)for(let i=first;i<removed.length;i++)this._materialiseAround(...this.worldToVoxel(removed[i].x,removed[i].y,removed[i].z));
     };
@@ -812,10 +813,13 @@ export class VoxelWorld {
       const [bx,by,bz]=this.worldToVoxel(cx,cy,cz),r=Math.ceil(radius/s);
       for(let x=bx-r;x<=bx+r;x++)for(let z=bz-r;z<=bz+r;z++){
         const flat=((x+.5)*s-cx)**2+((z+.5)*s-cz)**2;if(flat>r2)continue;
+        // One terrain query per column, not per removed cell: heat must not
+        // add another volume scan to giant excavation (M58/JIM-35).
+        const groundTop=this.terrain?.topSolidVoxelY((x+.5)*s,(z+.5)*s)??-1;
         for(let y=by-r;y<=by+r;y++){
           if(++visited%W.DAMAGE_BATCH===0){yield removed;removed=[];}
           if(flat+((y+.5)*s-cy)**2>r2)continue;
-          const mat=this.get(x,y,z);if(!mat||mat===VOXEL.BEDROCK)continue;remove(x,y,z,mat);
+          const mat=this.get(x,y,z);if(!mat||mat===VOXEL.BEDROCK)continue;remove(x,y,z,mat,y<=groundTop&&TERRAIN.SMOOTH_CONTACT_MATERIALS.includes(mat));
         }
       }
     }
@@ -832,7 +836,7 @@ export class VoxelWorld {
       this._ensureAtWorld((vx+.5)*s,(vz+.5)*s);
       if (this.get(vx,vy,vz) !== G.MATERIAL_ID) continue;
       this.setEdit(vx,vy,vz,0);
-      removed.push({x:(vx+.5)*s,y:(vy+.5)*s,z:(vz+.5)*s,mat:G.MATERIAL_ID});
+      removed.push({x:(vx+.5)*s,y:(vy+.5)*s,z:(vz+.5)*s,mat:G.MATERIAL_ID,ground:false});
       count++;
       for (const [dx,dy,dz] of NEIGHBOURS) pending.push([vx+dx,vy+dy,vz+dz]);
     }

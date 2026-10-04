@@ -1,4 +1,4 @@
-import {RADAR as C, SEWER} from '../core/Constants.js';
+import {RADAR as C, SEWER, HEAT} from '../core/Constants.js';
 import {eventBus, Events} from '../core/EventBus.js';
 import {SightSampler} from '../core/Perception.js';
 import {gameState} from '../core/GameState.js';
@@ -85,7 +85,8 @@ export class Minimap {
     this.scale.textContent=`${this.data.layer==='underground'?'SEWER · ':''}${Math.round(this.data.range)} m`;
     const contacts=this.data.contacts,notice=contacts.find(p=>p.state==='noticing'),search=contacts.filter(p=>p.search);
     const label=contacts.some(p=>p.state==='chase')?'SPOTTED · BREAK SIGHT':notice?`BEING NOTICED · ${Math.round(notice.awareness*100)}%`:search.length?`${search.some(p=>p.state==='search')?'SEARCHING':'INVESTIGATING'} · ${Math.ceil(Math.max(...search.map(p=>p.searchRemaining)))}s`:contacts.some(p=>p.strike)?'STRIKE ZONE · KEEP MOVING':'NO VISUAL CONTACT';
-    this.status.textContent=label;this.status.dataset.state=contacts.some(p=>p.state==='chase')?'chase':notice?'noticing':search.length?'search':'clear';
+    const h=gameState.heat,pending=h.target>h.tier&&!gameState.player.hidden;
+    this.status.textContent=pending?`${label} · WANTED RISING ${Math.ceil(HEAT.HIGH_TIER_DELAY-h.escalation)}s`:label;this.status.dataset.state=contacts.some(p=>p.state==='chase')?'chase':notice?'noticing':search.length?'search':'clear';
     this.panel.setAttribute('aria-label',this.data.layer==='underground'?'Sewer search radar':'Enemy search radar');
   }
 

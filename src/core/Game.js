@@ -126,10 +126,10 @@ class Game {
         }
         const center={x:x+dir.x*offset,y:y+dir.y*offset,z:z+dir.z*offset};
         const radius=bodyRadius*(rolling?GIANT_IMPACT.ROLL_RADIUS:GIANT_IMPACT.HEADBUTT_RADIUS);
-        this.voxels.queueDamageSphere(center.x,center.y,center.z,radius,{key:rolling?'roll':null});
+        this.voxels.queueDamageSphere(center.x,center.y,center.z,radius,{key:rolling?'roll':null,instigator:'player'});
         // Body contact already loosens collectibles. A demolition impulse on
         // every roll tick would explode cars before they can stick to his coat.
-        if(!rolling)eventBus.emit(Events.WORLD_IMPACT,{...center,radius,source:'headbutt'});
+        if(!rolling)eventBus.emit(Events.WORLD_IMPACT,{...center,radius,source:'headbutt',instigator:'player'});
         this.onBlast?.(center);return;
       }
       this.blastAt(at, cfg.RADIUS_SCALE, { fatShare: cfg.FAT_BLAST_SHARE, digsTerrain: digs,source:cfg===MOVES.ROLL?'roll':'headbutt' });
@@ -148,7 +148,7 @@ class Game {
     this.ragdolls = new HumanRagdolls(this.jimothy,this.voxels);
     this.pursuers = new Pursuers(this.scene, this.jimothy, this.voxels);
     this.military=new Military(this.scene,this.jimothy,this.voxels);
-    eventBus.on(Events.WORLD_BLAST,({x,y,z,radius,digsTerrain})=>this.voxels.queueDamageSphere(x,y,z,radius,{digsTerrain}));
+    eventBus.on(Events.WORLD_BLAST,({x,y,z,radius,digsTerrain,instigator})=>this.voxels.queueDamageSphere(x,y,z,radius,{digsTerrain,instigator}));
     this.dayNight=new DayNight(this.scene,this.renderer,this.level,this.sun,this.ambient,this.jimothy);
     this.environmentLife=new EnvironmentLife(this.scene,this.jimothy,this.voxels);
     this.interiors=new InteriorSystem(this.scene,this.jimothy,this.voxels);
@@ -170,7 +170,7 @@ class Game {
     this.devTools = new DevTools(this.input);
     this.arrival=new CometArrival(this.scene,this.camera,this.jimothy,this.voxels,()=>
       (this.jimothy.rig.loaded||window.__SKIP_RIG__)&&this.streetLife.ready&&this.pedestrians.ready&&this.interiors.ready&&this.trashCans.ready);
-    eventBus.on(Events.SPAWN_IMPACT,({x,y,z})=>this.voxels.queueDamageSphere(x,y+COMET.CRATER_RADIUS-COMET.CRATER_DEPTH,z,COMET.CRATER_RADIUS,{digsTerrain:true,key:'spawn'}));
+    eventBus.on(Events.SPAWN_IMPACT,({x,y,z})=>this.voxels.queueDamageSphere(x,y+COMET.CRATER_RADIUS-COMET.CRATER_DEPTH,z,COMET.CRATER_RADIUS,{digsTerrain:true,key:'spawn',instigator:'spawn'}));
     eventBus.on(Events.SPAWN_COMPLETE,()=>{
       this.camera.fov=CAMERA.FOV;this.camera.updateProjectionMatrix();this.cameraSystem.yaw=this.jimothy.yaw;
       this.cameraSystem.pitch=this.cameraSystem.neutralPitch;this.cameraSystem.snapToTarget();
@@ -414,7 +414,7 @@ class Game {
         : [[jp.x, jp.z]],
       this.flyCamera.active ? STREAM.FLY_COLUMNS_PER_FRAME : STREAM.COLUMNS_PER_FRAME,
     );
-    for(const {job,cells}of this.voxels.processDamage(this.manualTime?{maxSlices:WORK_BUDGET.DAMAGE_SLICES}:{maxMilliseconds:WORK_BUDGET.DAMAGE_MS}))this.demolitionEffects(cells,{x:job.cx,y:job.cy,z:job.cz},job.kind==='support');
+    for(const {job,cells}of this.voxels.processDamage(this.manualTime?{maxSlices:WORK_BUDGET.DAMAGE_SLICES}:{maxMilliseconds:WORK_BUDGET.DAMAGE_MS}))this.demolitionEffects(cells,{x:job.cx,y:job.cy,z:job.cz},job.kind==='support',job.instigator);
     this.voxels.processGeneration(this.manualTime?{maxSlices:WORK_BUDGET.GENERATION_SLICES}:{maxMilliseconds:WORK_BUDGET.GENERATION_MS});
     this.voxels.remeshDirty(this.manualTime?{maxSlices:WORK_BUDGET.MESH_SLICES}:{maxMilliseconds:WORK_BUDGET.MESH_MS});
     // Containers stay tied to HIM, never to the camera: streaming them around a
@@ -746,16 +746,16 @@ class Game {
   /** Damage the world at an exact world position. Callers aim it themselves —
    *  this used to add its own vertical offset, which stacked with the move's
    *  aim and lifted the sphere clear of the ground it was meant to hit. */
-  blastAt(pos, radiusScale = 1, { fatShare = 1, digsTerrain = true, source = null } = {}) {
-    eventBus.emit(Events.WORLD_IMPACT, {x:pos.x,y:pos.y,z:pos.z,radius:this.blastRadius(fatShare)*radiusScale,source});
+  blastAt(pos, radiusScale = 1, { fatShare = 1, digsTerrain = true, source = null, instigator = 'player' } = {}) {
+    eventBus.emit(Events.WORLD_IMPACT, {x:pos.x,y:pos.y,z:pos.z,radius:this.blastRadius(fatShare)*radiusScale,source,instigator});
     const removed = this.voxels.damageSphere(
       pos.x, pos.y, pos.z, this.blastRadius(fatShare) * radiusScale, { digsTerrain },
     );
-    this.demolitionEffects(removed,pos);
+    this.demolitionEffects(removed,pos,false,instigator);
     return removed.length;
   }
 
-  demolitionEffects(removed,pos,collapse=false){
+  demolitionEffects(removed,pos,collapse=false,instigator='unknown'){
     if(!removed.length)return;
     if(!collapse)this.debris.spawnBurst(removed.filter(cell=>cell.mat!==GLAZING.MATERIAL_ID));
     const glass=removed.filter(cell=>cell.mat===GLAZING.MATERIAL_ID);
@@ -765,7 +765,7 @@ class Game {
     // rather than toward him, which is what makes demolition a decision.
     const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
     for(const cell of removed)for(const [i,key]of ['x','y','z'].entries()){min[i]=Math.min(min[i],cell[key]-VOXEL.SIZE/2);max[i]=Math.max(max[i],cell[key]+VOXEL.SIZE/2);}
-    eventBus.emit(Events.WORLD_DEMOLISHED, { voxels: removed.length, x: pos.x, z: pos.z,bounds:{min,max},cells:removed,collapse });
+    eventBus.emit(Events.WORLD_DEMOLISHED, { voxels: removed.length, x: pos.x, z: pos.z,bounds:{min,max},cells:removed,collapse,instigator,groundVoxels:removed.filter(cell=>cell.ground).length });
     return removed.length;
   }
 
@@ -922,6 +922,12 @@ class Game {
       heat: {
         points: +gameState.heat.points.toFixed(1),
         tier: gameState.heat.tier,
+        target:gameState.heat.target,
+        escalation:+gameState.heat.escalation.toFixed(2),
+        nuisance:+gameState.heat.nuisance.toFixed(2),
+        groundVolume:+gameState.heat.groundVolume.toFixed(2),
+        structureVolume:+gameState.heat.structureVolume.toFixed(2),
+        cars:gameState.heat.cars,
       },
       game: gameState.game,
       pursuers: this.pursuers.snapshot(),

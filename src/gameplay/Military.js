@@ -65,7 +65,7 @@ export class Military {
  }
  explode(target,radius){
   // Shells already use the army's size-scaled launch and shared cooldown.
-  this.impacts++;eventBus.emit(Events.EXPLOSION_SPAWN,{...target,radius,playerHandled:true});eventBus.emit(Events.WORLD_BLAST,{...target,radius,digsTerrain:false});eventBus.emit(Events.WORLD_IMPACT,{...target,radius});
+  this.impacts++;eventBus.emit(Events.EXPLOSION_SPAWN,{...target,radius,playerHandled:true});eventBus.emit(Events.WORLD_BLAST,{...target,radius,digsTerrain:false,instigator:'military'});eventBus.emit(Events.WORLD_IMPACT,{...target,radius,instigator:'military'});
   const j=this.jimothy,distance=j.body.position.distanceTo(target);
   if(distance<radius+j.radius&&this.launchCooldown<=0){this.launchCooldown=C.HIT_IMMUNITY;const direction=new THREE.Vector3().subVectors(j.body.position,target);direction.y=0;if(!direction.lengthSq())direction.z=1;direction.normalize();const speed=C.LAUNCH_SPEED/(1+j.radius*C.SIZE_RESISTANCE);
    eventBus.emit(Events.PLAYER_LAUNCHED,{velocity:[direction.x*speed,C.LAUNCH_UP/(1+j.radius*C.SIZE_RESISTANCE),direction.z*speed],seconds:C.LAUNCH_SECONDS,mass:C.PLAYER_MASS*(1+j.radius)});this.launches++;

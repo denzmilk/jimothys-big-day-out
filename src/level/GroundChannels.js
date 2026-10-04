@@ -38,7 +38,7 @@ export class GroundChannels {
  }
  update(dt){
   const j=this.jimothy.position;this.field.centerAt(j.x,j.z);this.field.update();this.voxels.removedCount+=this.field.removed;
-  if(this.field.removed)eventBus.emit(Events.WORLD_DEMOLISHED,{voxels:this.field.removed,x:j.x,z:j.z,bounds:this.field.bounds,groundOnly:true});this.sync();this.effects(dt);
+  if(this.field.removed)eventBus.emit(Events.WORLD_DEMOLISHED,{voxels:this.field.removed,x:j.x,z:j.z,bounds:this.field.bounds,groundOnly:true,instigator:'player'});this.sync();this.effects(dt);
  }
  effects(dt){
   for(let i=0;i<Math.min(C.DUST_PER_FRAME,this.field.changed.length);i++){

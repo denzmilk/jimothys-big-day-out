@@ -422,12 +422,16 @@ export const SNACKS = {
 export const HEAT = {
   MAX_TIER: 5,
   // Destruction reaches the army tiers; size gates the earlier giant response.
-  TIER_THRESHOLDS: [0, 10, 20, 35, 60, 100],
+  TIER_THRESHOLDS: [0, 10, 20, 35, 400, 1800],
   DECAY_PER_SECOND_HIDDEN: 2,
+  HIDDEN_DECAY_FRACTION:.08, HIGH_TIER:4, HIGH_TIER_DELAY:12,
+  NUISANCE_CAP:45, TOOL_NUISANCE_RATE:3, TOOL_NUISANCE_BURST:6,
+  SCARE_REPEAT_SECONDS:30, SCARE_MEMORY:256,
   PER_CAN_TIPPED: 5,
   PER_TREE_LOOT: 3,
-  PER_SCARED_LOCAL: 3,
+  PER_SCARED_LOCAL: .35,
   PER_DEMOLITION: 0.4, // per cubic metre: changing voxel detail must not change wanted level
+  PER_GROUND_DEMOLITION:.015, PER_CAR_WRECK:12,
 };
 
 // Tuned down after playtest (2026-07-23: "a bit aggressive/hard to deal

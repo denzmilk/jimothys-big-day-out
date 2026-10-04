@@ -198,7 +198,7 @@ export class DrivingSystem {
   crash(hit){
     const p=this.car,speed=Math.abs(this.speed);this.speed=0;if(speed<C.IMPACT_SPEED||this.cooldown>0)return;
     this.cooldown=C.CRASH_COOLDOWN;this.crashes++;this.effects.cue('crash');this.effects.emit(p.mesh.position,C.SPARK_COLOR,Math.ceil(speed));eventBus.emit(Events.TOOL_CHAOS,{points:C.CRASH_HEAT});
-    if(speed>=C.BREAK_SPEED){const id=p.id,yaw=p.yaw;this.exit(true);eventBus.emit(Events.VEHICLE_BREAK,{id,radius:STREET.CAR.EXPLODE_RADIUS});if(hit?.kind==='car')eventBus.emit(Events.VEHICLE_BREAK,{id:hit.id,radius:STREET.CAR.BREAK_RADIUS});eventBus.emit(Events.PLAYER_LAUNCHED,{velocity:[Math.sin(yaw)*speed*C.SHOVE_GAIN,C.EJECT_UP,Math.cos(yaw)*speed*C.SHOVE_GAIN],seconds:C.EJECT_SECONDS,mass:BODY_CONTACT.HUMAN_MASS});}
+    if(speed>=C.BREAK_SPEED){const id=p.id,yaw=p.yaw;this.exit(true);eventBus.emit(Events.VEHICLE_BREAK,{id,radius:STREET.CAR.EXPLODE_RADIUS,instigator:'player'});if(hit?.kind==='car')eventBus.emit(Events.VEHICLE_BREAK,{id:hit.id,radius:STREET.CAR.BREAK_RADIUS,instigator:'player'});eventBus.emit(Events.PLAYER_LAUNCHED,{velocity:[Math.sin(yaw)*speed*C.SHOVE_GAIN,C.EJECT_UP,Math.cos(yaw)*speed*C.SHOVE_GAIN],seconds:C.EJECT_SECONDS,mass:BODY_CONTACT.HUMAN_MASS});}
     else if(speed>=C.GLASS_SPEED){eventBus.emit(Events.VEHICLE_GLASS,{id:p.id});if(hit?.kind==='car')eventBus.emit(Events.VEHICLE_GLASS,{id:hit.id});}
   }
   playerPose(){

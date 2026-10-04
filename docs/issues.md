@@ -712,7 +712,9 @@ Adding one more ring of voxel columns to see 35 m further costs far more than th
 
 ### JIM-35 — One headbutt is a five-star wanted level
 
-**Status:** reopened, queued after movement/contact repairs in the 2026-10-04 sequence · **Severity:** medium · **Found:** 2026-08-07, milestone 19
+**Status:** implemented, awaiting Chris’s pacing playtest · **Severity:** medium · **Found:** 2026-08-07, milestone 19
+
+**M58 repair, 2026-10-04:** nuisance is capped below tier four, repeat fear has a cooldown, and rapid tool credit has a rate budget. Only player-attributed damage earns demolition heat; queues, support cave-ins and intact car wrecks retain their cause. Mixed/unknown collapse is conservatively neutral. Ground weighs much less than structures. Four/five thresholds are 400/1800 with 12 seconds per upper tier; hiding cancels a pending increase. All 154 units and 29 focused/adjacent gameplay cases pass, including actual driven-car wreck credit. Build, native original-rig/HUD captures and production pixel smoke pass without console errors. See [M58](milestones/58-wanted-pacing.md) for red evidence, measured 30/60/120 Hz timing, example volumes and fixture corrections. New response roles remain separately queued.
 
 **2026-10-04 playtest:** minor pedestrian hassling and small ground damage still escalate far too quickly. Five stars must require mass-scale destruction. Capture nuisance/house/block-scale examples, repeated-event attribution and time-to-tier measurements before changing constants. See [sequential plan](playground-expansion.md), step 4; no wanted fix is claimed by M53.
 

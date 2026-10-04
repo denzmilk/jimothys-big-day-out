@@ -91,7 +91,7 @@ export class CometArrival {
         this.stopSound();this.boom();
         eventBus.emit(Events.SPAWN_IMPACT,{x:0,y:this.ground,z:0});
         eventBus.emit(Events.EXPLOSION_SPAWN,{x:0,y:this.ground,z:0,radius:C.EXPLOSION_RADIUS});
-        eventBus.emit(Events.WORLD_IMPACT,{x:0,y:this.ground,z:0,radius:C.IMPACT_RADIUS});
+        eventBus.emit(Events.WORLD_IMPACT,{x:0,y:this.ground,z:0,radius:C.IMPACT_RADIUS,instigator:'spawn'});
       }
     }else if(s.phase==='impact'){
       s.time+=dt;

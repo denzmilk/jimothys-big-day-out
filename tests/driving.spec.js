@@ -81,8 +81,8 @@ test('wall sweep stops a driven car and a hard crash damages it and restores the
   d.ground=(x,z,from)=>wall(x,z)?origin.y+3:originalGround.call(d,x,z,from);
   g.voxels.solidAtWorld=(x,y,z)=>(wall(x,z)&&y>origin.y-p.half[1]+.3)||original(x,y,z);
   d.speed=22;g.input.codes.add('KeyW');window.advanceTime(.5);g.input.codes.clear();g.voxels.solidAtWorld=original;d.ground=originalGround;
-  return {travel:(p.mesh.position.x-origin.x)*dir.x+(p.mesh.position.z-origin.z)*dir.z,phase:d.phase,crashes:d.crashes,broken:g.streetLife.destroyed.has(p.id),mask:g.jimothy.body.collisionFilterMask};
- });expect(r.travel).toBeLessThan(2.3);expect(r.crashes).toBeGreaterThan(0);expect(r.broken).toBe(true);expect(r.phase).toBe('onFoot');expect(r.mask).not.toBe(0);
+  return {travel:(p.mesh.position.x-origin.x)*dir.x+(p.mesh.position.z-origin.z)*dir.z,phase:d.phase,crashes:d.crashes,broken:g.streetLife.destroyed.has(p.id),mask:g.jimothy.body.collisionFilterMask,heat:JSON.parse(render_game_to_text()).heat};
+ });expect(r.travel).toBeLessThan(2.3);expect(r.crashes).toBeGreaterThan(0);expect(r.broken).toBe(true);expect(r.phase).toBe('onFoot');expect(r.mask).not.toBe(0);expect(r.heat.cars).toBe(1);expect(r.heat.points).toBeGreaterThanOrEqual(12);
 });
 
 test('car destruction and repeated restart release all ownership',async({page})=>{

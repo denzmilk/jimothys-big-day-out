@@ -22,7 +22,7 @@ Chris requested this queue during M53, 2026-10-04, and explicitly asked to finis
 | 14. Jimothy ragdoll | Small bodies fly floppy after cars, kicks and blasts; heavy bodies resist more | 3 |
 | 15. Raccoon bosses | Normal raccoon anatomy, textured sourced base, costumes, areas and distinct special moves | 15 |
 
-The immediate car follow-up also requests more ditch torque and completion of the remaining M53 acceptance criteria. The earlier request remains: motorbikes, bicycles, skateboard ollies/grinds/tricks, boxing gloves with punch/punch/kick, wrestling mask/moves, runners and an orange gi with a Kamehameha. These are included below and in [vehicle/equipment design](vehicle-and-equipment-request.md).
+The immediate car follow-up also requests more ditch torque, tougher cars (JIM-95), repair of a downhill road snag (JIM-96, screenshot supplied), and completion of the remaining M53 acceptance criteria. Chris explicitly authorised continuing this queue one item at a time, reviewing each result for fluid, reliable gameplay without requiring cosmetic perfection. The earlier request remains: motorbikes, bicycles, skateboard ollies/grinds/tricks, boxing gloves with punch/punch/kick, wrestling mask/moves, runners and an orange gi with a Kamehameha. These are included below and in [vehicle/equipment design](vehicle-and-equipment-request.md).
 
 ## Sequential delivery
 

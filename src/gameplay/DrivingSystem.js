@@ -154,15 +154,19 @@ export class DrivingSystem {
     for(let i=0;i<steps&&this.car;i++){
       const old=p.mesh.position.clone(),oldRotation=p.mesh.quaternion.clone(),oldWheels=(this.wheels||[]).map(w=>w.position.y),oldYaw=p.yaw,distance=this.speed*dt/steps;
       const yaw=oldYaw+distance*Math.tan(this.steer)/(p.half[2]*C.WHEELBASE_RATIO),x=old.x+Math.sin(yaw)*distance,z=old.z+Math.cos(yaw)*distance;
-      const base=old.y-p.half[1],ground=this.ground(x,z,base+C.MAX_STEP),c=Math.cos(yaw),s=Math.sin(yaw);
+      // JIM-96: suspension lifts the chassis on steep grades. Compare road
+      // heights, otherwise that lift is mistaken for a cliff under the car.
+      const base=this.ground(old.x,old.z,old.y-p.half[1]+C.MAX_STEP),ground=this.ground(x,z,base+C.MAX_STEP),c=Math.cos(yaw),s=Math.sin(yaw);
       let hit=null,blocked=Math.abs(x)>WORLD.BOUNDS-p.half[2]||Math.abs(z)>WORLD.BOUNDS-p.half[2]||ground<base-C.MAX_DROP||ground>base+C.MAX_STEP;
       // Resolve suspension at the proposed position before checking the hull.
       // Reusing the previous pitch made a shallow ditch lip act like a wall;
       // more engine pull alone could never overcome that false contact (M53).
       p.mesh.position.set(x,ground+p.half[1],z);p.mesh.rotation.set(0,yaw,0);
       const grounding=groundVehicle(p.mesh,p.half,(px,pz)=>this.ground(px,pz,base+C.MAX_STEP+C.MAX_GRADE*Math.hypot(px-x,pz-z)));
+      // Smooth paving can lie below its storage voxel. Only the actual
+      // surface blocks the hull; walls still return their solid column top.
       for(let dx=-p.half[0];dx<=p.half[0]+C.BODY_SKIN&&!blocked;dx+=C.PROBE_SPACING)for(let dz=-p.half[2];dz<=p.half[2]+C.BODY_SKIN&&!blocked;dz+=C.PROBE_SPACING){
-        for(const y of C.BODY_PROBE_HEIGHTS){const point=new THREE.Vector3(dx,-p.half[1]+y,dz).applyQuaternion(p.mesh.quaternion).add(p.mesh.position);if(this.voxels.solidAtWorld(point.x,point.y,point.z)){blocked=true;this.lastContact={kind:'terrain',point:point.toArray(),base,ground};break;}}
+        for(const y of C.BODY_PROBE_HEIGHTS){const point=new THREE.Vector3(dx,-p.half[1]+y,dz).applyQuaternion(p.mesh.quaternion).add(p.mesh.position);if(this.voxels.solidAtWorld(point.x,point.y,point.z)&&this.ground(point.x,point.z,point.y)>point.y){blocked=true;this.lastContact={kind:'terrain',point:point.toArray(),base,ground};break;}}
       }
       const hull={x,z,yaw,half:p.half};
       for(const q of contacts){

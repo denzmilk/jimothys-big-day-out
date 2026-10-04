@@ -36,6 +36,13 @@ Let Jimothy take a car from a visible driver, drive around the physical world an
 - [x] Engine, skid, horn, door and crash cues plus contact/exhaust particles occur only in their appropriate states; pause/exit/reset stop loops, resources stay bounded — test: `tests/driving.spec.js` (audio signal and state), native rendered capture.
 - [ ] Chris approves visible boarding/seated poses, handling/weight, camera, vehicle feedback and exits — verified by user playtest.
 
+## Playtest follow-up — 2026-10-04
+
+- [x] JIM-96: start and continue downhill on generated steep streets, through their lower junctions; repeat uphill/reverse and retain solid wall/car collision.
+- [ ] JIM-95: moderate crashes/attacks preserve usable cars, while severe crashes and large Jimothy still trigger the approved explosion and physical breakaway parts.
+- [ ] JIM-97: vehicle water entry creates a substantial speed/size-scaled splash and ripples, transfers momentum to physics and releases the rider; submerged rest/bridges do not retrigger it.
+- [ ] Chris judges repaired handling and durability during play.
+
 ## Exit condition
 
 Chris approaches a slow occupied car → hijacks it → drives/brakes/turns through the streets → knocks a prop or crashes → exits and resumes the rampage, with the original driver fleeing alive.
@@ -60,3 +67,7 @@ Controls and full request are in [vehicle and equipment design](../vehicle-and-e
 - Serial warmed original-rig 960×600 Medium samples (`node tools/profile-driving.mjs`) run three seconds each at 30/60/120 Hz. Update plus render-submission median/p95 is **19.1/25.1, 15.1/25.0 and 14.5/20.8 ms**; maxima are **70.5, 67.7 and 69.2 ms**. All sampled frames remain moving/driving, travelling 40.77/40.56/40.45 m; at most 301 bodies and 12 vehicle particles. Peak shadow-refresh draws reach 684. No console errors. These are local CPU/submission measurements, not presented FPS or a hitch-free claim; the isolated peaks and older JIM-48 performance work remain open. Evidence: `output/iterate/driving-performance.json` and `.log`.
 
 The full legacy browser suite was not rerun wholesale. Older giant collapse deadlines and rendering-budget failures remain under JIM-48. Handling, sound balance, boarding/camera readability and perceived weight still require Chris's playtest. This is an arcade terrain-following vehicle controller with bounded swept contacts, not a full tyre-force or airborne chassis simulation.
+
+### Downhill fluidity repair — JIM-96
+
+The generated steep street now clears 48 m in each direction at 30/60/120 Hz. Chassis fit, suspension/drop comparisons and smooth-surface collision are corrected; walls, shallow ditches, six-model contact, lifecycle and suspension streaming retain regression checks. Original-rig taxi frames cross the reported type of grade without stopping or crashing. Full evidence and the transient tyre-contact limit are recorded in JIM-96. Chris's handling sign-off remains outstanding.

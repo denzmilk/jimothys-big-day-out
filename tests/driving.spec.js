@@ -41,7 +41,8 @@ test('a stopped car can pull out of a shallow ditch forwards or backwards while 
    for(let i=0;i<120;i++){g.input.update(1/60);d.update(1/60);}
    rows.push({throttle,distance:(p.mesh.position.z-origin.z)*throttle,rise:p.mesh.position.y-origin.y,phase:d.phase,contact:d.lastContact});
   }
-  d.ground=()=>floor;g.voxels.solidAtWorld=(x,y,z)=>y<floor||(z>origin.z+p.half[2]+1&&y<floor+3);
+  // Supply the same wall to height and occupancy queries, as real voxels do.
+  d.ground=(x,z)=>z>origin.z+p.half[2]+1?floor+3:floor;g.voxels.solidAtWorld=(x,y,z)=>y<floor||(z>origin.z+p.half[2]+1&&y<floor+3);
   p.mesh.position.copy(origin);p.yaw=0;p.mesh.rotation.set(0,0,0);d.speed=0;d.steer=0;g.input.codes.clear();g.input.codes.add('KeyW');
   for(let i=0;i<60;i++){g.input.update(1/60);d.update(1/60);}
   rows.push({wall:true,distance:p.mesh.position.z-origin.z});g.input.codes.clear();d.ground=originalGround;g.voxels.solidAtWorld=originalSolid;d.contacts=originalContacts;return rows;
@@ -76,8 +77,10 @@ test('wall sweep stops a driven car and a hard crash damages it and restores the
  await setup(page);await enter(page);
  const r=await page.evaluate(()=>{
   const g=window.__game,d=g.driving,p=window.testCar,origin=p.mesh.position.clone(),dir={x:Math.sin(p.yaw),z:Math.cos(p.yaw)},original=g.voxels.solidAtWorld.bind(g.voxels);
-  g.voxels.solidAtWorld=(x,y,z)=>((x-origin.x)*dir.x+(z-origin.z)*dir.z>p.half[2]+2&&y>origin.y-p.half[1]+.3)||original(x,y,z);
-  d.speed=22;g.input.codes.add('KeyW');window.advanceTime(.5);g.input.codes.clear();g.voxels.solidAtWorld=original;
+  const originalGround=d.ground,wall=(x,z)=>(x-origin.x)*dir.x+(z-origin.z)*dir.z>p.half[2]+2;
+  d.ground=(x,z,from)=>wall(x,z)?origin.y+3:originalGround.call(d,x,z,from);
+  g.voxels.solidAtWorld=(x,y,z)=>(wall(x,z)&&y>origin.y-p.half[1]+.3)||original(x,y,z);
+  d.speed=22;g.input.codes.add('KeyW');window.advanceTime(.5);g.input.codes.clear();g.voxels.solidAtWorld=original;d.ground=originalGround;
   return {travel:(p.mesh.position.x-origin.x)*dir.x+(p.mesh.position.z-origin.z)*dir.z,phase:d.phase,crashes:d.crashes,broken:g.streetLife.destroyed.has(p.id),mask:g.jimothy.body.collisionFilterMask};
  });expect(r.travel).toBeLessThan(2.3);expect(r.crashes).toBeGreaterThan(0);expect(r.broken).toBe(true);expect(r.phase).toBe('onFoot');expect(r.mask).not.toBe(0);
 });
@@ -184,4 +187,25 @@ test('boarding blends the driver upright and preserves Jimothy paws until climbi
  await page.locator('canvas').first().focus();await page.keyboard.press('y');await adv(page,.2);
  const error=await page.evaluate(before=>Math.max(...Object.entries(before).map(([n,q])=>__game.jimothy.rig.bones[n].quaternion.angleTo(__game.jimothy.rig.bones[n].quaternion.clone().fromArray(q)))),before);expect(error).toBeLessThan(.01);
  await adv(page,.45);const gap=await page.evaluate(id=>{const p=__game.pedestrians.people.find(p=>p.id===id);return Math.abs(p.visual.position.y-p.driverBase.y);},f.driver);expect(gap).toBeLessThan(.10);await adv(page,.1);const separation=await page.evaluate(id=>{const p=__game.pedestrians.people.find(p=>p.id===id),j=__game.jimothy.body.position;return Math.hypot(p.mesh.position.x-j.x,p.mesh.position.z-j.z);},f.driver);expect(separation).toBeGreaterThan(.9);
+});
+
+test('a driven car crosses the steep generated street and junction in both directions at 30/60/120 Hz',async({page})=>{
+ await setup(page);await enter(page);
+ const result=await page.evaluate(()=>{
+  const g=__game,d=g.driving,p=testCar,s=g.streetLife,original=d.contacts,rows=[];
+  // Keep live generated road/voxel queries; traffic props have separate cases.
+  d.contacts=()=>[];
+  for(const hz of [30,60,120])for(const direction of [1,-1]){
+   p.mesh.position.set(67.35,0,direction>0?40:88);p.yaw=direction>0?0:Math.PI;p.mesh.rotation.set(0,p.yaw,0);s.poseVehicle(p);d.lastContact=null;
+   const start=p.mesh.position.clone();let wheelGap=0,maxStep=0;
+   for(let i=0;i<hz*6&&d.car;i++){
+    const oldY=p.mesh.position.y;d.speed=8;d.move(1/hz);
+    wheelGap=Math.max(wheelGap,...p.grounding.wheelGaps.map(Math.abs));maxStep=Math.max(maxStep,Math.abs(p.mesh.position.y-oldY));
+    if(d.speed===0)break;
+   }
+   rows.push({hz,direction,distance:(p.mesh.position.z-start.z)*direction,wheelGap,maxStep,contact:d.lastContact,phase:d.phase});
+  }
+  d.contacts=original;d.publish();return {rows,state:JSON.parse(render_game_to_text()).driving};
+ });console.log('STEEP_DRIVE',JSON.stringify(result.rows));
+ for(const r of result.rows){expect(r.phase).toBe('driving');expect(r.distance,JSON.stringify(r)).toBeGreaterThan(45);expect(r.wheelGap).toBeLessThan(.2);expect(r.maxStep).toBeLessThan(.45);}
 });

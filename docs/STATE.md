@@ -1,10 +1,18 @@
 # Session state
 
+## Continuing the backlog — 2026-10-04
+
+Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
+
+## Downhill driving repair — JIM-96 — 2026-10-04
+
+**Implemented, awaiting Chris's playtest.** The supplied steep-street failure is reproduced and repaired: the chassis follows steep grades, suspension height no longer looks like a cliff, and square storage cells above smooth roads no longer block the hull. The generated hill/junction clears 48 m uphill/downhill at 30/60/120 Hz. Native original-rig taxi inspection crosses it without crashes. All 25 unique focused/adjacent cases, 119 units, build and pixel smoke pass. One legacy traffic test needed its required dev-server URL; the unchanged rerun passes. See JIM-96 and M53 for evidence and the transient tyre-contact limitation. Next: JIM-95 durability → JIM-97 water splash/momentum → M54 gait, continuing the authorised sequence.
+
 ## Sequential playground queue — 2026-10-04
 
 **All fourteen additions plus bosses are recorded; M53 cars are implemented and pushed as `5252d5c`, awaiting playtest.** Chris explicitly asked to finish car driving with stronger ditch pull, then plan and implement the additions sequentially. The complete mapping, dependencies, 16 distinct landmark minigame directions, six boss directions and source research are in [playground expansion](playground-expansion.md). The earlier bikes/skateboards/combat outfits remain in that queue. This plan does not claim those later features are implemented.
 
-**Next:** [M54 slower balanced land gait](milestones/54-balanced-land-gait.md), then [M55 smooth ground/sewer stair traversal](milestones/55-ground-and-sewer-traversal.md). The reproduced JIM-89 car-floating cause is repaired below. Subsequent work: physical rolling/player ragdolls → destruction-led wanted pacing → fish/bubbles → swimming people → equipment amounts/full feedback → food hoards/purge → fatness-funded skill foundation → grapple/tethers/car surfing → jetpack/flight → remaining rides/outfits → city/cosmetics/keepsakes → local minigames and visitors/drivers → area bosses. Each major row gets its own focused implementation and verification; current giant performance issues remain open.
+**Next:** finish the JIM-96 downhill snag, JIM-95 car durability and JIM-97 vehicle water-entry follow-ups, then [M54 slower balanced land gait](milestones/54-balanced-land-gait.md), then [M55 smooth ground/sewer stair traversal](milestones/55-ground-and-sewer-traversal.md). The reproduced JIM-89 car-floating cause is repaired below. Subsequent work: physical rolling/player ragdolls → destruction-led wanted pacing → fish/bubbles → swimming people → equipment amounts/full feedback → food hoards/purge → fatness-funded skill foundation → grapple/tethers/car surfing → jetpack/flight → remaining rides/outfits → city/cosmetics/keepsakes → local minigames and visitors/drivers → area bosses. Each major row gets its own focused implementation and verification; current giant performance issues remain open.
 
 JIM-76 is reopened for rapid/skittery land steps; JIM-35 has the renewed mass-destruction requirement for five stars. New reports JIM-89–94 retain floating cars, blue-fish jitter, centre-only bubbles, swimming people, rough-slope sticking and unusable sewer stairs. The boss base candidate is WildMesh 3D's normal, textured raccoon listed CC BY; archive/licence/rig inspection and Blender integration remain future work. No boss asset has been imported.
 

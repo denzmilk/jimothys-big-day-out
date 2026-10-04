@@ -146,9 +146,15 @@ export function groundVehicle(mesh,half,ground){
   const yaw=mesh.rotation.y,s=Math.sin(yaw),c=Math.cos(yaw);
   const at=(x,z)=>ground(mesh.position.x+c*x+s*z,mesh.position.z-s*x+c*z);
   const w=half[0]*C.WHEEL_INSET,l=half[2]*C.WHEEL_INSET;
-  const fl=at(-w,l),fr=at(w,l),bl=at(-w,-l),br=at(w,-l);
-  const pitch=THREE.MathUtils.clamp(Math.atan2((fl+fr-bl-br)/2,2*l),-C.MAX_TILT,C.MAX_TILT);
-  const bank=THREE.MathUtils.clamp(Math.atan2((fr+br-fl-bl)/2,2*w),-C.MAX_TILT,C.MAX_TILT);
+  let pitch=0,bank=0,fl,fr,bl,br;
+  // A pitched wheelbase has a shorter footprint. Sampling the full flat
+  // length straddled both sides of a junction bend and over-tilted the car.
+  for(let pass=0;pass<C.CHASSIS_SOLVE_STEPS;pass++){
+    const width=w*Math.cos(bank),length=l*Math.cos(pitch);
+    fl=at(-width,length);fr=at(width,length);bl=at(-width,-length);br=at(width,-length);
+    pitch=THREE.MathUtils.clamp(Math.atan2((fl+fr-bl-br)/2,2*length),-C.MAX_TILT,C.MAX_TILT);
+    bank=THREE.MathUtils.clamp(Math.atan2((fr+br-fl-bl)/2,2*width),-C.MAX_TILT,C.MAX_TILT);
+  }
   mesh.quaternion.setFromEuler(new THREE.Euler(-pitch,yaw,bank,'YXZ'));
   mesh.position.y=(fl+fr+bl+br)/4+half[1];
   const wheels=mesh.children.filter(o=>o.isMesh&&/wheel-(front|back)-(left|right)$/.test(o.name));
@@ -167,6 +173,15 @@ export function groundVehicle(mesh,half,ground){
   mesh.updateMatrixWorld(true);
   if(wheels.length){
     mesh.position.y-=wheels.reduce((sum,w)=>sum+gap(w),0)/wheels.length;mesh.updateMatrixWorld(true);
+    // JIM-96: tyre support alone lets the long bumper catch the inside of
+    // a downhill-to-flat bend. Use the available suspension travel to clear
+    // the underbody too; a wall taller than that travel still blocks driving.
+    let lift=0;
+    for(const x of [-half[0],half[0]])for(const z of [-half[2],0,half[2]]){
+      point.set(x,-half[1]+C.BELLY_HEIGHT,z).applyMatrix4(mesh.matrixWorld);
+      lift=Math.max(lift,cachedGround(point.x,point.z)+C.BELLY_SKIN-point.y);
+    }
+    mesh.position.y+=Math.min(C.SUSPENSION,lift);mesh.updateMatrixWorld(true);
     // Suspension follows the tilted local up axis. That also shifts a tyre
     // sideways on a bank, so resample the new contact instead of stopping at
     // the old terrain height. Total travel stays bounded across all passes.

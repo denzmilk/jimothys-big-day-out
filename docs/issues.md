@@ -10,6 +10,30 @@
 
 ## Current destruction and HUD reports — 2026-10-04
 
+### JIM-97 — Vehicles stop at water without a substantial splash
+
+**Status:** open · **Reported:** Chris, 2026-10-04, during the M53 follow-up.
+
+A moving car entering water should create a large, speed/size-scaled splash and ripples, carry its entry momentum into shared physics, and release the rider safely. Trigger once per actual crossing; no spray while resting underwater, and no water entry on a dry bridge. Follow JIM-96/JIM-95, before M54. Locations: `DrivingSystem.update`, PhysicsSystem prop release/water contacts, water effects. Verification pending.
+
+### JIM-95 — Cars break/explode too readily
+
+**Status:** in-progress · **Reported:** Chris, 2026-10-04, M53 playtest.
+
+Keep the approved explosion/parts effects, but ordinary bumps and moderate attacks should leave usable cars. Audit driving crash thresholds and on-foot impact strength; verify serious high-speed crashes and large Jimothy hits still destroy cars. Locations: `DrivingSystem.crash`, `StreetLife.impact`, `Constants.js`. Verification pending.
+
+### JIM-96 — Driving downhill catches the car on the road
+
+**Status:** implemented, awaiting Chris's playtest · **Reported:** Chris, 2026-10-04, with screenshot of a taxi stopped partway down a steep, intact street.
+
+**Reproduction:** driving the generated street at x=67.35 from z=40 stops at z=61.87. The 29-degree chassis clamp puts the hull into the steeper road. After removing that clamp, suspension lift is mistaken for a drop-off; after fixing that comparison, square storage voxels above the smooth road catch the bumper. `output/iterate/driving-steep-red.log` and `driving-steep-pass{1,2,3,4,5}.log` retain those isolated failures.
+
+**Repair:** fit the chassis to its projected footprint with a 54-degree limit, allow bounded suspension travel/underbody clearance, compare ground heights instead of chassis-bottom heights, and check hull occupancy against the continuous contact surface. Solid columns still stop the car. Analytic wall fixtures now supply consistent height and occupancy queries; their original stopping-distance assertions are retained.
+
+**Evidence:** six generated-road traversals at 30/60/120 Hz travel 48 m uphill/downhill through the lower junction, without a false collision. Worst transient sampled tyre error is 18.1 cm on this very sharp bend; ordinary six-model contact and saved suspension checks retain their stricter bounds. Native original-rig taxi frames at z=60.87/65.59/75.25 show 17.85/19.72/23.10 m/s, zero crashes and no console errors. This is a fluidity repair, not a perfect tyre-force/airborne-vehicle simulation. Tools/evidence: `tools/inspect-steep-driving.mjs`, `output/iterate/driving-steep-{60,65,75}.png`, `driving-steep-native.json`, `car-slope-final.log`. All 25 unique focused/adjacent browser cases pass across the production batch (24/25) and the unchanged traffic-heading rerun on dev (1/1). That legacy case imports `/node_modules/three` and cannot run on the bundled preview; `car-slope-heading.log` records 2,759 forward-heading samples. All 119 units, build and production pixel smoke pass with no console errors.
+
+Chris authorised continuing the recorded backlog one item at a time, reviewing and adjusting each result for reliable, fluid gameplay without exhaustive cosmetic perfection. JIM-95 durability, then JIM-97 water impact, precede M54.
+
 ### JIM-89 — Some cars hover on inclines and declines
 
 **Status:** reproduced streaming case repaired, awaiting Chris's playtest · **Reported:** Chris, 2026-10-04, during M53.

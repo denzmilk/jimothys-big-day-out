@@ -495,9 +495,10 @@ export class JimothyController {
     eventBus.emit(Events.PLAYER_CONTACT,contact);
     if(contact.blocked){
       this.vel.x=this.body.velocity.x;this.vel.z=this.body.velocity.z;
-      // A lean charge spends its momentum at the obstacle. Continuing the
-      // lunge would immediately overwrite the contact response next frame.
-      if(this.move){this.move=null;this.moveCooldown=Math.max(this.moveCooldown,BODY_CONTACT.RECOVERY);}
+      // Lean charges spend their momentum here. Giant moves must survive
+      // contact long enough to fire demolition, or a door cancels the wind-up
+      // and rubble repeatedly cancels a held roll (JIM-83).
+      if(this.move&&this.radius<GIANT_IMPACT.MIN_RADIUS){this.move=null;this.moveCooldown=Math.max(this.moveCooldown,BODY_CONTACT.RECOVERY);}
     }
   }
 

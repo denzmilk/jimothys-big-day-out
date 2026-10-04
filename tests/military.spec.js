@@ -29,7 +29,7 @@ test('a shell hits an intervening wall before its marked destination',async({pag
  });await adv(page,1.4);const r=await page.evaluate(()=>({hit:window.shotHit,target:window.shotTarget}));expect(r.hit).toBeDefined();expect(r.hit.x).toBeLessThan(r.target.x-3);
 });
 
-test('normal tier four has no army; giants trigger tanks before tier five jets',async({page})=>{
+test('tier four stays police for every size; giant tanks and jets arrive at five',async({page})=>{
  await army(page);await page.evaluate(async()=>{const{gameState}=await import('/src/core/GameState.js');const{HEAT}=await import('/src/core/Constants.js');gameState.heat.points=HEAT.TIER_THRESHOLDS[4];gameState.heat.tier=4;});await adv(page,.1);expect((await state(page)).military.units).toHaveLength(0);
- await page.evaluate(()=>setFatness(250));await adv(page,.1);expect((await state(page)).military.units.map(u=>u.kind)).toEqual(['tank']);
+ await page.evaluate(()=>setFatness(250));await adv(page,.1);expect((await state(page)).military.units).toHaveLength(0);await heat(page);await adv(page,.1);expect((await state(page)).military.units.map(u=>u.kind).sort()).toEqual(['jet','tank']);
 });

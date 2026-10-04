@@ -12,6 +12,7 @@ export class DrivingSystem {
     Object.assign(this,{scene,jimothy,input,voxels});this.cars=new Map();this.drivers=new Map();this.phase='onFoot';this.speed=0;this.steer=0;this.crashes=0;this.timer=0;this.refresh=0;this.cooldown=0;this.messageTime=0;
     this.effects=new VehicleEffects(scene);this.panel=document.createElement('div');this.panel.id='driving-hud';this.panel.hidden=true;document.body.appendChild(this.panel);
     this.cabins=new VehicleCabins(scene);
+    eventBus.on(Events.DRIVER_EXIT,({id,receive})=>{const car=this.cars.get(id);if(!car||!this.drivers.has(id)||!this.exitPoint(car,C.DRIVER_RADIUS)){receive?.(false);return;}this.releaseDriver(id);receive?.(true);});
     eventBus.on(Events.VEHICLE_REGISTER,p=>this.cars.set(p.id,p));eventBus.emit(Events.VEHICLE_LIST,{receive:cars=>cars.forEach(p=>this.cars.set(p.id,p))});
     eventBus.on(Events.VEHICLE_REMOVE,({id,destroyed})=>{const p=this.cars.get(id);if(this.car===p)this.exit(true);this.releaseDriver(id,!destroyed);this.cars.delete(id);});
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{if(this.cars.has(id)){if(this.car?.id===id)this.exit(true);this.releaseDriver(id);}});
@@ -23,10 +24,14 @@ export class DrivingSystem {
   fits(p){return this.jimothy.radius<=Math.min(C.FIT_MAX,p.half[0]*C.FIT_RATIO);}
   syncDrivers(){
     for(const [id,p]of this.drivers){const car=this.cars.get(id);if(!car||car.loose||car.attached)this.releaseDriver(id);}
+    let civilians=[...this.drivers.values()].filter(p=>p.driverRole!=='police').length;
     for(const car of this.cars.values()){
       if(this.drivers.size>=C.DRIVER_LIMIT)break;
       if(!car.driving||car.loose||car.attached||car.driverAssigned||car.playerControlled)continue;
+      // Occupied stopped cars must not consume the two patrol seats (M60).
+      if(car.responseRole!=='police'&&civilians>=C.CIVILIAN_DRIVER_LIMIT)continue;
       eventBus.emit(Events.DRIVER_REQUEST,{car,receive:p=>{
+        p.driverRole=car.responseRole||'civilian';if(p.driverRole!=='police')civilians++;
         car.driverAssigned=true;p.driverPose=[];p.visual.traverse(b=>{if(b.isBone)p.driverPose.push({bone:b,q:b.quaternion.clone()});});p.driverBase=p.visual.position.clone();
         this.drivers.set(car.id,p);this.poseDriver(p,car);
       }});

@@ -4,7 +4,7 @@ from pathlib import Path
 from mathutils import Vector, Matrix
 ROOT=Path(__file__).resolve().parents[1]
 SOURCE=ROOT/'assets/vehicles/kenney-source'; OUT=ROOT/'public/assets/models/vehicles'
-NAMES=['sedan','hatchback-sports','suv','van','taxi','delivery']
+NAMES=['sedan','hatchback-sports','suv','van','taxi','delivery','police']
 manifest=[dict(id=name,author='Kenney',license='CC0 1.0',source='https://kenney.nl/assets/car-kit') for name in NAMES]
 for index,name in enumerate(NAMES):
  if os.environ.get('VEHICLES_ONLY') and name not in os.environ['VEHICLES_ONLY'].split(','):continue

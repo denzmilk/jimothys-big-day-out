@@ -70,7 +70,7 @@ export class Minimap {
       for(const fan of [p.sight,p.nearSight])if(fan?.length){ctx.beginPath();ctx.moveTo(x,z);for(const v of fan)ctx.lineTo(...point(v));ctx.closePath();ctx.fillStyle=color;ctx.globalAlpha=C.CONE_ALPHA;ctx.fill();ctx.globalAlpha=1;ctx.strokeStyle=color;ctx.stroke();}
       ctx.fillStyle=p.kind==='jet'||p.kind==='shell'?C.STRIKE:color;ctx.strokeStyle=C.UNDERGROUND;ctx.beginPath();
       if(p.kind==='animal-control'){ctx.rect(x-C.MARKER,z-C.MARKER,C.MARKER*2,C.MARKER*2);}
-      else if(p.kind==='tank'||p.kind==='jet'||p.kind==='shell'){ctx.moveTo(x,z-C.MARKER*1.5);ctx.lineTo(x+C.MARKER*1.5,z);ctx.lineTo(x,z+C.MARKER*1.5);ctx.lineTo(x-C.MARKER*1.5,z);ctx.closePath();}
+      else if(p.kind==='police-car'||p.kind==='tank'||p.kind==='jet'||p.kind==='shell'){ctx.moveTo(x,z-C.MARKER*1.5);ctx.lineTo(x+C.MARKER*1.5,z);ctx.lineTo(x,z+C.MARKER*1.5);ctx.lineTo(x-C.MARKER*1.5,z);ctx.closePath();}
       else ctx.arc(x,z,C.MARKER,0,Math.PI*2);
       ctx.fill();ctx.stroke();
       if(p.state==='noticing'){ctx.beginPath();ctx.arc(x,z,C.MARKER*2,-Math.PI/2,-Math.PI/2+p.awareness*Math.PI*2);ctx.strokeStyle=C.NOTICE;ctx.lineWidth=C.LINE*2;ctx.stroke();ctx.lineWidth=C.LINE;}

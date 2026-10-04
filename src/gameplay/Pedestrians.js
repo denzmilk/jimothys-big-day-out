@@ -16,6 +16,7 @@ export class Pedestrians {
     this.people=[];this.models=[];this.ready=false;this.elapsed=0;this.serial=0;this.center=null;
     this.graph=new Map();this.obstacles=new Map();this.activities=new PedestrianActivities(this);
     eventBus.on(Events.DRIVER_REQUEST,({car,receive})=>{
+      if(car.responseRole==='police')return;
       const p=this.people.toReversed().find(p=>!p.attached&&!p.ragdoll&&!p.vehicleSeat&&!p.wasDriver&&!p.activity);
       if(!p)return;p.vehicleSeat=car.id;p.wasDriver=true;eventBus.emit(Events.ENTITY_ATTACH,{id:p.id});receive(p);
     });

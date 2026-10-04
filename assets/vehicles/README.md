@@ -28,3 +28,7 @@ JIM-57: imported hierarchy transforms are flattened before the metre conversion,
 ```
 
 At runtime `VehicleCabin` clips the driver's door out of the imported triangles, retaining vertex attributes and glazing identity. The split exists only during player ownership; exiting disposes its geometry and restores the original car for batching. Cabin geometry/materials are shared by at most nine occupied cars. MPFB drivers and Jimothy keep their original skeletons and dimensions.
+
+## Police variant (M60)
+
+The seventh prepared car is Kenney's CC0 police model, loaded as an explicit responder variant. It is excluded from the six-car civilian selection. Its model key survives batching, saved poses, glass loss and fracture. Licence/source details and equipment recipes are in `assets/sources/police/README.md`. Up to two extra driver seats raise the shared occupied-seat budget to eleven including Jimothy.

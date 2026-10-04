@@ -22,6 +22,7 @@ import {Landmarks} from '../level/Landmarks.js';
 import {ToolSystem} from '../gameplay/ToolSystem.js';
 import {DrivingSystem} from '../gameplay/DrivingSystem.js';
 import { TrashCans } from '../gameplay/TrashCans.js';
+import {Police} from '../gameplay/Police.js';
 import {Military} from '../gameplay/Military.js';
 import { Pursuers } from '../gameplay/Pursuers.js';
 import { EnvironmentLife } from '../level/EnvironmentLife.js';
@@ -154,6 +155,7 @@ class Game {
     this.interiors=new InteriorSystem(this.scene,this.jimothy,this.voxels);
     this.pedestrians = new Pedestrians(this.scene, this.jimothy, this.voxels);
     this.driving=new DrivingSystem(this.scene,this.jimothy,this.input,this.voxels);
+    this.police=new Police(this.scene,this.jimothy,this.voxels);
     this.treasures = new Treasures(this.scene, this.jimothy, this.voxels);
     this.crabs = new CrabPeople(this.scene, this.jimothy, this.voxels);
     this.sewerLife=new SewerLife(this.scene,this.jimothy,this.voxels);
@@ -255,7 +257,7 @@ class Game {
       this.water.reset();this.sand.reset();this.groundChannels.reset();this.structuralSupport.reset();this.ocean.reset();this.physics.unsupported.clear();
       gameState.reset();
       this.jimothy.reset();
-      this.pursuers.reset();this.military.reset();
+      this.police.reset();this.pursuers.reset();this.military.reset();
       this.treasures.reset();
       this.crabs.reset();this.sewerLife.reset();
       this.debris.reset();
@@ -387,7 +389,7 @@ class Game {
   }
 
   update(delta) {
-    if(gameState.game.paused){this.driving.effects.silence();return;}
+    if(gameState.game.paused){this.driving.effects.silence();this.police.silence();this.pursuers.response.silence();return;}
     if (this.input.consumeFlyToggle()) {
       this.flyCamera.toggle();
       // Landing puts the follow camera back on him immediately. Controls are
@@ -437,7 +439,7 @@ class Game {
     this.ragdolls.update(delta);
     this.collector.update(delta);
     this.streetLife.afterUpdate();this.trashCans.syncVisuals();this.interiors.afterUpdate();
-    this.pursuers.update(delta);this.military.update(delta);
+    this.police.update(delta);this.pursuers.update(delta);this.military.update(delta);
     this.interiors.update(delta,position=>this.quality.inView(position,GRAPHICS.ACTOR_RADIUS));
     this.pedestrians.update(delta,position=>this.quality.inView(position,GRAPHICS.ACTOR_RADIUS));
     this.level.update(delta, this.camera,jp,this.quality.preset.DETAIL+this.jimothy.radius);
@@ -932,6 +934,7 @@ class Game {
       game: gameState.game,
       pursuers: this.pursuers.snapshot(),
       response:this.pursuers.response.snapshot(),
+      police:{...this.police.snapshot(),officers:this.pursuers.police.length,projectiles:this.pursuers.response.bullets.length},
       radar: this.radar.snapshot(),
       military:this.military.snapshot(),
       underground: {

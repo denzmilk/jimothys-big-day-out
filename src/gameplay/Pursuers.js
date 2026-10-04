@@ -4,7 +4,7 @@ import {sightFan,belowGround} from '../core/Perception.js';
 import { FootGrounding, solveTwoBone } from '../core/Grounding.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import {
-  PAPARAZZI, ANIMAL_CONTROL, LOCAL_RESPONSE, PURSUER_SPAWN_POINTS, COLORS, WORLD,
+  PAPARAZZI, ANIMAL_CONTROL, LOCAL_RESPONSE, POLICE, PURSUER_SPAWN_POINTS, COLORS, WORLD,
   VISION, HEARING, SEARCH, PATROL, PLAYER_CONFIG, COLLECTION, PEDESTRIANS, CAPTURE, TRAFFIC, RADAR,
 } from '../core/Constants.js';
 import { eventBus, Events } from '../core/EventBus.js';
@@ -56,10 +56,22 @@ export class Pursuers {
     this.jimothy = jimothy;
     this.voxels = voxels;
     this.paparazzi = [];
-    this.locals=[];
+    this.locals=[];this.police=[];
     this.animalControl = null;
     this.response=new LocalResponse(this);
     this.spawnIndex = 0;
+    eventBus.on(Events.POLICE_CAPACITY,q=>q.receive({ready:!!this.models,count:this.police.length}));
+    eventBus.on(Events.DRIVER_REQUEST,({car,receive})=>{
+      if(car.responseRole!=='police'||!this.models||this.police.length>=POLICE.COUNT)return;
+      const p=this._makePerson('police',car.mesh.position.x,car.mesh.position.z);this.police.push(p);p.vehicleSeat=car.id;
+      eventBus.emit(Events.ENTITY_ATTACH,{id:`pursuer-${p.id}`});
+      // Driving owns the seat while Pursuers keeps the actual animation state.
+      // Forwarding these fields prevents a frozen mixer after dismounting.
+      receive({id:`pursuer-${p.id}`,mesh:p.group,visual:p.visual,mixer:p.mixer,height:p.height,model:p.model,
+        get animation(){return p.animation;},set animation(v){p.animation=v;},
+        get vehicleSeat(){return p.vehicleSeat;},set vehicleSeat(v){p.vehicleSeat=v;}});
+    });
+    eventBus.on(Events.DRIVER_REMOVE,({id})=>{const p=this.police.find(p=>`pursuer-${p.id}`===id);if(p){this._removePerson(p);this.police.splice(this.police.indexOf(p),1);}});
     eventBus.on(Events.TRAFFIC_OBSTACLES,({obstacles})=>{for(const p of this.all)if(!p.attached)obstacles.push({id:`pursuer-${p.id}`,x:p.group.position.x,z:p.group.position.z,y:p.group.position.y,radius:TRAFFIC.PERSON_RADIUS});});
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=true;p.pinned=true;p.sees=false;this.response.interrupt(p);}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.all.find(p=>`pursuer-${p.id}`===id);if(p){p.attached=false;p.group.position.set(position.x,ground,position.z);p.grounding?.reset();p.state='suspicious';p.searchTimer=SEARCH.DURATION;}});
@@ -95,7 +107,7 @@ export class Pursuers {
   }
 
   get all() {
-    return [...this.paparazzi,...this.locals,...(this.animalControl?[this.animalControl]:[])];
+    return [...this.paparazzi,...this.locals,...this.police,...(this.animalControl?[this.animalControl]:[])];
   }
 
   /** Where a new pursuer appears: on a ring around JIMOTHY, not at a fixed
@@ -194,7 +206,7 @@ export class Pursuers {
 
   _human(p) {
     if(!this.models||p.visual)return;
-    p.model=p.type==='animal-control'?'worker':p.type==='angry-local'?LOCAL_RESPONSE.MODELS[p.id%LOCAL_RESPONSE.MODELS.length]:'commuter';
+    p.model=p.type==='animal-control'?'worker':p.type==='angry-local'?LOCAL_RESPONSE.MODELS[p.id%LOCAL_RESPONSE.MODELS.length]:p.type==='police'?POLICE.MODEL:'commuter';
     const model=this.models[PEDESTRIANS.MODELS.indexOf(p.model)];
     p.visual=clone(model.scene);const box=new THREE.Box3().setFromObject(p.visual);p.visual.position.y-=box.min.y;p.height=box.max.y-box.min.y;p.group.add(p.visual);
     for(const child of [...p.group.children])if(child.userData.placeholder)p.group.remove(child);
@@ -302,6 +314,8 @@ export class Pursuers {
     if (type === 'animal-control') {
       if (this.animalControl) this._removePerson(this.animalControl);
       this.animalControl = p;
+    } else if(type==='police'){
+      this.police.push(p);
     } else if(type==='angry-local'){
       this.locals.push(p);
     } else {
@@ -326,7 +340,7 @@ export class Pursuers {
   sightRange(type, tier = gameState.heat.tier) {
     const scale = type === 'animal-control'
       ? ANIMAL_CONTROL.VISION_SCALE
-      : PAPARAZZI.VISION_SCALE;
+      : type==='police'?POLICE.VISION_SCALE:PAPARAZZI.VISION_SCALE;
     return VISION.RANGE * scale * (1 + Math.max(0, tier - 1) * VISION.TIER_RANGE_GAIN);
   }
 
@@ -496,7 +510,8 @@ export class Pursuers {
   /** Speed for the current state. Patrol is a walk; the rest is the type's own
    *  pace. */
   _speed(p) {
-    const base = p.type === 'animal-control' ? ANIMAL_CONTROL.SPEED : p.type==='angry-local'?LOCAL_RESPONSE.SPEED:PAPARAZZI.SPEED;
+    const base = p.type === 'animal-control' ? ANIMAL_CONTROL.SPEED : p.type==='angry-local'?LOCAL_RESPONSE.SPEED:p.type==='police'?POLICE.FOOT_SPEED:PAPARAZZI.SPEED;
+    if(p.type==='police'&&(p.fire?.phase==='aim'||p.sees&&p.group.position.distanceTo(this.jimothy.position)<POLICE.GUN_RANGE))return 0;
     if (p.state === 'patrol') return base * PATROL.SPEED_SCALE;
     if (p.state === 'noticing') return 0;
     // Photographers stop at photo range and loiter rather than dogpiling.
@@ -693,6 +708,13 @@ export class Pursuers {
       if(p.kick.busy)p.group.rotation.y=p.kick.heading;
       this._animate(p,delta,x,z);this.response.kick(p,delta);p.responsePose?.apply(delta);
     }
+    for(const p of [...this.police])if(!p.manual&&!p.attached&&(tier<POLICE.MIN_TIER||p.group.position.distanceTo(this.jimothy.position)>POLICE.DESPAWN_RANGE)){this._removePerson(p);this.police.splice(this.police.indexOf(p),1);}
+    for(const p of this.police){
+      if(p.attached||p.ragdoll)continue;
+      const x=p.group.position.x,z=p.group.position.z;this._think(p,delta);this._steer(p,delta,this._speed(p));
+      if(p.fire?.phase==='aim'&&p.fire.target)p.group.rotation.y=Math.atan2(p.fire.target.x-x,p.fire.target.z-z);
+      this._animate(p,delta,x,z);p.responsePose?.apply(delta,p.fire?.target||this.jimothy.body.position);this.response.gun(p,delta);
+    }
     const ac=this.animalControl;
     gameState.capture.holding=false;
     if(ac&&!ac.attached&&!ac.ragdoll){
@@ -736,6 +758,7 @@ export class Pursuers {
   }
 
   reset() {
+    for(const p of this.police)this._removePerson(p);this.police=[];
     for(const p of this.locals)this._removePerson(p);this.locals=[];this.response.reset();this.globalFlashCooldown=0;
     for (const pap of this.paparazzi) this._removePerson(pap);
     this.paparazzi = [];
@@ -769,7 +792,7 @@ export class Pursuers {
       ragdoll: !!p.ragdoll,
       netPhase: p.netPhase || 'idle',
       kickPhase:p.kick?.phase||null,kickTime:p.kick?.time||0,kickHeading:p.kick?.heading||0,
-      camera:!!p.camera,photoFlash:p.photoLeft||0,
+      gun:!!p.gun,gunPhase:p.fire?.phase||null,vehicleSeat:p.vehicleSeat||null,camera:!!p.camera,photoFlash:p.photoLeft||0,
       x: round(p.group.position.x),
       z: round(p.group.position.z),
       // Milestone 19: without these, none of the awareness model is assertable

@@ -42,6 +42,7 @@ export const eventBus = new EventBus();
 // Define ALL events as constants — use domain:action naming
 export const Events = {
   VEHICLE_LIST:'vehicle:list', VEHICLE_REGISTER:'vehicle:register', VEHICLE_REMOVE:'vehicle:remove', VEHICLE_BREAK:'vehicle:break', VEHICLE_GLASS:'vehicle:glass',
+  VEHICLE_PATROL_REQUEST:'vehicle:patrol-request', POLICE_CAPACITY:'police:capacity', DRIVER_EXIT:'driver:exit',
   DRIVER_REQUEST:'driver:request', DRIVER_REMOVE:'driver:remove',
   PLAYER_RIDE:'player:ride', PLAYER_RIDE_POSE:'player:ride-pose', PROP_CONTROL:'prop:control', VEHICLE_CONTACTS:'vehicle:contacts',
   TACTICAL_QUERY: 'tactical:query',

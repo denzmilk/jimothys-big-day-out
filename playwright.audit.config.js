@@ -7,5 +7,6 @@ export default defineConfig({
  reporter:[['line'],['json',{outputFile:'output/iterate/stability-full.json'}]],
  outputDir:'output/iterate/stability-test-results',
  use:{baseURL:process.env.GAME_URL||'http://127.0.0.1:3000',headless:true,channel:'chrome',
-  launchOptions:{args:process.platform==='darwin'?['--use-angle=metal']:[]}},
+  // Keep the audio graph/analyser live without a hanging OS output device.
+  launchOptions:{args:['--disable-audio-output',...(process.platform==='darwin'?['--use-angle=metal']:[])]}},
 });

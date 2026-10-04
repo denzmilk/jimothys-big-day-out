@@ -1,4 +1,4 @@
-import {TRAFFIC as C,STREET,TOOLS} from './Constants.js';
+import {TRAFFIC as C,STREET,TOOLS,POLICE} from './Constants.js';
 
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const dot=(a,b)=>a.x*b.x+a.z*b.z;
@@ -7,8 +7,8 @@ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 // Pure traffic state/geometry: StreetLife owns meshes and publishes physics
 // poses. Junction reservations survive phase changes until the rear clears.
 export class TrafficFlow {
- constructor(routes,clear){this.routes=routes;this.clear=clear;this.time=0;this.reservations=new Map();this.broken=new Set();this.paths=new Map();}
- reset(){this.time=0;this.reservations.clear();this.broken.clear();}
+ constructor(routes,clear){this.routes=routes;this.clear=clear;this.time=0;this.reservations=new Map();this.broken=new Set();this.paths=new Map();this.goalRoutes=new Map();}
+ reset(){this.time=0;this.reservations.clear();this.broken.clear();this.goalRoutes.clear();}
  signal(junction,axis){
   if(this.broken.has(junction.id)||junction.signalled===false||junction.outgoing.length<C.SIGNAL_MIN_ROADS)return 'yield';
   const half=C.GREEN+C.AMBER+C.ALL_RED,t=((this.time+junction.offset)%(2*half)+2*half)%(2*half),active=t<half?0:1,phase=t%half;
@@ -27,11 +27,25 @@ export class TrafficFlow {
  }
  choose(p,road,turns){
   const all=road.to.outgoing.filter(r=>this.path(road,r).valid),onward=all.filter(r=>r.to!==road.from),choices=onward.length?onward:all;
+  if(p.routeTarget){
+   const costs=this.goalCosts(p.routeTarget),reachable=choices.filter(r=>costs.has(r.to.id));
+   if(reachable.length)return reachable.sort((a,b)=>costs.get(a.to.id)-costs.get(b.to.id)||distance(a.to,p.routeTarget)-distance(b.to,p.routeTarget)||a.id.localeCompare(b.id))[0];
+  }
   choices.sort((a,b)=>dot(b.dir,road.dir)-dot(a.dir,road.dir)||a.id.localeCompare(b.id));
   return choices[C.ROUTE_CHOICES[(p.seed+turns)%C.ROUTE_CHOICES.length]%choices.length]||null;
  }
+ goalCosts(target){
+  let goal=null,best=Infinity;for(const j of this.routes.junctions.values()){const d=distance(j,target);if(d<best){best=d;goal=j;}}
+  if(!goal)return new Map();if(this.goalRoutes.has(goal.id))return this.goalRoutes.get(goal.id);
+  // Reverse breadth-first routes stay on connected streets. A capped cache
+  // avoids rebuilding a city graph as a seen target moves within one block.
+  const costs=new Map([[goal.id,0]]),queue=[goal];
+  for(let i=0;i<queue.length;i++)for(const road of queue[i].incoming){if(costs.has(road.from.id))continue;costs.set(road.from.id,costs.get(queue[i].id)+1);queue.push(road.from);}
+  if(this.goalRoutes.size>=POLICE.ROUTE_CACHE)this.goalRoutes.delete(this.goalRoutes.keys().next().value);
+  this.goalRoutes.set(goal.id,costs);return costs;
+ }
  assign(p,road,d=0){
-  this.release(p.id);p.route={road,distance:d,speed:0,next:this.choose(p,road,0),connector:null,committed:false,turns:0,wait:0,reason:null};p.driving=true;this.pose(p);
+  this.release(p.id);p.route={road,goalKey:p.routeTarget?`${p.routeTarget.x},${p.routeTarget.z}`:null,distance:d,speed:0,next:this.choose(p,road,0),connector:null,committed:false,turns:0,wait:0,reason:null};p.driving=true;this.pose(p);
  }
  point(route,ahead=0){
   let d=route.distance+ahead;
@@ -62,9 +76,10 @@ export class TrafficFlow {
    let limit=Infinity;r.reason=null;
    if(!r.connector&&!r.committed){
     const j=r.road.to,gate=r.road.length-p.half[2]-C.STOP_SETBACK,remaining=gate-r.distance;
+    const goalKey=p.routeTarget?`${p.routeTarget.x},${p.routeTarget.z}`:null;if(r.goalKey!==goalKey){r.next=this.choose(p,r.road,r.turns);r.goalKey=goalKey;}
     const phase=this.signal(j,r.road.axis),holder=this.reservations.get(j.id);
     if(remaining<C.GAP&&r.speed<C.STOP_SPEED)r.wait+=dt;
-    const allowed=(phase==='green'||phase==='yield'&&r.wait>=C.YIELD_WAIT)&&(!holder||holder===p.id)&&this.exitClear(p,others);
+    const allowed=(p.emergency||phase==='green'||phase==='yield'&&r.wait>=C.YIELD_WAIT)&&(!holder||holder===p.id)&&this.exitClear(p,others);
     if(!allowed){limit=Math.max(0,remaining);r.reason=holder&&holder!==p.id?'junction':phase==='green'?'exit':phase;}
     if(allowed&&remaining<=Math.max(C.GAP,r.speed*dt)){
      this.reservations.set(j.id,p.id);r.committed=true;r.wait=0;
@@ -81,7 +96,7 @@ export class TrafficFlow {
     }
    }
    p.toolSlow=Math.max(0,(p.toolSlow||0)-dt);
-   const desired=Math.min((r.connector?C.TURN_SPEED:STREET.SPEED)*(p.toolSlow>0?TOOLS.PLUNGER_SPEED:1),Math.sqrt(2*C.BRAKE*limit));
+   const desired=Math.min((r.connector?(p.turnSpeed??C.TURN_SPEED):(p.cruiseSpeed??STREET.SPEED))*(p.toolSlow>0?TOOLS.PLUNGER_SPEED:1),Math.sqrt(2*C.BRAKE*limit));
    r.speed=Math.max(0,r.speed+clamp(desired-r.speed,-C.BRAKE*dt,C.ACCELERATION*dt));
    const step=Math.min(r.speed*dt,limit);if(limit<C.STOP_SPEED)r.speed=0;
    r.distance+=step;

@@ -4,13 +4,14 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { groundVehicle } from '../core/Grounding.js';
 import {splitGlassPanes,paneHit,panePoints} from '../core/GlassGeometry.js';
 import {buildCarFragments} from '../core/CarFragments.js';
-import {STREET as C, VOXEL, CAR_EXPLOSION, DAY_NIGHT, TRAFFIC as T, BODY_CONTACT} from '../core/Constants.js';
+import {STREET as C, VOXEL, CAR_EXPLOSION, DAY_NIGHT, TRAFFIC as T, BODY_CONTACT, POLICE} from '../core/Constants.js';
 import {canPush,pushingMass} from '../core/BodyContact.js';
 import {eventBus,Events} from '../core/EventBus.js';
 import {gameState} from '../core/GameState.js';
 import * as Layout from '../level/Layout.js';
 import {buildTrafficRoutes} from '../level/TrafficRoutes.js';
 import {InstanceBatches} from '../core/InstanceBatches.js';
+import {boxesOverlap} from '../core/DrivingMath.js';
 import {TrafficFlow} from '../core/TrafficFlow.js';
 
 const hash=(x,z)=>Math.abs(Math.imul(x,73856093)^Math.imul(z,19349663))>>>0;
@@ -35,24 +36,25 @@ export class StreetLife {
     eventBus.on(Events.PROP_UNSUPPORTED,({id})=>{const p=this.items.find(p=>p.id===id);if(p){this.disableControl(p);this.flow.release(id);p.driving=false;}});
     eventBus.on(Events.ENTITY_ATTACH,({id})=>{const p=this.items.find(p=>p.id===id);if(p){this.disableControl(p);this.flow.release(p.id);p.attached=true;p.driving=false;eventBus.emit(Events.PROP_SUSPEND,{id});}});
     eventBus.on(Events.ENTITY_RELEASE,({id,position,ground})=>{const p=this.items.find(p=>p.id===id);if(p){p.attached=false;p.loose=true;p.mesh.position.set(position.x,ground+p.half[1]+C.CLEARANCE,position.z);eventBus.emit(Events.PROP_RELEASE,{id,position:p.mesh.position});}});
-    this.vehicles=[];this.ready=false;
+    this.vehicles=[];this.ready=false;this.specialVehicles=new Map();
+    eventBus.on(Events.VEHICLE_PATROL_REQUEST,q=>this.spawnPatrol(q));
     eventBus.on(Events.VEHICLE_LIST,q=>q.receive(this.items.filter(p=>p.kind==='car'&&!p.fragment)));
     eventBus.on(Events.VEHICLE_BREAK,({id,radius,instigator})=>{const p=this.items.find(p=>p.id===id);if(p)this.fracture(p,p.mesh.position.x,p.mesh.position.z,radius,instigator);});
     eventBus.on(Events.VEHICLE_GLASS,({id})=>{const p=this.items.find(p=>p.id===id);if(p)this.shatterWindows(p,p.mesh.position);});
     eventBus.on(Events.TOOL_FORCE,({mesh})=>{const p=this.items.find(p=>p.mesh===mesh);if(p){p.loose=true;p.driving=false;this.flow.release(p.id);}});
-    this.loading=Promise.all(C.VEHICLES.map(name=>new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/models/vehicles/${name}.glb`))).then(models=>{
-      this.vehicles=models;this.ready=true;this.populate();
+    this.loading=Promise.all([...C.VEHICLES,POLICE.CAR_MODEL].map(name=>new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}assets/models/vehicles/${name}.glb`))).then(models=>{
+      this.vehicles=models.slice(0,C.VEHICLES.length);this.specialVehicles.set(POLICE.CAR_MODEL,models.at(-1));this.ready=true;this.populate();
     }).catch(error=>console.error('Vehicle assets failed',error));
     this.populate();
   }
   material(color){if(!this.materials.has(color))this.materials.set(color,new THREE.MeshStandardMaterial({color,roughness:C.ROUGHNESS}));return this.materials.get(color);}
   box(part){const [w,h,d,x,y,z,color,section]=part,key=`${w},${h},${d}`;if(!this.geometries.has(key))this.geometries.set(key,new THREE.BoxGeometry(w,h,d));const mesh=new THREE.Mesh(this.geometries.get(key),this.material(color));mesh.position.set(x,y,z);mesh.userData.section=section;return mesh;}
-  template(kind,seed){
-    const key=kind==='car'?`car-${seed%this.vehicles.length}`:kind;
+  template(kind,seed,model=null){
+    const key=kind==='car'?`car-${model||seed%this.vehicles.length}`:kind;
     if(!this.templates.has(key)){
       const g=new THREE.Group();
       if(kind==='car'){
-        const source=this.vehicles[seed%this.vehicles.length].scene;source.updateMatrixWorld(true);
+        const source=(model?this.specialVehicles.get(model):this.vehicles[seed%this.vehicles.length]).scene;source.updateMatrixWorld(true);
         source.traverse(o=>{
           if(!o.isMesh)return;
           const glass=Array.isArray(o.material)?o.material.some(m=>m.transmission):o.material.transmission;
@@ -105,13 +107,13 @@ export class StreetLife {
       if(!p.fragment&&(!p.driving||p.brokenWindows?.length))this.saved.set(p.id,{
         position:p.mesh.position.toArray(),quaternion:p.mesh.quaternion.toArray(),yaw:p.yaw,
         suspension:p.kind==='car'?Object.fromEntries(p.mesh.children.filter(w=>w.userData.restY!==undefined).map(w=>[w.name,w.position.y])):undefined,
-        loose:p.loose,kind:p.kind,seed:p.seed,brokenWindows:p.brokenWindows,junction:p.junction,axis:p.axis,
+        loose:p.loose,kind:p.kind,seed:p.seed,model:p.model,brokenWindows:p.brokenWindows,junction:p.junction,axis:p.axis,
       });
       this.remove(p);
     }
     for(const [id,saved] of this.saved){
       const [x,,z]=saved.position;
-      if(!this.items.some(p=>p.id===id)&&Math.hypot(x-j.x,z-j.z)<R){this.spawn(id,saved.kind,{x,z,seed:saved.seed,key:null},false);}
+      if(!this.items.some(p=>p.id===id)&&Math.hypot(x-j.x,z-j.z)<R){this.spawn(id,saved.kind,{x,z,seed:saved.seed,model:saved.model,key:null},false);}
     }
     this.populateControls();
     const types=Object.keys(C.TYPES).filter(k=>k!=='lamp'&&k!=='signal');
@@ -140,6 +142,21 @@ export class StreetLife {
       const p=this.spawn(`parked-${n.key}`,'car',{...n,x,z},false);if(p&&!this.saved.has(p.id)){p.yaw=Math.atan2(n.road.dir.x,n.road.dir.z);p.mesh.rotation.y=p.yaw;this.poseVehicle(p);}
     }
     this.updateMarkings();
+  }
+  spawnPatrol({id,around,target,receive}){
+    if(!this.ready){receive(null);return;}
+    const sites=[],half=this.template('car',0,POLICE.CAR_MODEL).userData.half;
+    for(const road of this.routes.roads)for(let d=T.PARK_START;d<road.length-T.SPAWN_END;d+=T.PARK_SPACING){
+      const x=road.start.x+road.dir.x*d,z=road.start.z+road.dir.z*d,distance=Math.hypot(x-around.x,z-around.z);
+      if(distance<POLICE.SPAWN_MIN||distance>POLICE.SPAWN_MAX||this.items.some(p=>p.kind==='car'?Math.hypot(p.mesh.position.x-x,p.mesh.position.z-z)<POLICE.CAR_SEPARATION:boxesOverlap({x,z,yaw:Math.atan2(road.dir.x,road.dir.z),half},{x:p.mesh.position.x,z:p.mesh.position.z,yaw:p.yaw??p.mesh.rotation.y,half:p.half})))continue;
+      const expected=Layout.pavingAtWorld(x,z)?.height,ground=this.ground(x,z);
+      if(expected===undefined||Math.abs(ground-expected)>T.MAX_DROP)continue;
+      sites.push({road,d,x,z,seed:hash(Math.round(x),Math.round(z)),model:POLICE.CAR_MODEL,responseRole:'police',rank:Math.abs(distance-POLICE.SPAWN_TARGET)+Math.hypot(road.end.x-target.x,road.end.z-target.z)});
+    }
+    sites.sort((a,b)=>a.rank-b.rank);const site=sites[0];if(!site){receive(null);return;}
+    const p=this.spawn(id,'car',site,true);
+    if(p){p.routeTarget={...target};p.cruiseSpeed=POLICE.SPEED;p.turnSpeed=POLICE.TURN_SPEED;p.emergency=true;this.assignRoute(p,site.road,site.d);}
+    receive(p);
   }
   assignRoute(p,road,d=0){this.flow.assign(p,road,d);this.poseVehicle(p);}
   poseVehicle(p){
@@ -186,7 +203,7 @@ export class StreetLife {
 
   spawn(id,kind,node,driving){
     if(this.destroyed.has(id)||this.items.some(p=>p.id===id))return null;
-    const saved=this.saved.get(id),mesh=this.template(kind,node.seed),half=mesh.userData.half;
+    const saved=this.saved.get(id),mesh=this.template(kind,node.seed,saved?.model||node.model),half=mesh.userData.half;
     mesh.position.set(node.x,this.ground(node.x,node.z)+half[1]+C.CLEARANCE,node.z);
     if(saved){mesh.position.fromArray(saved.position);mesh.quaternion.fromArray(saved.quaternion);driving=false;}
     // JIM-89: returning only the chassis left restored tyres at their authored
@@ -196,7 +213,7 @@ export class StreetLife {
     const brokenWindows=[...(saved?.brokenWindows||[])];
     for(const pane of [...mesh.children])if(brokenWindows.includes(pane.userData.glassPane))mesh.remove(pane);
     if(Math.hypot(mesh.position.x-this.center.x,mesh.position.z-this.center.z)>C.RADIUS)return null;
-    const p={id,kind,mesh,seed:node.seed,size:mesh.userData.size,half,mass:kind==='car'?C.CAR.MASS:C.TYPES[kind].mass,driving,loose:!!saved?.loose,attached:false,node:node.key,previous:null,target:null,fragment:false,brokenWindows,junction:saved?.junction??node.junction,axis:saved?.axis??node.axis};
+    const p={id,kind,mesh,seed:node.seed,model:saved?.model||node.model,responseRole:node.responseRole,size:mesh.userData.size,half,mass:kind==='car'?C.CAR.MASS:C.TYPES[kind].mass,driving,loose:!!saved?.loose,attached:false,node:node.key,previous:null,target:null,fragment:false,brokenWindows,junction:saved?.junction??node.junction,axis:saved?.axis??node.axis};
     if(saved&&kind==='car')p.yaw=saved.yaw??new THREE.Euler().setFromQuaternion(mesh.quaternion,'YXZ').y;
     this.install(p);return p;
   }
@@ -234,7 +251,7 @@ export class StreetLife {
   }
   afterUpdate(){
     this.batches.update(this.items.filter(p=>!p.fragment&&!p.playerControlled).map(p=>({
-      key:`${p.kind}:${p.kind==='car'?p.seed%this.vehicles.length:''}:${p.brokenWindows?.join(',')||''}:${p.mesh.children.map(m=>m.material?.uuid).join(',')}`,
+      key:`${p.kind}:${p.kind==='car'?(p.model||p.seed%this.vehicles.length):''}:${p.brokenWindows?.join(',')||''}:${p.mesh.children.map(m=>m.material?.uuid).join(',')}`,
       root:p.mesh,visible:p.mesh.visible&&(p.attached||p.mesh.position.distanceTo(this.jimothy.body.position)<(gameState.world.graphics?.detail??Infinity)+this.jimothy.radius),
     })));
   }
@@ -268,8 +285,8 @@ export class StreetLife {
     }
     return hit;
   }
-  carParts(seed){
-    const key=`car-${seed%this.vehicles.length}`;
+  carParts(seed,model){
+    const key=`car-${model||seed%this.vehicles.length}`;
     if(!this.carFragments.has(key))this.carFragments.set(key,buildCarFragments(this.templates.get(key)));
     return this.carFragments.get(key);
   }
@@ -278,7 +295,7 @@ export class StreetLife {
     this.disableControl(p);
     this.shatterWindows(p,new THREE.Vector3(x,p.mesh.position.y,z));
     p.mesh.updateMatrixWorld(true);const sections=new Map();
-    const isCar=p.kind==='car',children=isCar?this.carParts(p.seed):p.mesh.children;
+    const isCar=p.kind==='car',children=isCar?this.carParts(p.seed,p.model):p.mesh.children;
     for(const [i,child] of children.entries()){
       const key=isCar?(child.userData.part==='wheel'?`wheel-${i}`:child.userData.part):child.userData.section||0;
       if(!sections.has(key)){const group=new THREE.Group();group.userData.part=child.userData.part;sections.set(key,group);}
@@ -307,5 +324,5 @@ export class StreetLife {
     }
   }
   reset(){this.batches.clear();for(const p of [...this.items])this.remove(p);this.saved.clear();this.destroyed.clear();this.serial=0;this.center=null;this.flow.reset();this.populate();}
-  snapshot(){return {junctions:[...this.routes.junctions.values()].filter(j=>Math.hypot(j.x-this.center.x,j.z-this.center.z)<C.RADIUS).map(j=>({id:j.id,x:j.x,z:j.z,phase:[this.flow.signal(j,0),this.flow.signal(j,1)],holder:this.flow.reservations.get(j.id)||null,broken:this.flow.broken.has(j.id)})),ready:this.ready,models:this.vehicles.length,traffic:this.items.filter(p=>p.driving).length,parked:this.items.filter(p=>p.kind==='car'&&!p.driving&&!p.loose).length,fragments:this.items.filter(p=>p.fragment).length,items:this.items.map(p=>({id:p.id,kind:p.kind,x:+p.mesh.position.x.toFixed(2),y:+p.mesh.position.y.toFixed(2),z:+p.mesh.position.z.toFixed(2),model:p.kind==='car'&&!p.fragment?C.VEHICLES[p.seed%this.vehicles.length]:null,driving:p.driving,speed:p.route?.speed||0,waiting:p.route&&p.route.speed<T.STOP_SPEED?p.route.reason:null,road:p.route?.road.id,yaw:p.yaw,loose:p.loose,attached:p.attached,windows:p.mesh.children.filter(m=>m.userData.glassPane!==undefined).length,brokenWindows:p.brokenWindows?.length||0,sourceId:p.sourceId,part:p.part}))};}
+  snapshot(){return {junctions:[...this.routes.junctions.values()].filter(j=>Math.hypot(j.x-this.center.x,j.z-this.center.z)<C.RADIUS).map(j=>({id:j.id,x:j.x,z:j.z,phase:[this.flow.signal(j,0),this.flow.signal(j,1)],holder:this.flow.reservations.get(j.id)||null,broken:this.flow.broken.has(j.id)})),ready:this.ready,models:this.vehicles.length,traffic:this.items.filter(p=>p.driving).length,parked:this.items.filter(p=>p.kind==='car'&&!p.driving&&!p.loose).length,fragments:this.items.filter(p=>p.fragment).length,items:this.items.map(p=>({id:p.id,kind:p.kind,x:+p.mesh.position.x.toFixed(2),y:+p.mesh.position.y.toFixed(2),z:+p.mesh.position.z.toFixed(2),model:p.kind==='car'&&!p.fragment?(p.model||C.VEHICLES[p.seed%this.vehicles.length]):null,driving:p.driving,speed:p.route?.speed||0,waiting:p.route&&p.route.speed<T.STOP_SPEED?p.route.reason:null,road:p.route?.road.id,yaw:p.yaw,loose:p.loose,attached:p.attached,windows:p.mesh.children.filter(m=>m.userData.glassPane!==undefined).length,brokenWindows:p.brokenWindows?.length||0,sourceId:p.sourceId,part:p.part}))};}
 }

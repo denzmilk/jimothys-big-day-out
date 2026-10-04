@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {solveTwoBone} from '../core/Grounding.js';
-import {LOCAL_RESPONSE as C} from '../core/Constants.js';
+import {LOCAL_RESPONSE as C,POLICE} from '../core/Constants.js';
 const point=b=>b.getWorldPosition(new THREE.Vector3());
 const ease=t=>{t=THREE.MathUtils.clamp(t,0,1);return t*t*(3-2*t);};
 
@@ -23,18 +23,19 @@ export class HumanResponsePose {
   for(const digit of ['index','middle','ring','pinky','thumb'])for(let n=1;n<=3;n++){const bone=p.visual.getObjectByName(`${digit}_0${n}_${arm.side}`);if(bone)bone.rotateX(digit==='thumb'?C.THUMB_CURL:C.FINGER_CURL);}
  }
  apply(dt,subject){
-  const p=this.p;if(p.type!=='paparazzo'&&!p.kick?.busy)return;
+  const p=this.p;if(p.type!=='paparazzo'&&p.type!=='police'&&!p.kick?.busy)return;
   for(const s of this.saved)s.q.copy(s.bone.quaternion);this.applied=true;p.group.updateWorldMatrix(true,true);
-  if(p.type==='paparazzo'&&p.camera){
-   this.raised+=((p.sees?1:0)-this.raised)*(1-Math.exp(-C.CAMERA_RAISE_RESPONSE*dt));
-   const center=p.group.localToWorld(new THREE.Vector3().fromArray(C.CAMERA_LOW).lerp(new THREE.Vector3().fromArray(C.CAMERA_HIGH),this.raised).multiplyScalar(p.height)),rotation=p.group.getWorldQuaternion(new THREE.Quaternion());
-   if(subject&&p.sees){const pitch=THREE.MathUtils.clamp(Math.atan2(center.y-subject.y,Math.hypot(center.x-subject.x,center.z-subject.z)),-C.CAMERA_PITCH,C.CAMERA_PITCH);rotation.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),pitch));}
-   const right=this.arms.find(a=>a.side==='r');this.hand(right,center.clone().add(new THREE.Vector3().fromArray(C.CAMERA_RIGHT).applyQuaternion(rotation)));
-   const hand=right.hand,at=point(hand).sub(new THREE.Vector3().fromArray(C.CAMERA_RIGHT).applyQuaternion(rotation));
+  if(p.camera||p.gun){
+   const config=p.gun?{LOW:POLICE.GUN_LOW,HIGH:POLICE.GUN_HIGH,RIGHT:POLICE.GUN_RIGHT,LEFT:POLICE.GUN_LEFT,RAISE:POLICE.GUN_RAISE,PITCH:POLICE.GUN_PITCH}:{LOW:C.CAMERA_LOW,HIGH:C.CAMERA_HIGH,RIGHT:C.CAMERA_RIGHT,LEFT:C.CAMERA_LEFT,RAISE:C.CAMERA_RAISE_RESPONSE,PITCH:C.CAMERA_PITCH},prop=p.gun||p.camera;
+   this.raised+=((p.sees?1:0)-this.raised)*(1-Math.exp(-config.RAISE*dt));
+   const center=p.group.localToWorld(new THREE.Vector3().fromArray(config.LOW).lerp(new THREE.Vector3().fromArray(config.HIGH),this.raised).multiplyScalar(p.height)),rotation=p.group.getWorldQuaternion(new THREE.Quaternion());
+   if(subject&&p.sees){const pitch=THREE.MathUtils.clamp(Math.atan2(center.y-subject.y,Math.hypot(center.x-subject.x,center.z-subject.z)),-config.PITCH,config.PITCH);rotation.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),pitch));}
+   const right=this.arms.find(a=>a.side==='r');this.hand(right,center.clone().add(new THREE.Vector3().fromArray(config.RIGHT).applyQuaternion(rotation)));
+   const hand=right.hand,at=point(hand).sub(new THREE.Vector3().fromArray(config.RIGHT).applyQuaternion(rotation));
    // The carrying arm may clamp its reach. The supporting hand must follow
    // the resulting prop location, not the unreachable requested location.
-   this.hand(this.arms.find(a=>a.side==='l'),at.clone().add(new THREE.Vector3().fromArray(C.CAMERA_LEFT).applyQuaternion(rotation)));
-   p.camera.position.copy(hand.worldToLocal(at));p.camera.quaternion.copy(hand.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(rotation));
+   this.hand(this.arms.find(a=>a.side==='l'),at.clone().add(new THREE.Vector3().fromArray(config.LEFT).applyQuaternion(rotation)));
+   prop.position.copy(hand.worldToLocal(at));prop.quaternion.copy(hand.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(rotation));
   }else if(p.kick?.busy){
    const leg=p.grounding.legs.find(l=>l.foot.name==='foot_r'),rest=p.group.worldToLocal(leg.target.clone()),raised=rest.clone().add(new THREE.Vector3().fromArray(C.KICK_RAISE).multiplyScalar(p.height)),extended=rest.clone().add(new THREE.Vector3().fromArray(C.KICK_EXTEND).multiplyScalar(p.height));
    const k=p.kick,target=k.phase==='windup'?rest.lerp(raised,ease(k.time/C.WINDUP)):k.phase==='strike'?raised.lerp(extended,ease(k.time/C.CONTACT)):extended.lerp(rest,ease(k.time/C.RECOVERY));

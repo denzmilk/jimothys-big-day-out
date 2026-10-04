@@ -4,6 +4,14 @@
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
 
+## M60 police response checkpoint — 2026-10-04
+
+**Implemented, awaiting Chris’s playtest.** [M60](milestones/60-police-response.md) adds CC0 patrol cars, fitted MPFB officers, observed/remembered road pursuit, shared seats/hijacking/dismount/destruction/water, telegraphed swept shots and bounded effects/siren. Four stars stay police at every size; army response starts at five. The final review repaired driver-seat starvation: eight civilian seats plus two police seats, with stable driver roles.
+
+All 161 units, 54 distinct gameplay cases across the 52-case broad run and 14-case final follow-up, build, native original-rig inspection and production pixel smoke pass, console-clean. The patrol clears 48 m uphill/downhill at 30/60/120 Hz; worst sampled tyre gap is 0.1194 m. Real cover, dodge, small-body launch/recovery, net capture, driver ownership, water entry and streaming pass. Headless audio uses a fake final OS device because the hardware sink stalled all contexts; real graph/analyser checks remain. Speaker mix is unverified by listening.
+
+**Next authorised work: M61 army automatic-rifle infantry**, then fish/bubbles and the recorded queue. No further scope approval is needed. Preserve one delivery at a time and the open JIM-48 giant-performance limit. Start with M61’s plan/tests; preparation notes are in `output/iterate/m61-plan.md`. M60 evidence: `police-verified.log`, `police-complete.log`, `police-units-complete.log`, `police-build-complete.log`, `police-native/`, `police-smoke-complete.log`.
+
 ## JIM-50 uphill pedestrian clearance — 2026-10-04
 
 M59 is committed/pushed as `a756d47`. Its native view reproduced ordinary tourist `ped-21` crouching 0.749 m below the ground root when fleeing uphill. `tests/pedestrian-crouch.spec.js` now retains that real-world route and a twelve-body 30/60/120 Hz navigation fixture. Catch-up steps anticipate the moving body, a mid-walk flee updates cadence, steep grades shorten strides and reduce pedestrian travel speed. The worst reproduced drop falls to 0.304 m; the unchanged clearance criterion passes.

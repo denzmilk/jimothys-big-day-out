@@ -1,5 +1,15 @@
 # Session state
 
+## Playtest rendering reports — 2026-10-05
+
+Chris played the working tree and reported many bugs: "speckles" while moving, plus substantial pop-in and loading problems.
+
+**JIM-103 implemented, awaiting Chris's playtest.** The speckles were T-junctions between coarse ground squares and finer ground beside them; those edges now share every vertex. Red/green unit case, 171 units and a before/after spawn view in Chrome. Cost: +28% loaded ground vertices at spawn. Water moiré at distance is a possible second source, unconfirmed.
+
+**JIM-104 open.** Pop-in and loading are logged with first measurements only. Needs Chris's detail (what pops, boot wait versus hitches while moving, which preset) before work starts. JIM-37 and JIM-48 are not resolved by his account.
+
+M66 is still in progress and uncommitted in the working tree; resume it after these reports.
+
 ## Continuing the backlog — 2026-10-04
 
 Chris supplied a screenshot of a taxi stuck while driving downhill and authorised continuing the recorded backlog **one item at a time**, reviewing each result and adjusting for reliable gameplay. Prioritise movement/interaction failures that interrupt play; cosmetic perfection is not a blocker. Preserve the sequence in `playground-expansion.md`, with these car fixes first. User-facing changes remain awaiting Chris's hands-on sign-off even after automated/native checks and push.
@@ -16,7 +26,7 @@ All 33 distinct gameplay cases across the broad/final runs pass, plus 168 units,
 
 All 38 distinct gameplay cases across the 37-case regression and two-case bounds follow-up pass, plus 168 units, build, production pixel smoke and original-rig day/night/large native inspection. Six human statuses occupy all eighteen markers; full pools reject before spending and release clears ownership. Eight-second use produces twelve shots at every 30/60/120 Hz rate; isolated tool update p95 is at or below 0.1 ms (not whole-game FPS). Audio RMS is 0.051/0.068/0.163 after silencing pickup cues; speaker mix remains unverified. Evidence: [M65](milestones/65-sonic-status-tools.md), `output/iterate/tool-pulses-*`.
 
-**Next: M66 travelling bubbles and paint**, within the authorised JIM-88 sequence. Read-only preparation is `output/iterate/m66-preparation.md`. Establish contact-time effects and bounded swept projectile delivery, retain the actual assets and test before integration. No additional scope approval is needed. Preserve the open JIM-48 performance and JIM-69 skin limits, and continue one reviewed/committed/pushed family at a time.
+**Active: M66 travelling bubbles and paint**, within the authorised JIM-88 sequence. Read-only preparation is `output/iterate/m66-preparation.md`. M65 is committed/pushed as `19cd37a`. Establish contact-time effects and bounded swept projectile delivery, retain the actual assets and test before integration. No additional scope approval is needed. Preserve the open JIM-48 performance and JIM-69 skin limits, and continue one reviewed/committed/pushed family at a time.
 
 ## M63 tool supplies checkpoint — 2026-10-05
 

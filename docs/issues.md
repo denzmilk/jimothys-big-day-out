@@ -8,6 +8,32 @@
 >
 > ⚠️ **Not yet mirrored to GitHub.** The repo has a remote (`denzmilk/jimothys-big-day-out`) but the `gh` CLI on this machine is an x86 binary and won't run on Apple Silicon (`bad CPU type in executable`). Fix `gh` (`brew install gh`) and these can be filed as real GitHub issues; until then this file is the register.
 
+## Playtest rendering reports — 2026-10-05
+
+### JIM-104 — Pop-in and loading are substantial in ordinary play
+
+**Status:** open, not yet reproduced in detail · **Reported:** Chris, playtest 2026-10-05 — *"there's pop-in issues, loading issues - quite substantial."*
+
+This is a failed playtest of the draw-distance work recorded under JIM-37 and of the open performance limit in JIM-48; neither can be treated as resolved. What is known so far, from a background Chrome tab on the Medium preset (frame pacing cannot be judged there, so none is claimed):
+
+- Boot fetches 250 files / 67 MB, and the last response was not handled until about 18.5 s after navigation. That figure needs repeating in a foreground tab before it is used as a baseline.
+- Medium loads full voxel detail for two chunk columns (about 70 m) around Jimothy; everything beyond is the simplified far-building layer out to 700 m. The swap between the two happens well inside view.
+- After the comet landing the scene is 4.2 M triangles in about 365 draw calls.
+
+Still needed from Chris: what pops (buildings, ground, props, people, cars), whether "loading" means the wait before play or hitches/missing ground while moving, and which graphics preset was active.
+
+### JIM-103 — Dotted lines of bright pixels crawl across the ground while moving
+
+**Status:** implemented, awaiting Chris's playtest · **Reported:** Chris, playtest 2026-10-05 — *"there's also like 'speckles' on the screen when you're moving about."*
+
+**Cause:** intact ground is drawn as coarse 4×4-cell squares where the surface is within 2.5 cm of flat (`VOXEL_BATCH.GROUND_STEP`, JIM-48 rendering checkpoint). A coarse square beside full-detail cells, another material, or another chunk had one long edge against four short ones. Those T-junctions do not rasterise watertight, so the sky showed through as dotted lines along roads and lawns that shifted with every camera move. Setting the step to 1 in the running game removed every line, at the cost of 3.25 M → 8.29 M ground vertices, which confirmed the cause and ruled that out as the repair.
+
+**Repair:** `VoxelWorld._buildChunk` now decides all coarse squares first, then gives any edge without an identical coarse neighbour every lattice corner, as a fan from the square's centre. Squares surrounded by matching coarse squares are unchanged. Loaded ground at spawn rises from 3.25 M to 4.15 M vertices (+28%); rendered triangles 4.20 M → 4.33 M.
+
+**Evidence:** new unit case in `tests/terrain-mesh-detail.test.mjs` counts 36 ground vertices inside a longer neighbouring edge before the change and none after. The same spawn view in Chrome shows the lines on road and grass before and none after. 171 units, build and production pixel smoke pass with no console errors. Of 17 footpath/grounding/damaged-ground/voxel browser cases, 15 pass; the two JIM-48 draw-call assertions (<300) fail at 362, against 357 on the code before this change, so that existing failure is five calls worse. Logs: `output/iterate/ground-seams-*.log`.
+
+**Not covered:** level voxel faces (crater floors, building walls) are still greedy-merged and keep exact-lattice T-junctions; none were seen producing speckles in these captures. The water surface also shows a moiré pattern from a distance (its detail normal map has no mipmaps), which may be a second thing Chris is seeing — to confirm at playtest.
+
 ## Current destruction and HUD reports — 2026-10-04
 
 ### JIM-102 — Giant body hides handheld tools in the ordinary camera

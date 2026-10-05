@@ -1007,7 +1007,7 @@ export class VoxelWorld {
       { d: [0, 0, -1], v: [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]] },
     ];
 
-    const coarse=new Uint8Array(CX*CX),stride=VOXEL_BATCH.GROUND_STEP;
+    const coarse=new Uint8Array(CX*CX),stride=VOXEL_BATCH.GROUND_STEP,BN=Math.ceil(CX/stride),blockMat=new Uint8Array(BN*BN),blocks=[];
     if(this.terrain)for(let z=0;z<CX;z+=stride){yield;for(let x=0;x<CX;x+=stride){
       const top=tops[(z+1)*P+x+1],ly=top-base[1];
       if(ly<0||ly>=CY)continue;
@@ -1030,11 +1030,42 @@ export class VoxelWorld {
         if(Math.abs(sample(dx,dz)-h)>VOXEL_BATCH.GROUND_ERROR){safe=false;break;}
       }
       if(!safe)continue;
-      const color=this._colors.get(mat)||this._colors.get(1),corners=[[x,z,h00],[x,z+stride,h01],[x+stride,z+stride,h11],[x+stride,z,h10]];
-      if(mat===PAVING.ROAD_MATERIAL)emitQuad(corners.map(([xx,zz,h])=>[(base[0]+xx)*s,h,(base[2]+zz)*s]),color,null,false,true);
-      else for(const i of [0,1,2,0,2,3]){const [xx,zz,h]=corners[i];terrainWeights[pos.length/3]=1;pos.push((base[0]+xx)*s,h,(base[2]+zz)*s);slopeNormal(xx,zz,nrm);norm.push(...nrm);col.push(color.r,color.g,color.b);}
+      blocks.push({x,z,mat,sample,h00,h10,h01,h11});blockMat[(z/stride)*BN+x/stride]=mat;
       for(let dz=0;dz<stride;dz++)coarse.fill(1,(z+dz)*CX+x,(z+dz)*CX+x+stride);
     }}
+    // JIM-103: a coarse square beside full-detail cells left T-junctions, and
+    // the rasteriser showed the sky through them as crawling dotted lines.
+    // Any edge without an identical coarse neighbour (other material, fine
+    // cells, or another chunk, whose choice is unknown here) takes every
+    // lattice corner, so both sides share the same vertices.
+    const half=stride>>1;
+    for(const {x,z,mat,sample,h00,h10,h01,h11} of blocks){
+      yield;
+      const color=this._colors.get(mat)||this._colors.get(1),bx=x/stride,bz=z/stride;
+      const same=(ox,oz)=>bx+ox>=0&&bx+ox<BN&&bz+oz>=0&&bz+oz<BN&&blockMat[(bz+oz)*BN+bx+ox]===mat;
+      const split=[!same(-1,0),!same(0,1),!same(1,0),!same(0,-1)];
+      const point=(dx,dz,h=sample(dx,dz))=>[dx,dz,h];
+      let ring=[point(0,0,h00),point(0,stride,h01),point(stride,stride,h11),point(stride,0,h10)];
+      const fan=half>0&&split.some(Boolean);
+      if(fan){
+        // Same winding as the unsplit quad: -x edge, +z edge, +x edge, -z edge.
+        const edge=[i=>[0,i],i=>[i,stride],i=>[stride,stride-i],i=>[stride-i,0]];
+        ring=[];
+        for(let e=0;e<4;e++)for(let i=0;i<stride;i++)if(i===0||split[e])ring.push(point(...edge[e](i)));
+      }
+      // On the diagonal the two original triangles share, so the fan stays
+      // inside the error already accepted above.
+      const centre=[half,half,h00+(h11-h00)*half/stride];
+      const tris=fan?ring.map((p,i)=>[centre,p,ring[(i+1)%ring.length]]):[[ring[0],ring[1],ring[2]],[ring[0],ring[2],ring[3]]];
+      const world=([dx,dz,h])=>[(base[0]+x+dx)*s,h,(base[2]+z+dz)*s];
+      for(const tri of tris){
+        if(mat===PAVING.ROAD_MATERIAL){
+          const [a,b,c]=tri.map(world),u=b.map((v,i)=>v-a[i]),v=c.map((v,i)=>v-a[i]);
+          const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],length=Math.hypot(...n)||1;
+          for(const q of [a,b,c]){terrainWeights[pos.length/3]=1;pos.push(...q);norm.push(n[0]/length,n[1]/length,n[2]/length);col.push(color.r,color.g,color.b);}
+        } else for(const q of tri){terrainWeights[pos.length/3]=1;pos.push(...world(q));slopeNormal(x+q[0],z+q[1],nrm);norm.push(...nrm);col.push(color.r,color.g,color.b);}
+      }
+    }
 
     const planes = new Map();
     const mergeFace = (fi, lx, ly, lz, mat, flatHeight = null, terrain = false) => {
